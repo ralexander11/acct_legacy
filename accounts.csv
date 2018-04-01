@@ -1,0 +1,113 @@
+﻿Accounts,Child_Of
+Account,NULL
+Admin,Account
+Asset,Account
+Equity,Account
+Liability,Equity
+Wealth,Equity
+Revenue,Wealth
+Expense,Wealth
+Transfer,Equity
+Chequing,Asset
+Savings,Asset
+Investment,Asset
+Visa,Liability
+Student Credit,Liability
+Credit Line,Liability
+Uncategorized,Admin
+Info,Admin
+Salary,Revenue
+Salary MM,Salary
+Salary ME,Salary
+Overtime,Revenue
+Bonus,Revenue
+HST Rebate,Revenue
+Interest,Revenue
+Dividends,Revenue
+Gifts,Revenue
+Parents,Gifts
+Tax Refund,Revenue
+Rent,Expense
+Power,Expense
+Food,Expense
+Groceries,Food
+Hygiene,Food
+Cleaning,Food
+Internet,Expense
+Cellphone,Expense
+Transportation,Expense
+Car Payment,Transportation
+Fuel,Transportation
+Car Insurance,Transportation
+Bus,Transportation
+Car Maintenance,Transportation
+Car Periodic Service,Car Maintenance
+Car Repairs,Car Maintenance
+Car Wash,Car Maintenance
+Parking,Transportation
+Home Parking,Parking
+City Parking,Parking
+Tolls,Transportation
+Other Bills,Expense
+Tenants Insurance,Other Bills
+Haircut,Other Bills
+Laundry,Other Bills
+Netflix,Other Bills
+iCloud,Other Bills
+Spotify,Other Bills
+Gym,Other Bills
+Credit Card Fee,Other Bills
+Website Hosting,Other Bills
+Domain Name,Other Bills
+Apple Dev,Other Bills
+iTunes Match,Other Bills
+Costco Membership,Other Bills
+Education,Expense
+Tuition,Education
+Education Books,Education
+Education Interest,Education
+Professional Fee,Education
+Medical,Expense
+Items,Expense
+Electronics,Items
+Clothing,Items
+Furniture,Items
+Gear,Items
+Housewears,Items
+Digital,Expense
+Games,Digital
+Music,Digital
+Apps,Digital
+iOS,Apps
+Mac,Apps
+Books,Digital
+iBook,Books
+Kindle,Books
+Leisure,Expense
+Lunch,Leisure
+Liquor,Leisure
+Bar,Leisure
+Eat Out,Leisure
+Restaraunt,Eat Out
+Fast Food,Eat Out
+Delivery,Eat Out
+Snacks,Eat Out
+Cafe,Eat Out
+Gift,Leisure
+Marian,Gift
+Jenny,Gift
+Sabina,Gift
+Activities,Leisure
+Travel,Leisure
+Flight,Travel
+Accomodation,Travel
+Travel Eating,Travel
+Travel Fuel,Travel
+Travel Transport,Travel
+Travel Activities,Travel
+Travel Bar,Travel
+Travel Other,Travel
+Leisure Interest,Leisure
+One-Off,Leisure
+Other Leisure,Leisure
+Savings Expense,Expense
