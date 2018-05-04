@@ -98,3 +98,4 @@ ENV/
 # Other
 old/
 data/
+.bash_profile
