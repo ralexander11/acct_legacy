@@ -17,6 +17,7 @@ class Trading(object):
 		qty = int(input('How many shares? '))
 		price = self.get_price(symbol)
 		# TODO Fix Event_ID
+		# These are just placeholder entries for testing and not proper accounting treatment
 		buy_entry = [ 1, 1, strftime('%Y-%m-%d', localtime()), "Bought " + str(qty) + ' shares of ' + symbol, 'Investments', 'Chequing', qty * price]
 		com_entry = [ 1, 1, strftime('%Y-%m-%d', localtime()), 'Commission for buy trade', 'Commission Expense', 'Chequing', 9.95]
 		buy_event = [buy_entry, com_entry]
