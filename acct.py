@@ -56,6 +56,7 @@ class Ledger(object):
 	def printGL(self):
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
+		print (self.df.dtypes)
 
 	def refresh_data(self):
 		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', conn, index_col='txn_id')
@@ -123,10 +124,10 @@ class Ledger(object):
 			#self.sanitize_ledger()
 
 	def exportGL(self):
-		outfile = self.ledger_name + strftime('_%Y-%m-%d', localtime()) + '.csv'
+		outfile = self.ledger_name + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
 		save_location = 'data/'
-		self.df.to_csv(save_location + outfile)
-		print('File saved as ' + save_location + outfile + '\n')
+		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
+		print ('File saved as ' + save_location + outfile + '\n')
 
 	#credits = df.groupby('Credit').sum() # TODO Use this for the B/S and I/S
 		
