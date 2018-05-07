@@ -38,4 +38,17 @@ if __name__ == '__main__':
 	trade = Trading()
 
 	#trade.buy('tsla')
-	trade.sell('tsla')
+	#trade.sell('tsla')
+
+	while True:
+		command = input('Type one of the following commands:\nbuy, sell, exit\n')
+		if command.upper() == "EXIT":
+			exit()
+		elif command.upper() == "BUY":
+			ticker = input('Which ticker? ')
+			trade.buy(ticker)
+		elif command.upper() == "SELL":
+			ticker = input('Which ticker? ')
+			trade.sell(ticker)
+		else:
+			print('Not a valid command. Type exit to close.')
