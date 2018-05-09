@@ -32,11 +32,11 @@ class Trading(object):
 		price = self.get_price(symbol)
 		# TODO Fix Event_ID
 		# These are just placeholder entries for testing and not proper accounting treatment
-		buy_entry = [ 2, 1, strftime('%Y-%m-%d', localtime()), 'Sell shares', symbol, price, qty, 'Chequing', 'Investments', price * qty]
-		com_entry = [ 2, 1, strftime('%Y-%m-%d', localtime()), 'Commission for buy trade', '', trade.com(), 1,'Commission Expense', 'Chequing', trade.com()]
-		buy_event = [buy_entry, com_entry]
+		sell_entry = [ 2, 1, strftime('%Y-%m-%d', localtime()), 'Sell shares', symbol, price, qty, 'Chequing', 'Investments', price * qty]
+		com_entry = [ 2, 1, strftime('%Y-%m-%d', localtime()), 'Commission for sell trade', '', trade.com(), 1,'Commission Expense', 'Chequing', trade.com()]
+		sell_event = [sell_entry, com_entry]
 
-		ledger.journal_entry(buy_event)
+		ledger.journal_entry(sell_event)
 
 if __name__ == '__main__':
 	ledger = Ledger('test_1')
