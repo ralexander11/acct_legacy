@@ -42,8 +42,11 @@ class Ledger(object):
 				entity_id integer NOT NULL,
 				date date NOT NULL,
 				description text,
-				debit_acct text NOT NULL,
-				credit_acct text NOT NULL,
+				item_id text,
+				price real,
+				qty integer,
+				debit_acct text,
+				credit_acct text,
 				amount real NOT NULL
 			);
 			'''
@@ -56,7 +59,7 @@ class Ledger(object):
 	def printGL(self):
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
-		print (self.df.dtypes)
+		#print (self.df.dtypes)
 
 	def refresh_data(self):
 		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', conn, index_col='txn_id')
@@ -64,31 +67,20 @@ class Ledger(object):
 	def journal_entry(self, journal_data = None):
 		cur = conn.cursor()
 		if journal_data is None:
-			# TODO Validation
-			event = input('Enter the Event_ID or press enter if unknown: ')
-			#if event == "":
-			#	event = last_insert_rowid(conn) + 1 # TODO fix this
-			#	print(event) #debug
-			entity = input('Enter the Entity_ID: ')
-			#while True:
-			#	try: # TODO make into while loop
+			event = input('Enter the event_id or press enter if unknown: ')
+			entity = input('Enter the entity_id: ')
 			date_raw = input('Enter a date as format yyyy-mm-dd: ')
-			#		if len(date) < 10:
-			#			continue
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-			#		break
-			#	except:
-			#		print('Try again with proper format yyyy-mm-dd: ')
-			#		continue
 			desc = input('Enter a description: ')
+			item = input('Enter an optional item_id: ')
+			price = input('Enter an optional price: ')
+			qty = input('Enter an optional quantity: ')
 			debit = input('Enter the account to debit: ')
-			#while debit not in accts.df['accounts']:
-			#	debit = input(debit + ' does not exist. Enter the account to debit: ') # TODO make into while loop
 			credit = input('Enter the account to credit: ')
 			amount = input('Enter the amount: ')
 			
-			values = (event,entity,date,desc,debit,credit,amount)
-			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?)', values)
+			values = (event,entity,date,desc,item,price,qty,debit,credit,amount)
+			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 			
 		else:
 			for je in journal_data:
@@ -96,13 +88,16 @@ class Ledger(object):
 				entity = str(je[1])
 				date = str(je[2])
 				desc = str(je[3])
-				debit = str(je[4])
-				credit = str(je[5])
-				amount = str(je[6])
+				item  = str(je[4])
+				price = str(je[5])
+				qty = str(je[6])
+				debit = str(je[7])
+				credit = str(je[8])
+				amount = str(je[9])
 				print(je)
 
-				values = (event,entity,date,desc,debit,credit,amount)
-				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?)', values)
+				values = (event,entity,date,desc,item,price,qty,debit,credit,amount)
+				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		conn.commit()
 		cur.close()
