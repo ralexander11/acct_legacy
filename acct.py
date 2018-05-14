@@ -64,6 +64,22 @@ class Ledger(object):
 	def refresh_data(self):
 		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', conn, index_col='txn_id')
 
+	def get_event(self):
+		event_query = 'SELECT event_id FROM '+ self.ledger_name +' ORDER BY event_id DESC LIMIT 1;'
+		cur = conn.cursor()
+		cur.execute(event_query)
+		event_id = cur.fetchone()
+		cur.close()
+		if event_id == None:
+			event_id = 1
+			return event_id
+		else:
+			return event_id[0] + 1
+
+	def get_entity(self):
+		entity = 1
+		return entity
+
 	def journal_entry(self, journal_data = None):
 		cur = conn.cursor()
 		if journal_data is None:
@@ -103,7 +119,7 @@ class Ledger(object):
 		cur.close()
 		self.refresh_data()
 
-	def sanitize_ledger(self):
+	def sanitize(self):
 		self.df.query('Debit_Acct or Credit_Acct != Admin') # TODO Fix this
 		self.df.drop_duplicates() # TODO Test this
 		
@@ -132,21 +148,21 @@ if __name__ == '__main__':
 
 	while True:
 		command = input('Type one of the following commands:\nprintGL, JE, loadData, exportGL, printAccts, loadAccts, exit\n')
-		if command.upper() == "EXIT":
+		if command.lower() == "exit":
 			exit()
-		elif command.upper() == "PRINTGL":
+		elif command.lower() == "printgl":
 			ledger.printGL()
-		elif command.upper() == "EXPORTGL":
+		elif command.lower() == "exportgl":
 			ledger.exportGL()
-		elif command.upper() == "LOADDATA":
+		elif command.lower() == "loaddata":
 			ledger.load_data()
-		elif command.upper() == "PRINTACCTS":
+		elif command.lower() == "printaccts":
 			accts.printAccts()
-		elif command.upper() == "LOADACCTS":
+		elif command.lower() == "loadaccts":
 			accts.load_accts()
-		elif command.upper() == "JE":
+		elif command.lower() == "je":
 			ledger.journal_entry()
-		elif command.upper() == "SANITIZE":
-			ledger.sanitize_ledger()
+		elif command.lower() == "sanitize":
+			ledger.sanitize()
 		else:
 			print('Not a valid command. Type exit to close.')
