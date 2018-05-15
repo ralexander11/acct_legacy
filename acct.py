@@ -59,6 +59,9 @@ class Accounts(object):
 		cur.close()
 		self.refresh_accts()
 
+	def sanitize_accts():
+		pass
+
 	def load_accts(self):
 		infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
@@ -170,7 +173,7 @@ class Ledger(object):
 		cur.close()
 		self.refresh_ledger()
 
-	def sanitize(self):
+	def sanitize_ledger(self):
 		self.df.query('Debit_Acct or Credit_Acct != Admin') # TODO Fix this
 		self.df.drop_duplicates() # TODO Test this
 		
@@ -218,6 +221,6 @@ if __name__ == '__main__':
 		elif command.lower() == "je":
 			ledger.journal_entry()
 		elif command.lower() == "sanitize":
-			ledger.sanitize()
+			ledger.sanitize_ledger()
 		else:
 			print('Not a valid command. Type exit to close.')

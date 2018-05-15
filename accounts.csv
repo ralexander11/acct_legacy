@@ -22,7 +22,7 @@ Salary ME,Salary
 Overtime,Revenue
 Bonus,Revenue
 HST Rebate,Revenue
-Interest,Revenue
+Interest Income,Revenue
 Dividends,Revenue
 Gifts,Revenue
 Parents,Gifts
