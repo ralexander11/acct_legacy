@@ -5,7 +5,7 @@ from time import strftime, localtime
 conn = sqlite3.connect('acct.db')
 
 DISPLAY_WIDTH = 98
-pd.set_option('display.width',DISPLAY_WIDTH)
+pd.set_option('display.width', DISPLAY_WIDTH)
 
 class Accounts(object):
 	def __init__(self):
@@ -13,29 +13,80 @@ class Accounts(object):
 			self.df = pd.read_sql_query('SELECT * FROM accounts;', conn)
 		except:
 			self.df = None
+		self.create_accts()
+		self.refresh_accts()
 
-	def printAccts(self):
+	def create_accts(self):
+		create_accts_query = '''
+			CREATE TABLE IF NOT EXISTS accounts (
+				accounts text,
+				child_of text
+			);
+			'''
+		# TODO Add creation of default standard accounts
+
+		cur = conn.cursor()
+		cur.execute(create_accts_query)
+		conn.commit()
+		cur.close()
+
+	def print_accts(self):
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
+
+	def refresh_accts(self):
+		self.df = pd.read_sql_query('SELECT * FROM accounts;', conn)
+
+	def add_acct(self, acct_data = None):
+		cur = conn.cursor()
+		if acct_data is None:
+			account = input('Enter the account name: ')
+			child_of = input('Enter the parent account : ')
+			
+			details = (account,child_of)
+			cur.execute('INSERT INTO accounts VALUES (?,?)', details)
+			
+		else:
+			for acct in acct_data:
+				account = str(acct[0])
+				child_of = str(acct[1])
+				print(acct)
+
+				details = (account,child_of)
+				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
+
+		conn.commit()
+		cur.close()
+		self.refresh_accts()
 
 	def load_accts(self):
 		infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
-			self.df = pd.read_csv(f)
-		self.df.to_sql('accounts', conn)
-		self.printAccts()
-	
+			load_df = pd.read_csv(f)
+			lol = load_df.values.tolist()
+		#self.df.to_sql('accounts', conn, index=False)
+		self.print_accts()
+		print ('-' * DISPLAY_WIDTH)
+		self.add_acct(lol)
+		# TODO Add sanitize function to remove dupe accounts
+
+	def export_accts(self):
+		outfile = 'accounts' + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
+		save_location = 'data/'
+		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=False)
+		print ('File saved as ' + save_location + outfile + '\n')
+
 class Ledger(object):
 	def __init__(self, ledger_name=None):
 		if ledger_name == None:
 			self.ledger_name = input('Enter a name for the ledger: ')
 		else:
 			self.ledger_name = ledger_name
-		self.create_table()
-		self.refresh_data()
+		self.create_ledger()
+		self.refresh_ledger()
 			
-	def create_table(self):
-		create_table_query = '''
+	def create_ledger(self):
+		create_ledger_query = '''
 			CREATE TABLE IF NOT EXISTS ''' + self.ledger_name + ''' (
 				txn_id INTEGER PRIMARY KEY,
 				event_id integer NOT NULL,
@@ -52,16 +103,16 @@ class Ledger(object):
 			'''
 
 		cur = conn.cursor()
-		cur.execute(create_table_query)
+		cur.execute(create_ledger_query)
 		conn.commit()
 		cur.close()
 
-	def printGL(self):
+	def print_gl(self):
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
 		#print (self.df.dtypes)
 
-	def refresh_data(self):
+	def refresh_ledger(self):
 		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', conn, index_col='txn_id')
 
 	def get_event(self):
@@ -117,7 +168,7 @@ class Ledger(object):
 
 		conn.commit()
 		cur.close()
-		self.refresh_data()
+		self.refresh_ledger()
 
 	def sanitize(self):
 		self.df.query('Debit_Acct or Credit_Acct != Admin') # TODO Fix this
@@ -134,7 +185,7 @@ class Ledger(object):
 			self.journal_entry(lol)
 			#self.sanitize_ledger()
 
-	def exportGL(self):
+	def export_gl(self):
 		outfile = self.ledger_name + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
 		save_location = 'data/'
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
@@ -151,15 +202,19 @@ if __name__ == '__main__':
 		if command.lower() == "exit":
 			exit()
 		elif command.lower() == "printgl":
-			ledger.printGL()
+			ledger.print_gl()
 		elif command.lower() == "exportgl":
-			ledger.exportGL()
+			ledger.export_gl()
 		elif command.lower() == "loaddata":
 			ledger.load_data()
 		elif command.lower() == "printaccts":
-			accts.printAccts()
+			accts.print_accts()
+		elif command.lower() == "addacct":
+			accts.add_acct()
 		elif command.lower() == "loadaccts":
 			accts.load_accts()
+		elif command.lower() == "exportaccts":
+			accts.export_accts()
 		elif command.lower() == "je":
 			ledger.journal_entry()
 		elif command.lower() == "sanitize":
