@@ -1,13 +1,4 @@
-﻿Accounts,Child_Of
-Account,NULL
-Admin,Account
-Asset,Account
-Equity,Account
-Liability,Equity
-Wealth,Equity
-Revenue,Wealth
-Expense,Wealth
-Transfer,Equity
+﻿accounts,child_of
 Chequing,Asset
 Savings,Asset
 Investment,Asset

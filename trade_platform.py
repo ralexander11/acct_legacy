@@ -10,7 +10,7 @@ class Trading(object):
 		except:
 			print ('Error getting price from: ' + url + symbol + '/price')
 		else:
-			return price
+			return price #round(price, 2)
 
 	def date(self):
 		return strftime('%Y-%m-%d', localtime())
@@ -22,9 +22,9 @@ class Trading(object):
 	def buy_shares(self, symbol, qty=1):
 		qty = int(input('How many shares? '))
 		price = self.get_price(symbol)
-		# These are just placeholder entries for testing and not proper accounting treatment
+		# TODO These are just placeholder entries for testing and not proper accounting treatment
 		buy_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Buy shares', symbol, price, qty, 'Investments', 'Chequing', price * qty]
-		com_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Commission for buy trade', '', trade.com(), 1, 'Commission Expense', 'Chequing', trade.com()]
+		com_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Comm. buy', '', trade.com(), 1, 'Commission Expense', 'Chequing', trade.com()]
 		buy_event = [buy_entry, com_entry]
 
 		ledger.journal_entry(buy_event)
@@ -32,9 +32,9 @@ class Trading(object):
 	def sell_shares(self, symbol, qty=1):
 		qty = int(input('How many shares? '))
 		price = self.get_price(symbol)
-		# These are just placeholder entries for testing and not proper accounting treatment
+		# TODO These are just placeholder entries for testing and not proper accounting treatment
 		sell_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Sell shares', symbol, price, qty, 'Chequing', 'Investments', price * qty]
-		com_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Commission for sell trade', '', trade.com(), 1,'Commission Expense', 'Chequing', trade.com()]
+		com_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Comm. sell', '', trade.com(), 1,'Commission Expense', 'Chequing', trade.com()]
 		sell_event = [sell_entry, com_entry]
 
 		ledger.journal_entry(sell_event)

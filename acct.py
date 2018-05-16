@@ -13,7 +13,7 @@ class Accounts(object):
 			self.df = pd.read_sql_query('SELECT * FROM accounts;', conn)
 		except:
 			self.df = None
-		self.create_accts()
+			self.create_accts()
 		self.refresh_accts()
 
 	def create_accts(self):
@@ -23,10 +23,25 @@ class Accounts(object):
 				child_of text
 			);
 			'''
-		# TODO Add creation of default standard accounts
+		standard_accts = [
+			['Account','None'],
+			['Admin','Account'],
+			['Asset','Account'],
+			['Equity','Account'],
+			['Liability','Equity'],
+			['Wealth','Equity'],
+			['Revenue','Wealth'],
+			['Expense','Wealth'],
+			['Transfer','Equity']]
 
 		cur = conn.cursor()
 		cur.execute(create_accts_query)
+		for acct in standard_accts:
+				account = str(acct[0])
+				child_of = str(acct[1])
+				print(acct)
+				details = (account,child_of)
+				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 		conn.commit()
 		cur.close()
 
@@ -60,14 +75,13 @@ class Accounts(object):
 		self.refresh_accts()
 
 	def sanitize_accts():
-		pass
+		pass # TODO Implement this
 
 	def load_accts(self):
 		infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
 			load_df = pd.read_csv(f)
 			lol = load_df.values.tolist()
-		#self.df.to_sql('accounts', conn, index=False)
 		self.print_accts()
 		print ('-' * DISPLAY_WIDTH)
 		self.add_acct(lol)
@@ -78,6 +92,14 @@ class Accounts(object):
 		save_location = 'data/'
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=False)
 		print ('File saved as ' + save_location + outfile + '\n')
+
+	def remove_acct(self):
+		acct = input('Which account would you like to remove? ')
+		cur = conn.cursor()
+		cur.execute('DELETE FROM accounts WHERE accounts=?', (acct,))
+		conn.commit()
+		cur.close()
+		self.refresh_accts()
 
 class Ledger(object):
 	def __init__(self, ledger_name=None):
@@ -194,8 +216,22 @@ class Ledger(object):
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
 		print ('File saved as ' + save_location + outfile + '\n')
 
-	#credits = df.groupby('Credit').sum() # TODO Use this for the B/S and I/S
+	def balance_sheet(self): # TODO Not finished
+		debits = self.df.groupby('debit_acct').sum().T.loc['amount', 'Chequing']
+		credits = self.df.groupby('credit_acct').sum().T.loc['amount', 'Chequing']
+		print (debits-credits)
 		
+	def reversal_entry(self):
+		txn = input('Which txn_id to reverse? ')
+		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
+		cur = conn.cursor()
+		cur.execute(rvsl_query)
+		rvsl = cur.fetchone()
+		cur.close()
+		rvsl_entry = [[ rvsl[1], rvsl[2], rvsl[3], '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
+		self.journal_entry(rvsl_entry)
+
+
 if __name__ == '__main__':
 	ledger = Ledger('test_1')
 	accts = Accounts()
@@ -214,13 +250,19 @@ if __name__ == '__main__':
 			accts.print_accts()
 		elif command.lower() == "addacct":
 			accts.add_acct()
+		elif command.lower() == "removeacct":
+			accts.remove_acct()
 		elif command.lower() == "loadaccts":
 			accts.load_accts()
 		elif command.lower() == "exportaccts":
 			accts.export_accts()
-		elif command.lower() == "je":
+		elif command.lower() == "je":# or "journalentry":
 			ledger.journal_entry()
 		elif command.lower() == "sanitize":
 			ledger.sanitize_ledger()
+		elif command.lower() == "bs":# or "balancesheet":
+			ledger.balance_sheet()
+		elif command.lower() == "rvsl":# or "reversalentry":
+			ledger.reversal_entry()
 		else:
 			print('Not a valid command. Type exit to close.')
