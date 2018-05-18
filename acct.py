@@ -14,7 +14,7 @@ class Accounts(object):
 		except:
 			self.df = None
 			self.create_accts()
-		self.refresh_accts()
+			self.refresh_accts()
 
 	def create_accts(self):
 		create_accts_query = '''
@@ -198,7 +198,7 @@ class Ledger(object):
 		self.df.query('Debit_Acct or Credit_Acct != Admin') # TODO Fix this
 		self.df.drop_duplicates() # TODO Test this
 		
-	def load_data(self):
+	def load_gl(self):
 		infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
 			load_df = pd.read_csv(f)
@@ -261,40 +261,70 @@ class Ledger(object):
 
 		print ('Assets:')
 		for acct in assets:
-			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
 			bal = round(debits - credits, 2)
 			print (acct + ':	$' + str(bal))
 		print ('-' * DISPLAY_WIDTH)
 
 		print ('Liabilities:')
 		for acct in liabilities:
-			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
-			bal = round(credits - debits, 2)
-			print (acct + ':	$' + str(bal))
-		print ('-' * DISPLAY_WIDTH)
-
-		print ('Revenues:')
-		for acct in revenues:
-			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
-			bal = round(credits - debits, 2)
-			print (acct + ':	$' + str(bal))
-		print ('-' * DISPLAY_WIDTH)
-
-		print ('Expenses:')
-		for acct in expenses:
-			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
 			bal = round(credits - debits, 2)
 			print (acct + ':	$' + str(bal))
 		print ('-' * DISPLAY_WIDTH)
 
 		print ('Wealth:')
 		for acct in wealth:
-			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
+			bal = round(credits - debits, 2)
+			print (acct + ':	$' + str(bal))
+		print ('-' * DISPLAY_WIDTH)
+
+		print ('Revenues:')
+		for acct in revenues:
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
+			bal = round(credits - debits, 2)
+			print (acct + ':	$' + str(bal))
+		print ('-' * DISPLAY_WIDTH)
+
+		print ('Expenses:')
+		for acct in expenses:
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
 			bal = round(credits - debits, 2)
 			print (acct + ':	$' + str(bal))
 		print ('-' * DISPLAY_WIDTH)
@@ -305,15 +335,15 @@ if __name__ == '__main__':
 	accts = Accounts()
 
 	while True:
-		command = input('\nType one of the following commands:\nBS, printGL, JE, RVSL, loadData, exportGL, printAccts, addAcct, exit\n')
+		command = input('\nType one of the following commands:\nBS, printGL, JE, RVSL, loadGL, exportGL, printAccts, addAcct, exit\n')
 		if command.lower() == "exit":
 			exit()
 		elif command.lower() == "printgl":
 			ledger.print_gl()
 		elif command.lower() == "exportgl":
 			ledger.export_gl()
-		elif command.lower() == "loaddata":
-			ledger.load_data()
+		elif command.lower() == "loadGL":
+			ledger.load_gl()
 		elif command.lower() == "printaccts":
 			accts.print_accts()
 		elif command.lower() == "addacct":
