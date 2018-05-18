@@ -10,7 +10,7 @@ pd.set_option('display.width', DISPLAY_WIDTH)
 class Accounts(object):
 	def __init__(self):
 		try:
-			self.df = pd.read_sql_query('SELECT * FROM accounts;', conn)
+			self.refresh_accts()
 		except:
 			self.df = None
 			self.create_accts()
@@ -50,13 +50,13 @@ class Accounts(object):
 		print ('-' * DISPLAY_WIDTH)
 
 	def refresh_accts(self):
-		self.df = pd.read_sql_query('SELECT * FROM accounts;', conn)
+		self.df = pd.read_sql_query('SELECT * FROM accounts;', conn, index_col='accounts')
 
 	def add_acct(self, acct_data = None):
 		cur = conn.cursor()
 		if acct_data is None:
 			account = input('Enter the account name: ')
-			child_of = input('Enter the parent account : ')
+			child_of = input('Enter the parent account: ')
 			
 			details = (account,child_of)
 			cur.execute('INSERT INTO accounts VALUES (?,?)', details)
@@ -74,18 +74,18 @@ class Accounts(object):
 		cur.close()
 		self.refresh_accts()
 
-	def sanitize_accts():
-		pass # TODO Implement this
+	def sanitize_accts(self):
+		self.df.drop_duplicates() # TODO Implement this
 
 	def load_accts(self):
 		infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
 			load_df = pd.read_csv(f)
 			lol = load_df.values.tolist()
-		self.print_accts()
-		print ('-' * DISPLAY_WIDTH)
-		self.add_acct(lol)
-		# TODO Add sanitize function to remove dupe accounts
+			print (load_df)
+			print ('-' * DISPLAY_WIDTH)
+			self.add_acct(lol)
+			# TODO Add sanitize function to remove dupe accounts
 
 	def export_accts(self):
 		outfile = 'accounts' + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
@@ -135,7 +135,6 @@ class Ledger(object):
 	def print_gl(self):
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
-		#print (self.df.dtypes)
 
 	def refresh_ledger(self):
 		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', conn, index_col='txn_id')
@@ -216,11 +215,6 @@ class Ledger(object):
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
 		print ('File saved as ' + save_location + outfile + '\n')
 
-	def balance_sheet(self): # TODO Not finished
-		debits = self.df.groupby('debit_acct').sum().T.loc['amount', 'Chequing']
-		credits = self.df.groupby('credit_acct').sum().T.loc['amount', 'Chequing']
-		print (debits-credits)
-		
 	def reversal_entry(self):
 		txn = input('Which txn_id to reverse? ')
 		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
@@ -231,13 +225,87 @@ class Ledger(object):
 		rvsl_entry = [[ rvsl[1], rvsl[2], rvsl[3], '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)
 
+	def get_acct_elem(self, acct):
+		if acct in ['Asset','Liability','Wealth','Revenue','Expense']:
+			return acct
+		else:
+			return self.get_acct_elem(accts.df.loc[acct, 'child_of'])
+		
+	def balance_sheet(self): # TODO Needs to be optimized
+		debit_accts = pd.unique(self.df['debit_acct'])
+		credit_accts = pd.unique(self.df['credit_acct'])
+		accts = list( set(debit_accts) | set(credit_accts) )
+		accounts = []
+		for acct in accts:
+			elem = self.get_acct_elem(acct)
+			account = (acct, elem)
+			accounts.append(account)
+		assets = []
+		liabilities = []
+		wealth = []
+		revenues = []
+		expenses = []
+		for acct in accounts:
+			if acct[1] == 'Asset':
+				assets.append(acct[0])
+			elif acct[1] == 'Liability':
+				liabilities.append(acct[0])
+			elif acct[1] == 'Wealth':
+				wealth.append(acct[0])
+			elif acct[1] == 'Revenue':
+				revenues.append(acct[0])
+			elif acct[1] == 'Expense':
+				expenses.append(acct[0])
+			else:
+				continue
+
+		print ('Assets:')
+		for acct in assets:
+			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			bal = round(debits - credits, 2)
+			print (acct + ':	$' + str(bal))
+		print ('-' * DISPLAY_WIDTH)
+
+		print ('Liabilities:')
+		for acct in liabilities:
+			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			bal = round(credits - debits, 2)
+			print (acct + ':	$' + str(bal))
+		print ('-' * DISPLAY_WIDTH)
+
+		print ('Revenues:')
+		for acct in revenues:
+			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			bal = round(credits - debits, 2)
+			print (acct + ':	$' + str(bal))
+		print ('-' * DISPLAY_WIDTH)
+
+		print ('Expenses:')
+		for acct in expenses:
+			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			bal = round(credits - debits, 2)
+			print (acct + ':	$' + str(bal))
+		print ('-' * DISPLAY_WIDTH)
+
+		print ('Wealth:')
+		for acct in wealth:
+			debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			bal = round(credits - debits, 2)
+			print (acct + ':	$' + str(bal))
+		print ('-' * DISPLAY_WIDTH)
+		
 
 if __name__ == '__main__':
 	ledger = Ledger('test_1')
 	accts = Accounts()
 
 	while True:
-		command = input('Type one of the following commands:\nprintGL, JE, loadData, exportGL, printAccts, loadAccts, exit\n')
+		command = input('\nType one of the following commands:\nBS, printGL, JE, RVSL, loadData, exportGL, printAccts, addAcct, exit\n')
 		if command.lower() == "exit":
 			exit()
 		elif command.lower() == "printgl":
@@ -260,9 +328,9 @@ if __name__ == '__main__':
 			ledger.journal_entry()
 		elif command.lower() == "sanitize":
 			ledger.sanitize_ledger()
-		elif command.lower() == "bs":# or "balancesheet":
-			ledger.balance_sheet()
 		elif command.lower() == "rvsl":# or "reversalentry":
 			ledger.reversal_entry()
+		elif command.lower() == "bs":# or "balancesheet":
+			ledger.balance_sheet()
 		else:
 			print('Not a valid command. Type exit to close.')

@@ -1,7 +1,7 @@
 ﻿accounts,child_of
 Chequing,Asset
 Savings,Asset
-Investment,Asset
+Investments,Asset
 Visa,Liability
 Student Credit,Liability
 Credit Line,Liability
@@ -14,7 +14,7 @@ Overtime,Revenue
 Bonus,Revenue
 HST Rebate,Revenue
 Interest Income,Revenue
-Dividends,Revenue
+Dividend Income,Revenue
 Gifts,Revenue
 Parents,Gifts
 Tax Refund,Revenue
@@ -102,3 +102,6 @@ Leisure Interest,Leisure
 One-Off,Leisure
 Other Leisure,Leisure
 Savings Expense,Expense
+Commission Expense,Expense
+Investment Gains,Revenue
+Investment Losses,Expense
