@@ -325,7 +325,7 @@ class Ledger(object):
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				credits = 0
-			bal = round(credits - debits, 2)
+			bal = round(debits - credits, 2)
 			print (acct + ':	$' + str(bal))
 		print ('-' * DISPLAY_WIDTH)
 		
@@ -335,10 +335,10 @@ if __name__ == '__main__':
 	accts = Accounts()
 
 	while True:
-		command = input('\nType one of the following commands:\nBS, printGL, JE, RVSL, loadGL, exportGL, printAccts, addAcct, exit\n')
+		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, printAccts, addAcct, exit\n')
 		if command.lower() == "exit":
 			exit()
-		elif command.lower() == "printgl":
+		elif command.lower() == "gl":
 			ledger.print_gl()
 		elif command.lower() == "exportgl":
 			ledger.export_gl()
