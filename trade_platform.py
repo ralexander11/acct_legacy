@@ -41,7 +41,7 @@ class Trading(object):
 		if price * qty > capital_bal:
 			print ('Buying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(price * qty) + '.')
 			print ('You currently have $' + str(capital_bal) + ' available.')
-			self.buy_shares(symbol)
+			return
 
 		# TODO Decide whether to display unrealized gains as temp entries with rvsls
 		buy_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Shares buy', symbol, price, qty, 'Investments', 'Chequing', price * qty]
@@ -55,7 +55,7 @@ class Trading(object):
 		current_qty = ledger.get_qty('Investments', symbol)
 		if qty > current_qty:
 			print ('You currently have ' + str(current_qty) + ' shares.')
-			self.sell_shares(symbol)
+			return
 
 		price = self.get_price(symbol)
 		sale_proceeds = qty * price
