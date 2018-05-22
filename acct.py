@@ -32,7 +32,7 @@ class Accounts(object):
 			['Wealth','Equity'],
 			['Revenue','Wealth'],
 			['Expense','Wealth'],
-			['Transfer','Equity']]
+			['Transfer','Wealth']]
 
 		cur = conn.cursor()
 		cur.execute(create_accts_query)
@@ -90,7 +90,7 @@ class Accounts(object):
 	def export_accts(self):
 		outfile = 'accounts' + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
 		save_location = 'data/'
-		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=False)
+		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
 		print ('File saved as ' + save_location + outfile + '\n')
 
 	def remove_acct(self):
@@ -158,7 +158,7 @@ class Ledger(object):
 	def journal_entry(self, journal_data = None):
 		cur = conn.cursor()
 		if journal_data is None:
-			event = input('Enter the event_id or press enter if unknown: ')
+			event = input('Enter an optional event_id: ')
 			entity = input('Enter the entity_id: ')
 			date_raw = input('Enter a date as format yyyy-mm-dd: ')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
@@ -170,9 +170,21 @@ class Ledger(object):
 			credit = input('Enter the account to credit: ')
 			amount = input('Enter the amount: ')
 			
-			values = (event,entity,date,desc,item,price,qty,debit,credit,amount)
+			if event == '':
+				event = str(self.get_event())
+			if entity == '':
+				entity = str(self.get_entity())
+			if date == 'NaT':
+				date_raw = strftime('%Y-%m-%d', localtime())
+				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+			if qty == '':
+				qty = 1
+			if price == '':
+				price = amount
+
+			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
-			
+
 		else:
 			for je in journal_data:
 				event = str(je[0])
@@ -187,7 +199,19 @@ class Ledger(object):
 				amount = str(je[9])
 				print(je)
 
-				values = (event,entity,date,desc,item,price,qty,debit,credit,amount)
+				if event == '':
+					event = str(self.get_event())
+				if entity == '':
+					entity = str(self.get_entity())
+				if date == 'NaT':
+					date_raw = strftime('%Y-%m-%d', localtime())
+					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+				if qty == '':
+					qty = 1
+				if price == '':
+					price = amount
+
+				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		conn.commit()
@@ -226,19 +250,24 @@ class Ledger(object):
 		self.journal_entry(rvsl_entry)
 
 	def get_acct_elem(self, acct):
-		if acct in ['Asset','Liability','Wealth','Revenue','Expense']:
+		if acct in ['Asset','Liability','Wealth','Revenue','Expense','None']:
 			return acct
 		else:
 			return self.get_acct_elem(accts.df.loc[acct, 'child_of'])
 		
 	def balance_sheet(self): # TODO Needs to be optimized
 		debit_accts = pd.unique(self.df['debit_acct'])
+		#print (debit_accts)
 		credit_accts = pd.unique(self.df['credit_acct'])
+		#print (credit_accts)
 		accts = list( set(debit_accts) | set(credit_accts) )
+		#print (accts)
 		accounts = []
 		for acct in accts:
 			elem = self.get_acct_elem(acct)
+			#print (elem)
 			account = (acct, elem)
+			#print (account)
 			accounts.append(account)
 		assets = []
 		liabilities = []
@@ -260,6 +289,7 @@ class Ledger(object):
 				continue
 
 		print ('Assets:')
+		asset_bal = 0
 		for acct in assets:
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
@@ -270,10 +300,13 @@ class Ledger(object):
 			except:
 				credits = 0
 			bal = round(debits - credits, 2)
-			print (acct + ':	$' + str(bal))
+			asset_bal += bal
+			print (acct + ':		$' + str(bal))
+		print ('Total Assets:		$' + str(asset_bal))
 		print ('-' * DISPLAY_WIDTH)
 
 		print ('Liabilities:')
+		liab_bal = 0
 		for acct in liabilities:
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
@@ -284,10 +317,13 @@ class Ledger(object):
 			except:
 				credits = 0
 			bal = round(credits - debits, 2)
-			print (acct + ':	$' + str(bal))
+			liab_bal += bal
+			print (acct + ':		$' + str(bal))
+		print ('Total Liabilities:		$' + str(liab_bal))
 		print ('-' * DISPLAY_WIDTH)
 
 		print ('Wealth:')
+		wealth_bal = 0
 		for acct in wealth:
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
@@ -298,10 +334,12 @@ class Ledger(object):
 			except:
 				credits = 0
 			bal = round(credits - debits, 2)
-			print (acct + ':	$' + str(bal))
+			wealth_bal += bal
+			print (acct + ':		$' + str(bal))
 		print ('-' * DISPLAY_WIDTH)
 
 		print ('Revenues:')
+		rev_bal = 0
 		for acct in revenues:
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
@@ -312,10 +350,13 @@ class Ledger(object):
 			except:
 				credits = 0
 			bal = round(credits - debits, 2)
-			print (acct + ':	$' + str(bal))
+			rev_bal += bal
+			print (acct + ':		$' + str(bal))
+		print ('Total Revenues:		$' + str(rev_bal))
 		print ('-' * DISPLAY_WIDTH)
 
 		print ('Expenses:')
+		exp_bal = 0
 		for acct in expenses:
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
@@ -326,13 +367,88 @@ class Ledger(object):
 			except:
 				credits = 0
 			bal = round(debits - credits, 2)
-			print (acct + ':	$' + str(bal))
+			exp_bal += bal
+			print (acct + ':		$' + str(bal))
+		print ('Total Expenses:		$' + str(exp_bal))
+
+		retained_earnings = round(rev_bal - exp_bal, 2)
+		print ('Net Income: 	$' + str(retained_earnings))
 		print ('-' * DISPLAY_WIDTH)
-		
+		total_wealth = round(wealth_bal + retained_earnings, 2)
+		print ('Total Wealth:		$' + str(total_wealth))
+		total_equity = round(total_wealth + liab_bal, 2)
+		print ('Total Wealth + Liabilities:	$' + str(total_equity))
+		check = round(asset_bal - total_equity, 2)
+		print ('Balance Check:		$' + str(check))
+
+	def get_qty(self, acct=None, item=None):
+		if item == None:
+			item = input('Which ticker? ').lower()
+		if acct == None:
+			acct = 'Investments' #input('Which account? ')
+		try:
+			debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
+		except:
+			debits = 0
+		try:
+			credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
+		except:
+			credits = 0
+		qty = round(debits - credits, 2)
+		print (qty)
+		print ('-' * DISPLAY_WIDTH)
+		return qty
+
+	def hist_cost(self, qty, acct=None, item=None):
+		if item == None:
+			item = 'tsla' #input('Which ticker? ').lower()
+		if acct == None:
+			acct = 'Investments' #input('Which account? ')
+		qty_txns = self.df[(self.df['item_id'] == item) & (self.df['debit_acct'] == acct)]['qty']
+		count = 0
+		qty_back = self.get_qty(acct, item)
+		for item in qty_txns[::-1]:
+			if qty_back <= 0:
+				break
+			count -= 1
+			qty_back -= item
+
+		start_qty = qty_txns.iloc[count]
+		start_index = qty_txns.index[count]
+		avail_qty = qty_back + start_qty
+
+		# TODO Rvsl entries cause issues
+		amount = 0
+		if qty <= avail_qty:
+			price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[qty]})
+			amount = price_chart.price.dot(price_chart.qty)
+			print (amount)
+			return amount
+		price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[avail_qty]})
+		qty = qty - avail_qty
+		count += 1
+		for item in qty_txns[count::-1]:
+			current_index = qty_txns.index[count]
+			while qty > 0:
+				count += 1
+				if qty - self.df.loc[current_index]['qty'] < 0:
+					price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
+					amount = price_chart.price.dot(price_chart.qty)
+					print (amount)
+					return amount
+				
+				price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':self.df.loc[current_index]['qty']}, ignore_index=True)
+				qty = qty - self.df.loc[current_index]['qty']
+
+			amount = price_chart.price.dot(price_chart.qty)
+			print (amount)
+			return amount
 
 if __name__ == '__main__':
 	ledger = Ledger('test_1')
 	accts = Accounts()
+
+	#ledger.hist_cost(17)
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, printAccts, addAcct, exit\n')
@@ -342,7 +458,7 @@ if __name__ == '__main__':
 			ledger.print_gl()
 		elif command.lower() == "exportgl":
 			ledger.export_gl()
-		elif command.lower() == "loadGL":
+		elif command.lower() == "loadgl":
 			ledger.load_gl()
 		elif command.lower() == "printaccts":
 			accts.print_accts()
@@ -362,5 +478,7 @@ if __name__ == '__main__':
 			ledger.reversal_entry()
 		elif command.lower() == "bs":# or "balancesheet":
 			ledger.balance_sheet()
+		elif command.lower() == "qty":
+			ledger.get_qty()
 		else:
 			print('Not a valid command. Type exit to close.')
