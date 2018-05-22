@@ -256,6 +256,7 @@ class Ledger(object):
 			return self.get_acct_elem(accts.df.loc[acct, 'child_of'])
 		
 	def balance_sheet(self): # TODO Needs to be optimized
+		# TODO Make it able to be passed accounts, but default to all accounts
 		debit_accts = pd.unique(self.df['debit_acct'])
 		#print (debit_accts)
 		credit_accts = pd.unique(self.df['credit_acct'])
@@ -380,6 +381,7 @@ class Ledger(object):
 		print ('Total Wealth + Liabilities:	$' + str(total_equity))
 		check = round(asset_bal - total_equity, 2)
 		print ('Balance Check:		$' + str(check))
+		# TODO Have it add balances to a df then return the df
 
 	def get_qty(self, acct=None, item=None):
 		if item == None:

@@ -21,9 +21,29 @@ class Trading(object):
 
 	def buy_shares(self, symbol, qty=1):
 		qty = int(input('How many shares? '))
-		# TODO Add check to ensure there is enough capital to buy shares
 		price = self.get_price(symbol)
-		# TODO These are just placeholder entries for testing and not proper accounting treatment
+		capital = ['Chequing','Cash']
+		capital_bal = 0
+		for acct in capital: # TODO Change this to balance_sheet() function when it can accept specific accounts as arguments
+			try:
+				debits = ledger.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = ledger.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
+			bal = round(debits - credits, 2)
+			capital_bal += bal
+			print (acct + ':		$' + str(bal))
+		print ('Total Capital:		$' + str(capital_bal))
+
+		if price * qty > capital_bal:
+			print ('Buying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(price * qty) + '.')
+			print ('You currently have $' + str(capital_bal) + ' available.')
+			self.buy_shares(symbol)
+
+		# TODO Decide whether to display unrealized gains as temp entries with rvsls
 		buy_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Shares buy', symbol, price, qty, 'Investments', 'Chequing', price * qty]
 		com_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Comm. buy', '', trade.com(), 1, 'Commission Expense', 'Chequing', trade.com()]
 		buy_event = [buy_entry, com_entry]
@@ -32,9 +52,12 @@ class Trading(object):
 
 	def sell_shares(self, symbol, qty=1):
 		qty = int(input('How many shares? '))
-		# TODO Add check for available shares > qty
+		current_qty = ledger.get_qty('Investments', symbol)
+		if qty > current_qty:
+			print ('You currently have ' + str(current_qty) + ' shares.')
+			self.sell_shares(symbol)
+
 		price = self.get_price(symbol)
-		# TODO These are just placeholder entries for testing and not proper accounting treatment
 		sale_proceeds = qty * price
 		hist_cost = ledger.hist_cost(qty, 'Investments', symbol)
 		investment_gain = None
@@ -64,10 +87,10 @@ if __name__ == '__main__':
 		if command.lower() == "exit":
 			exit()
 		elif command.lower() == "buy":
-			ticker = input('Which ticker? ')
-			trade.buy_shares(ticker)
+			symbol = input('Which ticker? ')
+			trade.buy_shares(symbol)
 		elif command.lower() == "sell":
-			ticker = input('Which ticker? ')
-			trade.sell_shares(ticker)
+			symbol = input('Which ticker? ')
+			trade.sell_shares(symbol)
 		else:
 			print('Not a valid command. Type exit to close.')
