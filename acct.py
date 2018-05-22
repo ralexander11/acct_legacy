@@ -337,6 +337,7 @@ class Ledger(object):
 			bal = round(credits - debits, 2)
 			wealth_bal += bal
 			print (acct + ':		$' + str(bal))
+		print ('Total Wealth:		$' + str(wealth_bal))
 		print ('-' * DISPLAY_WIDTH)
 
 		print ('Revenues:')
@@ -353,7 +354,7 @@ class Ledger(object):
 			bal = round(credits - debits, 2)
 			rev_bal += bal
 			print (acct + ':		$' + str(bal))
-		print ('Total Revenues:		$' + str(rev_bal))
+		print ('Total Revenues:			$' + str(rev_bal))
 		print ('-' * DISPLAY_WIDTH)
 
 		print ('Expenses:')
@@ -370,17 +371,18 @@ class Ledger(object):
 			bal = round(debits - credits, 2)
 			exp_bal += bal
 			print (acct + ':		$' + str(bal))
-		print ('Total Expenses:		$' + str(exp_bal))
+		print ('Total Expenses:			$' + str(exp_bal))
+		print ('-' * DISPLAY_WIDTH)
 
 		retained_earnings = round(rev_bal - exp_bal, 2)
-		print ('Net Income: 	$' + str(retained_earnings))
+		print ('Net Income: 			$' + str(retained_earnings))
 		print ('-' * DISPLAY_WIDTH)
 		total_wealth = round(wealth_bal + retained_earnings, 2)
-		print ('Total Wealth:		$' + str(total_wealth))
+		print ('Net Asset Value:		$' + str(total_wealth))
 		total_equity = round(total_wealth + liab_bal, 2)
 		print ('Total Wealth + Liabilities:	$' + str(total_equity))
 		check = round(asset_bal - total_equity, 2)
-		print ('Balance Check:		$' + str(check))
+		print ('Balance Check:			$' + str(check))
 		# TODO Have it add balances to a df then return the df
 
 	def get_qty(self, acct=None, item=None):
