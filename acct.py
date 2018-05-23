@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import sqlite3
 from time import strftime, localtime
 
@@ -109,6 +110,7 @@ class Ledger(object):
 			self.ledger_name = ledger_name
 		self.create_ledger()
 		self.refresh_ledger()
+		self.balance_sheet()
 			
 	def create_ledger(self):
 		create_ledger_query = '''
@@ -139,6 +141,171 @@ class Ledger(object):
 	def refresh_ledger(self):
 		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', conn, index_col='txn_id')
 
+	def get_acct_elem(self, acct):
+		if acct in ['Asset','Liability','Wealth','Revenue','Expense','None']:
+			return acct
+		else:
+			return self.get_acct_elem(accts.df.loc[acct, 'child_of'])
+
+	def balance_sheet(self, accts=None): # TODO Needs to be optimized
+		# TODO Make it able to be passed accounts, but default to all accounts
+		if accts == None:
+			debit_accts = pd.unique(self.df['debit_acct'])
+			#print (debit_accts)
+			credit_accts = pd.unique(self.df['credit_acct'])
+			#print (credit_accts)
+			accts = list( set(debit_accts) | set(credit_accts) )
+			#print (accts)
+		accounts = []
+		for acct in accts:
+			elem = self.get_acct_elem(acct)
+			#print (elem)
+			account = (acct, elem)
+			#print (account)
+			accounts.append(account)
+		accts = None
+		assets = []
+		liabilities = []
+		wealth = []
+		revenues = []
+		expenses = []
+		for acct in accounts:
+			if acct[1] == 'Asset':
+				assets.append(acct[0])
+			elif acct[1] == 'Liability':
+				liabilities.append(acct[0])
+			elif acct[1] == 'Wealth':
+				wealth.append(acct[0])
+			elif acct[1] == 'Revenue':
+				revenues.append(acct[0])
+			elif acct[1] == 'Expense':
+				expenses.append(acct[0])
+			else:
+				continue
+
+		self.bs = pd.DataFrame(columns=['line_item','balance'])
+		# TODO The below repeated sections can probably be handled more elegantly
+		#print ('Assets:')
+		asset_bal = 0
+		for acct in assets:
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
+			bal = round(debits - credits, 2)
+			asset_bal += bal
+			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+			#print (acct + ':		$' + str(bal))
+		self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
+		#print ('Total Assets:		$' + str(asset_bal))
+		#print ('-' * DISPLAY_WIDTH)
+
+		#print ('Liabilities:')
+		liab_bal = 0
+		for acct in liabilities:
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
+			bal = round(credits - debits, 2)
+			liab_bal += bal
+			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+			#print (acct + ':		$' + str(bal))
+		self.bs = self.bs.append({'line_item':'Total Liabilities:', 'balance':liab_bal}, ignore_index=True)
+		#print ('Total Liabilities:		$' + str(liab_bal))
+		#print ('-' * DISPLAY_WIDTH)
+
+		#print ('Wealth:')
+		wealth_bal = 0
+		for acct in wealth:
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
+			bal = round(credits - debits, 2)
+			wealth_bal += bal
+			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+			#print (acct + ':		$' + str(bal))
+		self.bs = self.bs.append({'line_item':'Total Wealth:', 'balance':wealth_bal}, ignore_index=True)
+		#print ('Total Wealth:		$' + str(wealth_bal))
+		#print ('-' * DISPLAY_WIDTH)
+
+		#print ('Revenues:')
+		rev_bal = 0
+		for acct in revenues:
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
+			bal = round(credits - debits, 2)
+			rev_bal += bal
+			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+			#print (acct + ':		$' + str(bal))
+		self.bs = self.bs.append({'line_item':'Total Revenues:', 'balance':rev_bal}, ignore_index=True)
+		#print ('Total Revenues:			$' + str(rev_bal))
+		#print ('-' * DISPLAY_WIDTH)
+
+		#print ('Expenses:')
+		exp_bal = 0
+		for acct in expenses:
+			try:
+				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+			except:
+				debits = 0
+			try:
+				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+			except:
+				credits = 0
+			bal = round(debits - credits, 2)
+			exp_bal += bal
+			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+			#print (acct + ':		$' + str(bal))
+		self.bs = self.bs.append({'line_item':'Total Expenses:', 'balance':exp_bal}, ignore_index=True)
+		#print ('Total Expenses:			$' + str(exp_bal))
+		#print ('-' * DISPLAY_WIDTH)
+
+		retained_earnings = round(rev_bal - exp_bal, 2)
+		self.bs = self.bs.append({'line_item':'Net Income:', 'balance':retained_earnings}, ignore_index=True)
+		#print ('Net Income: 			$' + str(retained_earnings))
+		#print ('-' * DISPLAY_WIDTH)
+		total_wealth = round(asset_bal - liab_bal, 2)
+		if total_wealth == 0:
+			total_wealth = round(wealth_bal + retained_earnings, 2)
+		self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':total_wealth}, ignore_index=True)
+		#print ('Net Asset Value:		$' + str(total_wealth))
+		total_equity = round(total_wealth + liab_bal, 2)
+		self.bs = self.bs.append({'line_item':'Total Wealth + Liabilities:', 'balance':total_equity}, ignore_index=True)
+		#print ('Total Wealth + Liabilities:	$' + str(total_equity))
+		check = round(asset_bal - total_equity, 2)
+		self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
+		self.bs.to_sql('balance_sheet', conn, if_exists='replace')
+		#print ('Balance Check:			$' + str(check))
+		#print ('-' * DISPLAY_WIDTH)
+		#print (self.bs)
+		#print ('-' * DISPLAY_WIDTH)
+		return total_wealth
+
+	def print_bs(self):
+		self.balance_sheet()
+		print (self.bs)
+		print ('-' * DISPLAY_WIDTH)
+		
 	def get_event(self):
 		event_query = 'SELECT event_id FROM '+ self.ledger_name +' ORDER BY event_id DESC LIMIT 1;'
 		cur = conn.cursor()
@@ -217,6 +384,7 @@ class Ledger(object):
 		conn.commit()
 		cur.close()
 		self.refresh_ledger()
+		self.balance_sheet()
 
 	def sanitize_ledger(self):
 		self.df.query('Debit_Acct or Credit_Acct != Admin') # TODO Fix this
@@ -249,147 +417,29 @@ class Ledger(object):
 		rvsl_entry = [[ rvsl[1], rvsl[2], rvsl[3], '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)
 
-	def get_acct_elem(self, acct):
-		if acct in ['Asset','Liability','Wealth','Revenue','Expense','None']:
-			return acct
-		else:
-			return self.get_acct_elem(accts.df.loc[acct, 'child_of'])
-		
-	def balance_sheet(self): # TODO Needs to be optimized
-		# TODO Make it able to be passed accounts, but default to all accounts
-		debit_accts = pd.unique(self.df['debit_acct'])
-		#print (debit_accts)
-		credit_accts = pd.unique(self.df['credit_acct'])
-		#print (credit_accts)
-		accts = list( set(debit_accts) | set(credit_accts) )
-		#print (accts)
-		accounts = []
-		for acct in accts:
-			elem = self.get_acct_elem(acct)
-			#print (elem)
-			account = (acct, elem)
-			#print (account)
-			accounts.append(account)
-		assets = []
-		liabilities = []
-		wealth = []
-		revenues = []
-		expenses = []
-		for acct in accounts:
-			if acct[1] == 'Asset':
-				assets.append(acct[0])
-			elif acct[1] == 'Liability':
-				liabilities.append(acct[0])
-			elif acct[1] == 'Wealth':
-				wealth.append(acct[0])
-			elif acct[1] == 'Revenue':
-				revenues.append(acct[0])
-			elif acct[1] == 'Expense':
-				expenses.append(acct[0])
-			else:
-				continue
-
-		print ('Assets:')
-		asset_bal = 0
-		for acct in assets:
-			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			except:
-				debits = 0
-			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
-			except:
-				credits = 0
-			bal = round(debits - credits, 2)
-			asset_bal += bal
-			print (acct + ':		$' + str(bal))
-		print ('Total Assets:		$' + str(asset_bal))
-		print ('-' * DISPLAY_WIDTH)
-
-		print ('Liabilities:')
-		liab_bal = 0
-		for acct in liabilities:
-			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			except:
-				debits = 0
-			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
-			except:
-				credits = 0
-			bal = round(credits - debits, 2)
-			liab_bal += bal
-			print (acct + ':		$' + str(bal))
-		print ('Total Liabilities:		$' + str(liab_bal))
-		print ('-' * DISPLAY_WIDTH)
-
-		print ('Wealth:')
-		wealth_bal = 0
-		for acct in wealth:
-			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			except:
-				debits = 0
-			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
-			except:
-				credits = 0
-			bal = round(credits - debits, 2)
-			wealth_bal += bal
-			print (acct + ':		$' + str(bal))
-		print ('Total Wealth:		$' + str(wealth_bal))
-		print ('-' * DISPLAY_WIDTH)
-
-		print ('Revenues:')
-		rev_bal = 0
-		for acct in revenues:
-			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			except:
-				debits = 0
-			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
-			except:
-				credits = 0
-			bal = round(credits - debits, 2)
-			rev_bal += bal
-			print (acct + ':		$' + str(bal))
-		print ('Total Revenues:			$' + str(rev_bal))
-		print ('-' * DISPLAY_WIDTH)
-
-		print ('Expenses:')
-		exp_bal = 0
-		for acct in expenses:
-			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
-			except:
-				debits = 0
-			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
-			except:
-				credits = 0
-			bal = round(debits - credits, 2)
-			exp_bal += bal
-			print (acct + ':		$' + str(bal))
-		print ('Total Expenses:			$' + str(exp_bal))
-		print ('-' * DISPLAY_WIDTH)
-
-		retained_earnings = round(rev_bal - exp_bal, 2)
-		print ('Net Income: 			$' + str(retained_earnings))
-		print ('-' * DISPLAY_WIDTH)
-		total_wealth = round(wealth_bal + retained_earnings, 2)
-		print ('Net Asset Value:		$' + str(total_wealth))
-		total_equity = round(total_wealth + liab_bal, 2)
-		print ('Total Wealth + Liabilities:	$' + str(total_equity))
-		check = round(asset_bal - total_equity, 2)
-		print ('Balance Check:			$' + str(check))
-		# TODO Have it add balances to a df then return the df
-
-	def get_qty(self, acct=None, item=None):
-		if item == None:
-			item = input('Which ticker? ').lower()
+	def get_qty(self, item=None, acct=None):
 		if acct == None:
 			acct = 'Investments' #input('Which account? ')
+		if item == '':
+			inventory = pd.DataFrame(columns=['item_id','qty'])
+			tickers = self.df['item_id'].replace('', np.nan, inplace=True)
+			tickers = pd.unique(self.df['item_id'].dropna())
+			for item in tickers:
+				try:
+					debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
+				except:
+					debits = 0
+				try:
+					credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
+				except:
+					credits = 0
+				qty = round(debits - credits, 2)
+				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
+			inventory.to_sql('inventory', conn, if_exists='replace')
+			print (inventory)
+			print ('-' * DISPLAY_WIDTH)
+			return inventory
+
 		try:
 			debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
 		except:
@@ -399,13 +449,11 @@ class Ledger(object):
 		except:
 			credits = 0
 		qty = round(debits - credits, 2)
-		print (qty)
-		print ('-' * DISPLAY_WIDTH)
+		#print (qty)
+		#print ('-' * DISPLAY_WIDTH)
 		return qty
 
-	def hist_cost(self, qty, acct=None, item=None):
-		if item == None:
-			item = 'tsla' #input('Which ticker? ').lower()
+	def hist_cost(self, qty, item=None, acct=None):
 		if acct == None:
 			acct = 'Investments' #input('Which account? ')
 		qty_txns = self.df[(self.df['item_id'] == item) & (self.df['debit_acct'] == acct)]['qty']
@@ -449,10 +497,8 @@ class Ledger(object):
 			return amount
 
 if __name__ == '__main__':
-	ledger = Ledger('test_1')
 	accts = Accounts()
-
-	#ledger.hist_cost(17)
+	ledger = Ledger('test_1')
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, printAccts, addAcct, exit\n')
@@ -481,8 +527,9 @@ if __name__ == '__main__':
 		elif command.lower() == "rvsl":# or "reversalentry":
 			ledger.reversal_entry()
 		elif command.lower() == "bs":# or "balancesheet":
-			ledger.balance_sheet()
+			ledger.print_bs()
 		elif command.lower() == "qty":
-			ledger.get_qty()
+			item = input('Which ticker? ').lower()
+			print (ledger.get_qty(item))
 		else:
 			print('Not a valid command. Type exit to close.')

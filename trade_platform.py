@@ -52,14 +52,14 @@ class Trading(object):
 
 	def sell_shares(self, symbol, qty=1):
 		qty = int(input('How many shares? '))
-		current_qty = ledger.get_qty('Investments', symbol)
+		current_qty = ledger.get_qty(symbol, 'Investments')
 		if qty > current_qty:
 			print ('You currently have ' + str(current_qty) + ' shares.')
 			return
 
 		price = self.get_price(symbol)
 		sale_proceeds = qty * price
-		hist_cost = ledger.hist_cost(qty, 'Investments', symbol)
+		hist_cost = ledger.hist_cost(qty, symbol, 'Investments')
 		investment_gain = None
 		investment_loss = None
 		if sale_proceeds >= hist_cost:
