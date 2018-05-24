@@ -1,3 +1,4 @@
+from acct import Accounts
 from acct import Ledger
 import urllib.request
 from time import strftime, localtime
@@ -24,6 +25,8 @@ class Trading(object):
 		price = self.get_price(symbol)
 		capital = ['Chequing','Cash']
 		capital_bal = 0
+		#capital_bal = ledger.balance_sheet(capital)
+
 		for acct in capital: # TODO Change this to balance_sheet() function when it can accept specific accounts as arguments
 			try:
 				debits = ledger.df.groupby('debit_acct').sum()['amount'][acct]
@@ -35,12 +38,12 @@ class Trading(object):
 				credits = 0
 			bal = round(debits - credits, 2)
 			capital_bal += bal
-			print (acct + ':		$' + str(bal))
-		print ('Total Capital:		$' + str(capital_bal))
+		#	print (acct + ':		$' + str(bal))
+		#print ('Total Capital:		$' + str(capital_bal))
 
 		if price * qty > capital_bal:
-			print ('Buying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(price * qty) + '.')
-			print ('You currently have $' + str(capital_bal) + ' available.')
+			print ('\nBuying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(price * qty) + '.')
+			print ('You currently have $' + str(capital_bal) + ' available.\n')
 			return
 
 		# TODO Decide whether to display unrealized gains as temp entries with rvsls
@@ -79,6 +82,7 @@ class Trading(object):
 		ledger.journal_entry(sell_event)
 
 if __name__ == '__main__':
+	accts = Accounts()
 	ledger = Ledger('test_1')
 	trade = Trading()
 

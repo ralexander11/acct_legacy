@@ -110,7 +110,7 @@ class Ledger(object):
 			self.ledger_name = ledger_name
 		self.create_ledger()
 		self.refresh_ledger()
-		self.balance_sheet()
+		#self.balance_sheet()
 			
 	def create_ledger(self):
 		create_ledger_query = '''
@@ -147,29 +147,29 @@ class Ledger(object):
 		else:
 			return self.get_acct_elem(accts.df.loc[acct, 'child_of'])
 
-	def balance_sheet(self, accts=None): # TODO Needs to be optimized
+	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
 		# TODO Make it able to be passed accounts, but default to all accounts
-		if accts == None:
+		if accounts == None:
 			debit_accts = pd.unique(self.df['debit_acct'])
 			#print (debit_accts)
 			credit_accts = pd.unique(self.df['credit_acct'])
 			#print (credit_accts)
-			accts = list( set(debit_accts) | set(credit_accts) )
-			#print (accts)
-		accounts = []
-		for acct in accts:
+			accounts = list( set(debit_accts) | set(credit_accts) )
+			#print (accounts)
+		account_details = []
+		for acct in accounts:
 			elem = self.get_acct_elem(acct)
 			#print (elem)
-			account = (acct, elem)
+			account_elem = (acct, elem)
 			#print (account)
-			accounts.append(account)
-		accts = None
+			account_details.append(account_elem)
+		accounts = None
 		assets = []
 		liabilities = []
 		wealth = []
 		revenues = []
 		expenses = []
-		for acct in accounts:
+		for acct in account_details:
 			if acct[1] == 'Asset':
 				assets.append(acct[0])
 			elif acct[1] == 'Liability':
@@ -384,7 +384,7 @@ class Ledger(object):
 		conn.commit()
 		cur.close()
 		self.refresh_ledger()
-		self.balance_sheet()
+		#self.balance_sheet()
 
 	def sanitize_ledger(self):
 		self.df.query('Debit_Acct or Credit_Acct != Admin') # TODO Fix this
