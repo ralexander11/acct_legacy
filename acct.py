@@ -420,7 +420,7 @@ class Ledger(object):
 	def get_qty(self, item=None, acct=None):
 		if acct == None:
 			acct = 'Investments' #input('Which account? ')
-		if item == '':
+		if (item == '') or (item == None):
 			inventory = pd.DataFrame(columns=['item_id','qty'])
 			tickers = self.df['item_id'].replace('', np.nan, inplace=True)
 			tickers = pd.unique(self.df['item_id'].dropna())
@@ -436,8 +436,8 @@ class Ledger(object):
 				qty = round(debits - credits, 2)
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
 			inventory.to_sql('inventory', conn, if_exists='replace')
-			print (inventory)
-			print ('-' * DISPLAY_WIDTH)
+			#print (inventory)
+			#print ('-' * DISPLAY_WIDTH)
 			return inventory
 
 		try:
