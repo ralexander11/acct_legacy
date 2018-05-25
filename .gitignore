@@ -94,8 +94,12 @@ ENV/
 
 # Project files
 *config*.py
+run.py
+app/
 
 # Other
 old/
 data/
 .bash_profile
+*config*.json
+*.txt
