@@ -17,6 +17,22 @@ class Accounts(object):
 			self.create_accts()
 			self.refresh_accts()
 
+# class Accounts(object): # TODO
+# 	def __init__(self, conn=None):
+#         if conn is None:
+#             self.conn = sqlite3.connect('acct.db')
+#         elif isinstance(conn, basestring):
+#             self.conn = sqlite3.connect(conn)
+#         else:
+#             self.conn = conn
+
+# 		try:
+# 			self.refresh_accts()
+# 		except:
+# 			self.df = None
+# 			self.create_accts()
+# 			self.refresh_accts()
+
 	def create_accts(self):
 		create_accts_query = '''
 			CREATE TABLE IF NOT EXISTS accounts (

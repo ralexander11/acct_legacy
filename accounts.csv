@@ -13,12 +13,11 @@ Salary MM,Salary
 Salary ME,Salary
 Overtime,Revenue
 Bonus,Revenue
-HST Rebate,Revenue
 Interest Income,Revenue
 Dividend Income,Revenue
 Gifts,Revenue
-Parents,Gifts
 Tax Refund,Revenue
+HST Rebate,Revenue
 Rent,Expense
 Power,Expense
 Food,Expense
@@ -53,7 +52,6 @@ Website Hosting,Other Bills
 Domain Name,Other Bills
 Apple Dev,Other Bills
 iTunes Match,Other Bills
-Costco Membership,Other Bills
 Education,Expense
 Tuition,Education
 Education Books,Education
@@ -64,17 +62,13 @@ Items,Expense
 Electronics,Items
 Clothing,Items
 Furniture,Items
-Gear,Items
 Housewears,Items
+Gear,Items
 Digital,Expense
 Games,Digital
 Music,Digital
 Apps,Digital
-iOS,Apps
-Mac,Apps
 Books,Digital
-iBook,Books
-Kindle,Books
 Leisure,Expense
 Lunch,Leisure
 Liquor,Leisure
@@ -85,10 +79,7 @@ Fast Food,Eat Out
 Delivery,Eat Out
 Snacks,Eat Out
 Cafe,Eat Out
-Gift,Leisure
-Marian,Gift
-Jenny,Gift
-Girls,Gift
+Gift Given,Leisure
 Activities,Leisure
 Travel,Leisure
 Flight,Travel
@@ -105,4 +96,4 @@ Other Leisure,Leisure
 Savings Expense,Expense
 Commission Expense,Expense
 Investment Gain,Revenue
-Investment Losse,Expense
+Investment Loss,Expense
