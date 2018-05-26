@@ -7,6 +7,7 @@ conn = sqlite3.connect('acct.db')
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
+pd.options.display.float_format = '${:,.2f}'.format
 
 class Accounts(object):
 	def __init__(self):
@@ -62,12 +63,12 @@ class Accounts(object):
 		conn.commit()
 		cur.close()
 
+	def refresh_accts(self):
+		self.df = pd.read_sql_query('SELECT * FROM accounts;', conn, index_col='accounts')
+
 	def print_accts(self):
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
-
-	def refresh_accts(self):
-		self.df = pd.read_sql_query('SELECT * FROM accounts;', conn, index_col='accounts')
 
 	def add_acct(self, acct_data = None):
 		cur = conn.cursor()
@@ -97,7 +98,7 @@ class Accounts(object):
 	def load_accts(self):
 		infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
-			load_df = pd.read_csv(f)
+			load_df = pd.read_csv(f, keep_default_na=False)
 			lol = load_df.values.tolist()
 			print (load_df)
 			print ('-' * DISPLAY_WIDTH)
@@ -120,6 +121,7 @@ class Accounts(object):
 
 class Ledger(object):
 	def __init__(self, ledger_name=None):
+	#def __init__(self, accts, ledger_name=None): # My attempt to fix my issue
 		if ledger_name == None:
 			self.ledger_name = input('Enter a name for the ledger: ')
 		else:
@@ -150,12 +152,13 @@ class Ledger(object):
 		conn.commit()
 		cur.close()
 
-	def print_gl(self):
-		print (self.df)
-		print ('-' * DISPLAY_WIDTH)
-
 	def refresh_ledger(self):
 		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', conn, index_col='txn_id')
+
+	def print_gl(self):
+		#self.df = self.df[(self.df.debit_acct != 'Commission Expense')]
+		print (self.df)
+		print ('-' * DISPLAY_WIDTH)
 
 	def get_acct_elem(self, acct):
 		if acct in ['Asset','Liability','Wealth','Revenue','Expense','None']:
@@ -165,20 +168,19 @@ class Ledger(object):
 
 	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
 		# TODO Make it able to be passed accounts, but default to all accounts
-		if accounts == None:
+		if accounts == None: # Create a list of all the accounts
 			debit_accts = pd.unique(self.df['debit_acct'])
-			#print (debit_accts)
 			credit_accts = pd.unique(self.df['credit_acct'])
-			#print (credit_accts)
 			accounts = list( set(debit_accts) | set(credit_accts) )
-			#print (accounts)
 		account_details = []
+
+		# Create a list of tuples for all the accounts with their fundamental accounting element (asset,liab,eq,rev,exp)
 		for acct in accounts:
 			elem = self.get_acct_elem(acct)
-			#print (elem)
 			account_elem = (acct, elem)
-			#print (account)
 			account_details.append(account_elem)
+
+		# Group all the accounts together in lists based on their fundamental account element
 		accounts = None
 		assets = []
 		liabilities = []
@@ -199,9 +201,11 @@ class Ledger(object):
 			else:
 				continue
 
+		# Create Balance Sheet dataframe to return
 		self.bs = pd.DataFrame(columns=['line_item','balance'])
+
 		# TODO The below repeated sections can probably be handled more elegantly
-		#print ('Assets:')
+
 		asset_bal = 0
 		for acct in assets:
 			try:
@@ -215,12 +219,8 @@ class Ledger(object):
 			bal = round(debits - credits, 2)
 			asset_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-			#print (acct + ':		$' + str(bal))
 		self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
-		#print ('Total Assets:		$' + str(asset_bal))
-		#print ('-' * DISPLAY_WIDTH)
 
-		#print ('Liabilities:')
 		liab_bal = 0
 		for acct in liabilities:
 			try:
@@ -231,15 +231,11 @@ class Ledger(object):
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				credits = 0
-			bal = round(credits - debits, 2)
+			bal = round(credits - debits, 2) # Note reverse order of subtraction
 			liab_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-			#print (acct + ':		$' + str(bal))
 		self.bs = self.bs.append({'line_item':'Total Liabilities:', 'balance':liab_bal}, ignore_index=True)
-		#print ('Total Liabilities:		$' + str(liab_bal))
-		#print ('-' * DISPLAY_WIDTH)
 
-		#print ('Wealth:')
 		wealth_bal = 0
 		for acct in wealth:
 			try:
@@ -250,15 +246,11 @@ class Ledger(object):
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				credits = 0
-			bal = round(credits - debits, 2)
+			bal = round(credits - debits, 2) # Note reverse order of subtraction
 			wealth_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-			#print (acct + ':		$' + str(bal))
 		self.bs = self.bs.append({'line_item':'Total Wealth:', 'balance':wealth_bal}, ignore_index=True)
-		#print ('Total Wealth:		$' + str(wealth_bal))
-		#print ('-' * DISPLAY_WIDTH)
 
-		#print ('Revenues:')
 		rev_bal = 0
 		for acct in revenues:
 			try:
@@ -269,15 +261,11 @@ class Ledger(object):
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				credits = 0
-			bal = round(credits - debits, 2)
+			bal = round(credits - debits, 2) # Note reverse order of subtraction
 			rev_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-			#print (acct + ':		$' + str(bal))
 		self.bs = self.bs.append({'line_item':'Total Revenues:', 'balance':rev_bal}, ignore_index=True)
-		#print ('Total Revenues:			$' + str(rev_bal))
-		#print ('-' * DISPLAY_WIDTH)
 
-		#print ('Expenses:')
 		exp_bal = 0
 		for acct in expenses:
 			try:
@@ -291,37 +279,31 @@ class Ledger(object):
 			bal = round(debits - credits, 2)
 			exp_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-			#print (acct + ':		$' + str(bal))
 		self.bs = self.bs.append({'line_item':'Total Expenses:', 'balance':exp_bal}, ignore_index=True)
-		#print ('Total Expenses:			$' + str(exp_bal))
-		#print ('-' * DISPLAY_WIDTH)
 
 		retained_earnings = round(rev_bal - exp_bal, 2)
 		self.bs = self.bs.append({'line_item':'Net Income:', 'balance':retained_earnings}, ignore_index=True)
-		#print ('Net Income: 			$' + str(retained_earnings))
-		#print ('-' * DISPLAY_WIDTH)
-		total_wealth = round(asset_bal - liab_bal, 2)
-		if total_wealth == 0:
-			total_wealth = round(wealth_bal + retained_earnings, 2)
-		self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':total_wealth}, ignore_index=True)
-		#print ('Net Asset Value:		$' + str(total_wealth))
-		total_equity = round(total_wealth + liab_bal, 2)
+
+		net_asset_value = round(asset_bal - liab_bal, 2)
+		if net_asset_value == 0: # Two ways to calc NAV depending on accounts
+			net_asset_value = round(wealth_bal + retained_earnings, 2)
+		self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
+
+		total_equity = round(net_asset_value + liab_bal, 2)
 		self.bs = self.bs.append({'line_item':'Total Wealth + Liabilities:', 'balance':total_equity}, ignore_index=True)
-		#print ('Total Wealth + Liabilities:	$' + str(total_equity))
+
 		check = round(asset_bal - total_equity, 2)
 		self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
+
 		self.bs.to_sql('balance_sheet', conn, if_exists='replace')
-		#print ('Balance Check:			$' + str(check))
-		#print ('-' * DISPLAY_WIDTH)
-		#print (self.bs)
-		#print ('-' * DISPLAY_WIDTH)
-		return total_wealth
+		return net_asset_value
 
 	def print_bs(self):
-		self.balance_sheet()
+		self.balance_sheet() # Refresh Balance Sheet
 		print (self.bs)
 		print ('-' * DISPLAY_WIDTH)
-		
+
+	# Used when booking journal entries to match related transactions
 	def get_event(self):
 		event_query = 'SELECT event_id FROM '+ self.ledger_name +' ORDER BY event_id DESC LIMIT 1;'
 		cur = conn.cursor()
@@ -334,13 +316,20 @@ class Ledger(object):
 		else:
 			return event_id[0] + 1
 
+	# Not fully implemented yet
 	def get_entity(self):
 		entity = 1
 		return entity
 
 	def journal_entry(self, journal_data = None):
+		'''
+			The heart of the whole system. This is how transactions are entered.
+			journal_data is a list of transactions. Each transaction is a list
+			of datapoints. This means an event with a single transaction
+			would be encapsulated in as a single list within a list.
+		'''
 		cur = conn.cursor()
-		if journal_data is None:
+		if journal_data is None: # Manually enter a journal entry
 			event = input('Enter an optional event_id: ')
 			entity = input('Enter the entity_id: ')
 			date_raw = input('Enter a date as format yyyy-mm-dd: ')
@@ -368,7 +357,7 @@ class Ledger(object):
 			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
-		else:
+		else: # Create journal entries by passing data to the function
 			for je in journal_data:
 				event = str(je[0])
 				entity = str(je[1])
@@ -399,17 +388,17 @@ class Ledger(object):
 
 		conn.commit()
 		cur.close()
-		self.refresh_ledger()
-		#self.balance_sheet()
+		self.refresh_ledger() # Ensures the df is in sync with the db
+		#self.balance_sheet() # TODO Fix this! # Ensures the bs is in sync with the ledger
 
-	def sanitize_ledger(self):
+	def sanitize_ledger(self): # This is not implemented yet
 		self.df.query('Debit_Acct or Credit_Acct != Admin') # TODO Fix this
 		self.df.drop_duplicates() # TODO Test this
-		
+
 	def load_gl(self):
 		infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
-			load_df = pd.read_csv(f)
+			load_df = pd.read_csv(f, keep_default_na=False)
 			load_df.set_index('txn_id', inplace=True)
 			lol = load_df.values.tolist()
 			print(load_df)
@@ -423,7 +412,7 @@ class Ledger(object):
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
 		print ('File saved as ' + save_location + outfile + '\n')
 
-	def reversal_entry(self):
+	def reversal_entry(self): # This func effectively deletes a transaction
 		txn = input('Which txn_id to reverse? ')
 		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
 		cur = conn.cursor()
@@ -436,11 +425,11 @@ class Ledger(object):
 	def get_qty(self, item=None, acct=None):
 		if acct == None:
 			acct = 'Investments' #input('Which account? ')
-		if (item == '') or (item == None):
+		if (item == '') or (item == None): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
-			tickers = self.df['item_id'].replace('', np.nan, inplace=True)
-			tickers = pd.unique(self.df['item_id'].dropna())
-			for item in tickers:
+			item_ids = self.df['item_id'].replace('', np.nan, inplace=True)
+			item_ids = pd.unique(self.df['item_id'].dropna())
+			for item in item_ids:
 				try:
 					debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
 				except:
@@ -451,11 +440,11 @@ class Ledger(object):
 					credits = 0
 				qty = round(debits - credits, 2)
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
+
 			inventory.to_sql('inventory', conn, if_exists='replace')
-			#print (inventory)
-			#print ('-' * DISPLAY_WIDTH)
 			return inventory
 
+		# Get qty for one item specified # TODO allow to get qty for multiple items specified
 		try:
 			debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
 		except:
@@ -465,16 +454,20 @@ class Ledger(object):
 		except:
 			credits = 0
 		qty = round(debits - credits, 2)
-		#print (qty)
-		#print ('-' * DISPLAY_WIDTH)
 		return qty
 
 	def hist_cost(self, qty, item=None, acct=None):
 		if acct == None:
 			acct = 'Investments' #input('Which account? ')
-		qty_txns = self.df[(self.df['item_id'] == item) & (self.df['debit_acct'] == acct)]['qty']
+
+		# Get list of txns with qtys for this item, while ignoring reversals
+		# TODO if a reversal is reversed, it will still cause issues
+		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		qty_txns = self.df[(self.df['item_id'] == 'tsla') & (self.df['debit_acct'] == 'Investments') & (~self.df['event_id'].isin(rvsl_txns))]['qty'] # Get list of txns
+
+		# Find the first lot of unsold items
 		count = 0
-		qty_back = self.get_qty(acct, item)
+		qty_back = self.get_qty(item, acct)
 		for item in qty_txns[::-1]:
 			if qty_back <= 0:
 				break
@@ -483,68 +476,75 @@ class Ledger(object):
 
 		start_qty = qty_txns.iloc[count]
 		start_index = qty_txns.index[count]
-		avail_qty = qty_back + start_qty
+		avail_qty = qty_back + start_qty	# Portion of first lot of unsold items that has not been sold
 
-		# TODO Rvsl entries cause issues
+		#print (avail_qty)
+
 		amount = 0
-		if qty <= avail_qty:
+		if qty <= avail_qty: # Corner case
 			price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[qty]})
 			amount = price_chart.price.dot(price_chart.qty)
+			print ('One')
 			print (amount)
 			return amount
-		price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[avail_qty]})
-		qty = qty - avail_qty
+
+		price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[avail_qty]}) # Create a list of lots with associated price
+		qty = qty - avail_qty # Sell the remainer of first lot of unsold items
+
 		count += 1
 		for item in qty_txns[count::-1]:
 			current_index = qty_txns.index[count]
-			while qty > 0:
+			while qty > 0: # Running amount of qty to be sold
 				count += 1
-				if qty - self.df.loc[current_index]['qty'] < 0:
+				if qty - self.df.loc[current_index]['qty'] < 0: # Final case when the last sellable lot is larger than remaining qty to be sold
 					price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
 					amount = price_chart.price.dot(price_chart.qty)
+					print ('Two')
 					print (amount)
 					return amount
 				
 				price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':self.df.loc[current_index]['qty']}, ignore_index=True)
 				qty = qty - self.df.loc[current_index]['qty']
 
-			amount = price_chart.price.dot(price_chart.qty)
+			amount = price_chart.price.dot(price_chart.qty) # Take dot product
+			print ('Three')
 			print (amount)
 			return amount
 
 if __name__ == '__main__':
 	accts = Accounts()
 	ledger = Ledger('test_1')
+	#ledger = Ledger(accts, 'test_1') # My attempt to fix my issue
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, printAccts, addAcct, exit\n')
-		if command.lower() == "exit":
+		if command.lower() == 'exit':
 			exit()
-		elif command.lower() == "gl":
+		elif command.lower() == 'gl':
 			ledger.print_gl()
-		elif command.lower() == "exportgl":
+		elif command.lower() == 'exportgl':
 			ledger.export_gl()
-		elif command.lower() == "loadgl":
+		elif command.lower() == 'loadgl':
 			ledger.load_gl()
-		elif command.lower() == "printaccts":
+		elif command.lower() == 'printaccts':
 			accts.print_accts()
-		elif command.lower() == "addacct":
+		elif command.lower() == 'addacct':
 			accts.add_acct()
-		elif command.lower() == "removeacct":
+		elif command.lower() == 'removeacct':
 			accts.remove_acct()
-		elif command.lower() == "loadaccts":
+		elif command.lower() == 'loadaccts':
 			accts.load_accts()
-		elif command.lower() == "exportaccts":
+		elif command.lower() == 'exportaccts':
 			accts.export_accts()
-		elif command.lower() == "je":# or "journalentry":
+		elif command.lower() == 'je':
 			ledger.journal_entry()
-		elif command.lower() == "sanitize":
+		elif command.lower() == 'sanitize':
 			ledger.sanitize_ledger()
-		elif command.lower() == "rvsl":# or "reversalentry":
+		elif command.lower() == 'rvsl':
 			ledger.reversal_entry()
-		elif command.lower() == "bs":# or "balancesheet":
+		elif command.lower() == 'bs':
 			ledger.print_bs()
-		elif command.lower() == "qty":
+		elif command.lower() == 'qty':
 			item = input('Which ticker? ').lower()
 			print (ledger.get_qty(item))
 		else:

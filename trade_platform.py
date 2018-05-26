@@ -24,11 +24,13 @@ class Trading(object):
 		if qty == 1:
 			qty = int(input('How many shares? '))
 		price = self.get_price(symbol)
+
+		# Check if there is enough capital
 		capital_accts = ['Cash','Chequing']
 		capital_bal = 0
-		#capital_bal = ledger.balance_sheet(capital_accts)
+		#capital_bal = ledger.balance_sheet(capital_accts) # TODO Fix this!
 
-		for acct in capital_accts: # TODO Change this to balance_sheet() function when it can accept specific accounts as arguments
+		for acct in capital_accts: # TODO Remove this for balance_sheet() function when it works properly
 			try:
 				debits = ledger.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
@@ -41,15 +43,14 @@ class Trading(object):
 				print ('Credit error!')
 			bal = round(debits - credits, 2)
 			capital_bal += bal
-		#	print (acct + ':		$' + str(bal))
-		#print ('Total Capital:		$' + str(capital_bal))
 
 		if price * qty > capital_bal:
 			print ('\nBuying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(round(price * qty, 2)) + '.')
 			print ('You currently have $' + str(capital_bal) + ' available.\n')
 			return
 
-		# TODO Decide whether to display unrealized gains as temp entries with rvsls
+		# TODO Decide whether to display unrealized gains as temp entries with rvsls or not
+		# Journal entries for a buy transaction
 		buy_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty]
 		com_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Comm. buy', '', trade.com(), 1, 'Commission Expense', 'Cash', trade.com()]
 		buy_event = [buy_entry, com_entry]
@@ -64,6 +65,7 @@ class Trading(object):
 			print ('You currently have ' + str(current_qty) + ' shares.')
 			return
 
+		# Calculate profit
 		price = self.get_price(symbol)
 		sale_proceeds = qty * price
 		hist_cost = ledger.hist_cost(qty, symbol, 'Investments')
@@ -74,12 +76,12 @@ class Trading(object):
 		else:
 			investment_loss = hist_cost - sale_proceeds
 
-		# TODO Fix price calc
-		sell_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Shares sell', symbol, price, qty, 'Cash', 'Investments', hist_cost]
+		# Journal entries for a sell transaction
+		sell_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Shares sell', symbol, hist_cost / qty, qty, 'Cash', 'Investments', hist_cost]
 		if investment_gain is not None:
-			profit_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Realized gain', symbol, price, qty, 'Cash', 'Investment Gain', investment_gain]
+			profit_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Realized gain', '', price, 1, 'Cash', 'Investment Gain', investment_gain]
 		if investment_loss is not None:
-			profit_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Realized loss', symbol, price, qty, 'Investment Loss', 'Cash', investment_loss]
+			profit_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Realized loss', '', price, 1, 'Investment Loss', 'Cash', investment_loss]
 		com_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Comm. sell', '', trade.com(), 1,'Commission Expense', 'Cash', trade.com()]
 		sell_event = [sell_entry, profit_entry, com_entry]
 
@@ -88,16 +90,17 @@ class Trading(object):
 if __name__ == '__main__':
 	accts = Accounts()
 	ledger = Ledger('test_1')
+	#ledger = Ledger(accts, 'test_1') # My attempt to fix my issue
 	trade = Trading()
 
 	while True:
-		command = input('Type one of the following commands:\nbuy, sell, exit\n')
-		if command.lower() == "exit":
+		command = input('\nType one of the following commands:\nbuy, sell, exit\n')
+		if command.lower() == 'exit':
 			exit()
-		elif command.lower() == "buy":
+		elif command.lower() == 'buy':
 			symbol = input('Which ticker? ')
 			trade.buy_shares(symbol)
-		elif command.lower() == "sell":
+		elif command.lower() == 'sell':
 			symbol = input('Which ticker? ')
 			trade.sell_shares(symbol)
 		else:
