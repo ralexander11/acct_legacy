@@ -14,7 +14,7 @@ Part I - Setup the accounts and capital
 5. Type "JE" command
 6. Press enter 3 times until it asks you for a description
 7. Type "Deposit capital" for the description and hit enter
-8. Press enter 3 times until it asks you for an account to debit
+8. Press enter 4 times until it asks you for an account to debit
 9. Type "Cash" for the debit account and hit enter
 10. Type "Wealth" for the credit account and hit enter
 11. Enter a number for the capital such as 100000 or any amount you wish
