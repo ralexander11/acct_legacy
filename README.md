@@ -1,6 +1,9 @@
 # Accounting and Trading System
 
+This is a simple general purpose accounting system that can interface with other python applications.
+
 ## Instructions if Using a Clean DB File ##
+
 
 Part I - Setup the accounts and capital
 
@@ -9,9 +12,9 @@ Part I - Setup the accounts and capital
 3. Type "loadAccts" command
 4. Enter "accounts.csv" file name
 5. Type "JE" command
-6. Press enter 4 times until it asks you for a description
+6. Press enter 3 times until it asks you for a description
 7. Type "Deposit capital" for the description and hit enter
-8. Press enter 4 times until it asks you for an account to debit
+8. Press enter 3 times until it asks you for an account to debit
 9. Type "Cash" for the debit account and hit enter
 10. Type "Wealth" for the credit account and hit enter
 11. Enter a number for the capital such as 100000 or any amount you wish
@@ -35,3 +38,9 @@ Part III - Check performance
 5. The Net Asset Value is your current portfolio worth
 6. The Balance Check should always be zero
 7. Type "qty" command, press enter when it asks for a ticker to see for all
+
+## Dependencies
+
+
+* Python 3.5
+* Pandas 0.22

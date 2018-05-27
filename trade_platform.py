@@ -93,7 +93,6 @@ if __name__ == '__main__':
 	#ledger = Ledger(accts, 'test_1') # My attempt to fix my issue
 	trade = Trading()
 
-	# TODO add command to list tickers
 	while True:
 		command = input('\nType one of the following commands:\nbuy, sell, exit\n')
 		if command.lower() == 'exit':

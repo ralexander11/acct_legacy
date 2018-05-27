@@ -167,7 +167,6 @@ class Ledger(object):
 			return self.get_acct_elem(accts.df.loc[acct, 'child_of'])
 
 	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
-		# TODO Make it able to be passed accounts, but default to all accounts
 		if accounts == None: # Create a list of all the accounts
 			debit_accts = pd.unique(self.df['debit_acct'])
 			credit_accts = pd.unique(self.df['credit_acct'])
@@ -392,8 +391,7 @@ class Ledger(object):
 		#self.balance_sheet() # TODO Fix this! # Ensures the bs is in sync with the ledger
 
 	def sanitize_ledger(self): # This is not implemented yet
-		self.df.query('Debit_Acct or Credit_Acct != Admin') # TODO Fix this
-		self.df.drop_duplicates() # TODO Test this
+		self.df = self.df.drop_duplicates() # TODO Test this
 
 	def load_gl(self):
 		infile = input('Enter a filename: ')
