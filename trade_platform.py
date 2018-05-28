@@ -98,6 +98,7 @@ class Trading(object):
 		# TODO Handle dividends and stock splits
 
 if __name__ == '__main__':
+	# TODO Add argparse to make trades
 	accts = Accounts()
 	ledger = Ledger('test_1')
 	#ledger = Ledger(accts, 'test_1') # My attempt to fix my issue
@@ -107,6 +108,7 @@ if __name__ == '__main__':
 		command = input('\nType one of the following commands:\nbuy, sell, exit\n')
 		if command.lower() == 'exit':
 			exit()
+		# TODO Allow command to be a single line in any order (i.e. buy tsla 10)
 		elif command.lower() == 'buy':
 			symbol = input('Which ticker? ')
 			trade.buy_shares(symbol)
