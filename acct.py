@@ -341,7 +341,13 @@ class Ledger(object):
 			price = input('Enter an optional price: ')
 			qty = input('Enter an optional quantity: ')
 			debit = input('Enter the account to debit: ')
+			if debit not in accts.df.index:
+				print ('\n' + debit + ' is not a valid account.')
+				return
 			credit = input('Enter the account to credit: ')
+			if credit not in accts.df.index:
+				print ('\n' + credit + ' is not a valid account.')
+				return
 			amount = input('Enter the amount: ')
 			
 			if event == '':
