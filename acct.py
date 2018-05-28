@@ -67,8 +67,14 @@ class Accounts(object):
 		self.df = pd.read_sql_query('SELECT * FROM accounts;', conn, index_col='accounts')
 
 	def print_accts(self):
+		self.refresh_accts()
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
+
+	def drop_dupe_accts(self):
+		self.df = self.df[~self.df.index.duplicated(keep='first')]
+		self.df.to_sql('accounts', conn, if_exists='replace')
+		self.refresh_accts()
 
 	def add_acct(self, acct_data = None):
 		cur = conn.cursor()
@@ -91,9 +97,7 @@ class Accounts(object):
 		conn.commit()
 		cur.close()
 		self.refresh_accts()
-
-	def sanitize_accts(self):
-		self.df.drop_duplicates() # TODO Implement this
+		self.drop_dupe_accts()
 
 	def load_accts(self):
 		infile = input('Enter a filename: ')
@@ -103,7 +107,6 @@ class Accounts(object):
 			print (load_df)
 			print ('-' * DISPLAY_WIDTH)
 			self.add_acct(lol)
-			# TODO Add sanitize function to remove dupe accounts
 
 	def export_accts(self):
 		outfile = 'accounts' + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
@@ -534,10 +537,10 @@ if __name__ == '__main__':
 			accts.load_accts()
 		elif command.lower() == 'exportaccts':
 			accts.export_accts()
+		elif command.lower() == 'dupes':
+			accts.drop_dupe_accts()
 		elif command.lower() == 'je':
 			ledger.journal_entry()
-		elif command.lower() == 'sanitize':
-			ledger.sanitize_ledger()
 		elif command.lower() == 'rvsl':
 			ledger.reversal_entry()
 		elif command.lower() == 'bs':

@@ -2,10 +2,11 @@
 
 This is a simple general purpose accounting system that can interface with other python applications.
 
-## Instructions if Using a Clean DB File ##
+## Instructions If Using a Clean DB File
 
+The below instructions apply when not using the acct.db file included in the repository.
 
-Part I - Setup the accounts and capital
+### Part I - Setup the accounts and capital
 
 1. Run acct.py
 2. You should see 9 standard account get loaded
@@ -21,7 +22,7 @@ Part I - Setup the accounts and capital
 12. Type "gl" command
 13. Type "bs" command
 
-Part II - Make trades
+### Part II - Make trades
 
 1. Run trade_platform.py
 2. Type "buy" command
@@ -29,7 +30,7 @@ Part II - Make trades
 4. Enter a number for the shares such as 10
 5. Repeat similar steps for "sell" or "buy" as you wish
 
-Part III - Check performance
+### Part III - Check performance
 
 1. Run acct.py
 2. Type "gl" command
