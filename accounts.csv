@@ -8,6 +8,9 @@ Student Credit,Liability
 Credit Line,Liability
 Uncategorized,Admin
 Info,Admin
+Commission Expense,Expense
+Investment Gain,Revenue
+Investment Loss,Expense
 Salary,Revenue
 Salary MM,Salary
 Salary ME,Salary
@@ -94,6 +97,3 @@ Leisure Interest,Leisure
 One-Off,Leisure
 Other Leisure,Leisure
 Savings Expense,Expense
-Commission Expense,Expense
-Investment Gain,Revenue
-Investment Loss,Expense

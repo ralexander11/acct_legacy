@@ -530,7 +530,7 @@ if __name__ == '__main__':
 	#ledger = Ledger(accts, 'test_1') # My attempt to fix my issue
 
 	while True:
-		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, printAccts, addAcct, exit\n')
+		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, printAccts, loadAccts, addAcct, exit\n')
 		if command.lower() == 'exit':
 			exit()
 		elif command.lower() == 'gl':
