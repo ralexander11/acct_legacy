@@ -99,6 +99,8 @@ class Accounts(object):
 		self.refresh_accts()
 		self.drop_dupe_accts()
 
+		# TODO Add error checking to ensure all accounts lead to a standard account
+
 	def load_accts(self):
 		infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
