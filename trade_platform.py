@@ -11,7 +11,7 @@ class Trading(object):
 		except:
 			print ('Error getting price from: ' + url + symbol + '/price')
 		else:
-			return price #round(price, 2)
+			return price
 
 	def date(self):
 		return strftime('%Y-%m-%d', localtime())
@@ -52,8 +52,12 @@ class Trading(object):
 		# TODO Decide whether to display unrealized gains as temp entries with rvsls or not
 		# Journal entries for a buy transaction
 		buy_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty]
-		com_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Comm. buy', '', trade.com(), 1, 'Commission Expense', 'Cash', trade.com()]
-		buy_event = [buy_entry, com_entry]
+		if self.com() != 0:
+			com_entry = [ ledger.get_event(), ledger.get_entity(), self.date(), 'Comm. buy', '', trade.com(), 1, 'Commission Expense', 'Cash', trade.com()]
+		if self.com() != 0:
+			buy_event = [buy_entry, com_entry]
+		else:
+			buy_event = [buy_entry]
 
 		ledger.journal_entry(buy_event)
 
@@ -82,10 +86,16 @@ class Trading(object):
 			profit_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Realized gain', '', price, 1, 'Cash', 'Investment Gain', investment_gain]
 		if investment_loss is not None:
 			profit_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Realized loss', '', price, 1, 'Investment Loss', 'Cash', investment_loss]
-		com_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Comm. sell', '', trade.com(), 1,'Commission Expense', 'Cash', trade.com()]
-		sell_event = [sell_entry, profit_entry, com_entry]
+		if self.com() != 0:
+			com_entry = [ ledger.get_event(), ledger.get_entity(), trade.date(), 'Comm. sell', '', trade.com(), 1,'Commission Expense', 'Cash', trade.com()]
+		if self.com() != 0:
+			sell_event = [sell_entry, profit_entry, com_entry]
+		else:
+			sell_event = [sell_entry, profit_entry]
 
 		ledger.journal_entry(sell_event)
+
+		# TODO Handle dividends and stock splits
 
 if __name__ == '__main__':
 	accts = Accounts()

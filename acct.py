@@ -451,7 +451,7 @@ class Ledger(object):
 			inventory.to_sql('inventory', conn, if_exists='replace')
 			return inventory
 
-		# Get qty for one item specified # TODO allow to get qty for multiple items specified
+		# Get qty for one item specified
 		try:
 			debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
 		except:
@@ -484,8 +484,6 @@ class Ledger(object):
 		start_qty = qty_txns.iloc[count]
 		start_index = qty_txns.index[count]
 		avail_qty = qty_back + start_qty	# Portion of first lot of unsold items that has not been sold
-
-		#print (avail_qty)
 
 		amount = 0
 		if qty <= avail_qty: # Corner case
