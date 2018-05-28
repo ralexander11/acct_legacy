@@ -218,7 +218,7 @@ class Ledger(object):
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				credits = 0
-			bal = round(debits - credits, 2)
+			bal = debits - credits
 			asset_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 		self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
@@ -233,7 +233,7 @@ class Ledger(object):
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				credits = 0
-			bal = round(credits - debits, 2) # Note reverse order of subtraction
+			bal = credits - debits # Note reverse order of subtraction
 			liab_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 		self.bs = self.bs.append({'line_item':'Total Liabilities:', 'balance':liab_bal}, ignore_index=True)
@@ -248,7 +248,7 @@ class Ledger(object):
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				credits = 0
-			bal = round(credits - debits, 2) # Note reverse order of subtraction
+			bal = credits - debits # Note reverse order of subtraction
 			wealth_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 		self.bs = self.bs.append({'line_item':'Total Wealth:', 'balance':wealth_bal}, ignore_index=True)
@@ -263,7 +263,7 @@ class Ledger(object):
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				credits = 0
-			bal = round(credits - debits, 2) # Note reverse order of subtraction
+			bal = credits - debits # Note reverse order of subtraction
 			rev_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 		self.bs = self.bs.append({'line_item':'Total Revenues:', 'balance':rev_bal}, ignore_index=True)
@@ -278,24 +278,25 @@ class Ledger(object):
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				credits = 0
-			bal = round(debits - credits, 2)
+			bal = debits - credits
 			exp_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 		self.bs = self.bs.append({'line_item':'Total Expenses:', 'balance':exp_bal}, ignore_index=True)
 
-		retained_earnings = round(rev_bal - exp_bal, 2)
+		retained_earnings = rev_bal - exp_bal
 		self.bs = self.bs.append({'line_item':'Net Income:', 'balance':retained_earnings}, ignore_index=True)
 
-		net_asset_value = round(asset_bal - liab_bal, 2)
+		net_asset_value = asset_bal - liab_bal
 		if net_asset_value == 0: # Two ways to calc NAV depending on accounts
-			net_asset_value = round(wealth_bal + retained_earnings, 2)
-		self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
+			net_asset_value = wealth_bal + retained_earnings
 
-		total_equity = round(net_asset_value + liab_bal, 2)
-		self.bs = self.bs.append({'line_item':'Total Wealth + Liabilities:', 'balance':total_equity}, ignore_index=True)
+		total_equity = net_asset_value + liab_bal
+		self.bs = self.bs.append({'line_item':'Total Wealth + NI + Liabilities:', 'balance':total_equity}, ignore_index=True)
 
-		check = round(asset_bal - total_equity, 2)
+		check = asset_bal - total_equity
 		self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
+
+		self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
 
 		self.bs.to_sql('balance_sheet', conn, if_exists='replace')
 		return net_asset_value
@@ -348,7 +349,12 @@ class Ledger(object):
 			if credit not in accts.df.index:
 				print ('\n' + credit + ' is not a valid account.')
 				return
-			amount = input('Enter the amount: ')
+			while True:
+				amount = input('Enter the amount: ')
+				if amount.isdigit():
+					break
+				else:
+					continue
 			
 			if event == '':
 				event = str(self.get_event())
@@ -483,7 +489,7 @@ class Ledger(object):
 
 		start_qty = qty_txns.iloc[count]
 		start_index = qty_txns.index[count]
-		avail_qty = qty_back + start_qty	# Portion of first lot of unsold items that has not been sold
+		avail_qty = qty_back + start_qty # Portion of first lot of unsold items that has not been sold
 
 		amount = 0
 		if qty <= avail_qty: # Corner case
