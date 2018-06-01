@@ -64,7 +64,7 @@ class RandomAlgo(Trading):
 
 	# Get list of currently held tickers
 	def get_portfolio(self):
-		portfolio = ledger.get_qty()
+		portfolio = trade.get_qty()
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
 		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list

@@ -94,7 +94,6 @@ if __name__ == '__main__':
 	# TODO Add argparse to make trades
 	accts = Accounts()
 	ledger = Ledger('test_1')
-	#ledger = Ledger(accts, 'test_1') # My attempt to fix my issue
 	trade = Trading(ledger) # Change
 
 	while True:

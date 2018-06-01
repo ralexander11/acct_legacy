@@ -4,6 +4,7 @@ import sqlite3
 from time import strftime, localtime
 
 conn = sqlite3.connect('acct.db')
+#conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
@@ -171,7 +172,9 @@ class Ledger(Accounts): # Change
 			return self.get_acct_elem(Accounts.df.loc[acct, 'child_of']) # Change
 
 	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
+		all_accts = False
 		if accounts == None: # Create a list of all the accounts
+			all_accts = True
 			debit_accts = pd.unique(self.df['debit_acct'])
 			credit_accts = pd.unique(self.df['credit_acct'])
 			accounts = list( set(debit_accts) | set(credit_accts) )
@@ -299,13 +302,48 @@ class Ledger(Accounts): # Change
 
 		self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
 
-		self.bs.to_sql('balance_sheet', conn, if_exists='replace')
+		if all_accts:
+			self.bs.to_sql('balance_sheet', conn, if_exists='replace')
 		return net_asset_value
 
 	def print_bs(self):
 		self.balance_sheet() # Refresh Balance Sheet
 		print (self.bs)
 		print ('-' * DISPLAY_WIDTH)
+
+	def get_qty(self, item=None, acct=None):
+		if acct == None:
+			acct = 'Investments' #input('Which account? ')
+		if (item == None) or (item == ''): # Get qty for all items
+			inventory = pd.DataFrame(columns=['item_id','qty'])
+			item_ids = self.df['item_id'].replace('', np.nan, inplace=True)
+			item_ids = pd.unique(self.df['item_id'].dropna())
+			for item in item_ids:
+				try:
+					debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
+				except:
+					debits = 0
+				try:
+					credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
+				except:
+					credits = 0
+				qty = round(debits - credits, 2)
+				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
+
+			inventory.to_sql('inventory', conn, if_exists='replace')
+			return inventory
+
+		# Get qty for one item specified
+		try:
+			debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
+		except:
+			debits = 0
+		try:
+			credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
+		except:
+			credits = 0
+		qty = round(debits - credits, 2)
+		return qty
 
 	# Used when booking journal entries to match related transactions
 	def get_event(self):
@@ -405,6 +443,7 @@ class Ledger(Accounts): # Change
 		cur.close()
 		self.refresh_ledger() # Ensures the df is in sync with the db
 		self.balance_sheet() # Ensures the bs is in sync with the ledger
+		self.get_qty() # Ensures the inv is in sync with the ledger
 
 	def sanitize_ledger(self): # This is not implemented yet
 		self.df = self.df.drop_duplicates() # TODO Test this
@@ -435,40 +474,6 @@ class Ledger(Accounts): # Change
 		cur.close()
 		rvsl_entry = [[ rvsl[1], rvsl[2], rvsl[3], '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)
-
-	def get_qty(self, item=None, acct=None):
-		if acct == None:
-			acct = 'Investments' #input('Which account? ')
-		if (item == '') or (item == None): # Get qty for all items
-			inventory = pd.DataFrame(columns=['item_id','qty'])
-			item_ids = self.df['item_id'].replace('', np.nan, inplace=True)
-			item_ids = pd.unique(self.df['item_id'].dropna())
-			for item in item_ids:
-				try:
-					debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
-				except:
-					debits = 0
-				try:
-					credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
-				except:
-					credits = 0
-				qty = round(debits - credits, 2)
-				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
-
-			inventory.to_sql('inventory', conn, if_exists='replace')
-			return inventory
-
-		# Get qty for one item specified
-		try:
-			debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
-		except:
-			debits = 0
-		try:
-			credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
-		except:
-			credits = 0
-		qty = round(debits - credits, 2)
-		return qty
 
 	def hist_cost(self, qty, item=None, acct=None):
 		if acct == None:
