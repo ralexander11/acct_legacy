@@ -64,7 +64,7 @@ class Accounts(object):
 		cur.close()
 
 	def refresh_accts(self):
-		self.df = pd.read_sql_query('SELECT * FROM accounts;', conn, index_col='accounts')
+		Accounts.df = pd.read_sql_query('SELECT * FROM accounts;', conn, index_col='accounts') # Change
 
 	def print_accts(self):
 		self.refresh_accts()
@@ -124,16 +124,15 @@ class Accounts(object):
 		cur.close()
 		self.refresh_accts()
 
-class Ledger(object):
+class Ledger(Accounts): # Change
 	def __init__(self, ledger_name=None):
-	#def __init__(self, accts, ledger_name=None): # My attempt to fix my issue
 		if ledger_name == None:
 			self.ledger_name = input('Enter a name for the ledger: ')
 		else:
 			self.ledger_name = ledger_name
 		self.create_ledger()
 		self.refresh_ledger()
-		#self.balance_sheet()
+		self.balance_sheet()
 			
 	def create_ledger(self):
 		create_ledger_query = '''
@@ -169,7 +168,7 @@ class Ledger(object):
 		if acct in ['Asset','Liability','Wealth','Revenue','Expense','None']:
 			return acct
 		else:
-			return self.get_acct_elem(accts.df.loc[acct, 'child_of'])
+			return self.get_acct_elem(Accounts.df.loc[acct, 'child_of']) # Change
 
 	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
 		if accounts == None: # Create a list of all the accounts
@@ -405,7 +404,7 @@ class Ledger(object):
 		conn.commit()
 		cur.close()
 		self.refresh_ledger() # Ensures the df is in sync with the db
-		#self.balance_sheet() # TODO Fix this! # Ensures the bs is in sync with the ledger
+		self.balance_sheet() # Ensures the bs is in sync with the ledger
 
 	def sanitize_ledger(self): # This is not implemented yet
 		self.df = self.df.drop_duplicates() # TODO Test this
@@ -419,7 +418,7 @@ class Ledger(object):
 			print(load_df)
 			print ('-' * DISPLAY_WIDTH)
 			self.journal_entry(lol)
-			#self.sanitize_ledger()
+			#self.sanitize_ledger() # Not sure if I need this anymore
 
 	def export_gl(self):
 		outfile = self.ledger_name + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
@@ -475,10 +474,11 @@ class Ledger(object):
 		if acct == None:
 			acct = 'Investments' #input('Which account? ')
 
-		# Get list of txns with qtys for this item, while ignoring reversals
 		# TODO if a reversal is reversed, it will still cause issues
+		# Get list of txns with qtys for this item, while ignoring reversals
 		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
-		qty_txns = self.df[(self.df['item_id'] == 'tsla') & (self.df['debit_acct'] == 'Investments') & (~self.df['event_id'].isin(rvsl_txns))]['qty'] # Get list of txns
+		# Get list of txns
+		qty_txns = self.df[(self.df['item_id'] == item) & (self.df['debit_acct'] == 'Investments') & (~self.df['event_id'].isin(rvsl_txns))]['qty']
 
 		# Find the first lot of unsold items
 		count = 0
@@ -527,7 +527,6 @@ class Ledger(object):
 if __name__ == '__main__':
 	accts = Accounts()
 	ledger = Ledger('test_1')
-	#ledger = Ledger(accts, 'test_1') # My attempt to fix my issue
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
