@@ -69,7 +69,8 @@ class Accounts(object):
 
 	def print_accts(self):
 		self.refresh_accts()
-		print (self.df)
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			print (self.df)
 		print ('-' * DISPLAY_WIDTH)
 
 	def drop_dupe_accts(self):
@@ -82,7 +83,10 @@ class Accounts(object):
 		if acct_data is None:
 			account = input('Enter the account name: ')
 			child_of = input('Enter the parent account: ')
-			
+			if child_of not in accts.df.index:
+				print ('\n' + child_of + ' is not a valid account.')
+				return
+
 			details = (account,child_of)
 			cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 			
