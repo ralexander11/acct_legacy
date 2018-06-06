@@ -13,6 +13,7 @@ pd.set_option('display.max_columns', 5)
 pd.set_option('display.max_rows', 20)
 
 random.seed()
+timestamp = datetime.datetime.now().strftime('[%Y-%b-%d %H:%M:%S] ')
 
 class RandomAlgo(Trading):
 	def __init__(self, trade):
@@ -31,7 +32,7 @@ class RandomAlgo(Trading):
 
 	# Check how much capital is available
 	def check_capital(self, capital_accts=None):
-		print ('Checking capital...')
+		print (timestamp + 'Checking capital...')
 		self.df = trade.df
 		if capital_accts == None:
 			capital_accts = ['Cash','Chequing']
@@ -43,19 +44,20 @@ class RandomAlgo(Trading):
 	def get_trade(self, symbols):
 		try: # Get random ticker from df
 			symbol = symbols.iloc[random.randint(0, len(symbols))-1]['symbol'].lower()
+			print ('Using list of tickers')
 		except: # If single ticker is provided
-			print ('Single ticker')
+			print ('Using single ticker')
 			symbol = symbols
 		try: # If position is already held on ticker
 			max_qty = portfolio.loc[portfolio['symbol'] == symbol]['qty'].values
 			if (random.randint(1, 2) % 2 == 0): # 50% chance to sell portion of existing position up to its max qty
-				print ('Not max')
+				print ('Not max QTY')
 				qty = random.randint(2, max_qty)
 			else: # 50% chance to liquidate position
-				print ('Max')
+				print ('Max QTY')
 				qty = int(max_qty)
 		except: # Purchase random amount of shares on position not held
-			print ('Not held')
+			print ('Ticker not held')
 			max_qty = 100
 			qty = random.randint(2, max_qty)
 			
@@ -68,20 +70,24 @@ class RandomAlgo(Trading):
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
 		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
+		print (timestamp + 'Got fresh portfolio')
 		return portfolio
 
 	# Buy shares until you run out of capital
 	def random_buy(self, capital):
+		print (timestamp + 'Randomly buying.')
 		while capital > 1000:
 			capital = trade.buy_shares(*algo.get_trade(symbols)) # Not working
 			print (capital)
-		print ('Out of capital.')
+		print (timestamp + 'Out of capital.')
 
 	# Sell randomly from a random subset of positions
 	def random_sell(self, portfolio):
+		print (timestamp + 'Randomly selling.')
 		for symbol in portfolio['symbol'][:random.randint(1,len(portfolio))]:
 			#print (symbol) # Debug
 			trade.sell_shares(*algo.get_trade(symbol)) # Not working
+		print (timestamp + 'Done randomly selling.')
 
 if __name__ == '__main__':
 	# TODO Add argeparse to accept a name for the ledger
@@ -89,6 +95,8 @@ if __name__ == '__main__':
 	ledger = Ledger('test_1')
 	trade = Trading(ledger)
 	algo = RandomAlgo(trade)
+
+	print ('=' * DISPLAY_WIDTH)
 
 	# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
 	trade_holidays = [
@@ -109,7 +117,7 @@ if __name__ == '__main__':
 
 	# Don't do anything on weekends
 	if weekday == 5 or weekday == 6:
-		print ('Today is a weekend.')
+		print (timestamp + 'Today is a weekend.')
 		exit()
 
 	# Don't do anything on trade holidays
@@ -118,7 +126,7 @@ if __name__ == '__main__':
 		datetime_object = datetime.datetime.strptime(holiday, '%Y-%m-%d')
 		holiday_day_of_year = datetime_object.timetuple().tm_yday
 		if holiday_day_of_year == day_of_year:
-			print ('Today is a trade holiday.')
+			print (timestamp + 'Today is a trade holiday.')
 			exit()
 
 	source = 'iex' # input("Which ticker source? ").lower()
@@ -133,7 +141,7 @@ if __name__ == '__main__':
 	try:
 		portfolio = algo.get_portfolio()
 	except:
-		print ('Initial porfolio setup')
+		print (timestamp + 'Initial porfolio setup.')
 		algo.random_buy(capital)
 		exit()
 
@@ -158,4 +166,4 @@ if __name__ == '__main__':
 	algo.random_buy(capital)#(algo.check_capital())
 
 	print ('-' * DISPLAY_WIDTH)
-	print ('Done randomly trading!')
+	print (timestamp + 'Done randomly trading!')
