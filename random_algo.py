@@ -4,7 +4,7 @@ from trade_platform import Trading
 import pandas as pd
 import random
 import datetime
-#from tqdm import tqdm
+import argparse
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
@@ -90,9 +90,12 @@ class RandomAlgo(Trading):
 		print (timestamp + 'Done randomly selling.')
 
 if __name__ == '__main__':
-	# TODO Add argeparse to accept a name for the ledger
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-entity', type=int, help='A number for the entity.')
+	args = parser.parse_args()
+
 	accts = Accounts()
-	ledger = Ledger('random_1')
+	ledger = Ledger('random_1', args.entity)
 	trade = Trading(ledger)
 	algo = RandomAlgo(trade)
 

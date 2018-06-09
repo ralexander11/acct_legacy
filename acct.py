@@ -68,7 +68,7 @@ class Accounts(object):
 		cur.close()
 
 	def refresh_accts(self):
-		Accounts.df = pd.read_sql_query('SELECT * FROM accounts;', conn, index_col='accounts') # Change
+		Accounts.df = pd.read_sql_query('SELECT * FROM accounts;', conn, index_col='accounts')
 
 	def print_accts(self):
 		self.refresh_accts()
@@ -132,12 +132,13 @@ class Accounts(object):
 		cur.close()
 		self.refresh_accts()
 
-class Ledger(Accounts): # Change
-	def __init__(self, ledger_name=None):
+class Ledger(Accounts):
+	def __init__(self, ledger_name=None, entity=None):
 		if ledger_name == None:
 			self.ledger_name = input('Enter a name for the ledger: ')
 		else:
 			self.ledger_name = ledger_name
+		self.entity = entity
 		self.create_ledger()
 		self.refresh_ledger()
 		self.balance_sheet()
@@ -166,9 +167,12 @@ class Ledger(Accounts): # Change
 
 	def refresh_ledger(self):
 		self.df = pd.read_sql_query('SELECT * FROM ledger_' + self.ledger_name + ';', conn, index_col='txn_id')
+		if self.entity != None:
+			self.df = self.df[(self.df.entity_id == self.entity)]
 
 	def print_gl(self):
-		#self.df = self.df[(self.df.debit_acct != 'Commission Expense')]
+		if self.entity != None:
+			self.df = self.df[(self.df.entity_id == self.entity)]
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
 
@@ -176,7 +180,7 @@ class Ledger(Accounts): # Change
 		if acct in ['Asset','Liability','Wealth','Revenue','Expense','None']:
 			return acct
 		else:
-			return self.get_acct_elem(Accounts.df.loc[acct, 'child_of']) # Change
+			return self.get_acct_elem(Accounts.df.loc[acct, 'child_of'])
 
 	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
 		all_accts = False
@@ -310,7 +314,10 @@ class Ledger(Accounts): # Change
 		self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
 
 		if all_accts:
-			self.bs.to_sql('balance_sheet', conn, if_exists='replace')
+			if self.entity == None:
+				self.bs.to_sql('balance_sheet', conn, if_exists='replace')
+			else:
+				self.bs.to_sql('balance_sheet_' + str(self.entity), conn, if_exists='replace')
 		return net_asset_value
 
 	def print_bs(self):
@@ -337,7 +344,10 @@ class Ledger(Accounts): # Change
 				qty = round(debits - credits, 2)
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
 
-			inventory.to_sql('inventory', conn, if_exists='replace')
+			if self.entity == None:
+				inventory.to_sql('inventory', conn, if_exists='replace')
+			else:
+				inventory.to_sql('inventory_' + str(self.entity), conn, if_exists='replace')
 			return inventory
 
 		# Get qty for one item specified
@@ -365,14 +375,16 @@ class Ledger(Accounts): # Change
 		else:
 			return event_id[0] + 1
 
-	# Not fully implemented yet
 	def get_entity(self):
-		entity = 1
+		if self.entity == None:
+			entity = 1
+		else:
+			entity = self.entity
 		return entity
 
 	def journal_entry(self, journal_data = None):
 		'''
-			The heart of the whole system. This is how transactions are entered.
+			The heart of the whole system; this is how transactions are entered.
 			journal_data is a list of transactions. Each transaction is a list
 			of datapoints. This means an event with a single transaction
 			would be encapsulated in as a single list within a list.
@@ -538,7 +550,7 @@ class Ledger(Accounts): # Change
 
 if __name__ == '__main__':
 	accts = Accounts()
-	ledger = Ledger()
+	ledger = Ledger() # debut ('test_1')
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')

@@ -3,10 +3,11 @@ from acct import Ledger
 import urllib.request
 from time import strftime, localtime
 
-class Trading(Ledger): # Change
+class Trading(Ledger):
 	def __init__(self, ledger):
 		self.df = ledger.df
 		self.ledger_name = ledger.ledger_name
+		self.entity = ledger.entity
 
 	def get_price(self, symbol):
 		url = 'https://api.iextrading.com/1.0/stock/'
@@ -33,8 +34,7 @@ class Trading(Ledger): # Change
 		# Check if there is enough capital
 		capital_accts = ['Cash','Chequing']
 		capital_bal = 0
-		capital_bal = self.balance_sheet(capital_accts) # Change
-		#print (capital_bal)
+		capital_bal = self.balance_sheet(capital_accts)
 
 		if price * qty > capital_bal or price == 0:
 			print ('\nBuying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(round(price * qty, 2)) + '.')
@@ -94,7 +94,7 @@ if __name__ == '__main__':
 	# TODO Add argparse to make trades
 	accts = Accounts()
 	ledger = Ledger()
-	trade = Trading(ledger) # Change
+	trade = Trading(ledger)
 
 	while True:
 		command = input('\nType one of the following commands:\nbuy, sell, exit\n')
