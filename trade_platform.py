@@ -54,8 +54,8 @@ class Trading(Ledger): # Change
 		self.journal_entry(buy_event)
 		return capital_bal
 
-	def sell_shares(self, symbol, qty=1):
-		if qty == 1:
+	def sell_shares(self, symbol, qty=None):
+		if qty == None:
 			qty = int(input('How many shares? '))
 		current_qty = self.get_qty(symbol, 'Investments')
 		if qty > current_qty:
@@ -93,7 +93,7 @@ class Trading(Ledger): # Change
 if __name__ == '__main__':
 	# TODO Add argparse to make trades
 	accts = Accounts()
-	ledger = Ledger('test_1')
+	ledger = Ledger()
 	trade = Trading(ledger) # Change
 
 	while True:

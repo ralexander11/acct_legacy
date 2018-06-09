@@ -70,14 +70,14 @@ class RandomAlgo(Trading):
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
 		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
-		print (timestamp + 'Got fresh portfolio')
+		print (timestamp + 'Got fresh portfolio.')
 		return portfolio
 
 	# Buy shares until you run out of capital
 	def random_buy(self, capital):
 		print (timestamp + 'Randomly buying.')
 		while capital > 1000:
-			capital = trade.buy_shares(*algo.get_trade(symbols)) # Not working
+			capital = trade.buy_shares(*algo.get_trade(symbols))
 			print (capital)
 		print (timestamp + 'Out of capital.')
 
@@ -86,13 +86,13 @@ class RandomAlgo(Trading):
 		print (timestamp + 'Randomly selling.')
 		for symbol in portfolio['symbol'][:random.randint(1,len(portfolio))]:
 			#print (symbol) # Debug
-			trade.sell_shares(*algo.get_trade(symbol)) # Not working
+			trade.sell_shares(*algo.get_trade(symbol))
 		print (timestamp + 'Done randomly selling.')
 
 if __name__ == '__main__':
 	# TODO Add argeparse to accept a name for the ledger
 	accts = Accounts()
-	ledger = Ledger('test_1')
+	ledger = Ledger('random_1')
 	trade = Trading(ledger)
 	algo = RandomAlgo(trade)
 

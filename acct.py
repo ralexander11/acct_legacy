@@ -3,8 +3,11 @@ import numpy as np
 import sqlite3
 from time import strftime, localtime
 
-conn = sqlite3.connect('acct.db')
-#conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
+try:
+	conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
+except:
+	conn = sqlite3.connect('acct.db')
+
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
@@ -83,7 +86,7 @@ class Accounts(object):
 		if acct_data is None:
 			account = input('Enter the account name: ')
 			child_of = input('Enter the parent account: ')
-			if child_of not in accts.df.index:
+			if child_of not in Accounts.df.index:
 				print ('\n' + child_of + ' is not a valid account.')
 				return
 
@@ -141,7 +144,7 @@ class Ledger(Accounts): # Change
 			
 	def create_ledger(self):
 		create_ledger_query = '''
-			CREATE TABLE IF NOT EXISTS ''' + self.ledger_name + ''' (
+			CREATE TABLE IF NOT EXISTS ledger_''' + self.ledger_name + ''' (
 				txn_id INTEGER PRIMARY KEY,
 				event_id integer NOT NULL,
 				entity_id integer NOT NULL,
@@ -162,7 +165,7 @@ class Ledger(Accounts): # Change
 		cur.close()
 
 	def refresh_ledger(self):
-		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', conn, index_col='txn_id')
+		self.df = pd.read_sql_query('SELECT * FROM ledger_' + self.ledger_name + ';', conn, index_col='txn_id')
 
 	def print_gl(self):
 		#self.df = self.df[(self.df.debit_acct != 'Commission Expense')]
@@ -351,7 +354,7 @@ class Ledger(Accounts): # Change
 
 	# Used when booking journal entries to match related transactions
 	def get_event(self):
-		event_query = 'SELECT event_id FROM '+ self.ledger_name +' ORDER BY event_id DESC LIMIT 1;'
+		event_query = 'SELECT event_id FROM ledger_'+ self.ledger_name +' ORDER BY event_id DESC LIMIT 1;'
 		cur = conn.cursor()
 		cur.execute(event_query)
 		event_id = cur.fetchone()
@@ -385,11 +388,11 @@ class Ledger(Accounts): # Change
 			price = input('Enter an optional price: ')
 			qty = input('Enter an optional quantity: ')
 			debit = input('Enter the account to debit: ')
-			if debit not in accts.df.index:
+			if debit not in Accounts.df.index:
 				print ('\n' + debit + ' is not a valid account.')
 				return
 			credit = input('Enter the account to credit: ')
-			if credit not in accts.df.index:
+			if credit not in Accounts.df.index:
 				print ('\n' + credit + ' is not a valid account.')
 				return
 			while True:
@@ -412,7 +415,7 @@ class Ledger(Accounts): # Change
 				price = amount
 
 			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
-			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
+			cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		else: # Create journal entries by passing data to the function
 			for je in journal_data:
@@ -441,7 +444,7 @@ class Ledger(Accounts): # Change
 					price = amount
 
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
-				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
+				cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		conn.commit()
 		cur.close()
@@ -471,7 +474,7 @@ class Ledger(Accounts): # Change
 
 	def reversal_entry(self): # This func effectively deletes a transaction
 		txn = input('Which txn_id to reverse? ')
-		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
+		rvsl_query = 'SELECT * FROM ledger_'+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
 		cur = conn.cursor()
 		cur.execute(rvsl_query)
 		rvsl = cur.fetchone()
@@ -535,7 +538,7 @@ class Ledger(Accounts): # Change
 
 if __name__ == '__main__':
 	accts = Accounts()
-	ledger = Ledger('test_1')
+	ledger = Ledger()
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
