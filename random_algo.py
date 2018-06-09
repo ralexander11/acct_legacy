@@ -100,6 +100,7 @@ if __name__ == '__main__':
 	algo = RandomAlgo(trade)
 
 	print ('=' * DISPLAY_WIDTH)
+	print ('Entity: ' + str(ledger.entity))
 
 	# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
 	trade_holidays = [
