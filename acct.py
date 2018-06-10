@@ -169,7 +169,7 @@ class Ledger(Accounts):
 
 	def refresh_ledger(self):
 		self.df = pd.read_sql_query('SELECT * FROM ledger_' + self.ledger_name + ';', conn, index_col='txn_id')
-		if self.entity != None:
+		if self.entity != None: # TODO make able to select multiple entities
 			self.df = self.df[(self.df.entity_id == self.entity)]
 		if self.date != None:
 			self.df = self.df[(self.df.date <= self.date)]
@@ -177,12 +177,7 @@ class Ledger(Accounts):
 			self.df = self.df[(self.df.index <= self.txn)]
 
 	def print_gl(self):
-		if self.entity != None:
-			self.df = self.df[(self.df.entity_id == self.entity)]
-		if self.date != None:
-			self.df = self.df[(self.df.date <= self.date)]
-		if self.txn != None:
-			self.df = self.df[(self.df.index <= self.txn)]
+		self.refresh_ledger() # Refresh Ledger
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
 
