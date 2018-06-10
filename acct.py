@@ -175,11 +175,13 @@ class Ledger(Accounts):
 			self.df = self.df[(self.df.date <= self.date)]
 		if self.txn != None:
 			self.df = self.df[(self.df.index <= self.txn)]
+		return self.df
 
 	def print_gl(self):
 		self.refresh_ledger() # Refresh Ledger
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
+		return self.df
 
 	def get_acct_elem(self, acct):
 		if acct in ['Asset','Liability','Wealth','Revenue','Expense','None']:
