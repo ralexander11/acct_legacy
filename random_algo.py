@@ -171,5 +171,5 @@ if __name__ == '__main__':
 
 	print ('-' * DISPLAY_WIDTH)
 	nav = trade.balance_sheet()
-	print (nav)
+	print ('Net Asset Value: ${:,.2f}'.format(nav))
 	print (timestamp + 'Done randomly trading!')
