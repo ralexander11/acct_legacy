@@ -170,4 +170,6 @@ if __name__ == '__main__':
 	algo.random_buy(capital)#(algo.check_capital())
 
 	print ('-' * DISPLAY_WIDTH)
+	nav = trade.balance_sheet()
+	print (nav)
 	print (timestamp + 'Done randomly trading!')
