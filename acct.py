@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import sqlite3
+import argparse
 from time import strftime, localtime
 
 try:
@@ -556,8 +557,12 @@ class Ledger(Accounts):
 			return amount
 
 if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-entity', type=int, help='A number for the entity.')
+	args = parser.parse_args()
+
 	accts = Accounts()
-	ledger = Ledger() # debut ('test_1')
+	ledger = Ledger(None, args.entity) # debut ('test_1')
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
