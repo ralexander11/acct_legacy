@@ -133,12 +133,14 @@ class Accounts(object):
 		self.refresh_accts()
 
 class Ledger(Accounts):
-	def __init__(self, ledger_name=None, entity=None):
+	def __init__(self, ledger_name=None, entity=None, date=None, txn=None):
 		if ledger_name == None:
 			self.ledger_name = input('Enter a name for the ledger: ')
 		else:
 			self.ledger_name = ledger_name
 		self.entity = entity
+		self.date = date
+		self.txn = txn
 		self.create_ledger()
 		self.refresh_ledger()
 		self.balance_sheet()
@@ -169,10 +171,18 @@ class Ledger(Accounts):
 		self.df = pd.read_sql_query('SELECT * FROM ledger_' + self.ledger_name + ';', conn, index_col='txn_id')
 		if self.entity != None:
 			self.df = self.df[(self.df.entity_id == self.entity)]
+		if self.date != None:
+			self.df = self.df[(self.df.date <= self.date)]
+		if self.txn != None:
+			self.df = self.df[(self.df.index <= self.txn)]
 
 	def print_gl(self):
 		if self.entity != None:
 			self.df = self.df[(self.df.entity_id == self.entity)]
+		if self.date != None:
+			self.df = self.df[(self.df.date <= self.date)]
+		if self.txn != None:
+			self.df = self.df[(self.df.index <= self.txn)]
 		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
 
