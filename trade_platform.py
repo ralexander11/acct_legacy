@@ -8,6 +8,8 @@ class Trading(Ledger):
 		self.df = ledger.df
 		self.ledger_name = ledger.ledger_name
 		self.entity = ledger.entity
+		self.date = ledger.date
+		self.txn = ledger.txn
 
 	def get_price(self, symbol):
 		url = 'https://api.iextrading.com/1.0/stock/'
@@ -19,7 +21,7 @@ class Trading(Ledger):
 		else:
 			return price
 
-	def date(self):
+	def trade_date(self):
 		return strftime('%Y-%m-%d', localtime())
 
 	def com(self):
@@ -43,9 +45,9 @@ class Trading(Ledger):
 
 		# TODO Decide whether to display unrealized gains as temp entries with rvsls or not
 		# Journal entries for a buy transaction
-		buy_entry = [ self.get_event(), self.get_entity(), self.date(), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty]
+		buy_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty]
 		if self.com() != 0:
-			com_entry = [ self.get_event(), self.get_entity(), self.date(), 'Comm. buy', '', self.com(), 1, 'Commission Expense', 'Cash', self.com()]
+			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Comm. buy', '', self.com(), 1, 'Commission Expense', 'Cash', self.com()]
 		if self.com() != 0:
 			buy_event = [buy_entry, com_entry]
 		else:
@@ -74,13 +76,13 @@ class Trading(Ledger):
 			investment_loss = hist_cost - sale_proceeds
 
 		# Journal entries for a sell transaction
-		sell_entry = [ self.get_event(), self.get_entity(), self.date(), 'Shares sell', symbol, hist_cost / qty, qty, 'Cash', 'Investments', hist_cost]
+		sell_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Shares sell', symbol, hist_cost / qty, qty, 'Cash', 'Investments', hist_cost]
 		if investment_gain is not None:
-			profit_entry = [ self.get_event(), self.get_entity(), self.date(), 'Realized gain', '', price, 1, 'Cash', 'Investment Gain', investment_gain]
+			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Realized gain', '', price, 1, 'Cash', 'Investment Gain', investment_gain]
 		if investment_loss is not None:
-			profit_entry = [ self.get_event(), self.get_entity(), self.date(), 'Realized loss', '', price, 1, 'Investment Loss', 'Cash', investment_loss]
+			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Realized loss', '', price, 1, 'Investment Loss', 'Cash', investment_loss]
 		if self.com() != 0:
-			com_entry = [ self.get_event(), self.get_entity(), self.date(), 'Comm. sell', '', self.com(), 1,'Commission Expense', 'Cash', self.com()]
+			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Comm. sell', '', self.com(), 1,'Commission Expense', 'Cash', self.com()]
 		if self.com() != 0:
 			sell_event = [sell_entry, profit_entry, com_entry]
 		else:

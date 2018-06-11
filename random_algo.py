@@ -19,6 +19,8 @@ class RandomAlgo(Trading):
 	def __init__(self, trade):
 		self.df = trade.df
 		self.ledger_name = trade.ledger_name
+		self.date = trade.date
+		self.txn = trade.txn
 
 	def get_symbols(self, flag):
 		if flag == 'iex':
@@ -171,5 +173,5 @@ if __name__ == '__main__':
 
 	print ('-' * DISPLAY_WIDTH)
 	nav = trade.balance_sheet()
-	print ('Net Asset Value: ${:,.2f}'.format(nav))
+	print (timestamp + 'Net Asset Value: ${:,.2f}'.format(nav))
 	print (timestamp + 'Done randomly trading!')

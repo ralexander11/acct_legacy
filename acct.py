@@ -562,7 +562,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts()
-	ledger = Ledger(None, args.entity) # debut ('test_1')
+	ledger = Ledger('random_1', args.entity)
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
