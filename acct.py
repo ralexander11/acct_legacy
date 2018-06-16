@@ -4,40 +4,29 @@ import sqlite3
 import argparse
 from time import strftime, localtime
 
-try:
-	conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
-except:
-	conn = sqlite3.connect('acct.db')
-
-
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 
 class Accounts(object):
-	def __init__(self):
+	def __init__(self, conn=None):
+		if conn is None:
+			try:
+				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
+				website = True
+			except:
+				conn = sqlite3.connect('acct.db')
+		elif isinstance(conn, basestring):
+			self.conn = sqlite3.connect(conn)
+
+		Accounts.conn = conn
+
 		try:
 			self.refresh_accts()
 		except:
 			self.df = None
 			self.create_accts()
 			self.refresh_accts()
-
-	# class Accounts(object): # TODO
-	# 	def __init__(self, conn=None):
-	#         if conn is None:
-	#             self.conn = sqlite3.connect('acct.db')
-	#         elif isinstance(conn, basestring):
-	#             self.conn = sqlite3.connect(conn)
-	#         else:
-	#             self.conn = conn
-
-	# 		try:
-	# 			self.refresh_accts()
-	# 		except:
-	# 			self.df = None
-	# 			self.create_accts()
-	# 			self.refresh_accts()
 
 	def create_accts(self):
 		create_accts_query = '''
@@ -57,7 +46,7 @@ class Accounts(object):
 			['Expense','Wealth'],
 			['Transfer','Wealth']]
 
-		cur = conn.cursor()
+		cur = self.conn.cursor()
 		cur.execute(create_accts_query)
 		for acct in standard_accts:
 				account = str(acct[0])
@@ -65,11 +54,11 @@ class Accounts(object):
 				print(acct)
 				details = (account,child_of)
 				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
-		conn.commit()
+		self.conn.commit()
 		cur.close()
 
 	def refresh_accts(self):
-		Accounts.df = pd.read_sql_query('SELECT * FROM accounts;', conn, index_col='accounts')
+		Accounts.df = pd.read_sql_query('SELECT * FROM accounts;', self.conn, index_col='accounts')
 
 	def print_accts(self):
 		self.refresh_accts()
@@ -79,11 +68,11 @@ class Accounts(object):
 
 	def drop_dupe_accts(self):
 		self.df = self.df[~self.df.index.duplicated(keep='first')]
-		self.df.to_sql('accounts', conn, if_exists='replace')
+		self.df.to_sql('accounts', self.conn, if_exists='replace')
 		self.refresh_accts()
 
 	def add_acct(self, acct_data = None):
-		cur = conn.cursor()
+		cur = self.conn.cursor()
 		if acct_data is None:
 			account = input('Enter the account name: ')
 			child_of = input('Enter the parent account: ')
@@ -103,7 +92,7 @@ class Accounts(object):
 				details = (account,child_of)
 				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 
-		conn.commit()
+		self.conn.commit()
 		cur.close()
 		self.refresh_accts()
 		self.drop_dupe_accts()
@@ -127,15 +116,16 @@ class Accounts(object):
 
 	def remove_acct(self):
 		acct = input('Which account would you like to remove? ')
-		cur = conn.cursor()
+		cur = self.conn.cursor()
 		cur.execute('DELETE FROM accounts WHERE accounts=?', (acct,))
-		conn.commit()
+		self.conn.commit()
 		cur.close()
 		self.refresh_accts()
 
 class Ledger(Accounts):
 	def __init__(self, ledger_name=None, entity=None, date=None, txn=None):
-		if ledger_name == None:
+		self.conn = Accounts.conn
+		if ledger_name is None:
 			self.ledger_name = input('Enter a name for the ledger: ')
 		else:
 			self.ledger_name = ledger_name
@@ -163,13 +153,13 @@ class Ledger(Accounts):
 			);
 			'''
 
-		cur = conn.cursor()
+		cur = self.conn.cursor()
 		cur.execute(create_ledger_query)
-		conn.commit()
+		self.conn.commit()
 		cur.close()
 
 	def refresh_ledger(self):
-		self.df = pd.read_sql_query('SELECT * FROM ledger_' + self.ledger_name + ';', conn, index_col='txn_id')
+		self.df = pd.read_sql_query('SELECT * FROM ledger_' + self.ledger_name + ';', self.conn, index_col='txn_id')
 		if self.entity != None: # TODO make able to select multiple entities
 			self.df = self.df[(self.df.entity_id == self.entity)]
 		if self.date != None:
@@ -192,7 +182,7 @@ class Ledger(Accounts):
 
 	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
 		all_accts = False
-		if accounts == None: # Create a list of all the accounts
+		if accounts is None: # Create a list of all the accounts
 			all_accts = True
 			debit_accts = pd.unique(self.df['debit_acct'])
 			credit_accts = pd.unique(self.df['credit_acct'])
@@ -322,10 +312,10 @@ class Ledger(Accounts):
 		self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
 
 		if all_accts:
-			if self.entity == None:
-				self.bs.to_sql('balance_sheet', conn, if_exists='replace')
+			if self.entity is None:
+				self.bs.to_sql('balance_sheet', self.conn, if_exists='replace')
 			else:
-				self.bs.to_sql('balance_sheet_' + str(self.entity), conn, if_exists='replace')
+				self.bs.to_sql('balance_sheet_' + str(self.entity), self.conn, if_exists='replace')
 		return net_asset_value
 
 	def print_bs(self):
@@ -334,9 +324,9 @@ class Ledger(Accounts):
 		print ('-' * DISPLAY_WIDTH)
 
 	def get_qty(self, item=None, acct=None):
-		if acct == None:
+		if acct is None:
 			acct = 'Investments' #input('Which account? ')
-		if (item == None) or (item == ''): # Get qty for all items
+		if (item is None) or (item == ''): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
 			item_ids = self.df['item_id'].replace('', np.nan, inplace=True)
 			item_ids = pd.unique(self.df['item_id'].dropna())
@@ -351,11 +341,12 @@ class Ledger(Accounts):
 					credits = 0
 				qty = round(debits - credits, 2)
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
+				inventory = inventory[(inventory.qty != 0)]
 
-			if self.entity == None:
-				inventory.to_sql('inventory', conn, if_exists='replace')
+			if self.entity is None:
+				inventory.to_sql('inventory', self.conn, if_exists='replace')
 			else:
-				inventory.to_sql('inventory_' + str(self.entity), conn, if_exists='replace')
+				inventory.to_sql('inventory_' + str(self.entity), self.conn, if_exists='replace')
 			return inventory
 
 		# Get qty for one item specified
@@ -373,18 +364,18 @@ class Ledger(Accounts):
 	# Used when booking journal entries to match related transactions
 	def get_event(self):
 		event_query = 'SELECT event_id FROM ledger_'+ self.ledger_name +' ORDER BY event_id DESC LIMIT 1;'
-		cur = conn.cursor()
+		cur = self.conn.cursor()
 		cur.execute(event_query)
 		event_id = cur.fetchone()
 		cur.close()
-		if event_id == None:
+		if event_id is None:
 			event_id = 1
 			return event_id
 		else:
 			return event_id[0] + 1
 
 	def get_entity(self):
-		if self.entity == None:
+		if self.entity is None:
 			entity = 1
 		else:
 			entity = self.entity
@@ -397,7 +388,7 @@ class Ledger(Accounts):
 			of datapoints. This means an event with a single transaction
 			would be encapsulated in as a single list within a list.
 		'''
-		cur = conn.cursor()
+		cur = self.conn.cursor()
 		if journal_data is None: # Manually enter a journal entry
 			event = input('Enter an optional event_id: ')
 			entity = input('Enter the entity_id: ')
@@ -466,7 +457,7 @@ class Ledger(Accounts):
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 				cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
-		conn.commit()
+		self.conn.commit()
 		cur.close()
 		self.refresh_ledger() # Ensures the df is in sync with the db
 		self.balance_sheet() # Ensures the bs is in sync with the ledger
@@ -495,7 +486,7 @@ class Ledger(Accounts):
 	def reversal_entry(self): # This func effectively deletes a transaction
 		txn = input('Which txn_id to reverse? ')
 		rvsl_query = 'SELECT * FROM ledger_'+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
-		cur = conn.cursor()
+		cur = self.conn.cursor()
 		cur.execute(rvsl_query)
 		rvsl = cur.fetchone()
 		cur.close()
@@ -503,7 +494,7 @@ class Ledger(Accounts):
 		self.journal_entry(rvsl_entry)
 
 	def hist_cost(self, qty, item=None, acct=None):
-		if acct == None:
+		if acct is None:
 			acct = 'Investments' #input('Which account? ')
 
 		# TODO if a reversal is reversed, it will still cause issues

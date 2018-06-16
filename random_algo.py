@@ -19,8 +19,25 @@ class RandomAlgo(Trading):
 	def __init__(self, trade):
 		self.df = trade.df
 		self.ledger_name = trade.ledger_name
+		self.entity = trade.entity
 		self.date = trade.date
 		self.txn = trade.txn
+
+		# Get entity settings for random trading parameters
+		self.min_qty = 1
+		if self.entity is not None:
+			cur = ledger.conn.cursor()
+			self.min_qty = cur.execute('SELECT min_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		self.max_qty = 100
+		if self.entity is not None:
+			self.max_qty = cur.execute('SELECT max_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		self.liquidate_chance = 0.5
+		if self.entity is not None:
+			self.liquidate_chance = cur.execute('SELECT liquidate_chance FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		self.ticker_source = 'iex'
+		if self.entity is not None:
+			self.ticker_source = cur.execute('SELECT ticker_source FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+			cur.close()
 
 	def get_symbols(self, flag):
 		if flag == 'iex':
@@ -36,7 +53,7 @@ class RandomAlgo(Trading):
 	def check_capital(self, capital_accts=None):
 		print (timestamp + 'Checking capital...')
 		self.df = trade.df
-		if capital_accts == None:
+		if capital_accts is None:
 			capital_accts = ['Cash','Chequing']
 		capital_bal = 0
 		capital_bal = trade.balance_sheet(capital_accts)
@@ -51,19 +68,18 @@ class RandomAlgo(Trading):
 			print ('Using single ticker')
 			symbol = symbols
 		try: # If position is already held on ticker
-			max_qty = portfolio.loc[portfolio['symbol'] == symbol]['qty'].values
-			if (random.randint(1, 2) % 2 == 0): # 50% chance to sell portion of existing position up to its max qty
+			qty_held = portfolio.loc[portfolio['symbol'] == symbol]['qty'].values
+			if random.random() < self.liquidate_chance: # Chance to sell portion of existing position up to its max qty. Set by entity settings
 				print ('Not max QTY')
-				qty = random.randint(2, max_qty)
-			else: # 50% chance to liquidate position
+				qty = random.randint(1, qty_held)
+			else: # Chance to liquidate position. Set by entity settings
 				print ('Max QTY')
-				qty = int(max_qty)
+				qty = int(qty_held)
 		except: # Purchase random amount of shares on position not held
 			print ('Ticker not held')
-			max_qty = 100
-			qty = random.randint(2, max_qty)
+			qty = random.randint(self.min_qty, self.max_qty) # Set by entity settings
 			
-		#print (qty)
+		#print ( (symbol, qty) )
 		return symbol, qty
 
 	# Get list of currently held tickers
@@ -135,8 +151,7 @@ if __name__ == '__main__':
 			print (timestamp + 'Today is a trade holiday.')
 			exit()
 
-	source = 'iex' # input("Which ticker source? ").lower()
-	symbols = algo.get_symbols(source) # Get list of all the tickers
+	symbols = algo.get_symbols(algo.ticker_source) # Get list of all the tickers
 
 	# Check how much capital is available
 	capital = algo.check_capital()

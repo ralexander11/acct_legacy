@@ -2,6 +2,8 @@
 
 This is a simple general purpose accounting system that can interface with other python applications.
 
+http://becauseinterfaces.com/
+
 ## Instructions If Using a Clean DB File
 
 The below instructions apply when not using the acct.db file included in the repository.

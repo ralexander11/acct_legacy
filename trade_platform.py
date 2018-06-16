@@ -4,12 +4,17 @@ import urllib.request
 from time import strftime, localtime
 
 class Trading(Ledger):
-	def __init__(self, ledger):
+	def __init__(self, ledger, comm=0.0):
 		self.df = ledger.df
 		self.ledger_name = ledger.ledger_name
 		self.entity = ledger.entity
 		self.date = ledger.date
 		self.txn = ledger.txn
+
+		self.comm = comm
+		if self.entity is not None:
+			cur = ledger.conn.cursor()
+			self.comm = cur.execute('SELECT comm FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
 
 	def get_price(self, symbol):
 		url = 'https://api.iextrading.com/1.0/stock/'
@@ -24,8 +29,8 @@ class Trading(Ledger):
 	def trade_date(self):
 		return strftime('%Y-%m-%d', localtime())
 
-	def com(self):
-		com = 0 #9.95
+	def com(self): # If I want to add more logic to commissions calculation
+		com = self.comm #9.95
 		return com
 
 	def buy_shares(self, symbol, qty=1):
@@ -57,7 +62,7 @@ class Trading(Ledger):
 		return capital_bal
 
 	def sell_shares(self, symbol, qty=None):
-		if qty == None:
+		if qty is None:
 			qty = int(input('How many shares? '))
 		current_qty = self.get_qty(symbol, 'Investments')
 		if qty > current_qty:
