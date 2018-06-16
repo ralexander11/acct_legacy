@@ -113,7 +113,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts()
-	ledger = Ledger('random_1', args.entity)
+	ledger = Ledger('random_1', entity=args.entity)
 	trade = Trading(ledger)
 	algo = RandomAlgo(trade)
 
