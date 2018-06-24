@@ -118,7 +118,7 @@ if __name__ == '__main__':
 	algo = RandomAlgo(trade)
 
 	print ('=' * DISPLAY_WIDTH)
-	print (timestamp + 'Entity: ' + str(ledger.entity))
+	print (timestamp + 'Entity: {} \nCommission: {} Min QTY: {} Max QTY: {}, Liquidate Chance: {} Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
 
 	# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
 	trade_holidays = [
@@ -188,5 +188,6 @@ if __name__ == '__main__':
 
 	print ('-' * DISPLAY_WIDTH)
 	nav = trade.balance_sheet()
+	trade.print_bs()
 	print (timestamp + 'Net Asset Value: ${:,.2f}'.format(nav))
 	print (timestamp + 'Done randomly trading!')

@@ -33,8 +33,8 @@ class Trading(Ledger):
 		com = self.comm #9.95
 		return com
 
-	def buy_shares(self, symbol, qty=1):
-		if qty == 1:
+	def buy_shares(self, symbol, qty=None):
+		if qty == None:
 			qty = int(input('How many shares? '))
 		price = self.get_price(symbol)
 

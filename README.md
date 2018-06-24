@@ -10,6 +10,7 @@ The below instructions apply when not using the acct.db file included in the rep
 
 ### Part I - Setup the accounts and capital
 
+0. Rename acct.db to acct_orig.db
 1. Run acct.py
 2. You should see 9 standard account get loaded
 3. Type "loadAccts" command
