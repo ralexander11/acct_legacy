@@ -120,6 +120,8 @@ if __name__ == '__main__':
 	print ('=' * DISPLAY_WIDTH)
 	print (timestamp + 'Entity: {} \nCommission: {} Min QTY: {} Max QTY: {}, Liquidate Chance: {} Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
 
+	trade.int_exp()
+
 	# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
 	trade_holidays = [
 						'2018-01-01',

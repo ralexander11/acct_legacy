@@ -1,6 +1,7 @@
 from acct import Accounts
 from acct import Ledger
 import urllib.request
+import pandas as pd
 from time import strftime, localtime
 
 class Trading(Ledger):
@@ -52,7 +53,7 @@ class Trading(Ledger):
 		# Journal entries for a buy transaction
 		buy_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty]
 		if self.com() != 0:
-			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Comm. buy', '', self.com(), 1, 'Commission Expense', 'Cash', self.com()]
+			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Comm. buy', '', '', '', 'Commission Expense', 'Cash', self.com()]
 		if self.com() != 0:
 			buy_event = [buy_entry, com_entry]
 		else:
@@ -83,11 +84,11 @@ class Trading(Ledger):
 		# Journal entries for a sell transaction
 		sell_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Shares sell', symbol, hist_cost / qty, qty, 'Cash', 'Investments', hist_cost]
 		if investment_gain is not None:
-			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Realized gain', '', price, 1, 'Cash', 'Investment Gain', investment_gain]
+			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Realized gain', '', price, '', 'Cash', 'Investment Gain', investment_gain]
 		if investment_loss is not None:
-			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Realized loss', '', price, 1, 'Investment Loss', 'Cash', investment_loss]
+			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Realized loss', '', price, '', 'Investment Loss', 'Cash', investment_loss]
 		if self.com() != 0:
-			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Comm. sell', '', self.com(), 1,'Commission Expense', 'Cash', self.com()]
+			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Comm. sell', '', '', '','Commission Expense', 'Cash', self.com()]
 		if self.com() != 0:
 			sell_event = [sell_entry, profit_entry, com_entry]
 		else:
@@ -96,6 +97,51 @@ class Trading(Ledger):
 		self.journal_entry(sell_event)
 
 		# TODO Handle dividends and stock splits
+
+	def int_exp(self):
+		loan_accts = ['Credit Line','Student Credit'] # TODO Get list from accts under liabilities
+		loan_bal = 0
+		loan_bal = self.balance_sheet(loan_accts)
+		if loan_bal < 0:
+			print ('Loan exists!')
+			cur = ledger.conn.cursor()
+			for loan_type in loan_accts:
+				loans = pd.unique(self.df.loc[self.df['credit_acct'] == loan_type]['item_id'])
+				for loan in loans:
+					try:
+						debits = self.df.loc[self.df['item_id'] == loan].groupby('debit_acct').sum()['amount'][loan_type]
+					except:
+						debits = 0
+					try:
+						credits = self.df.loc[self.df['item_id'] == loan].groupby('credit_acct').sum()['amount'][loan_type]
+					except:
+						credits = 0
+					loan_bal = credits - debits
+					if loan_bal > 0:
+						int_rate_fix = cur.execute('SELECT int_rate_fix FROM items WHERE item_id = "' + str(loan) + '";').fetchone()[0]
+						print (int_rate_fix)
+						int_rate_var = cur.execute('SELECT int_rate_var FROM items WHERE item_id = "' + str(loan) + '";').fetchone()[0]
+						print (int_rate_var)
+						if int_rate_var is None:
+							url = 'http://www.rbcroyalbank.com/rates/prime.html'
+							rbc_prime_rate = pd.read_html(url)[5].iloc[1,1]
+							try:
+								int_rate_var = round(float(rbc_prime_rate) / 100, 4)
+							except:
+								print ('RBC Rates Website structure has changed.')
+								int_rate_var = 0
+						print (rbc_prime_rate)
+
+					rate = int_rate_fix + int_rate_var
+					period = 1 / 365 # TODO Add frequency logic
+					int_amount = round(loan_bal * rate * period, 2)
+					print (int_amount)
+					int_exp_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Interest expense', '', '', '', 'Interest Expense', 'Cash', int_amount]
+					int_exp_event = [int_exp_entry]
+					self.journal_entry(int_exp_event)
+
+	def unrealized(self):
+		pass
 
 if __name__ == '__main__':
 	# TODO Add argparse to make trades

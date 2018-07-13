@@ -408,9 +408,14 @@ class Ledger(Accounts):
 				return
 			while True:
 				amount = input('Enter the amount: ')
-				if amount.isdigit():
+				# if amount.isdigit():
+				# 	break
+				# else:
+				# 	continue
+				try: # TODO Maybe change to regular expressions to prevent negatives
+					x = float(amount)
 					break
-				else:
+				except ValueError:
 					continue
 			
 			if event == '':
@@ -420,10 +425,10 @@ class Ledger(Accounts):
 			if date == 'NaT':
 				date_raw = strftime('%Y-%m-%d', localtime())
 				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-			if qty == '':
-				qty = 1
+			if qty == '': # TODO No qty and price default needed now
+				qty = None
 			if price == '':
-				price = amount
+				price = None
 
 			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 			cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
@@ -440,6 +445,7 @@ class Ledger(Accounts):
 				debit = str(je[7])
 				credit = str(je[8])
 				amount = str(je[9])
+				#if not website: # TODO Pass website variable to class
 				print(je)
 
 				if event == '':
@@ -449,10 +455,10 @@ class Ledger(Accounts):
 				if date == 'NaT':
 					date_raw = strftime('%Y-%m-%d', localtime())
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-				if qty == '':
-					qty = 1
+				if qty == '': # TODO No qty and price default needed now
+					qty = None
 				if price == '':
-					price = amount
+					price = None
 
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 				cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
@@ -553,7 +559,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts()
-	ledger = Ledger('test_1',entity=args.entity)
+	ledger = Ledger('random_1',entity=args.entity)
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
