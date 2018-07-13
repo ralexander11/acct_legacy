@@ -11,6 +11,9 @@ Info,Admin
 Commission Expense,Expense
 Investment Gain,Revenue
 Investment Loss,Expense
+Unrealized Gain,Revenue
+Unrealized Loss,Expense
+Interest Expense,Expense
 Salary,Revenue
 Salary MM,Salary
 Salary ME,Salary

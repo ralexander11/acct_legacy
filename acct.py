@@ -304,7 +304,7 @@ class Ledger(Accounts):
 			net_asset_value = wealth_bal + retained_earnings
 
 		total_equity = net_asset_value + liab_bal
-		self.bs = self.bs.append({'line_item':'Total Wealth + NI + Liabilities:', 'balance':total_equity}, ignore_index=True)
+		self.bs = self.bs.append({'line_item':'Wealth+NI+Liab.:', 'balance':total_equity}, ignore_index=True)
 
 		check = asset_bal - total_equity
 		self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
@@ -323,7 +323,7 @@ class Ledger(Accounts):
 		print (self.bs)
 		print ('-' * DISPLAY_WIDTH)
 
-	def get_qty(self, item=None, acct=None):
+	def get_qty(self, item=None, acct=None): # TODO Add logic to ignore rvsls
 		if acct is None:
 			acct = 'Investments' #input('Which account? ')
 		if (item is None) or (item == ''): # Get qty for all items
@@ -489,8 +489,9 @@ class Ledger(Accounts):
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
 		print ('File saved as ' + save_location + outfile + '\n')
 
-	def reversal_entry(self): # This func effectively deletes a transaction
-		txn = input('Which txn_id to reverse? ')
+	def reversal_entry(self, txn=None): # This func effectively deletes a transaction
+		if txn is None:
+			txn = input('Which txn_id to reverse? ')
 		rvsl_query = 'SELECT * FROM ledger_'+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
 		cur = self.conn.cursor()
 		cur.execute(rvsl_query)

@@ -16,6 +16,7 @@ class Trading(Ledger):
 		if self.entity is not None:
 			cur = ledger.conn.cursor()
 			self.comm = cur.execute('SELECT comm FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+			cur.close()
 
 	def get_price(self, symbol):
 		url = 'https://api.iextrading.com/1.0/stock/'
@@ -98,8 +99,9 @@ class Trading(Ledger):
 
 		# TODO Handle dividends and stock splits
 
-	def int_exp(self):
-		loan_accts = ['Credit Line','Student Credit'] # TODO Get list from accts under liabilities
+	def int_exp(self, ledger, loan_accts=None):
+		if loan_accts is None:
+			loan_accts = ['Credit Line','Student Credit'] # TODO Maybe generate list from liability accounts
 		loan_bal = 0
 		loan_bal = self.balance_sheet(loan_accts)
 		if loan_bal < 0:
@@ -139,14 +141,51 @@ class Trading(Ledger):
 					int_exp_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Interest expense', '', '', '', 'Interest Expense', 'Cash', int_amount]
 					int_exp_event = [int_exp_entry]
 					self.journal_entry(int_exp_event)
+			cur.close()
 
 	def unrealized(self):
-		pass
+		inv = self.get_qty(acct='Investments')
+		print (inv)
+
+		try:
+			rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+			print (rvsl_txns)
+			# Get list of txns
+			inv_txns = self.df[( (self.df['debit_acct'] == 'Unrealized Loss') | (self.df['credit_acct'] == 'Unrealized Gain') ) & (~self.df['event_id'].isin(rvsl_txns))]#['txn_id']
+			print (inv_txns)
+			for txn in inv_txns.iterrows():
+				self.reversal_entry(str(txn[0]))
+		except:
+			print ('First true up run')
+
+		for index, item in inv.iterrows():
+			print (item.iloc[0])
+			symbol = item.iloc[0]
+			price = self.get_price(symbol)
+			qty = item.iloc[1]
+			market_value = qty * price
+			hist_cost = self.hist_cost(qty, symbol, 'Investments')
+			unrealized_gain = None
+			unrealized_loss = None
+			if market_value == hist_cost:
+				break
+			elif market_value > hist_cost:
+				unrealized_gain = market_value - hist_cost
+			else:
+				unrealized_loss = hist_cost - market_value
+			if unrealized_gain is not None:
+				true_up_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Unrealized gain', symbol, price, '', 'Investments', 'Unrealized Gain', unrealized_gain ]
+			if unrealized_loss is not None:
+				true_up_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Unrealized loss', symbol, price, '', 'Unrealized Loss', 'Investments', unrealized_loss ]
+			true_up_event = [ true_up_entry ]
+
+			self.journal_entry(true_up_event)
+
 
 if __name__ == '__main__':
 	# TODO Add argparse to make trades
 	accts = Accounts()
-	ledger = Ledger()
+	ledger = Ledger('random_1')
 	trade = Trading(ledger)
 
 	while True:
