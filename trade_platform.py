@@ -204,26 +204,34 @@ class Trading(Ledger):
 					continue
 			except:
 				print ('Invalid ticker: ' + symbol)
-			div_rate = div.iloc[0,0]
-			if verbose:
-				print ('Div rate: {}'.format(div.iloc[0,0]))
-			qty = self.get_qty(symbol, 'Investments')
-			if verbose:
-				print ('qty: {}'.format(qty))
-			div_proceeds = div_rate * qty
+				if verbose:
+					print (url + symbol + '/' + end_point)
+				continue
 			exdate = div.iloc[0,2]
-			if verbose:
-				print ('Exdate: {}'.format(div.iloc[0,2]))
-			
-			datetime_object = datetime.datetime.strptime(exdate, '%Y-%m-%d')
+			if exdate is None:
+				print ('Exdate is blank for: ' + symbol)
+				continue
+			datetime_object = datetime.datetime.strptime(exdate, '%Y-%m-%d') # TODO Update logic so that it compares date strings and not day of the year
 			exdate = datetime_object.timetuple().tm_yday
-			if verbose:
-				print ('Exdate day: {}'.format(exdate))
 			day_of_year = datetime.datetime.today().timetuple().tm_yday
 			if verbose:
-				print ('Day of the year: {}'.format(day_of_year))
+				print ('Exdate: {}'.format(div.iloc[0,2]))
+				print ('Exdate day: {}'.format(exdate))
+				print ('Day of the year: {}\n'.format(day_of_year))
 			if day_of_year == exdate:
+				div_rate = div.iloc[0,0]
+				if div_rate is None:
+					print ('Div rate is blank for: ' + symbol)
+					continue
+				qty = self.get_qty(symbol, 'Investments')
+				try:
+					div_proceeds = div_rate * qty
+				except:
+					print ('Div proceeds is blank for: ' + symbol)
+					continue
 				if verbose:
+					print ('QTY: {}'.format(qty))
+					print ('Div Rate: {}'.format(div.iloc[0,0]))
 					print ('Div Proceeds: {}'.format(div_proceeds))
 				div_accr_entry = [self.get_event(), self.get_entity(), self.trade_date(), 'Dividend income accrual', symbol, div_rate, qty, 'Dividend Receivable', 'Dividend Income', div_proceeds]
 				div_accr_event = [div_accr_entry]
@@ -250,18 +258,21 @@ class Trading(Ledger):
 					continue
 			except:
 				print ('Invalid ticker: ' + symbol)
+				if verbose:
+					print (url + symbol + '/' + end_point)
+				continue
 			paydate = div.iloc[0,5]
+			if paydate is None:
+				print ('Paydate is blank for: ' + symbol)
+				continue
 			if verbose:
 				print ('Paydate: {}'.format(paydate))
-
-			datetime_object = datetime.datetime.strptime(paydate, '%Y-%m-%d')
-			paydate = datetime_object.timetuple().tm_yday
-			if verbose:
-				print ('Paydate day: {}'.format(paydate))
+			datetime_object = datetime.datetime.strptime(paydate, '%Y-%m-%d') # TODO Update logic so that it compares date strings and not day of the year
+			paydate = datetime_object.timetuple().tm_yday	
 			day_of_year = datetime.datetime.today().timetuple().tm_yday
 			if verbose:
+				print ('Paydate day: {}'.format(paydate))
 				print ('Day of the year: {}'.format(day_of_year))
-
 			if day_of_year == paydate:
 				div_relieve_entry = [div_accr_txn.iloc[0], div_accr_txn.iloc[1], self.trade_date(), 'Dividend income payment', symbol, div_accr_txn.iloc[5], div_accr_txn.iloc[6], 'Cash', 'Dividend Receivable', div_accr_txn.iloc[9]]
 				div_relieve_event = [div_relieve_entry]

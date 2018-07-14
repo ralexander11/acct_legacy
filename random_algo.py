@@ -12,6 +12,7 @@ pd.options.display.float_format = '${:,.2f}'.format
 pd.set_option('display.max_columns', 5)
 pd.set_option('display.max_rows', 20)
 verbose = False
+verbose2 = True # TODO Decide whether to implement this in the functions
 
 random.seed()
 timestamp = datetime.datetime.now().strftime('[%Y-%b-%d %H:%M:%S] ')
@@ -130,8 +131,8 @@ if __name__ == '__main__':
 	print (timestamp + 'Entity: {} \nCommission: {} Min QTY: {} Max QTY: {}, Liquidate Chance: {} Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
 
 	trade.int_exp(ledger)
-	trade.dividends(ledger)
-	trade.div_accr(ledger)
+	trade.dividends()
+	trade.div_accr()
 
 	# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
 	trade_holidays = [
