@@ -14,13 +14,14 @@ Investment Loss,Expense
 Unrealized Gain,Revenue
 Unrealized Loss,Expense
 Interest Expense,Expense
+Dividend Receivable,Asset
+Dividend Income,Revenue
+Interest Income,Revenue
 Salary,Revenue
 Salary MM,Salary
 Salary ME,Salary
 Overtime,Revenue
 Bonus,Revenue
-Interest Income,Revenue
-Dividend Income,Revenue
 Gifts,Revenue
 Tax Refund,Revenue
 HST Rebate,Revenue

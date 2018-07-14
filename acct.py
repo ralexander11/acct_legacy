@@ -7,6 +7,7 @@ from time import strftime, localtime
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
+verbose = False
 
 class Accounts(object):
 	def __init__(self, conn=None):
@@ -329,15 +330,22 @@ class Ledger(Accounts):
 		if (item is None) or (item == ''): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
 			item_ids = self.df['item_id'].replace('', np.nan, inplace=True)
+			item_ids = self.df['qty'].replace('None', np.nan, inplace=True) # TODO This line may not be needed on a clean ledger
 			item_ids = pd.unique(self.df['item_id'].dropna())
 			for item in item_ids:
+				#if verbose:
+					#print (item)
 				try:
 					debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
 				except:
+					if verbose:
+						print ('Error debit')
 					debits = 0
 				try:
 					credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
 				except:
+					if verbose:
+						print ('Error credit')
 					credits = 0
 				qty = round(debits - credits, 2)
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
@@ -353,10 +361,14 @@ class Ledger(Accounts):
 		try:
 			debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
 		except:
+			if verbose:
+				print ('Error debit')
 			debits = 0
 		try:
 			credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
 		except:
+			if verbose:
+				print ('Error credit')
 			credits = 0
 		qty = round(debits - credits, 2)
 		return qty
@@ -445,8 +457,8 @@ class Ledger(Accounts):
 				debit = str(je[7])
 				credit = str(je[8])
 				amount = str(je[9])
-				#if not website: # TODO Pass website variable to class
-				print(je)
+				if verbose:
+					print(je)
 
 				if event == '':
 					event = str(self.get_event())
@@ -524,11 +536,12 @@ class Ledger(Accounts):
 		avail_qty = qty_back + start_qty # Portion of first lot of unsold items that has not been sold
 
 		amount = 0
-		if qty <= avail_qty: # Corner case
+		if qty <= avail_qty: # Case when first available lot covers the need
 			price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[qty]})
 			amount = price_chart.price.dot(price_chart.qty)
-			print ('One')
-			print (amount)
+			if verbose:
+				print ('One')
+				print (amount)
 			return amount
 
 		price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[avail_qty]}) # Create a list of lots with associated price
@@ -542,16 +555,18 @@ class Ledger(Accounts):
 				if qty - self.df.loc[current_index]['qty'] < 0: # Final case when the last sellable lot is larger than remaining qty to be sold
 					price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
 					amount = price_chart.price.dot(price_chart.qty)
-					print ('Two')
-					print (amount)
+					if verbose:
+						print ('Two')
+						print (amount)
 					return amount
 				
 				price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':self.df.loc[current_index]['qty']}, ignore_index=True)
 				qty = qty - self.df.loc[current_index]['qty']
 
 			amount = price_chart.price.dot(price_chart.qty) # Take dot product
-			print ('Three')
-			print (amount)
+			if verbose:
+				print ('Three')
+				print (amount)
 			return amount
 
 if __name__ == '__main__':

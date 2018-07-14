@@ -11,6 +11,7 @@ pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 pd.set_option('display.max_columns', 5)
 pd.set_option('display.max_rows', 20)
+verbose = False
 
 random.seed()
 timestamp = datetime.datetime.now().strftime('[%Y-%b-%d %H:%M:%S] ')
@@ -57,29 +58,36 @@ class RandomAlgo(Trading):
 			capital_accts = ['Cash','Chequing']
 		capital_bal = 0
 		capital_bal = trade.balance_sheet(capital_accts)
+		print (capital_bal)
 		return capital_bal
 	
 	 # Generates the trade details
 	def get_trade(self, symbols):
 		try: # Get random ticker from df
 			symbol = symbols.iloc[random.randint(0, len(symbols))-1]['symbol'].lower()
-			print ('Using list of tickers')
+			if verbose:
+				print ('Using list of tickers')
 		except: # If single ticker is provided
-			print ('Using single ticker')
+			if verbose:
+				print ('Using single ticker')
 			symbol = symbols
 		try: # If position is already held on ticker
 			qty_held = portfolio.loc[portfolio['symbol'] == symbol]['qty'].values
 			if random.random() < self.liquidate_chance: # Chance to sell portion of existing position up to its max qty. Set by entity settings
-				print ('Not max QTY')
+				if verbose:
+					print ('Not max QTY')
 				qty = random.randint(1, qty_held)
 			else: # Chance to liquidate position. Set by entity settings
-				print ('Max QTY')
+				if verbose:
+					print ('Max QTY')
 				qty = int(qty_held)
 		except: # Purchase random amount of shares on position not held
-			print ('Ticker not held')
+			if verbose:
+				print ('Ticker not held')
 			qty = random.randint(self.min_qty, self.max_qty) # Set by entity settings
-			
-		#print ( (symbol, qty) )
+		
+		if verbose:
+			print ( (symbol, qty) )
 		return symbol, qty
 
 	# Get list of currently held tickers
@@ -96,7 +104,8 @@ class RandomAlgo(Trading):
 		print (timestamp + 'Randomly buying.')
 		while capital > 1000:
 			capital = trade.buy_shares(*algo.get_trade(symbols))
-			print (capital)
+			if verbose:
+				print (capital)
 		print (timestamp + 'Out of capital.')
 
 	# Sell randomly from a random subset of positions
@@ -121,6 +130,8 @@ if __name__ == '__main__':
 	print (timestamp + 'Entity: {} \nCommission: {} Min QTY: {} Max QTY: {}, Liquidate Chance: {} Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
 
 	trade.int_exp(ledger)
+	trade.dividends(ledger)
+	trade.div_accr(ledger)
 
 	# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
 	trade_holidays = [
@@ -157,7 +168,8 @@ if __name__ == '__main__':
 
 	# Check how much capital is available
 	capital = algo.check_capital()
-	print (capital)
+	if verbose:
+		print (capital)
 	print ('-' * DISPLAY_WIDTH)
 
 	# Inital day of portfolio setup
@@ -174,7 +186,8 @@ if __name__ == '__main__':
 	
 	# Get fresh list of currently held tickers
 	portfolio = algo.get_portfolio()
-	print (portfolio)
+	if verbose:
+		print (portfolio)
 	print ('-' * DISPLAY_WIDTH)
 
 	# Sell random amounts of currently held shares from a random subset of positions currently held
@@ -182,11 +195,13 @@ if __name__ == '__main__':
 	print ('-' * DISPLAY_WIDTH)
 
 	# Buy shares until you run out of capital again
-	print (capital)
+	if verbose:
+		print (capital)
 	capital = algo.check_capital()
-	print (capital)
+	if verbose:
+		print (capital)
 	print ('-' * DISPLAY_WIDTH)
-	algo.random_buy(capital)#(algo.check_capital())
+	algo.random_buy(capital)
 
 	print ('-' * DISPLAY_WIDTH)
 	print (timestamp + 'Book unrealized gains and losses.')

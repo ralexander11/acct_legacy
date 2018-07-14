@@ -3,6 +3,9 @@ from acct import Ledger
 import urllib.request
 import pandas as pd
 from time import strftime, localtime
+import datetime
+
+verbose = False
 
 class Trading(Ledger):
 	def __init__(self, ledger, comm=0.0):
@@ -50,7 +53,6 @@ class Trading(Ledger):
 			print ('You currently have $' + str(round(capital_bal, 2)) + ' available.\n')
 			return capital_bal
 
-		# TODO Decide whether to display unrealized gains as temp entries with rvsls or not
 		# Journal entries for a buy transaction
 		buy_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty]
 		if self.com() != 0:
@@ -97,9 +99,9 @@ class Trading(Ledger):
 
 		self.journal_entry(sell_event)
 
-		# TODO Handle dividends and stock splits
+		# TODO Handle stock splits
 
-	def int_exp(self, ledger, loan_accts=None):
+	def int_exp(self, ledger, loan_accts=None): # TODO Add commenting
 		if loan_accts is None:
 			loan_accts = ['Credit Line','Student Credit'] # TODO Maybe generate list from liability accounts
 		loan_bal = 0
@@ -143,23 +145,27 @@ class Trading(Ledger):
 					self.journal_entry(int_exp_event)
 			cur.close()
 
-	def unrealized(self):
+	def unrealized(self): # TODO Add commenting
 		inv = self.get_qty(acct='Investments')
-		print (inv)
+		if verbose:
+			print (inv)
 
 		try:
 			rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
-			print (rvsl_txns)
+			if verbose:
+				print (rvsl_txns)
 			# Get list of txns
-			inv_txns = self.df[( (self.df['debit_acct'] == 'Unrealized Loss') | (self.df['credit_acct'] == 'Unrealized Gain') ) & (~self.df['event_id'].isin(rvsl_txns))]#['txn_id']
-			print (inv_txns)
+			inv_txns = self.df[( (self.df['debit_acct'] == 'Unrealized Loss') | (self.df['credit_acct'] == 'Unrealized Gain') ) & (~self.df['event_id'].isin(rvsl_txns))]
+			if verbose:
+				print (inv_txns)
 			for txn in inv_txns.iterrows():
 				self.reversal_entry(str(txn[0]))
 		except:
-			print ('First true up run')
+			print ('First true up run.')
 
 		for index, item in inv.iterrows():
-			print (item.iloc[0])
+			if verbose:
+				print (item.iloc[0])
 			symbol = item.iloc[0]
 			price = self.get_price(symbol)
 			qty = item.iloc[1]
@@ -181,6 +187,86 @@ class Trading(Ledger):
 
 			self.journal_entry(true_up_event)
 
+	def dividends(self, end_point='dividends/3m'): # TODO Add commenting
+		url = 'https://api.iextrading.com/1.0/stock/'
+		portfolio = self.get_qty()
+		if verbose:
+			print (portfolio)
+			print (portfolio['item_id'])
+		for symbol in portfolio['item_id']:
+			if verbose:
+				print('Getting divs for ' + symbol)
+			try:
+				div = pd.read_json(url + symbol + '/' + end_point, typ='frame', orient='records')
+				if verbose:
+					print (div)
+				if div.empty:
+					continue
+			except:
+				print ('Invalid ticker: ' + symbol)
+			div_rate = div.iloc[0,0]
+			if verbose:
+				print ('Div rate: {}'.format(div.iloc[0,0]))
+			qty = self.get_qty(symbol, 'Investments')
+			if verbose:
+				print ('qty: {}'.format(qty))
+			div_proceeds = div_rate * qty
+			exdate = div.iloc[0,2]
+			if verbose:
+				print ('Exdate: {}'.format(div.iloc[0,2]))
+			
+			datetime_object = datetime.datetime.strptime(exdate, '%Y-%m-%d')
+			exdate = datetime_object.timetuple().tm_yday
+			if verbose:
+				print ('Exdate day: {}'.format(exdate))
+			day_of_year = datetime.datetime.today().timetuple().tm_yday
+			if verbose:
+				print ('Day of the year: {}'.format(day_of_year))
+			if day_of_year == exdate:
+				if verbose:
+					print ('Div Proceeds: {}'.format(div_proceeds))
+				div_accr_entry = [self.get_event(), self.get_entity(), self.trade_date(), 'Dividend income accrual', symbol, div_rate, qty, 'Dividend Receivable', 'Dividend Income', div_proceeds]
+				div_accr_event = [div_accr_entry]
+				print (div_accr_event)
+				self.journal_entry(div_accr_event)
+
+	def div_accr(self, end_point='dividends/3m'): # TODO Add commenting
+		url = 'https://api.iextrading.com/1.0/stock/'
+		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		div_accr_txns = self.df[( self.df['debit_acct'] == 'Dividend Receivable') & (~self.df['event_id'].isin(rvsl_txns))] # Get list of div accrual entries
+		if verbose:
+			print (div_accr_txns)
+		for index, div_accr_txn in div_accr_txns.iterrows():
+			if verbose:
+				print (div_accr_txn)
+			symbol = str(div_accr_txn[4])
+			if verbose:
+				print('Getting divs for ' + symbol)
+			try:
+				div = pd.read_json(url + symbol + '/' + end_point, typ='frame', orient='records')
+				if verbose:
+					print (div)
+				if div.empty:
+					continue
+			except:
+				print ('Invalid ticker: ' + symbol)
+			paydate = div.iloc[0,5]
+			if verbose:
+				print ('Paydate: {}'.format(paydate))
+
+			datetime_object = datetime.datetime.strptime(paydate, '%Y-%m-%d')
+			paydate = datetime_object.timetuple().tm_yday
+			if verbose:
+				print ('Paydate day: {}'.format(paydate))
+			day_of_year = datetime.datetime.today().timetuple().tm_yday
+			if verbose:
+				print ('Day of the year: {}'.format(day_of_year))
+
+			if day_of_year == paydate:
+				div_relieve_entry = [div_accr_txn.iloc[0], div_accr_txn.iloc[1], self.trade_date(), 'Dividend income payment', symbol, div_accr_txn.iloc[5], div_accr_txn.iloc[6], 'Cash', 'Dividend Receivable', div_accr_txn.iloc[9]]
+				div_relieve_event = [div_relieve_entry]
+				print (div_relieve_event)
+				self.journal_entry(div_relieve_event)
 
 if __name__ == '__main__':
 	# TODO Add argparse to make trades
