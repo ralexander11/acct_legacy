@@ -9,10 +9,10 @@ import argparse
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
-pd.set_option('display.max_columns', 5)
+pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_rows', 20)
 verbose = False
-verbose2 = True # TODO Decide whether to implement this in the functions
+verbose2 = False
 
 random.seed()
 timestamp = datetime.datetime.now().strftime('[%Y-%b-%d %H:%M:%S] ')
@@ -53,13 +53,15 @@ class RandomAlgo(Trading):
 
 	# Check how much capital is available
 	def check_capital(self, capital_accts=None):
-		print (timestamp + 'Checking capital...')
+		if verbose2:
+			print (timestamp + 'Checking capital...')
 		self.df = trade.df
 		if capital_accts is None:
 			capital_accts = ['Cash','Chequing']
 		capital_bal = 0
 		capital_bal = trade.balance_sheet(capital_accts)
-		print (capital_bal)
+		if verbose2:
+			print (capital_bal)
 		return capital_bal
 	
 	 # Generates the trade details
@@ -97,25 +99,30 @@ class RandomAlgo(Trading):
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
 		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
-		print (timestamp + 'Got fresh portfolio.')
+		if verbose2:
+			print (timestamp + 'Got fresh portfolio.')
 		return portfolio
 
 	# Buy shares until you run out of capital
 	def random_buy(self, capital):
-		print (timestamp + 'Randomly buying.')
+		if verbose2:
+			print (timestamp + 'Randomly buying.')
 		while capital > 1000:
 			capital = trade.buy_shares(*algo.get_trade(symbols))
 			if verbose:
 				print (capital)
-		print (timestamp + 'Out of capital.')
+		if verbose2:
+			print (timestamp + 'Out of capital.')
 
 	# Sell randomly from a random subset of positions
 	def random_sell(self, portfolio):
-		print (timestamp + 'Randomly selling.')
+		if verbose2:
+			print (timestamp + 'Randomly selling.')
 		for symbol in portfolio['symbol'][:random.randint(1,len(portfolio))]:
 			#print (symbol) # Debug
 			trade.sell_shares(*algo.get_trade(symbol))
-		print (timestamp + 'Done randomly selling.')
+		if verbose2:
+			print (timestamp + 'Done randomly selling.')
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -129,10 +136,14 @@ if __name__ == '__main__':
 
 	print ('=' * DISPLAY_WIDTH)
 	print (timestamp + 'Entity: {} \nCommission: {} Min QTY: {} Max QTY: {}, Liquidate Chance: {} Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
+	print ('-' * DISPLAY_WIDTH)
+
 
 	trade.int_exp(ledger)
 	trade.dividends()
 	trade.div_accr()
+	if verbose2:
+		print ('-' * DISPLAY_WIDTH)
 
 	# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
 	trade_holidays = [
@@ -171,7 +182,8 @@ if __name__ == '__main__':
 	capital = algo.check_capital()
 	if verbose:
 		print (capital)
-	print ('-' * DISPLAY_WIDTH)
+	if verbose2:
+		print ('-' * DISPLAY_WIDTH)
 
 	# Inital day of portfolio setup
 	try:
@@ -183,17 +195,20 @@ if __name__ == '__main__':
 
 	# Buy shares until you run out of capital
 	algo.random_buy(capital)
-	print ('-' * DISPLAY_WIDTH)
+	if verbose2:
+		print ('-' * DISPLAY_WIDTH)
 	
 	# Get fresh list of currently held tickers
 	portfolio = algo.get_portfolio()
 	if verbose:
 		print (portfolio)
-	print ('-' * DISPLAY_WIDTH)
+	if verbose2:
+		print ('-' * DISPLAY_WIDTH)
 
 	# Sell random amounts of currently held shares from a random subset of positions currently held
 	algo.random_sell(portfolio)
-	print ('-' * DISPLAY_WIDTH)
+	if verbose2:
+		print ('-' * DISPLAY_WIDTH)
 
 	# Buy shares until you run out of capital again
 	if verbose:
@@ -201,15 +216,19 @@ if __name__ == '__main__':
 	capital = algo.check_capital()
 	if verbose:
 		print (capital)
-	print ('-' * DISPLAY_WIDTH)
+	if verbose2:
+		print ('-' * DISPLAY_WIDTH)
 	algo.random_buy(capital)
 
-	print ('-' * DISPLAY_WIDTH)
-	print (timestamp + 'Book unrealized gains and losses.')
+	if verbose2:
+		print ('-' * DISPLAY_WIDTH)
+		print (timestamp + 'Book unrealized gains and losses.')
 	trade.unrealized()
 
-	print ('-' * DISPLAY_WIDTH)
+	if verbose2:
+		print ('-' * DISPLAY_WIDTH)
 	nav = trade.balance_sheet()
 	trade.print_bs()
-	print (timestamp + 'Net Asset Value: ${:,.2f}'.format(nav))
+	if verbose2:
+		print (timestamp + 'Net Asset Value: ${:,.2f}'.format(nav))
 	print (timestamp + 'Done randomly trading!')

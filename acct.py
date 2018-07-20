@@ -25,7 +25,7 @@ class Accounts(object):
 		try:
 			self.refresh_accts()
 		except:
-			self.df = None
+			Accounts.df = None
 			self.create_accts()
 			self.refresh_accts()
 
@@ -64,12 +64,12 @@ class Accounts(object):
 	def print_accts(self):
 		self.refresh_accts()
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print (self.df)
+			print (Accounts.df)
 		print ('-' * DISPLAY_WIDTH)
 
 	def drop_dupe_accts(self):
-		self.df = self.df[~self.df.index.duplicated(keep='first')]
-		self.df.to_sql('accounts', self.conn, if_exists='replace')
+		Accounts.df = Accounts.df[~Accounts.df.index.duplicated(keep='first')]
+		Accounts.df.to_sql('accounts', self.conn, if_exists='replace')
 		self.refresh_accts()
 
 	def add_acct(self, acct_data = None):
@@ -112,7 +112,7 @@ class Accounts(object):
 	def export_accts(self):
 		outfile = 'accounts' + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
 		save_location = 'data/'
-		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
+		Accounts.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
 		print ('File saved as ' + save_location + outfile + '\n')
 
 	def remove_acct(self):
@@ -171,7 +171,8 @@ class Ledger(Accounts):
 
 	def print_gl(self):
 		self.refresh_ledger() # Refresh Ledger
-		print (self.df)
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
+			print (self.df)
 		print ('-' * DISPLAY_WIDTH)
 		return self.df
 
@@ -183,6 +184,7 @@ class Ledger(Accounts):
 
 	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
 		all_accts = False
+		#accounts=['Wealth']
 		if accounts is None: # Create a list of all the accounts
 			all_accts = True
 			debit_accts = pd.unique(self.df['debit_acct'])
@@ -224,13 +226,19 @@ class Ledger(Accounts):
 
 		asset_bal = 0
 		for acct in assets:
+			if verbose:
+				print (acct)
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Asset Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Asset Crebit Error')
 				credits = 0
 			bal = debits - credits
 			asset_bal += bal
@@ -239,13 +247,19 @@ class Ledger(Accounts):
 
 		liab_bal = 0
 		for acct in liabilities:
+			if verbose:
+				print (acct)
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Liabilities Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Liabilities Crebit Error')
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			liab_bal += bal
@@ -254,13 +268,19 @@ class Ledger(Accounts):
 
 		wealth_bal = 0
 		for acct in wealth:
+			if verbose:
+				print (acct)
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Wealth Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Wealth Crebit Error')
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			wealth_bal += bal
@@ -269,13 +289,19 @@ class Ledger(Accounts):
 
 		rev_bal = 0
 		for acct in revenues:
+			if verbose:
+				print (acct)
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Revenues Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Revenues Crebit Error')
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			rev_bal += bal
@@ -284,13 +310,19 @@ class Ledger(Accounts):
 
 		exp_bal = 0
 		for acct in expenses:
+			if verbose:
+				print (acct)
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Expenses Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
+				if verbose:
+					print ('Expenses Crebit Error')
 				credits = 0
 			bal = debits - credits
 			exp_bal += bal
@@ -336,13 +368,13 @@ class Ledger(Accounts):
 				#if verbose:
 					#print (item)
 				try:
-					debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
+					debits = self.df.loc[self.df['item_id'] == item].groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'cash']
 				except:
 					if verbose:
 						print ('Error debit')
 					debits = 0
 				try:
-					credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
+					credits = self.df.loc[self.df['item_id'] == item].groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'cash']
 				except:
 					if verbose:
 						print ('Error credit')
@@ -359,13 +391,13 @@ class Ledger(Accounts):
 
 		# Get qty for one item specified
 		try:
-			debits = self.df.loc[self.df['item_id'] == item].groupby('debit_acct').sum()['qty'][acct]
+			debits = self.df.loc[self.df['item_id'] == item].groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'cash']
 		except:
 			if verbose:
 				print ('Error debit')
 			debits = 0
 		try:
-			credits = self.df.loc[self.df['item_id'] == item].groupby('credit_acct').sum()['qty'][acct]
+			credits = self.df.loc[self.df['item_id'] == item].groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'cash']
 		except:
 			if verbose:
 				print ('Error credit')
@@ -438,9 +470,9 @@ class Ledger(Accounts):
 				date_raw = strftime('%Y-%m-%d', localtime())
 				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 			if qty == '': # TODO No qty and price default needed now
-				qty = None
+				qty = 1
 			if price == '':
-				price = None
+				price = amount
 
 			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 			cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
@@ -468,9 +500,9 @@ class Ledger(Accounts):
 					date_raw = strftime('%Y-%m-%d', localtime())
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 				if qty == '': # TODO No qty and price default needed now
-					qty = None
+					qty = 1
 				if price == '':
-					price = None
+					price = amount
 
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 				cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
@@ -607,6 +639,7 @@ if __name__ == '__main__':
 			ledger.print_bs()
 		elif command.lower() == 'qty':
 			item = input('Which ticker? ').lower()
-			print (ledger.get_qty(item))
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print (ledger.get_qty(item))
 		else:
 			print('Not a valid command. Type exit to close.')
