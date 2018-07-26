@@ -7,7 +7,7 @@ from time import strftime, localtime
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
-verbose = False
+verbose = False # TODO Change this to the logging module
 
 class Accounts(object):
 	def __init__(self, conn=None):
@@ -356,6 +356,15 @@ class Ledger(Accounts):
 		print (self.bs)
 		print ('-' * DISPLAY_WIDTH)
 
+	def get_qty_txns(self, item=None, acct=None):
+		if acct is None:
+			acct = 'Investments' #input('Which account? ')
+		# TODO if a reversal is reversed, it will still cause issues
+		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		# Get list of txns
+		qty_txns = self.df[(self.df['item_id'] == item) & (((self.df['debit_acct'] == acct) & (self.df['credit_acct'] == 'Cash')) | ((self.df['credit_acct'] == acct) & (self.df['debit_acct'] == 'Cash'))) & (~self.df['event_id'].isin(rvsl_txns))] # TODO Add support for non-cash
+		return qty_txns
+
 	def get_qty(self, item=None, acct=None): # TODO Add logic to ignore rvsls
 		if acct is None:
 			acct = 'Investments' #input('Which account? ')
@@ -367,14 +376,17 @@ class Ledger(Accounts):
 			for item in item_ids:
 				#if verbose:
 					#print (item)
+				qty_txns = self.get_qty_txns(item)
+				#print (qty_txns)
 				try:
-					debits = self.df.loc[self.df['item_id'] == item].groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'cash']
+					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
 				except:
 					if verbose:
 						print ('Error debit')
 					debits = 0
 				try:
-					credits = self.df.loc[self.df['item_id'] == item].groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'cash']
+					credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
+					#print (credits)
 				except:
 					if verbose:
 						print ('Error credit')
@@ -390,14 +402,15 @@ class Ledger(Accounts):
 			return inventory
 
 		# Get qty for one item specified
+		qty_txns = self.get_qty_txns(item)
 		try:
-			debits = self.df.loc[self.df['item_id'] == item].groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'cash']
+			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
 		except:
 			if verbose:
 				print ('Error debit')
 			debits = 0
 		try:
-			credits = self.df.loc[self.df['item_id'] == item].groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'cash']
+			credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
 		except:
 			if verbose:
 				print ('Error credit')
@@ -438,7 +451,7 @@ class Ledger(Accounts):
 			entity = input('Enter the entity_id: ')
 			date_raw = input('Enter a date as format yyyy-mm-dd: ')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-			desc = input('Enter a description: ')
+			desc = input('Enter a description: ') + ' [M]'
 			item = input('Enter an optional item_id: ')
 			price = input('Enter an optional price: ')
 			qty = input('Enter an optional quantity: ')
@@ -541,18 +554,16 @@ class Ledger(Accounts):
 		cur.execute(rvsl_query)
 		rvsl = cur.fetchone()
 		cur.close()
-		rvsl_entry = [[ rvsl[1], rvsl[2], rvsl[3], '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
+		date_raw = strftime('%Y-%m-%d', localtime())
+		date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)
 
 	def hist_cost(self, qty, item=None, acct=None):
 		if acct is None:
 			acct = 'Investments' #input('Which account? ')
 
-		# TODO if a reversal is reversed, it will still cause issues
-		# Get list of txns with qtys for this item, while ignoring reversals
-		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
-		# Get list of txns
-		qty_txns = self.df[(self.df['item_id'] == item) & (self.df['debit_acct'] == 'Investments') & (~self.df['event_id'].isin(rvsl_txns))]['qty']
+		qty_txns = self.get_qty_txns(item, acct)['qty']
 
 		# Find the first lot of unsold items
 		count = 0

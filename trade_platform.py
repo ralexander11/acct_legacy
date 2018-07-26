@@ -4,8 +4,9 @@ import urllib.request
 import pandas as pd
 from time import strftime, localtime
 import datetime
+import argparse
 
-verbose = False
+verbose = False # TODO Change this to the logging module
 verbose2 = False
 
 class Trading(Ledger):
@@ -305,13 +306,80 @@ class Trading(Ledger):
 				print (div_relieve_event)
 				self.journal_entry(div_relieve_event)
 
+	def splits(self, end_point='splits/3m'): # TODO Add commenting
+		url = 'https://api.iextrading.com/1.0/stock/'
+		portfolio = self.get_qty()
+		if portfolio.empty:
+			print ('Stock Splits: No securities held.')
+			return
+		if verbose:
+			print ('Looking for stock splits to book.')
+		for symbol in portfolio['item_id']:
+			if verbose2:
+				print('\nGetting splits for ' + symbol)
+			try:
+				split = pd.read_json(url + symbol + '/' + end_point, typ='frame', orient='records')
+				if verbose2:
+					print (split)
+				if split.empty:
+					continue
+			except:
+				print ('Invalid ticker: ' + symbol)
+				if verbose:
+					print (url + symbol + '/' + end_point)
+				continue
+			exdate = split.iloc[0,1]
+			if verbose:
+				print ('Exdate: {}'.format(exdate))
+			if exdate is None:
+				print ('Exdate is blank for: ' + symbol)
+				continue
+			datetime_object = datetime.datetime.strptime(exdate, '%Y-%m-%d') # TODO Update logic so that it compares date strings and not day of the year
+			exdate = datetime_object.timetuple().tm_yday
+			day_of_year = datetime.datetime.today().timetuple().tm_yday
+			if verbose:
+				#print ('Exdate: {}'.format(split.iloc[0,2]))
+				print ('Exdate day: {}'.format(exdate))
+				print ('Day of the year: {}'.format(day_of_year))
+			if day_of_year == exdate:
+				to_factor = split.iloc[0,6]
+				for_factor = split.iloc[0,2]
+				ratio = to_factor / for_factor
+				qty = self.get_qty(symbol)
+				cost = self.hist_cost(qty, symbol, 'Investments')
+				old_price = cost / qty
+				new_qty = qty * ratio # TODO Handle fractional shares
+				new_price = cost / new_qty
+
+				if verbose:
+					print ('To Factor: {}'.format(to_factor))
+					print ('For Factor: {}'.format(for_factor))
+					print ('Ratio: {}'.format(ratio))
+					print (symbol)
+					print ('QTY: {}'.format(qty))
+					print ('Cost: {}'.format(cost))
+					print ('Old Price: {}'.format(old_price))
+					print ('New QTY: {}'.format(new_qty))
+					print ('New Price: {}'.format(new_price))
+
+				cost_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Stock split old', symbol, old_price, qty, 'Cash', 'Investments', cost]
+				split_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Stock split new', symbol, new_price, new_qty, 'Investments', 'Cash', cost]
+				split_event = [cost_entry, split_entry]
+				if verbose:
+					print (split_event)
+
+				self.journal_entry(split_event)
+
+
 if __name__ == '__main__':
 	# TODO Add argparse to make trades
-	accts = Accounts()
-	ledger = Ledger('random_1')
-	trade = Trading(ledger)
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-entity', type=int, help='A number for the entity.')
+	args = parser.parse_args()
 
-	trade.unrealized()
+	accts = Accounts()
+	ledger = Ledger('random_1', entity=args.entity)
+	trade = Trading(ledger)
 
 	while True:
 		command = input('\nType one of the following commands:\nbuy, sell, exit\n')

@@ -11,7 +11,7 @@ pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_rows', 20)
-verbose = False
+verbose = False # TODO Change this to the logging module
 verbose2 = False
 
 random.seed()
@@ -142,6 +142,7 @@ if __name__ == '__main__':
 	trade.int_exp(ledger)
 	trade.dividends()
 	trade.div_accr()
+	trade.splits()
 	if verbose2:
 		print ('-' * DISPLAY_WIDTH)
 
