@@ -2,12 +2,11 @@ from acct import Accounts
 from acct import Ledger
 import urllib.request
 import pandas as pd
-from time import strftime, localtime
 import datetime
 import argparse
 
-verbose = False # TODO Change this to the logging module
-verbose2 = False
+verbose = False
+verbose2 = False # TODO Change this to the logging module
 
 class Trading(Ledger):
 	def __init__(self, ledger, comm=0.0):
@@ -34,10 +33,10 @@ class Trading(Ledger):
 			return price
 
 	def trade_date(self):
-		return strftime('%Y-%m-%d', localtime())
+		return datetime.datetime.today().strftime('%Y-%m-%d')
 
 	def com(self): # If I want to add more logic to commissions calculation
-		com = self.comm #9.95
+		com = self.comm
 		return com
 
 	def buy_shares(self, symbol, qty=None):
@@ -238,14 +237,12 @@ class Trading(Ledger):
 			if exdate is None:
 				print ('Exdate is blank for: ' + symbol)
 				continue
-			datetime_object = datetime.datetime.strptime(exdate, '%Y-%m-%d') # TODO Update logic so that it compares date strings and not day of the year
-			exdate = datetime_object.timetuple().tm_yday
-			day_of_year = datetime.datetime.today().timetuple().tm_yday
+			exdate = datetime.datetime.strptime(exdate, '%Y-%m-%d')
+			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
 			if verbose:
-				print ('Exdate: {}'.format(div.iloc[0,2]))
-				print ('Exdate day: {}'.format(exdate))
-				print ('Day of the year: {}'.format(day_of_year))
-			if day_of_year == exdate:
+				print ('Exdate: {}'.format(exdate))
+				print ('Current Date: {}'.format(current_date))
+			if current_date == exdate:
 				div_rate = div.iloc[0,0]
 				if div_rate is None:
 					print ('Div rate is blank for: ' + symbol)
@@ -292,15 +289,12 @@ class Trading(Ledger):
 			if paydate is None:
 				print ('Paydate is blank for: ' + symbol)
 				continue
+			paydate = datetime.datetime.strptime(paydate, '%Y-%m-%d')
+			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
 			if verbose:
 				print ('Paydate: {}'.format(paydate))
-			datetime_object = datetime.datetime.strptime(paydate, '%Y-%m-%d') # TODO Update logic so that it compares date strings and not day of the year
-			paydate = datetime_object.timetuple().tm_yday	
-			day_of_year = datetime.datetime.today().timetuple().tm_yday
-			if verbose:
-				print ('Paydate day: {}'.format(paydate))
-				print ('Day of the year: {}'.format(day_of_year))
-			if day_of_year == paydate:
+				print ('Current Date: {}'.format(current_date))
+			if current_date == paydate:
 				div_relieve_entry = [div_accr_txn.iloc[0], div_accr_txn.iloc[1], self.trade_date(), 'Dividend income payment', symbol, div_accr_txn.iloc[5], div_accr_txn.iloc[6], 'Cash', 'Dividend Receivable', div_accr_txn.iloc[9]]
 				div_relieve_event = [div_relieve_entry]
 				print (div_relieve_event)
@@ -329,19 +323,15 @@ class Trading(Ledger):
 					print (url + symbol + '/' + end_point)
 				continue
 			exdate = split.iloc[0,1]
-			if verbose:
-				print ('Exdate: {}'.format(exdate))
 			if exdate is None:
 				print ('Exdate is blank for: ' + symbol)
 				continue
-			datetime_object = datetime.datetime.strptime(exdate, '%Y-%m-%d') # TODO Update logic so that it compares date strings and not day of the year
-			exdate = datetime_object.timetuple().tm_yday
-			day_of_year = datetime.datetime.today().timetuple().tm_yday
+			exdate = datetime.datetime.strptime(exdate, '%Y-%m-%d')
+			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
 			if verbose:
-				#print ('Exdate: {}'.format(split.iloc[0,2]))
-				print ('Exdate day: {}'.format(exdate))
-				print ('Day of the year: {}'.format(day_of_year))
-			if day_of_year == exdate:
+				print ('Exdate: {}'.format(exdate))
+				print ('Current Date: {}'.format(current_date))
+			if current_date == exdate:
 				to_factor = split.iloc[0,6]
 				for_factor = split.iloc[0,2]
 				ratio = to_factor / for_factor
@@ -355,7 +345,7 @@ class Trading(Ledger):
 					print ('To Factor: {}'.format(to_factor))
 					print ('For Factor: {}'.format(for_factor))
 					print ('Ratio: {}'.format(ratio))
-					print (symbol)
+					print ('Ticker: {}'.format(symbol))
 					print ('QTY: {}'.format(qty))
 					print ('Cost: {}'.format(cost))
 					print ('Old Price: {}'.format(old_price))
@@ -365,9 +355,7 @@ class Trading(Ledger):
 				cost_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Stock split old', symbol, old_price, qty, 'Cash', 'Investments', cost]
 				split_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Stock split new', symbol, new_price, new_qty, 'Investments', 'Cash', cost]
 				split_event = [cost_entry, split_entry]
-				if verbose:
-					print (split_event)
-
+				print (split_event)
 				self.journal_entry(split_event)
 
 
@@ -378,7 +366,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts()
-	ledger = Ledger('random_1', entity=args.entity)
+	ledger = Ledger(entity=args.entity)
 	trade = Trading(ledger)
 
 	while True:

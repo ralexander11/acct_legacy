@@ -17,8 +17,10 @@ class Accounts(object):
 				website = True
 			except:
 				conn = sqlite3.connect('acct.db')
-		elif isinstance(conn, basestring):
-			self.conn = sqlite3.connect(conn)
+		elif isinstance(conn, str):
+			conn = sqlite3.connect(conn)
+		else:
+			conn = sqlite3.connect('acct.db')
 
 		Accounts.conn = conn
 
@@ -66,6 +68,7 @@ class Accounts(object):
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			print (Accounts.df)
 		print ('-' * DISPLAY_WIDTH)
+		return Accounts.df
 
 	def drop_dupe_accts(self):
 		Accounts.df = Accounts.df[~Accounts.df.index.duplicated(keep='first')]
@@ -127,7 +130,7 @@ class Ledger(Accounts):
 	def __init__(self, ledger_name=None, entity=None, date=None, txn=None):
 		self.conn = Accounts.conn
 		if ledger_name is None:
-			self.ledger_name = input('Enter a name for the ledger: ')
+			self.ledger_name = 'random_1' #input('Enter a name for the ledger: ')
 		else:
 			self.ledger_name = ledger_name
 		self.entity = entity
@@ -355,6 +358,7 @@ class Ledger(Accounts):
 		self.balance_sheet() # Refresh Balance Sheet
 		print (self.bs)
 		print ('-' * DISPLAY_WIDTH)
+		return self.bs
 
 	def get_qty_txns(self, item=None, acct=None):
 		if acct is None:
@@ -614,11 +618,13 @@ class Ledger(Accounts):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-entity', type=int, help='A number for the entity.')
+	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
+	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
+	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
 	args = parser.parse_args()
 
-	accts = Accounts()
-	ledger = Ledger('random_1',entity=args.entity)
+	accts = Accounts(conn=args.database)
+	ledger = Ledger(ledger_name=args.ledger,entity=args.entity)
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
