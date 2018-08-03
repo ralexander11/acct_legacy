@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import sqlite3
 import argparse
-from time import strftime, localtime
+import datetime
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
@@ -113,7 +113,7 @@ class Accounts(object):
 			self.add_acct(lol)
 
 	def export_accts(self):
-		outfile = 'accounts' + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
+		outfile = 'accounts_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 		save_location = 'data/'
 		Accounts.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
 		print ('File saved as ' + save_location + outfile + '\n')
@@ -484,7 +484,7 @@ class Ledger(Accounts):
 			if entity == '':
 				entity = str(self.get_entity())
 			if date == 'NaT':
-				date_raw = strftime('%Y-%m-%d', localtime())
+				date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 			if qty == '': # TODO No qty and price default needed now
 				qty = 1
@@ -514,7 +514,7 @@ class Ledger(Accounts):
 				if entity == '':
 					entity = str(self.get_entity())
 				if date == 'NaT':
-					date_raw = strftime('%Y-%m-%d', localtime())
+					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 				if qty == '': # TODO No qty and price default needed now
 					qty = 1
@@ -545,7 +545,7 @@ class Ledger(Accounts):
 			#self.sanitize_ledger() # Not sure if I need this anymore
 
 	def export_gl(self):
-		outfile = self.ledger_name + strftime('_%Y-%m-%d_%H-%M-%S', localtime()) + '.csv'
+		outfile = 'ledger_' + self.ledger_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 		save_location = 'data/'
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
 		print ('File saved as ' + save_location + outfile + '\n')
@@ -558,7 +558,7 @@ class Ledger(Accounts):
 		cur.execute(rvsl_query)
 		rvsl = cur.fetchone()
 		cur.close()
-		date_raw = strftime('%Y-%m-%d', localtime())
+		date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 		date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)

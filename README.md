@@ -12,7 +12,7 @@ The below instructions apply when not using the acct.db file included in the rep
 
 0. Rename acct.db to acct_orig.db
 1. Run acct.py
-2. You should see 9 standard account get loaded
+2. You should see 9 standard accounts get loaded
 3. Type "loadAccts" command
 4. Enter "accounts.csv" file name
 5. Type "JE" command
@@ -48,3 +48,6 @@ The below instructions apply when not using the acct.db file included in the rep
 
 * Python 3.5
 * Pandas 0.22
+
+
+Data provided for free by [IEX](https://iextrading.com/developer). View [IEX’s Terms of Use](https://iextrading.com/api-exhibit-a/).
