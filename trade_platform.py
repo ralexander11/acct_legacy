@@ -4,9 +4,9 @@ import urllib.request
 import pandas as pd
 import datetime
 import argparse
+import logging
 
-verbose = False
-verbose2 = False # TODO Change this to the logging module
+logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
 class Trading(Ledger):
 	def __init__(self, ledger, comm=0.0):
@@ -14,6 +14,7 @@ class Trading(Ledger):
 		self.ledger_name = ledger.ledger_name
 		self.entity = ledger.entity
 		self.date = ledger.date
+		self.start_date = ledger.start_date
 		self.txn = ledger.txn
 
 		self.comm = comm
@@ -27,7 +28,7 @@ class Trading(Ledger):
 		try:
 			price = float(urllib.request.urlopen(url + symbol + '/price').read())
 		except:
-			print ('Error getting price from: ' + url + symbol + '/price\n')
+			logging.warning('Error getting price from: ' + url + symbol + '/price\n')
 			return 0
 		else:
 			return price
@@ -50,9 +51,9 @@ class Trading(Ledger):
 		capital_bal = self.balance_sheet(capital_accts)
 
 		if price * qty > capital_bal or price == 0:
-			if verbose2:
-				print ('\nBuying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(round(price * qty, 2)) + '.')
-				print ('You currently have $' + str(round(capital_bal, 2)) + ' available.\n')
+			print()
+			logging.info('Buying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(round(price * qty, 2)) + '.')
+			logging.info('You currently have $' + str(round(capital_bal, 2)) + ' available.\n')
 			return capital_bal
 
 		# Journal entries for a buy transaction
@@ -72,7 +73,7 @@ class Trading(Ledger):
 			qty = int(input('How many shares? '))
 		current_qty = self.get_qty(symbol, 'Investments')
 		if qty > current_qty:
-			print ('You currently have ' + str(round(current_qty, 2)) + ' shares.')
+			print('You currently have ' + str(round(current_qty, 2)) + ' shares.')
 			return
 
 		# Calculate profit
@@ -109,8 +110,7 @@ class Trading(Ledger):
 		loan_bal = 0
 		loan_bal = self.balance_sheet(loan_accts)
 		if loan_bal < 0:
-			if verbose2:
-				print ('Loan exists!')
+			logging.info('Loan exists!')
 			cur = ledger.conn.cursor()
 			for loan_type in loan_accts:
 				loans = pd.unique(self.df.loc[self.df['credit_acct'] == loan_type]['item_id'])
@@ -126,27 +126,23 @@ class Trading(Ledger):
 					loan_bal = credits - debits
 					if loan_bal > 0:
 						int_rate_fix = cur.execute('SELECT int_rate_fix FROM items WHERE item_id = "' + str(loan) + '";').fetchone()[0]
-						if verbose2:
-							print ('Int. Rate Fixed: {}'.format(int_rate_fix))
+						logging.info('Int. Rate Fixed: {}'.format(int_rate_fix))
 						int_rate_var = cur.execute('SELECT int_rate_var FROM items WHERE item_id = "' + str(loan) + '";').fetchone()[0]
-						if verbose2:
-							print ('Int. Rate Var.: {}'.format(int_rate_var))
+						logging.info('Int. Rate Var.: {}'.format(int_rate_var))
 						if int_rate_var is None:
 							url = 'http://www.rbcroyalbank.com/rates/prime.html'
 							rbc_prime_rate = pd.read_html(url)[5].iloc[1,1]
 							try:
 								int_rate_var = round(float(rbc_prime_rate) / 100, 4)
 							except:
-								print ('RBC Rates Website structure has changed.')
+								logging.critical('RBC Rates Website structure has changed.')
 								int_rate_var = 0
-						if verbose2:
-							print ('RBC Prime Rate: {}'.format(rbc_prime_rate))
+						logging.info('RBC Prime Rate: {}'.format(rbc_prime_rate))
 
 					rate = int_rate_fix + int_rate_var
 					period = 1 / 365 # TODO Add frequency logic
 					int_amount = round(loan_bal * rate * period, 2)
-					if verbose2:
-						print ('Int. Expense: {}'.format(int_amount))
+					logging.info('Int. Expense: {}'.format(int_amount))
 					int_exp_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Interest expense', '', '', '', 'Interest Expense', 'Cash', int_amount]
 					int_exp_event = [int_exp_entry]
 					self.journal_entry(int_exp_event)
@@ -155,32 +151,25 @@ class Trading(Ledger):
 	def unrealized(self): # TODO Add commenting
 		inv = self.get_qty(acct='Investments')
 		if inv.empty:
-			print ('No securities held.')
+			print('No securities held to true up.')
 			return
-		if verbose:
-			print ('Inv.')
-			print (inv)
+		logging.debug('Inventory: \n{}'.format(inv))
 
 		try:
 			rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			if rvsl_txns.empty:
-				print ('First or second true up run.')
-			if verbose:
-				print ('rvsl_txns')
-				print (rvsl_txns)
+				print('First or second true up run.')
+			logging.debug('RVSL TXNs: {}'.format(rvsl_txns))
 			# Get list of txns
 			inv_txns = self.df[( (self.df['debit_acct'] == 'Unrealized Loss') | (self.df['credit_acct'] == 'Unrealized Gain') ) & (~self.df['event_id'].isin(rvsl_txns))]
-			if verbose:
-				print ('inv_txns')
-				print (inv_txns)
+			logging.debug('Inv TXNs: {}'.format(inv_txns))
 			for txn in inv_txns.iterrows():
 				self.reversal_entry(str(txn[0]))
 		except:
-			print ('Unrealized booking error.')
+			logging.warning('Unrealized booking error.')
 
 		for index, item in inv.iterrows():
-			if verbose:
-				print (item.iloc[0])
+			logging.debug(item.iloc[0])
 			symbol = item.iloc[0]
 			price = self.get_price(symbol)
 			qty = item.iloc[1]
@@ -189,8 +178,7 @@ class Trading(Ledger):
 			unrealized_gain = None
 			unrealized_loss = None
 			if market_value == hist_cost:
-				if verbose:
-					print ('No gains.')
+				logging.debug('No gains.')
 				continue
 			elif market_value > hist_cost:
 				unrealized_gain = market_value - hist_cost
@@ -198,15 +186,12 @@ class Trading(Ledger):
 				unrealized_loss = hist_cost - market_value
 			if unrealized_gain is not None:
 				true_up_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Unrealized gain', symbol, price, '', 'Investments', 'Unrealized Gain', unrealized_gain ]
-				if verbose:
-					print (true_up_entry)
+				logging.debug(true_up_entry)
 			if unrealized_loss is not None:
 				true_up_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Unrealized loss', symbol, price, '', 'Unrealized Loss', 'Investments', unrealized_loss ]
-				if verbose:
-					print (true_up_entry)
+				logging.debug(true_up_entry)
 			true_up_event = [ true_up_entry ]
-			if verbose:
-				print (true_up_event)
+			logging.info(true_up_event)
 
 			self.journal_entry(true_up_event)
 
@@ -214,123 +199,104 @@ class Trading(Ledger):
 		url = 'https://api.iextrading.com/1.0/stock/'
 		portfolio = self.get_qty()
 		if portfolio.empty:
-			print ('Dividends: No securities held.')
+			print('Dividends: No securities held.')
 			return
-		if verbose:
-			print ('Looking for dividends to book.')
-			print (portfolio['item_id'])
+		logging.debug('Looking for dividends to book.')
+		logging.debug(portfolio['item_id'])
 		for symbol in portfolio['item_id']:
-			if verbose:
-				print('\nGetting divs for ' + symbol)
+			logging.debug('\nGetting divs for: ' + symbol)
 			try:
 				div = pd.read_json(url + symbol + '/' + end_point, typ='frame', orient='records')
-				if verbose:
-					print (div)
 				if div.empty:
 					continue
 			except:
-				print ('Invalid ticker: ' + symbol)
-				if verbose:
-					print (url + symbol + '/' + end_point)
+				logging.warning('Invalid ticker: ' + symbol)
+				logging.debug(url + symbol + '/' + end_point)
 				continue
 			exdate = div.iloc[0,2]
 			if exdate is None:
-				print ('Exdate is blank for: ' + symbol)
+				logging.warning('Exdate is blank for: ' + symbol)
 				continue
 			exdate = datetime.datetime.strptime(exdate, '%Y-%m-%d')
 			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
-			if verbose:
-				print ('Exdate: {}'.format(exdate))
-				print ('Current Date: {}'.format(current_date))
+			logging.debug('Exdate: {}'.format(exdate))
+			logging.debug('Current Date: {}'.format(current_date))
 			if current_date == exdate:
 				div_rate = div.iloc[0,0]
 				if div_rate is None:
-					print ('Div rate is blank for: ' + symbol)
+					logging.warning('Div rate is blank for: ' + symbol)
 					continue
 				qty = self.get_qty(symbol, 'Investments')
 				try:
 					div_proceeds = div_rate * qty
 				except:
-					print ('Div proceeds is blank for: ' + symbol)
+					logging.warning('Div proceeds is blank for: ' + symbol)
 					continue
-				if verbose:
-					print ('QTY: {}'.format(qty))
-					print ('Div Rate: {}'.format(div.iloc[0,0]))
-					print ('Div Proceeds: {}'.format(div_proceeds))
+				logging.debug('QTY: {}'.format(qty))
+				logging.debug('Div Rate: {}'.format(div.iloc[0,0]))
+				logging.debug('Div Proceeds: {}'.format(div_proceeds))
 				div_accr_entry = [self.get_event(), self.get_entity(), self.trade_date(), 'Dividend income accrual', symbol, div_rate, qty, 'Dividend Receivable', 'Dividend Income', div_proceeds]
 				div_accr_event = [div_accr_entry]
-				print (div_accr_event)
+				print(div_accr_event)
 				self.journal_entry(div_accr_event)
 
 	def div_accr(self, end_point='dividends/3m'): # TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
 		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		div_accr_txns = self.df[( self.df['debit_acct'] == 'Dividend Receivable') & (~self.df['event_id'].isin(rvsl_txns))] # Get list of div accrual entries
-		if verbose:
-			print (div_accr_txns)
+		logging.debug(div_accr_txns)
 		for index, div_accr_txn in div_accr_txns.iterrows():
-			if verbose:
-				print (div_accr_txn)
+			logging.debug(div_accr_txn)
 			symbol = str(div_accr_txn[4])
-			if verbose:
-				print('Getting divs for ' + symbol)
+			logging.debug('Getting divs for ' + symbol)
 			try:
 				div = pd.read_json(url + symbol + '/' + end_point, typ='frame', orient='records')
-				if verbose:
-					print (div)
+				logging.debug(div)
 				if div.empty:
 					continue
 			except:
-				print ('Invalid ticker: ' + symbol)
-				if verbose:
-					print (url + symbol + '/' + end_point)
+				logging.warning('Invalid ticker: ' + symbol)
+				logging.debug(url + symbol + '/' + end_point)
 				continue
 			paydate = div.iloc[0,5]
 			if paydate is None:
-				print ('Paydate is blank for: ' + symbol)
+				logging.warning('Paydate is blank for: ' + symbol)
 				continue
 			paydate = datetime.datetime.strptime(paydate, '%Y-%m-%d')
 			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
-			if verbose:
-				print ('Paydate: {}'.format(paydate))
-				print ('Current Date: {}'.format(current_date))
+			logging.debug('Paydate: {}'.format(paydate))
+			logging.debug('Current Date: {}'.format(current_date))
 			if current_date == paydate:
 				div_relieve_entry = [div_accr_txn.iloc[0], div_accr_txn.iloc[1], self.trade_date(), 'Dividend income payment', symbol, div_accr_txn.iloc[5], div_accr_txn.iloc[6], 'Cash', 'Dividend Receivable', div_accr_txn.iloc[9]]
 				div_relieve_event = [div_relieve_entry]
-				print (div_relieve_event)
+				print(div_relieve_event)
 				self.journal_entry(div_relieve_event)
 
 	def splits(self, end_point='splits/3m'): # TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
 		portfolio = self.get_qty()
 		if portfolio.empty:
-			print ('Stock Splits: No securities held.')
+			print('Stock Splits: No securities held.')
 			return
-		if verbose:
-			print ('Looking for stock splits to book.')
+		logging.debug('Looking for stock splits to book.')
 		for symbol in portfolio['item_id']:
-			if verbose2:
-				print('\nGetting splits for ' + symbol)
+			logging.debug('\nGetting splits for ' + symbol)
 			try:
 				split = pd.read_json(url + symbol + '/' + end_point, typ='frame', orient='records')
-				if verbose2:
-					print (split)
 				if split.empty:
 					continue
 			except:
-				print ('Invalid ticker: ' + symbol)
-				if verbose:
-					print (url + symbol + '/' + end_point)
+				logging.warning('Invalid ticker: ' + symbol)
+				logging.debug(url + symbol + '/' + end_point)
 				continue
 			exdate = split.iloc[0,1]
 			if exdate is None:
-				print ('Exdate is blank for: ' + symbol)
+				logging.warning('Exdate is blank for: ' + symbol)
 				continue
 			exdate = datetime.datetime.strptime(exdate, '%Y-%m-%d')
 			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
-			if verbose:
-				print ('Exdate: {}'.format(exdate))
-				print ('Current Date: {}'.format(current_date))
+			logging.debug('Exdate: {}'.format(exdate))
+			logging.debug('Current Date: {}'.format(current_date))
 			if current_date == exdate:
 				to_factor = split.iloc[0,6]
 				for_factor = split.iloc[0,2]
@@ -341,21 +307,20 @@ class Trading(Ledger):
 				new_qty = qty * ratio # TODO Handle fractional shares
 				new_price = cost / new_qty
 
-				if verbose:
-					print ('To Factor: {}'.format(to_factor))
-					print ('For Factor: {}'.format(for_factor))
-					print ('Ratio: {}'.format(ratio))
-					print ('Ticker: {}'.format(symbol))
-					print ('QTY: {}'.format(qty))
-					print ('Cost: {}'.format(cost))
-					print ('Old Price: {}'.format(old_price))
-					print ('New QTY: {}'.format(new_qty))
-					print ('New Price: {}'.format(new_price))
+				logging.debug('To Factor: {}'.format(to_factor))
+				logging.debug('For Factor: {}'.format(for_factor))
+				logging.debug('Ratio: {}'.format(ratio))
+				logging.debug('Ticker: {}'.format(symbol))
+				logging.debug('QTY: {}'.format(qty))
+				logging.debug('Cost: {}'.format(cost))
+				logging.debug('Old Price: {}'.format(old_price))
+				logging.debug('New QTY: {}'.format(new_qty))
+				logging.debug('New Price: {}'.format(new_price))
 
 				cost_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Stock split old', symbol, old_price, qty, 'Cash', 'Investments', cost]
 				split_entry = [ self.get_event(), self.get_entity(), self.trade_date(), 'Stock split new', symbol, new_price, new_qty, 'Investments', 'Cash', cost]
 				split_event = [cost_entry, split_entry]
-				print (split_event)
+				print(split_event)
 				self.journal_entry(split_event)
 
 

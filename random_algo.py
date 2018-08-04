@@ -5,14 +5,14 @@ import pandas as pd
 import random
 import datetime
 import argparse
+import logging
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_rows', 20)
-verbose = False # TODO Change this to the logging module
-verbose2 = False
+logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
 random.seed()
 timestamp = datetime.datetime.now().strftime('[%Y-%b-%d %H:%M:%S] ')
@@ -23,6 +23,7 @@ class RandomAlgo(Trading):
 		self.ledger_name = trade.ledger_name
 		self.entity = trade.entity
 		self.date = trade.date
+		self.start_date = trade.start_date
 		self.txn = trade.txn
 
 		# Get entity settings for random trading parameters
@@ -53,44 +54,36 @@ class RandomAlgo(Trading):
 
 	# Check how much capital is available
 	def check_capital(self, capital_accts=None):
-		if verbose2:
-			print (timestamp + 'Checking capital...')
+		logging.info(timestamp + 'Checking capital...')
 		self.df = trade.df
 		if capital_accts is None:
 			capital_accts = ['Cash','Chequing']
 		capital_bal = 0
 		capital_bal = trade.balance_sheet(capital_accts)
-		if verbose2:
-			print (capital_bal)
+		logging.info(capital_bal)
 		return capital_bal
 	
 	 # Generates the trade details
 	def get_trade(self, symbols):
 		try: # Get random ticker from df
 			symbol = symbols.iloc[random.randint(0, len(symbols))-1]['symbol'].lower()
-			if verbose:
-				print ('Using list of tickers')
+			logging.debug('Using list of tickers')
 		except: # If single ticker is provided
-			if verbose:
-				print ('Using single ticker')
+			logging.debug('Using single ticker')
 			symbol = symbols
 		try: # If position is already held on ticker
 			qty_held = portfolio.loc[portfolio['symbol'] == symbol]['qty'].values
 			if random.random() < self.liquidate_chance: # Chance to sell portion of existing position up to its max qty. Set by entity settings
-				if verbose:
-					print ('Not max QTY')
+				logging.debug('Not max QTY')
 				qty = random.randint(1, qty_held)
 			else: # Chance to liquidate position. Set by entity settings
-				if verbose:
-					print ('Max QTY')
+				logging.debug('Max QTY')
 				qty = int(qty_held)
 		except: # Purchase random amount of shares on position not held
-			if verbose:
-				print ('Ticker not held')
+			logging.debug('Ticker not held')
 			qty = random.randint(self.min_qty, self.max_qty) # Set by entity settings
 		
-		if verbose:
-			print ( (symbol, qty) )
+		logging.debug( (symbol, qty) )
 		return symbol, qty
 
 	# Get list of currently held tickers
@@ -99,30 +92,24 @@ class RandomAlgo(Trading):
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
 		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
-		if verbose2:
-			print (timestamp + 'Got fresh portfolio.')
+		logging.info(timestamp + 'Got fresh portfolio.')
 		return portfolio
 
 	# Buy shares until you run out of capital
 	def random_buy(self, capital):
-		if verbose2:
-			print (timestamp + 'Randomly buying.')
+		logging.info('Randomly buying.')
 		while capital > 1000:
 			capital = trade.buy_shares(*algo.get_trade(symbols))
-			if verbose:
-				print (capital)
-		if verbose2:
-			print (timestamp + 'Out of capital.')
+			logging.debug(capital)
+		logging.info('Out of capital.')
 
 	# Sell randomly from a random subset of positions
 	def random_sell(self, portfolio):
-		if verbose2:
-			print (timestamp + 'Randomly selling.')
+		ilogging.info('Randomly selling.')
 		for symbol in portfolio['symbol'][:random.randint(1,len(portfolio))]:
 			#print (symbol) # Debug
 			trade.sell_shares(*algo.get_trade(symbol))
-		if verbose2:
-			print (timestamp + 'Done randomly selling.')
+		logging.info('Done randomly selling.')
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -143,8 +130,7 @@ if __name__ == '__main__':
 	trade.dividends()
 	trade.div_accr()
 	trade.splits()
-	if verbose2:
-		print ('-' * DISPLAY_WIDTH)
+	logging.info('-' * (DISPLAY_WIDTH - 32))
 
 	# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
 	trade_holidays = [
@@ -181,10 +167,8 @@ if __name__ == '__main__':
 
 	# Check how much capital is available
 	capital = algo.check_capital()
-	if verbose:
-		print (capital)
-	if verbose2:
-		print ('-' * DISPLAY_WIDTH)
+	logging.debug(capital)
+	logging.info('-' * (DISPLAY_WIDTH - 32))
 
 	# Inital day of portfolio setup
 	try:
@@ -196,40 +180,30 @@ if __name__ == '__main__':
 
 	# Buy shares until you run out of capital
 	algo.random_buy(capital)
-	if verbose2:
-		print ('-' * DISPLAY_WIDTH)
+	logging.info('-' * (DISPLAY_WIDTH - 32))
 	
 	# Get fresh list of currently held tickers
 	portfolio = algo.get_portfolio()
-	if verbose:
-		print (portfolio)
-	if verbose2:
-		print ('-' * DISPLAY_WIDTH)
+	logging.debug(portfolio)
+	logging.info('-' * (DISPLAY_WIDTH - 32))
 
 	# Sell random amounts of currently held shares from a random subset of positions currently held
 	algo.random_sell(portfolio)
-	if verbose2:
-		print ('-' * DISPLAY_WIDTH)
+	logging.info('-' * (DISPLAY_WIDTH - 32))
 
 	# Buy shares until you run out of capital again
-	if verbose:
-		print (capital)
+	logging.debug(capital)
 	capital = algo.check_capital()
-	if verbose:
-		print (capital)
-	if verbose2:
-		print ('-' * DISPLAY_WIDTH)
+	logging.debug(capital)
+	logging.info('-' * (DISPLAY_WIDTH - 32))
 	algo.random_buy(capital)
 
-	if verbose2:
-		print ('-' * DISPLAY_WIDTH)
-		print (timestamp + 'Book unrealized gains and losses.')
+	logging.info('-' * (DISPLAY_WIDTH - 32))
+	logging.info('Book unrealized gains and losses.')
 	trade.unrealized()
 
-	if verbose2:
-		print ('-' * DISPLAY_WIDTH)
+	logging.info('-' * (DISPLAY_WIDTH - 32))
 	nav = trade.balance_sheet()
 	trade.print_bs()
-	if verbose2:
-		print (timestamp + 'Net Asset Value: ${:,.2f}'.format(nav))
+	logging.info(timestamp + 'Net Asset Value: ${:,.2f}'.format(nav))
 	print (timestamp + 'Done randomly trading!')

@@ -3,11 +3,12 @@ import numpy as np
 import sqlite3
 import argparse
 import datetime
+import logging
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
-verbose = False # TODO Change this to the logging module
+logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
 class Accounts(object):
 	def __init__(self, conn=None):
@@ -192,11 +193,11 @@ class Ledger(Accounts):
 		if self.entity != None: # TODO make able to select multiple entities
 			self.df = self.df[(self.df.entity_id == self.entity)]
 		if self.date != None:
-			self.df = self.df[(self.df.date <= self.date)] # TODO Add start date
+			self.df = self.df[(self.df.date <= self.date)]
 		if self.start_date != None:
 			self.df = self.df[(self.df.date >= self.start_date)]
 		if self.txn != None:
-			self.df = self.df[(self.df.index <= self.txn)]
+			self.df = self.df[(self.df.index <= self.txn)] # TODO Add start txn and event range
 		return self.df
 
 	def print_gl(self):
@@ -256,19 +257,16 @@ class Ledger(Accounts):
 
 		asset_bal = 0
 		for acct in assets:
-			if verbose:
-				print (acct)
+			logging.debug('Account: {}'.format(acct))
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Asset Debit Error')
+				logging.debug('Asset Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Asset Crebit Error')
+				logging.debug('Asset Crebit Error')
 				credits = 0
 			bal = debits - credits
 			asset_bal += bal
@@ -277,19 +275,16 @@ class Ledger(Accounts):
 
 		liab_bal = 0
 		for acct in liabilities:
-			if verbose:
-				print (acct)
+			logging.debug('Account: {}'.format(acct))
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Liabilities Debit Error')
+				logging.debug('Liabilities Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Liabilities Crebit Error')
+				logging.debug('Liabilities Crebit Error')
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			liab_bal += bal
@@ -298,19 +293,16 @@ class Ledger(Accounts):
 
 		wealth_bal = 0
 		for acct in wealth:
-			if verbose:
-				print (acct)
+			logging.debug('Account: {}'.format(acct))
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Wealth Debit Error')
+				logging.debug('Wealth Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Wealth Crebit Error')
+				logging.debug('Wealth Crebit Error')
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			wealth_bal += bal
@@ -319,19 +311,16 @@ class Ledger(Accounts):
 
 		rev_bal = 0
 		for acct in revenues:
-			if verbose:
-				print (acct)
+			logging.debug('Account: {}'.format(acct))
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Revenues Debit Error')
+				logging.debug('Revenues Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Revenues Crebit Error')
+				logging.debug('Revenues Crebit Error')
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			rev_bal += bal
@@ -340,19 +329,16 @@ class Ledger(Accounts):
 
 		exp_bal = 0
 		for acct in expenses:
-			if verbose:
-				print (acct)
+			logging.debug('Account: {}'.format(acct))
 			try:
 				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Expenses Debit Error')
+				logging.debug('Expenses Debit Error')
 				debits = 0
 			try:
 				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
 			except:
-				if verbose:
-					print ('Expenses Crebit Error')
+				logging.debug('Expenses Crebit Error')
 				credits = 0
 			bal = debits - credits
 			exp_bal += bal
@@ -405,22 +391,20 @@ class Ledger(Accounts):
 			item_ids = self.df['qty'].replace('None', np.nan, inplace=True) # TODO This line may not be needed on a clean ledger
 			item_ids = pd.unique(self.df['item_id'].dropna())
 			for item in item_ids:
-				#if verbose:
-					#print (item)
+				logging.debug(item)
 				qty_txns = self.get_qty_txns(item)
-				#print (qty_txns)
+				logging.debug(qty_txns)
 				try:
 					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
+					logging.debug(debits)
 				except:
-					if verbose:
-						print ('Error debit')
+					logging.debug('Error debit')
 					debits = 0
 				try:
 					credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
-					#print (credits)
+					logging.debug(credits)
 				except:
-					if verbose:
-						print ('Error credit')
+					logging.debug('Error credit')
 					credits = 0
 				qty = round(debits - credits, 2)
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
@@ -437,14 +421,12 @@ class Ledger(Accounts):
 		try:
 			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
 		except:
-			if verbose:
-				print ('Error debit')
+			logging.debug('Error debit')
 			debits = 0
 		try:
 			credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
 		except:
-			if verbose:
-				print ('Error credit')
+			logging.debug('Error credit')
 			credits = 0
 		qty = round(debits - credits, 2)
 		return qty
@@ -533,8 +515,7 @@ class Ledger(Accounts):
 				debit = str(je[7])
 				credit = str(je[8])
 				amount = str(je[9])
-				if verbose:
-					print(je)
+				logging.debug(je)
 
 				if event == '':
 					event = str(self.get_event())
@@ -613,9 +594,8 @@ class Ledger(Accounts):
 		if qty <= avail_qty: # Case when first available lot covers the need
 			price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[qty]})
 			amount = price_chart.price.dot(price_chart.qty)
-			if verbose:
-				print ('One')
-				print (amount)
+			logging.debug('Hist Cost Case: One')
+			logging.debug(amount)
 			return amount
 
 		price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[avail_qty]}) # Create a list of lots with associated price
@@ -629,18 +609,16 @@ class Ledger(Accounts):
 				if qty - self.df.loc[current_index]['qty'] < 0: # Final case when the last sellable lot is larger than remaining qty to be sold
 					price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
 					amount = price_chart.price.dot(price_chart.qty)
-					if verbose:
-						print ('Two')
-						print (amount)
+					logging.debug('Hist Cost Case: Two')
+					logging.debug(amount)
 					return amount
 				
 				price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':self.df.loc[current_index]['qty']}, ignore_index=True)
 				qty = qty - self.df.loc[current_index]['qty']
 
 			amount = price_chart.price.dot(price_chart.qty) # Take dot product
-			if verbose:
-				print ('Three')
-				print (amount)
+			logging.debug('Hist Cost Case: Three')
+			logging.debug(amount)
 			return amount
 
 if __name__ == '__main__':
