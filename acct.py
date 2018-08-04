@@ -127,7 +127,7 @@ class Accounts(object):
 		self.refresh_accts()
 
 class Ledger(Accounts):
-	def __init__(self, ledger_name=None, entity=None, date=None, txn=None):
+	def __init__(self, ledger_name=None, entity=None, date=None, start_date=None, txn=None):
 		self.conn = Accounts.conn
 		if ledger_name is None:
 			self.ledger_name = 'random_1' #input('Enter a name for the ledger: ')
@@ -135,12 +135,13 @@ class Ledger(Accounts):
 			self.ledger_name = ledger_name
 		self.entity = entity
 		self.date = date
+		self.start_date = start_date
 		self.txn = txn
 		self.create_ledger()
 		self.refresh_ledger()
 		self.balance_sheet()
 			
-	def create_ledger(self):
+	def create_ledger(self): # TODO Change entity_id to string type
 		create_ledger_query = '''
 			CREATE TABLE IF NOT EXISTS ledger_''' + self.ledger_name + ''' (
 				txn_id INTEGER PRIMARY KEY,
@@ -162,12 +163,38 @@ class Ledger(Accounts):
 		self.conn.commit()
 		cur.close()
 
+	def set_entity(self, entity=None):
+		self.entity = int(input('Enter an Entity ID: ')) # TODO Change entity_id to string type
+		self.refresh_ledger()
+		self.balance_sheet()
+		return self.entity
+
+	def set_date(self, date=None):
+		self.date = input('Enter a date in format YYYY-MM-DD: ')
+		self.refresh_ledger()
+		self.balance_sheet()
+		return self.date
+
+	def set_start_date(self, date=None):
+		self.start_date = input('Enter a date in format YYYY-MM-DD: ')
+		self.refresh_ledger()
+		self.balance_sheet()
+		return self.start_date
+
+	def set_txn(self, txn=None):
+		self.txn = int(input('Enter a TXN ID: '))
+		self.refresh_ledger()
+		self.balance_sheet()
+		return self.txn
+
 	def refresh_ledger(self):
 		self.df = pd.read_sql_query('SELECT * FROM ledger_' + self.ledger_name + ';', self.conn, index_col='txn_id')
 		if self.entity != None: # TODO make able to select multiple entities
 			self.df = self.df[(self.df.entity_id == self.entity)]
 		if self.date != None:
-			self.df = self.df[(self.df.date <= self.date)]
+			self.df = self.df[(self.df.date <= self.date)] # TODO Add start date
+		if self.start_date != None:
+			self.df = self.df[(self.df.date >= self.start_date)]
 		if self.txn != None:
 			self.df = self.df[(self.df.index <= self.txn)]
 		return self.df
@@ -629,7 +656,7 @@ if __name__ == '__main__':
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
 		if command.lower() == 'exit':
-			exit()
+			exit() # TODO Add help command to list full list of commands
 		elif command.lower() == 'gl':
 			ledger.print_gl()
 		elif command.lower() == 'exportgl':
@@ -658,5 +685,13 @@ if __name__ == '__main__':
 			item = input('Which ticker? ').lower()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				print (ledger.get_qty(item))
+		elif command.lower() == 'entity':
+			ledger.set_entity()
+		elif command.lower() == 'date':
+			ledger.set_date()
+		elif command.lower() == 'startdate':
+			ledger.set_start_date()
+		elif command.lower() == 'txn':
+			ledger.set_txn()
 		else:
 			print('Not a valid command. Type exit to close.')
