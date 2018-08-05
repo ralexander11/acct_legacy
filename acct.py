@@ -76,7 +76,7 @@ class Accounts(object):
 		Accounts.df.to_sql('accounts', self.conn, if_exists='replace')
 		self.refresh_accts()
 
-	def add_acct(self, acct_data = None):
+	def add_acct(self, acct_data=None):
 		cur = self.conn.cursor()
 		if acct_data is None:
 			account = input('Enter the account name: ')
@@ -104,8 +104,9 @@ class Accounts(object):
 
 		# TODO Add error checking to ensure all accounts lead to a standard account
 
-	def load_accts(self):
-		infile = input('Enter a filename: ')
+	def load_accts(self, infile=None):
+		if infile is None:
+			infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
 			load_df = pd.read_csv(f, keep_default_na=False)
 			lol = load_df.values.tolist()
@@ -119,8 +120,9 @@ class Accounts(object):
 		Accounts.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
 		print ('File saved as ' + save_location + outfile + '\n')
 
-	def remove_acct(self):
-		acct = input('Which account would you like to remove? ')
+	def remove_acct(self, acct=None):
+		if acct is None:
+			acct = input('Which account would you like to remove? ')
 		cur = self.conn.cursor()
 		cur.execute('DELETE FROM accounts WHERE accounts=?', (acct,))
 		self.conn.commit()
@@ -165,25 +167,37 @@ class Ledger(Accounts):
 		cur.close()
 
 	def set_entity(self, entity=None):
-		self.entity = int(input('Enter an Entity ID: ')) # TODO Change entity_id to string type
+		if entity is None:
+			self.entity = int(input('Enter an Entity ID: ')) # TODO Change entity_id to string type
+		else:
+			self.entity = entity
 		self.refresh_ledger()
 		self.balance_sheet()
 		return self.entity
 
 	def set_date(self, date=None):
-		self.date = input('Enter a date in format YYYY-MM-DD: ')
+		if date is None:
+			self.date = input('Enter a date in format YYYY-MM-DD: ')
+		else:
+			self.date = date
 		self.refresh_ledger()
 		self.balance_sheet()
 		return self.date
 
-	def set_start_date(self, date=None):
-		self.start_date = input('Enter a date in format YYYY-MM-DD: ')
+	def set_start_date(self, start_date=None):
+		if start_date is None:
+			self.start_date = input('Enter a date in format YYYY-MM-DD: ')
+		else:
+			self.start_date = start_date
 		self.refresh_ledger()
 		self.balance_sheet()
 		return self.start_date
 
 	def set_txn(self, txn=None):
-		self.txn = int(input('Enter a TXN ID: '))
+		if txn is None:
+			self.txn = int(input('Enter a TXN ID: '))
+		else:
+			self.txn = txn
 		self.refresh_ledger()
 		self.balance_sheet()
 		return self.txn
@@ -541,8 +555,9 @@ class Ledger(Accounts):
 	def sanitize_ledger(self): # This is not implemented yet
 		self.df = self.df.drop_duplicates() # TODO Test this
 
-	def load_gl(self):
-		infile = input('Enter a filename: ')
+	def load_gl(self, infile=None):
+		if infile is None:
+			infile = input('Enter a filename: ')
 		with open(infile, 'r') as f:
 			load_df = pd.read_csv(f, keep_default_na=False)
 			load_df.set_index('txn_id', inplace=True)
