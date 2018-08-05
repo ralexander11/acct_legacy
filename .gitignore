@@ -103,3 +103,4 @@ data/
 .bash_profile
 *config*.json
 *.txt
+*.sh
