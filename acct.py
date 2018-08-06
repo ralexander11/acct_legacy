@@ -202,6 +202,14 @@ class Ledger(Accounts):
 		self.balance_sheet()
 		return self.txn
 
+	def reset(self):
+		self.entity = None
+		self.date = None
+		self.start_date = None
+		self.txn = None
+		self.refresh_ledger()
+		self.balance_sheet()
+
 	def refresh_ledger(self):
 		self.df = pd.read_sql_query('SELECT * FROM ledger_' + self.ledger_name + ';', self.conn, index_col='txn_id')
 		if self.entity != None: # TODO make able to select multiple entities
@@ -265,7 +273,7 @@ class Ledger(Accounts):
 				continue
 
 		# Create Balance Sheet dataframe to return
-		self.bs = pd.DataFrame(columns=['line_item','balance'])
+		self.bs = pd.DataFrame(columns=['line_item','balance']) # TODO Make line_item the index
 
 		# TODO The below repeated sections can probably be handled more elegantly
 
@@ -379,7 +387,7 @@ class Ledger(Accounts):
 				self.bs.to_sql('balance_sheet', self.conn, if_exists='replace')
 			else:
 				self.bs.to_sql('balance_sheet_' + str(self.entity), self.conn, if_exists='replace')
-		return net_asset_value
+		return net_asset_value # TODO Change to return df also
 
 	def print_bs(self):
 		self.balance_sheet() # Refresh Balance Sheet
@@ -465,7 +473,7 @@ class Ledger(Accounts):
 			entity = self.entity
 		return entity
 
-	def journal_entry(self, journal_data = None):
+	def journal_entry(self, journal_data=None):
 		'''
 			The heart of the whole system; this is how transactions are entered.
 			journal_data is a list of transactions. Each transaction is a list
@@ -636,6 +644,52 @@ class Ledger(Accounts):
 			logging.debug(amount)
 			return amount
 
+	def bs_hist(self): # TODO Optimize this so it does not recalculate each time
+		entities = pd.unique(self.df['entity_id'])
+		logging.info(entities)
+		dates = pd.unique(self.df['date'])
+		logging.info(dates)
+
+		cur = self.conn.cursor()
+		cur.execute('DELETE FROM hist_bs')
+		for entity in entities:
+			logging.info(entity)
+			ledger.set_entity(entity)
+			for date in dates:
+				logging.info(entity)
+				ledger.set_date(date)
+				logging.info(date)
+				ledger.balance_sheet()
+				self.bs.set_index('line_item', inplace=True)
+				col0 = str(entity)
+				col1 = self.bs.loc['Total Assets:'][0]
+				col2 = self.bs.loc['Total Liabilities:'][0]
+				col3 = self.bs.loc['Total Wealth:'][0]
+				col4 = self.bs.loc['Total Revenues:'][0]
+				col5 = self.bs.loc['Total Expenses:'][0]
+				col6 = self.bs.loc['Net Income:'][0]
+				col7 = self.bs.loc['Wealth+NI+Liab.:'][0]
+				col8 = self.bs.loc['Balance Check:'][0]
+				col9 = self.bs.loc['Net Asset Value:'][0]
+				
+				data = (date,col0,col1,col2,col3,col4,col5,col6,col7,col8,col9)
+				logging.info(data)
+				cur.execute('INSERT INTO hist_bs VALUES (?,?,?,?,?,?,?,?,?,?,?)', data)
+
+		self.conn.commit()
+		cur.close()
+
+		self.hist_bs = pd.read_sql_query('SELECT * FROM hist_bs;', self.conn, index_col=['date','entity'])
+		return self.hist_bs
+
+	def print_hist(self):
+		self.bs_hist()
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
+			print(self.hist_bs)
+		print ('-' * DISPLAY_WIDTH)
+		return self.hist_bs
+
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
@@ -686,5 +740,9 @@ if __name__ == '__main__':
 			ledger.set_start_date()
 		elif command.lower() == 'txn':
 			ledger.set_txn()
+		elif command.lower() == 'reset':
+			ledger.reset()
+		elif command.lower() == 'hist':
+			ledger.print_hist()
 		else:
 			print('Not a valid command. Type exit to close.')

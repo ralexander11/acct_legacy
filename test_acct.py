@@ -20,16 +20,12 @@ class TestAcct(unittest.TestCase):
 		self.start_date = trade.start_date
 		self.txn = trade.txn
 
-		# Load accounts
-		accts.load_accts('accounts.csv')
-
-		# Load sample transactions
-
-
+		accts.load_accts('accounts.csv') # Load accounts
+		ledger.load_gl('ledger_test_1.csv') # Load sample transactions
 		logging.info('Setup complete.')
 
 	def test_bs(self):
-		pass
+		self.assertEqual(self.ledger.balance_sheet(), 100000.0, 'Net Asset Value' )
 
 	def tearDown(self):
 		if os.path.exists(db_name):
@@ -43,5 +39,8 @@ if __name__ == '__main__':
 	test = TestAcct()
 
 	test.setUp()
+
+	test.test_bs()
+
 	test.tearDown()
 	logging.info('Exiting testing of acct.py and trading_platform.py')
