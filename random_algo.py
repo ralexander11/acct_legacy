@@ -105,7 +105,7 @@ class RandomAlgo(Trading):
 
 	# Sell randomly from a random subset of positions
 	def random_sell(self, portfolio):
-		ilogging.info('Randomly selling.')
+		logging.info('Randomly selling.')
 		for symbol in portfolio['symbol'][:random.randint(1,len(portfolio))]:
 			#print (symbol) # Debug
 			trade.sell_shares(*algo.get_trade(symbol))

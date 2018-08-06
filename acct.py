@@ -682,8 +682,12 @@ class Ledger(Accounts):
 		self.hist_bs = pd.read_sql_query('SELECT * FROM hist_bs;', self.conn, index_col=['date','entity'])
 		return self.hist_bs
 
+		# TODO Add function to book just the current days bs to hist_bs
+		
+
 	def print_hist(self):
 		self.bs_hist()
+		self.hist_bs.to_csv('data/bs_hist.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
 			print(self.hist_bs)
 		print ('-' * DISPLAY_WIDTH)
