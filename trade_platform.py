@@ -51,7 +51,6 @@ class Trading(Ledger):
 		capital_bal = self.balance_sheet(capital_accts)
 
 		if price * qty > capital_bal or price == 0:
-			print()
 			logging.info('Buying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(round(price * qty, 2)) + '.')
 			logging.info('You currently have $' + str(round(capital_bal, 2)) + ' available.\n')
 			return capital_bal

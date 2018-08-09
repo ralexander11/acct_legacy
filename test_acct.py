@@ -37,9 +37,13 @@ if __name__ == '__main__':
 	ledger = acct.Ledger('test_1')
 	trade = trade_platform.Trading(ledger)
 	test = TestAcct()
-	test.set_up()
+	try:
+		test.set_up()
 
-	test.test_bs() # TODO Add finally condition
+		test.test_bs() # TODO Add finally condition
+	#except AssertionError:
+	#	pass
+	finally:
+		test.tear_down()
 
-	test.tear_down()
 	logging.info('Exiting testing of acct.py and trading_platform.py')

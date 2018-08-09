@@ -129,6 +129,23 @@ class Accounts(object):
 		cur.close()
 		self.refresh_accts()
 
+	def print_entities(self):
+		self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col=['entity_id'])
+		self.entities.to_csv('data/entities.csv', index=True)
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			print(self.entities)
+		print ('-' * DISPLAY_WIDTH)
+		return self.entities
+
+	def print_items(self):
+		self.items = pd.read_sql_query('SELECT * FROM items;', self.conn, index_col=['item_id'])
+		self.items.to_csv('data/items.csv', index=True)
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			print(self.items)
+		print ('-' * DISPLAY_WIDTH)
+		return self.items
+
+
 class Ledger(Accounts):
 	def __init__(self, ledger_name=None, entity=None, date=None, start_date=None, txn=None):
 		self.conn = Accounts.conn
@@ -645,14 +662,14 @@ class Ledger(Accounts):
 			return amount
 
 	def bs_hist(self): # TODO Optimize this so it does not recalculate each time
-		entities = pd.unique(self.df['entity_id'])
-		logging.info(entities)
+		gl_entities = pd.unique(self.df['entity_id'])
+		logging.info(gl_entities)
 		dates = pd.unique(self.df['date'])
 		logging.info(dates)
 
 		cur = self.conn.cursor()
 		cur.execute('DELETE FROM hist_bs')
-		for entity in entities:
+		for entity in gl_entities:
 			logging.info(entity)
 			ledger.set_entity(entity)
 			for date in dates:
@@ -748,5 +765,9 @@ if __name__ == '__main__':
 			ledger.reset()
 		elif command.lower() == 'hist':
 			ledger.print_hist()
+		elif command.lower() == 'entities':
+			accts.print_entities()
+		elif command.lower() == 'items':
+			accts.print_items()
 		else:
 			print('Not a valid command. Type exit to close.')
