@@ -42,7 +42,8 @@ if __name__ == '__main__':
 	try:
 		test.set_up()
 
-		test.test_bs() # TODO Add finally condition
+		test.test_bs()
+		ledger.print_bs()
 
 	finally:
 		test.tear_down()
