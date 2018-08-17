@@ -72,7 +72,7 @@ class Trading(Ledger):
 			qty = int(input('How many shares? '))
 		current_qty = self.get_qty(symbol, 'Investments')
 		if qty > current_qty:
-			print('You currently have ' + str(round(current_qty, 2)) + ' shares.')
+			print('You currently have ' + str(round(current_qty, 2)) + ' shares of ' + symbol + ' but you tried to sell ' + str(round(qty, 2)) + ' shares.')
 			return
 
 		# Calculate profit

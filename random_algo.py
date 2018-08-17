@@ -12,7 +12,7 @@ pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_rows', 20)
-logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
+logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.DEBUG) #filename='logs/output.log'
 
 random.seed()
 timestamp = datetime.datetime.now().strftime('[%Y-%b-%d %H:%M:%S] ')
@@ -46,11 +46,10 @@ class RandomAlgo(Trading):
 		if flag == 'iex':
 			symbols_url = 'https://api.iextrading.com/1.0/ref-data/symbols'
 			symbols = pd.read_json(symbols_url, typ='frame', orient='records')
-			#symbols.set_index('symbol', inplace=True)
 			symbols = symbols.sample(frac=1).reset_index(drop=True) #Randomize list
-			#outfile = flag + '_tickers' + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv'
-			#symbols.to_csv(self.save_location + 'tickers/' + outfile)
-			return symbols
+		else: # TODO Make into list
+			symbols = flag
+		return symbols
 
 	# Check how much capital is available
 	def check_capital(self, capital_accts=None):
@@ -64,25 +63,26 @@ class RandomAlgo(Trading):
 		return capital_bal
 	
 	 # Generates the trade details
-	def get_trade(self, symbols):
-		try: # Get random ticker from df
+	def get_trade(self, symbols, portfolio=None):
+		# TODO Add case to handle lists
+		if not isinstance(symbols, str): # Get random ticker from df
 			symbol = symbols.iloc[random.randint(0, len(symbols))-1]['symbol'].lower()
 			logging.debug('Using list of tickers')
-		except: # If single ticker is provided
-			logging.debug('Using single ticker')
+		else: # If single ticker is provided
 			symbol = symbols
-		try: # If position is already held on ticker
+			logging.debug('Using single ticker: {}'.format(symbol))
+		if portfolio is not None: # If position is already held on ticker
 			qty_held = portfolio.loc[portfolio['symbol'] == symbol]['qty'].values
+			logging.debug('QTY Held: {}'.format(qty_held))
 			if random.random() < self.liquidate_chance: # Chance to sell portion of existing position up to its max qty. Set by entity settings
 				logging.debug('Not max QTY')
 				qty = random.randint(1, qty_held)
 			else: # Chance to liquidate position. Set by entity settings
 				logging.debug('Max QTY')
 				qty = int(qty_held)
-		except: # Purchase random amount of shares on position not held
+		else: # Purchase random amount of shares on position not held
 			logging.debug('Ticker not held')
 			qty = random.randint(self.min_qty, self.max_qty) # Set by entity settings
-		
 		logging.debug( (symbol, qty) )
 		return symbol, qty
 
@@ -96,7 +96,7 @@ class RandomAlgo(Trading):
 		return portfolio
 
 	# Buy shares until you run out of capital
-	def random_buy(self, capital):
+	def random_buy(self, capital, symbols):
 		logging.info('Randomly buying.')
 		while capital > 1000:
 			capital = trade.buy_shares(*algo.get_trade(symbols))
@@ -108,8 +108,95 @@ class RandomAlgo(Trading):
 		logging.info('Randomly selling.')
 		for symbol in portfolio['symbol'][:random.randint(1,len(portfolio))]:
 			#print (symbol) # Debug
-			trade.sell_shares(*algo.get_trade(symbol))
+			trade.sell_shares(*algo.get_trade(symbol, portfolio))
 		logging.info('Done randomly selling.')
+
+	def main(self):
+		print ('=' * DISPLAY_WIDTH)
+		print (timestamp + 'Entity: {} \nCommission: {} Min QTY: {} Max QTY: {}, Liquidate Chance: {} Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
+		print ('-' * DISPLAY_WIDTH)
+
+
+		trade.int_exp(ledger)
+		trade.dividends()
+		trade.div_accr()
+		trade.splits()
+		logging.info('-' * (DISPLAY_WIDTH - 32))
+
+		# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
+		trade_holidays = [
+							'2018-01-01',
+							'2018-01-15',
+							'2018-02-19',
+							'2018-03-30',
+							'2018-05-28',
+							'2018-07-04',
+							'2018-09-03',
+							'2018-11-22',
+							'2018-12-25',
+							'2018-05-26'
+							]
+
+		# Get the day of the week (Monday is 0)
+		weekday = datetime.datetime.today().weekday()
+
+		# Don't do anything on weekends
+		if weekday == 5 or weekday == 6:
+			print (timestamp + 'Today is a weekend.')
+			exit()
+
+		# Don't do anything on trade holidays
+		day_of_year = datetime.datetime.today().timetuple().tm_yday
+		for holiday in trade_holidays:
+			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
+			if holiday == current_date:
+				print (timestamp + 'Today is a trade holiday.')
+				exit()
+
+		symbols = algo.get_symbols(algo.ticker_source) # Get list of all the tickers
+
+		# Check how much capital is available
+		capital = algo.check_capital()
+		logging.debug(capital)
+		logging.info('-' * (DISPLAY_WIDTH - 32))
+
+		# Inital day of portfolio setup
+		try:
+			portfolio = algo.get_portfolio()
+		except:
+			print (timestamp + 'Initial porfolio setup.')
+			algo.random_buy(capital, symbols)
+			exit()
+
+		# Buy shares until you run out of capital
+		algo.random_buy(capital, symbols)
+		logging.info('-' * (DISPLAY_WIDTH - 32))
+		
+		# Get fresh list of currently held tickers
+		portfolio = algo.get_portfolio()
+		logging.debug(portfolio)
+		logging.info('-' * (DISPLAY_WIDTH - 32))
+
+		# Sell random amounts of currently held shares from a random subset of positions currently held
+		algo.random_sell(portfolio)
+		logging.info('-' * (DISPLAY_WIDTH - 32))
+
+		# Buy shares until you run out of capital again
+		logging.debug(capital)
+		capital = algo.check_capital()
+		logging.debug(capital)
+		logging.info('-' * (DISPLAY_WIDTH - 32))
+		algo.random_buy(capital, symbols)
+
+		logging.info('-' * (DISPLAY_WIDTH - 32))
+		logging.info('Book unrealized gains and losses.')
+		trade.unrealized()
+
+		logging.info('-' * (DISPLAY_WIDTH - 32))
+		nav = trade.balance_sheet()
+		trade.print_bs()
+		logging.info(timestamp + 'Net Asset Value: ${:,.2f}'.format(nav))
+		print (timestamp + 'Done randomly trading!')
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -121,89 +208,4 @@ if __name__ == '__main__':
 	trade = Trading(ledger)
 	algo = RandomAlgo(trade)
 
-	print ('=' * DISPLAY_WIDTH)
-	print (timestamp + 'Entity: {} \nCommission: {} Min QTY: {} Max QTY: {}, Liquidate Chance: {} Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
-	print ('-' * DISPLAY_WIDTH)
-
-
-	trade.int_exp(ledger)
-	trade.dividends()
-	trade.div_accr()
-	trade.splits()
-	logging.info('-' * (DISPLAY_WIDTH - 32))
-
-	# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
-	trade_holidays = [
-						'2018-01-01',
-						'2018-01-15',
-						'2018-02-19',
-						'2018-03-30',
-						'2018-05-28',
-						'2018-07-04',
-						'2018-09-03',
-						'2018-11-22',
-						'2018-12-25',
-						'2018-05-26'
-						]
-
-	# Get the day of the week (Monday is 0)
-	weekday = datetime.datetime.today().weekday()
-
-	# Don't do anything on weekends
-	if weekday == 5 or weekday == 6:
-		print (timestamp + 'Today is a weekend.')
-		exit()
-
-	# Don't do anything on trade holidays
-	day_of_year = datetime.datetime.today().timetuple().tm_yday
-	for holiday in trade_holidays:
-		datetime_object = datetime.datetime.strptime(holiday, '%Y-%m-%d')
-		holiday_day_of_year = datetime_object.timetuple().tm_yday
-		if holiday_day_of_year == day_of_year:
-			print (timestamp + 'Today is a trade holiday.')
-			exit()
-
-	symbols = algo.get_symbols(algo.ticker_source) # Get list of all the tickers
-
-	# Check how much capital is available
-	capital = algo.check_capital()
-	logging.debug(capital)
-	logging.info('-' * (DISPLAY_WIDTH - 32))
-
-	# Inital day of portfolio setup
-	try:
-		portfolio = algo.get_portfolio()
-	except:
-		print (timestamp + 'Initial porfolio setup.')
-		algo.random_buy(capital)
-		exit()
-
-	# Buy shares until you run out of capital
-	algo.random_buy(capital)
-	logging.info('-' * (DISPLAY_WIDTH - 32))
-	
-	# Get fresh list of currently held tickers
-	portfolio = algo.get_portfolio()
-	logging.debug(portfolio)
-	logging.info('-' * (DISPLAY_WIDTH - 32))
-
-	# Sell random amounts of currently held shares from a random subset of positions currently held
-	algo.random_sell(portfolio)
-	logging.info('-' * (DISPLAY_WIDTH - 32))
-
-	# Buy shares until you run out of capital again
-	logging.debug(capital)
-	capital = algo.check_capital()
-	logging.debug(capital)
-	logging.info('-' * (DISPLAY_WIDTH - 32))
-	algo.random_buy(capital)
-
-	logging.info('-' * (DISPLAY_WIDTH - 32))
-	logging.info('Book unrealized gains and losses.')
-	trade.unrealized()
-
-	logging.info('-' * (DISPLAY_WIDTH - 32))
-	nav = trade.balance_sheet()
-	trade.print_bs()
-	logging.info(timestamp + 'Net Asset Value: ${:,.2f}'.format(nav))
-	print (timestamp + 'Done randomly trading!')
+	algo.main()	
