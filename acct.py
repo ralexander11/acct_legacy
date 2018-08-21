@@ -241,8 +241,8 @@ class Ledger(Accounts):
 
 	def print_gl(self):
 		self.refresh_ledger() # Refresh Ledger
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
-			print (self.df)
+		#with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
+		print (self.df)
 		print ('-' * DISPLAY_WIDTH)
 		return self.df
 
@@ -569,6 +569,7 @@ class Ledger(Accounts):
 					price = amount
 
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
+				#print(values)
 				cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		self.conn.commit()
@@ -598,7 +599,8 @@ class Ledger(Accounts):
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
 		print ('File saved as ' + save_location + outfile + '\n')
 
-	def reversal_entry(self, txn=None): # This func effectively deletes a transaction
+	def reversal_entry(self, txn=None, date=None): # This func effectively deletes a transaction
+	# TODO Add logic to prevent reversing a reversal
 		if txn is None:
 			txn = input('Which txn_id to reverse? ')
 		rvsl_query = 'SELECT * FROM ledger_'+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
@@ -606,8 +608,9 @@ class Ledger(Accounts):
 		cur.execute(rvsl_query)
 		rvsl = cur.fetchone()
 		cur.close()
-		date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
-		date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+		if date is None:
+			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
+			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)
 
