@@ -31,6 +31,8 @@ class Accounts(object):
 			Accounts.df = None
 			self.create_accts()
 			self.refresh_accts()
+			self.create_entities()
+			self.create_items()
 
 	def create_accts(self):
 		create_accts_query = '''
@@ -58,6 +60,76 @@ class Accounts(object):
 				print(acct)
 				details = (account,child_of)
 				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
+		self.conn.commit()
+		cur.close()
+
+	def create_entities(self): # TODO Add command to book more entities
+		create_entities_query = '''
+			CREATE TABLE IF NOT EXISTS entities (
+				entity_id INTEGER PRIMARY KEY,
+				name text,
+				comm real DEFAULT 0,
+				min_qty INTEGER NOT NULL,
+				max_qty INTEGER NOT NULL,
+				liquidate_chance real NOT NULL,
+				ticker_source text DEFAULT 'iex'
+			);
+			'''
+		default_entities = ['''
+			INSERT INTO entities (
+				name,
+				comm,
+				min_qty,
+				max_qty,
+				liquidate_chance,
+				ticker_source
+				)
+				VALUES (
+					'Trader01',
+					0.0,
+					1,
+					100,
+					0.5,
+					'iex'
+				);
+			''']
+
+		cur = self.conn.cursor()
+		cur.execute(create_entities_query)
+		for entity in default_entities:
+				print('Entities created.')
+				cur.execute(entity)
+		self.conn.commit()
+		cur.close()
+
+	def create_items(self):# TODO Add command to book more items
+		create_items_query = '''
+			CREATE TABLE IF NOT EXISTS items (
+				item_id text PRIMARY KEY,
+				int_rate_fix real,
+				int_rate_var real,
+				freq integer DEFAULT 365
+			);
+			'''
+		default_item = ['''
+			INSERT INTO items (
+				item_id,
+				int_rate_fix,
+				int_rate_var,
+				freq
+				) VALUES (
+					'credit_line_01',
+					0.0409,
+					NULL,
+					365
+				);
+			''']
+
+		cur = self.conn.cursor()
+		cur.execute(create_items_query)
+		for item in default_item:
+				print('Items created.')
+				cur.execute(item)
 		self.conn.commit()
 		cur.close()
 
@@ -110,15 +182,15 @@ class Accounts(object):
 		with open(infile, 'r') as f:
 			load_df = pd.read_csv(f, keep_default_na=False)
 			lol = load_df.values.tolist()
-			print (load_df)
-			print ('-' * DISPLAY_WIDTH)
+			print(load_df)
+			print('-' * DISPLAY_WIDTH)
 			self.add_acct(lol)
 
 	def export_accts(self):
 		outfile = 'accounts_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 		save_location = 'data/'
 		Accounts.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
-		print ('File saved as ' + save_location + outfile + '\n')
+		print('File saved as ' + save_location + outfile + '\n')
 
 	def remove_acct(self, acct=None):
 		if acct is None:
@@ -134,7 +206,7 @@ class Accounts(object):
 		self.entities.to_csv('data/entities.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			print(self.entities)
-		print ('-' * DISPLAY_WIDTH)
+		print('-' * DISPLAY_WIDTH)
 		return self.entities
 
 	def print_items(self): # TODO Add error checking if not items exist
@@ -142,7 +214,7 @@ class Accounts(object):
 		self.items.to_csv('data/items.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			print(self.items)
-		print ('-' * DISPLAY_WIDTH)
+		print('-' * DISPLAY_WIDTH)
 		return self.items
 
 
@@ -597,7 +669,7 @@ class Ledger(Accounts):
 		outfile = 'ledger_' + self.ledger_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 		save_location = 'data/'
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
-		print ('File saved as ' + save_location + outfile + '\n')
+		print ('File saved as ' + save_location + outfile)
 
 	def reversal_entry(self, txn=None, date=None): # This func effectively deletes a transaction
 	# TODO Add logic to prevent reversing a reversal
@@ -671,6 +743,22 @@ class Ledger(Accounts):
 		logging.info(dates)
 
 		cur = self.conn.cursor()
+		create_bs_hist_query = '''
+			CREATE TABLE IF NOT EXISTS hist_bs (
+				date date NOT NULL,
+				entity text NOT NULL,
+				assets real NOT NULL,
+				liabilities real NOT NULL,
+				wealth real NOT NULL,
+				revenues real NOT NULL,
+				expenses real NOT NULL,
+				net_income real NOT NULL,
+				wealth_ni_liab real NOT NULL,
+				bal_check real NOT NULL,
+				net_asset_value real NOT NULL
+			);
+			'''
+		cur.execute(create_bs_hist_query)
 		cur.execute('DELETE FROM hist_bs')
 		for entity in gl_entities:
 			logging.info(entity)
@@ -695,21 +783,24 @@ class Ledger(Accounts):
 				data = (date,col0,col1,col2,col3,col4,col5,col6,col7,col8,col9)
 				logging.info(data)
 				cur.execute('INSERT INTO hist_bs VALUES (?,?,?,?,?,?,?,?,?,?,?)', data)
-
 		self.conn.commit()
+		cur.execute('PRAGMA database_list')
+		db_path = cur.fetchall()[0][-1]
+		db_name = db_path.rsplit('/', 1)[-1]
 		cur.close()
 
 		self.hist_bs = pd.read_sql_query('SELECT * FROM hist_bs;', self.conn, index_col=['date','entity'])
-		return self.hist_bs
+		return self.hist_bs, db_name
 
 		# TODO Add function to book just the current days bs to hist_bs
-		
 
 	def print_hist(self):
-		self.bs_hist()
-		self.hist_bs.to_csv('data/bs_hist.csv', index=True)
+		db_name = self.bs_hist()[1]
+		path = 'data/bs_hist_' + db_name[:-3] + '.csv'
+		self.hist_bs.to_csv(path, index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
 			print(self.hist_bs)
+		print('File saved to: {}'.format(path))
 		print ('-' * DISPLAY_WIDTH)
 		return self.hist_bs
 

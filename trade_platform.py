@@ -375,5 +375,8 @@ if __name__ == '__main__':
 		elif command.lower() == 'sell':
 			symbol = input('Which ticker? ')
 			trade.sell_shares(symbol)
+		elif command.lower() == 'trueup':
+			trade.int_exp(ledger)
+			trade.unrealized()
 		else:
 			print('Not a valid command. Type exit to close.')
