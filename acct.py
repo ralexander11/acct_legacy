@@ -42,15 +42,16 @@ class Accounts(object):
 			);
 			'''
 		standard_accts = [
-			['Account','None'],
-			['Admin','Account'],
-			['Asset','Account'],
-			['Equity','Account'],
-			['Liability','Equity'],
-			['Wealth','Equity'],
-			['Revenue','Wealth'],
-			['Expense','Wealth'],
-			['Transfer','Wealth']]
+			('Account','None'),
+			('Admin','Account'),
+			('Asset','Account'),
+			('Equity','Account'),
+			('Liability','Equity'),
+			('Wealth','Equity'),
+			('Revenue','Wealth'),
+			('Expense','Wealth'),
+			('Transfer','Wealth')
+		]
 
 		cur = self.conn.cursor()
 		cur.execute(create_accts_query)
@@ -165,7 +166,6 @@ class Accounts(object):
 				account = str(acct[0])
 				child_of = str(acct[1])
 				print(acct)
-
 				details = (account,child_of)
 				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 

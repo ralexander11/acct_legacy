@@ -245,7 +245,28 @@ if __name__ == '__main__':
 	if trade.sim:
 		print(algo.time() + 'Setup default accounts:')
 		t0_start = time.perf_counter()
-		accts.load_accts('accounts.csv')
+		trade_accts = [
+			('Cash','Asset'),
+			('Chequing','Asset'),
+			('Savings','Asset'),
+			('Investments','Asset'),
+			('Visa','Liability'),
+			('Student Credit','Liability'),
+			('Credit Line','Liability'),
+			('Uncategorized','Admin'),
+			('Info','Admin'),
+			('Commission Expense','Expense'),
+			('Investment Gain','Revenue'),
+			('Investment Loss','Expense'),
+			('Unrealized Gain','Revenue'),
+			('Unrealized Loss','Expense'),
+			('Interest Expense','Expense'),
+			('Dividend Receivable','Asset'),
+			('Dividend Income','Revenue'),
+			('Interest Income','Revenue')
+		]
+		accts.add_acct(trade_accts)
+		#accts.load_accts('accounts.csv')
 		cap = float(10000)#(input('How much capital? '))
 		print(algo.time() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
 		path = 'trading/market_data/quote/*.csv'
