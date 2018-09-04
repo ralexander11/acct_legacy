@@ -225,13 +225,14 @@ class Trading(Ledger):
 	def dividends(self, end_point='dividends/3m', date=None): # TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
 		portfolio = self.get_qty()
+		#print(portfolio)
 		if portfolio.empty:
 			print('Dividends: No securities held.')
 			return
 		logging.debug('Looking for dividends to book.')
 		logging.debug(portfolio['item_id'])
 		for symbol in portfolio['item_id']:
-			logging.debug('\nGetting divs for: ' + symbol)
+			logging.debug('Getting divs for: ' + symbol)
 			try:
 				div = pd.read_json(url + symbol + '/' + end_point, typ='frame', orient='records')
 				if div.empty:
@@ -361,7 +362,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
-	ledger = Ledger(ledger_name=args.ledger,entity=args.entity)
+	ledger = Ledger(ledger_name=args.ledger, entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
 
 	while True:

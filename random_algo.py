@@ -7,7 +7,6 @@ import logging
 import datetime
 import random
 import time
-
 import glob, os
 
 DISPLAY_WIDTH = 98
@@ -29,20 +28,14 @@ class RandomAlgo(Trading):
 		self.txn = trade.txn
 
 		# Get entity settings for random trading parameters
-		self.min_qty = 1
-		if self.entity is not None:
-			cur = ledger.conn.cursor()
-			self.min_qty = cur.execute('SELECT min_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		self.max_qty = 100
-		if self.entity is not None:
-			self.max_qty = cur.execute('SELECT max_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		self.liquidate_chance = 0.5
-		if self.entity is not None:
-			self.liquidate_chance = cur.execute('SELECT liquidate_chance FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		self.ticker_source = 'iex'
-		if self.entity is not None:
-			self.ticker_source = cur.execute('SELECT ticker_source FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-			cur.close()
+		if self.entity is None:
+			self.entity = 1
+		cur = ledger.conn.cursor()
+		self.min_qty = cur.execute('SELECT min_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		self.max_qty = cur.execute('SELECT max_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		self.liquidate_chance = cur.execute('SELECT liquidate_chance FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		self.ticker_source = cur.execute('SELECT ticker_source FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		cur.close()
 		self.sim = trade.sim
 		self.date = trade.date
 
@@ -55,11 +48,21 @@ class RandomAlgo(Trading):
 			symbols_url = 'https://api.iextrading.com/1.0/ref-data/symbols'
 			symbols = pd.read_json(symbols_url, typ='frame', orient='records')
 			symbols = symbols.sample(frac=1).reset_index(drop=True) #Randomize list
+
 		elif flag == 'iex' and trade.sim:
 			path = 'trading/market_data/tickers/iex_tickers_'
 			infile = path + date + '.csv'
 			with open(infile, 'r') as f:
 				symbols = pd.read_csv(f)
+
+		if flag == 'sp500':
+			sp500_url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
+			symbols = pd.read_html(sp500_url, header=0)
+			symbols = symbols[0]
+			symbols.columns = ['symbol','security','sec_filings','sector','sub_sector','address','date_added','cik','founded']
+			#print (symbols['symbols'])
+			return symbols
+
 		else: # TODO Make into list
 			symbols = flag
 		return symbols
@@ -238,7 +241,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
-	ledger = Ledger(ledger_name=args.ledger,entity=args.entity)
+	ledger = Ledger(ledger_name=args.ledger, entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
 	algo = RandomAlgo(trade)
 

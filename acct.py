@@ -16,12 +16,29 @@ class Accounts(object):
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
 				website = True
+				print('Website: {}'.format(website))
 			except:
 				conn = sqlite3.connect('acct.db')
+				website = False
+				print('Website: {}'.format(website))
 		elif isinstance(conn, str):
-			conn = sqlite3.connect(conn)
+			try:
+				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/' + conn)
+				website = True
+				print('Website: {}'.format(website))
+			except:
+				conn = sqlite3.connect(conn)
+				website = False
+				print('Website: {}'.format(website))
 		else:
-			conn = sqlite3.connect('acct.db')
+			try:
+				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
+				website = True
+				print('Website: {}'.format(website))
+			except:
+				conn = sqlite3.connect('acct.db')
+				website = False
+				print('Website: {}'.format(website))
 
 		Accounts.conn = conn
 
@@ -91,7 +108,7 @@ class Accounts(object):
 					1,
 					100,
 					0.5,
-					'iex'
+					'sp500'
 				);
 			''']
 
@@ -666,6 +683,7 @@ class Ledger(Accounts):
 			#self.sanitize_ledger() # Not sure if I need this anymore
 
 	def export_gl(self):
+		self.reset()
 		outfile = 'ledger_' + self.ledger_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 		save_location = 'data/'
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
@@ -813,7 +831,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
-	ledger = Ledger(ledger_name=args.ledger,entity=args.entity)
+	ledger = Ledger(ledger_name=args.ledger, entity=args.entity)
 
 	while True:
 		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
