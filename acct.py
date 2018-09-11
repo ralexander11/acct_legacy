@@ -16,29 +16,29 @@ class Accounts(object):
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
 				website = True
-				print('Website: {}'.format(website))
+				logging.debug('Website: {}'.format(website))
 			except:
 				conn = sqlite3.connect('acct.db')
 				website = False
-				print('Website: {}'.format(website))
+				logging.debug('Website: {}'.format(website))
 		elif isinstance(conn, str):
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/' + conn)
 				website = True
-				print('Website: {}'.format(website))
+				logging.debug('Website: {}'.format(website))
 			except:
 				conn = sqlite3.connect(conn)
 				website = False
-				print('Website: {}'.format(website))
+				logging.debug('Website: {}'.format(website))
 		else:
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
 				website = True
-				print('Website: {}'.format(website))
+				logging.debug('Website: {}'.format(website))
 			except:
 				conn = sqlite3.connect('acct.db')
 				website = False
-				print('Website: {}'.format(website))
+				logging.debug('Website: {}'.format(website))
 
 		Accounts.conn = conn
 
@@ -158,7 +158,7 @@ class Accounts(object):
 		self.refresh_accts()
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			print (Accounts.df)
-		print ('-' * DISPLAY_WIDTH)
+		print('-' * DISPLAY_WIDTH)
 		return Accounts.df
 
 	def drop_dupe_accts(self):
@@ -536,7 +536,7 @@ class Ledger(Accounts):
 					credits = 0
 				qty = round(debits - credits, 2)
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
-				inventory = inventory[(inventory.qty != 0)]
+				inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold # TODO Add arg flag to turn this off
 
 			if self.entity is None:
 				inventory.to_sql('inventory', self.conn, if_exists='replace')
@@ -881,5 +881,7 @@ if __name__ == '__main__':
 			accts.print_entities()
 		elif command.lower() == 'items':
 			accts.print_items()
+		elif command.lower() == 'width': # TODO Try and make this work
+			DISPLAY_WIDTH = int(input('Enter number for display width: '))
 		else:
 			print('Not a valid command. Type exit to close.')

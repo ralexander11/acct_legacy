@@ -222,9 +222,10 @@ class Trading(Ledger):
 
 			self.journal_entry(true_up_event)
 
-	def dividends(self, end_point='dividends/3m', date=None): # TODO Add commenting
+	def dividends(self, end_point='dividends/3m', date=None): # TODO Need to reengineer this due to delay in exdate divs displaying from IEX feed
+	# TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
-		portfolio = self.get_qty()
+		portfolio = self.get_qty() # TODO Pass arg flag to show 0 qty stocks
 		#print(portfolio)
 		if portfolio.empty:
 			print('Dividends: No securities held.')
@@ -245,11 +246,11 @@ class Trading(Ledger):
 			if exdate is None:
 				logging.warning('Exdate is blank for: ' + symbol)
 				continue
-			exdate = datetime.datetime.strptime(exdate, '%Y-%m-%d')
-			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
+			exdate = datetime.datetime.strptime(exdate, '%Y-%m-%d') # TODO Use exdate to pass to the acct date function
+			current_date = datetime.datetime.today().strftime('%Y-%m-%d') # TODO Don't compare to current date
 			logging.debug('Exdate: {}'.format(exdate))
 			logging.debug('Current Date: {}'.format(current_date))
-			if current_date == exdate:
+			if current_date == exdate: # TODO If a qty exists after passing the above exdate to the date function, then book the div
 				div_rate = div.iloc[0,0]
 				if div_rate is None:
 					logging.warning('Div rate is blank for: ' + symbol)
@@ -268,7 +269,8 @@ class Trading(Ledger):
 				print(div_accr_event)
 				self.journal_entry(div_accr_event)
 
-	def div_accr(self, end_point='dividends/3m', date=None): # TODO Add commenting
+	def div_accr(self, end_point='dividends/3m', date=None): # TODO Rengineer this along with dividends function
+	# TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
 		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		div_accr_txns = self.df[( self.df['debit_acct'] == 'Dividend Receivable') & (~self.df['event_id'].isin(rvsl_txns))] # Get list of div accrual entries
@@ -291,7 +293,7 @@ class Trading(Ledger):
 				logging.warning('Paydate is blank for: ' + symbol)
 				continue
 			paydate = datetime.datetime.strptime(paydate, '%Y-%m-%d')
-			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
+			current_date = datetime.datetime.today().strftime('%Y-%m-%d') # TODO Don't use current date, just check if the paydate is less than current date when above function is successful
 			logging.debug('Paydate: {}'.format(paydate))
 			logging.debug('Current Date: {}'.format(current_date))
 			if current_date == paydate:

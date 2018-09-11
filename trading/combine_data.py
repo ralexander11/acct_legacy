@@ -8,8 +8,9 @@ pd.set_option('display.max_columns', 5)
 pd.set_option('display.max_rows', 20)
 
 class MarketData(object):
-	def __init__(self):
+	def __init__(self, date=None):
 		self.current_date = datetime.datetime.today().strftime('%Y-%m-%d')
+		self.date = date
 
 	def load_file(self, infile):
 		with open(infile, 'r') as f:
@@ -23,7 +24,7 @@ class MarketData(object):
 
 	def load_data(self, end_point):
 		#path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/*.csv'
-		path = 'market_data/' + end_point + '/*.csv'
+		path = 'trading/market_data/' + end_point + '/*.csv'
 		#print(path)
 		dfs = []
 		for fname in glob.glob(path):
@@ -70,10 +71,19 @@ class MarketData(object):
 
 	# TODO Add save data function
 
+	def front(self, n):
+		return self.iloc[:, :n]
+
+	def back(self, n):
+		return self.iloc[:, -n:]
+
 if __name__ == '__main__':
 	data = MarketData()
 	quote_df = data.load_data('quote')
 	stats_df = data.load_data('stats')
+
+	#pd.DataFrame.front = front
+	#pd.DataFrame.back = back
 	
 	# TODO Add command line functions
 
@@ -96,6 +106,8 @@ if __name__ == '__main__':
 	print('-' * DISPLAY_WIDTH)
 
 	print(data.data_point('close', data.comp_filter('tsla', data.date_filter('2018-05-11')))) # Has to be in this specific order
+	rank_df = data.data_point('week52high', data.date_filter('2018-05-11'))
+	print(rank_df)
 	print('=' * DISPLAY_WIDTH)
 
 	#result.to_csv('market_data/combined_' + data.current_date + '.csv')
