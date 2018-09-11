@@ -238,6 +238,7 @@ if __name__ == '__main__':
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
+	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
@@ -270,7 +271,9 @@ if __name__ == '__main__':
 		]
 		accts.add_acct(trade_accts)
 		#accts.load_accts('accounts.csv')
-		cap = float(10000)#(input('How much capital? '))
+		cap = args.capital
+		if cap is None:
+			cap = float(10000)#(input('How much capital? '))
 		print(algo.time() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
 		path = 'trading/market_data/quote/*.csv'
 		dates = []
@@ -278,13 +281,15 @@ if __name__ == '__main__':
 			fname_date = os.path.basename(fname)[-14:-4]
 			dates.append(fname_date)
 		dates.sort()
-		print(dates)
+		#print(dates)
 		print(algo.time() + 'Number of Days: {}'.format(len(dates)))
 		if algo.check_capital() == 0:
 			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), trade.trade_date(dates[0]), 'Deposit capital', 'credit_line_01', '', '', 'Cash', 'Credit Line', cap] ]
 			trade.journal_entry(deposit_capital)
 		for date in dates:
 			algo.main(date)
+		print('-' * DISPLAY_WIDTH)
+		trade.print_bs() # Display final bs
 		t0_end = time.perf_counter()
 		print(algo.time() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:

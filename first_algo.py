@@ -131,9 +131,10 @@ class RandomAlgo(Trading):
 		t1_end = time.perf_counter()
 		print(algo.time() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
 
-	def rank_wk52high(self, date=None):
+	# First algo functions
+	def rank_wk52high(self, date=None): # TODO Make able to use live data
 		if date is None:
-			date = '2018-05-08'
+			date = datetime.today() - timedelta(days=1)
 		end_point = 'quote'
 		path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		quote_df = data.load_file(path)
@@ -146,12 +147,12 @@ class RandomAlgo(Trading):
 		close = merged['close']
 		rank_wk52 = wk52high - close
 		rank_wk52.sort_values(ascending=False, inplace=True)
-		#print(rank_wk52)
+		#print('rank_wk52: \n{}'.format(rank_wk52))
 		return rank_wk52
 
-	def rank_day50avg(self, date=None):
+	def rank_day50avg(self, date=None): # TODO Make able to use live data
 		if date is None:
-			date = '2018-05-08'
+			date = datetime.today() - timedelta(days=1)
 		end_point = 'quote'
 		path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		quote_df = data.load_file(path)
@@ -164,23 +165,20 @@ class RandomAlgo(Trading):
 		close = merged['close']
 		rank_day50 = close - day50avg
 		rank_day50.sort_values(ascending=False, inplace=True)
-		#print(rank_day50)
+		#print('rank_day50: \n{}'.format(rank_day50))
 		return rank_day50
 
 	def rank(self, date=None):
 		rank_wk52 = self.rank_wk52high(date)
 		rank_wk52 = rank_wk52.rank()
 		rank_wk52 = rank_wk52 / WK52_REDUCE
-		#print('rank_wk52:')
-		#print(rank_wk52)
+		#print('rank_wk52: \n{}'.format(rank_wk52))
 		rank_day50 = self.rank_day50avg(date)
 		rank_day50 = rank_day50.rank()
-		#print('rank_day50:')
-		#print(rank_day50)
+		#print('rank_day50: \n{}'.format(rank_day50))
 		rank = rank_wk52.add(rank_day50, fill_value=0)
 		rank.sort_values(ascending=False, inplace=True)
-		#print('Rank:')
-		#print(rank)
+		#print('Rank: \n{}'.format(rank))
 		return rank
 
 	def buy_single(self, symbol, date=None):
@@ -279,7 +277,7 @@ class RandomAlgo(Trading):
 		trade.print_bs()
 		nav = trade.balance_sheet()
 		t4_end = time.perf_counter()
-		print(algo.time() + 'Done randomly trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
+		print(algo.time() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
 		return nav
 
 
@@ -289,6 +287,7 @@ if __name__ == '__main__':
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
+	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
@@ -322,7 +321,9 @@ if __name__ == '__main__':
 		]
 		accts.add_acct(trade_accts)
 		#accts.load_accts('accounts.csv')
-		cap = float(1000000)#(input('How much capital? '))
+		cap = args.capital
+		if cap is None:
+			cap = float(1000000)#(input('How much capital? '))
 		print(algo.time() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
 		path = 'trading/market_data/quote/*.csv'
 		dates = []
@@ -330,7 +331,7 @@ if __name__ == '__main__':
 			fname_date = os.path.basename(fname)[-14:-4]
 			dates.append(fname_date)
 		dates.sort()
-		print(dates)
+		#print(dates)
 		print(algo.time() + 'Number of Days: {}'.format(len(dates)))
 		if algo.check_capital() == 0:
 			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), trade.trade_date(dates[0]), 'Deposit capital', '', '', '', 'Cash', 'Wealth', cap] ]
