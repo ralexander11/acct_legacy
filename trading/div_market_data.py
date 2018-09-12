@@ -58,7 +58,7 @@ class Feed(object):
 		print ('-' * DISPLAY_WIDTH)
 		return data, invalid_tickers
 
-	def dividends(self, symbols, end_point='dividends/3m'):
+	def dividends(self, symbols, end_point='dividends'):
 		url = 'https://api.iextrading.com/1.0/stock/'
 		dividends = []
 		invalid_tickers_divs = []
@@ -86,20 +86,23 @@ class Feed(object):
 		return divs, invalid_tickers_divs
 
 	def save_data(self, data):
-		end_point = 'dividends/5y'
+		end_point = 'dividends/5y' # Temp
 		if '/' in end_point:
 			end_point = end_point.replace('/','_')
 		outfile = source + '_' + end_point + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv'
 		data.to_csv(self.save_location + end_point + '/' + outfile)
 
 	def save_errors(self, invalid_tickers):
+		end_point = 'dividends/5y' # Temp
+		if '/' in end_point:
+			end_point = end_point.replace('/','_')
 		error_df = pd.DataFrame(np.array(invalid_tickers))
 		print (error_df)
 		error_df.to_csv(self.save_location + 'invalid_tickers/' + 'invalid_tickers_' + end_point + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv')
 
 if __name__ == '__main__':
 	feed = Feed()
-	source = 'test' #'iex' # input("Which ticker source? ").lower()
+	source = 'iex' #'iex' # input("Which ticker source? ").lower()
 	symbols = feed.get_symbols(source)
 	
 	end_points = ['dividends/5y']

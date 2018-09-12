@@ -272,7 +272,12 @@ class RandomAlgo(Trading):
 			return
 		algo.liquidate(portfolio, date)
 		capital = algo.check_capital()
-		capital = algo.buy_max(capital, ticker, date)
+		capital_remain = algo.buy_max(capital, ticker, date)
+		while capital_remain == capital: # If the top ranked ticker price is too high for available capital
+			i = 0
+			i += 1
+			ticker = rank.index[i]
+			capital_remain = algo.buy_max(capital, ticker, date)
 		print('-' * DISPLAY_WIDTH)
 		trade.print_bs()
 		nav = trade.balance_sheet()
