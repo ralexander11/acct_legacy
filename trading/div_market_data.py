@@ -3,15 +3,17 @@ import pandas as pd
 import time
 from tqdm import tqdm
 
-DISPLAY_WIDTH = 160
+DISPLAY_WIDTH = 98
 pd.set_option('display.width',DISPLAY_WIDTH)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 20)
 
 class Feed(object):
 	def __init__(self):
-		#self.save_location = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/'
-		self.save_location = 'market_data/'
+		self.save_location = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/'
+		if not os.path.isdir(self.save_location):
+			print('Not Server')
+			self.save_location = 'market_data/'
 	
 	def get_symbols(self, flag):
 		if flag == 'iex':
@@ -102,7 +104,7 @@ class Feed(object):
 
 if __name__ == '__main__':
 	feed = Feed()
-	source = 'iex' #'iex' # input("Which ticker source? ").lower()
+	source = 'iex' # input("Which ticker source? ").lower()
 	symbols = feed.get_symbols(source)
 	
 	end_points = ['dividends/5y']

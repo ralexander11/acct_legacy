@@ -23,8 +23,10 @@ class MarketData(object):
 			return df
 
 	def load_data(self, end_point):
-		#path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/*.csv'
-		path = 'trading/market_data/' + end_point + '/*.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/*.csv'
+		if not os.path.exists(path): # TODO Test this
+			print('Not Server')
+			path = 'market_data/' + end_point + '/*.csv'
 		#print(path)
 		dfs = []
 		for fname in glob.glob(path):

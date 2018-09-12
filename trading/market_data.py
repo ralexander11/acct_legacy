@@ -1,14 +1,17 @@
 import numpy as np
 import pandas as pd
 import time
+import os
 from tqdm import tqdm
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width',DISPLAY_WIDTH)
 
 class Feed(object):
-	save_location = 'data/'
-	#save_location = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/'
+	save_location = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/'
+	if not os.path.isdir(save_location):
+		print('Not Server')
+		save_location = 'market_data/'
 	
 	def get_symbols(self, flag):
 		if flag == 'iex':
