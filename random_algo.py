@@ -138,7 +138,7 @@ class RandomAlgo(Trading):
 
 		trade.int_exp(ledger, date=date)
 		if not trade.sim: # TODO Temp restriction while historical CA data is missing
-			trade.dividends()
+			trade.dividends() # TODO Add perf timers
 			trade.div_accr()
 			trade.splits()
 		logging.info('-' * (DISPLAY_WIDTH - 32))

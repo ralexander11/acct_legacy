@@ -197,7 +197,7 @@ class RandomAlgo(Trading):
 
 		trade.int_exp(ledger, date=date)
 		if not trade.sim: # TODO Temp restriction while historical CA data is missing
-			trade.dividends()
+			trade.dividends() # TODO Add perf timers
 			trade.div_accr()
 			trade.splits()
 		logging.info('-' * (DISPLAY_WIDTH - 32))
@@ -285,7 +285,7 @@ if __name__ == '__main__':
 		]
 		accts.add_acct(trade_accts)
 		#accts.load_accts('accounts.csv')
-		cap = float(1000000)#(input('How much capital? '))
+		cap = float(10000)#(input('How much capital? '))
 		print(algo.time() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
 		path = 'trading/market_data/quote/*.csv'
 		dates = []

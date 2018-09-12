@@ -132,16 +132,22 @@ class RandomAlgo(Trading):
 		print(algo.time() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
 
 	# First algo functions
-	def rank_wk52high(self, date=None): # TODO Make able to use live data
+	def rank_wk52high(self, nav, date=None): # TODO Make able to use live data
 		if date is None:
-			date = datetime.today() - timedelta(days=1)
+			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
+		print('Date: {}'.format(date))
 		end_point = 'quote'
-		path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		if not os.path.exists(path):
+			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		quote_df = data.load_file(path)
 		end_point = 'stats'
-		path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		if not os.path.exists(path):
+			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		stats_df = data.load_file(path)
 		merged = data.merge_data(quote_df, stats_df)
+		merged = merged[(merged.close <= nav)]
 
 		wk52high = merged['week52high']
 		close = merged['close']
@@ -150,16 +156,21 @@ class RandomAlgo(Trading):
 		#print('rank_wk52: \n{}'.format(rank_wk52))
 		return rank_wk52
 
-	def rank_day50avg(self, date=None): # TODO Make able to use live data
+	def rank_day50avg(self, nav, date=None): # TODO Make able to use live data
 		if date is None:
-			date = datetime.today() - timedelta(days=1)
+			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
 		end_point = 'quote'
-		path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		if not os.path.exists(path):
+			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		quote_df = data.load_file(path)
 		end_point = 'stats'
-		path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		if not os.path.exists(path):
+			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		stats_df = data.load_file(path)
 		merged = data.merge_data(quote_df, stats_df)
+		merged = merged[(merged.close <= nav)]
 
 		day50avg = merged['day50MovingAvg']
 		close = merged['close']
@@ -168,12 +179,12 @@ class RandomAlgo(Trading):
 		#print('rank_day50: \n{}'.format(rank_day50))
 		return rank_day50
 
-	def rank(self, date=None):
-		rank_wk52 = self.rank_wk52high(date)
+	def rank(self, nav, date=None):
+		rank_wk52 = self.rank_wk52high(nav, date)
 		rank_wk52 = rank_wk52.rank()
 		rank_wk52 = rank_wk52 / WK52_REDUCE
 		#print('rank_wk52: \n{}'.format(rank_wk52))
-		rank_day50 = self.rank_day50avg(date)
+		rank_day50 = self.rank_day50avg(nav, date)
 		rank_day50 = rank_day50.rank()
 		#print('rank_day50: \n{}'.format(rank_day50))
 		rank = rank_wk52.add(rank_day50, fill_value=0)
@@ -189,9 +200,11 @@ class RandomAlgo(Trading):
 	def buy_max(self, capital, symbol, date=None):
 		price = trade.get_price(symbol, date)
 		qty = capital // price
+		if qty == 0:
+			return capital, qty
 		capital = trade.buy_shares(symbol, qty, date)
 		print('Purchased {} shares of {} for {} each.'.format(qty, symbol, price))
-		return capital
+		return capital, qty
 
 	def liquidate(self, portfolio, date=None):
 		for symbol, qty in portfolio.itertuples(index=False):
@@ -207,7 +220,7 @@ class RandomAlgo(Trading):
 
 		trade.int_exp(ledger, date=date)
 		if not trade.sim: # TODO Temp restriction while historical CA data is missing
-			trade.dividends()
+			trade.dividends() # TODO Add perf timers
 			trade.div_accr()
 			trade.splits()
 		logging.info('-' * (DISPLAY_WIDTH - 32))
@@ -248,15 +261,16 @@ class RandomAlgo(Trading):
 				return
 
 		capital = algo.check_capital()
+		nav = trade.balance_sheet()
 
-		# Inital day of portfolio setup
+		# Initial day of portfolio setup
 		try:
 			portfolio = algo.get_portfolio()
 		except:
 			print(algo.time() + 'Initial porfolio setup.')
-			rank = algo.rank(date)
+			rank = algo.rank(nav, date)
 			ticker = rank.index[0]
-			capital = algo.buy_max(capital, ticker, date)
+			capital_remain, qty = algo.buy_max(capital, ticker, date)
 			print('-' * DISPLAY_WIDTH)
 			trade.print_bs()
 			nav = trade.balance_sheet()
@@ -264,7 +278,7 @@ class RandomAlgo(Trading):
 			return nav
 
 
-		rank = algo.rank(date)
+		rank = algo.rank(nav, date)
 		ticker = rank.index[0]
 		portfolio = algo.get_portfolio()
 		if ticker == portfolio['symbol'][0]:
@@ -272,15 +286,12 @@ class RandomAlgo(Trading):
 			return
 		algo.liquidate(portfolio, date)
 		capital = algo.check_capital()
-		capital_remain = algo.buy_max(capital, ticker, date)
-		while capital_remain == capital: # If the top ranked ticker price is too high for available capital
-			i = 0
-			i += 1
-			ticker = rank.index[i]
-			capital_remain = algo.buy_max(capital, ticker, date)
+		capital_remain, qty = algo.buy_max(capital, ticker, date)
 		print('-' * DISPLAY_WIDTH)
 		trade.print_bs()
 		nav = trade.balance_sheet()
+		trade.get_qty()
+		#ledger.bs_hist()
 		t4_end = time.perf_counter()
 		print(algo.time() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
 		return nav
@@ -328,7 +339,7 @@ if __name__ == '__main__':
 		#accts.load_accts('accounts.csv')
 		cap = args.capital
 		if cap is None:
-			cap = float(1000000)#(input('How much capital? '))
+			cap = float(10000)#(input('How much capital? '))
 		print(algo.time() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
 		path = 'trading/market_data/quote/*.csv'
 		dates = []

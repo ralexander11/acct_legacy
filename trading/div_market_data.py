@@ -47,7 +47,7 @@ class Feed(object):
 		dfs = []
 		invalid_tickers = []
 		print('Getting data of ' + source + ' for end point: ' + end_point)
-		for symbol in tqdm(symbols['symbol']):
+		for symbol in symbols['symbol']: #tqdm(symbols['symbol']):
 			try:
 				s = pd.read_json(url + symbol + '/' + end_point, typ='series', orient='index')
 				df = s.to_frame().T

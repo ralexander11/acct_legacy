@@ -196,6 +196,29 @@ class Accounts(object):
 	def load_accts(self, infile=None):
 		if infile is None:
 			infile = input('Enter a filename: ')
+		if infile == 'trading': # Workaround due to an app limitation
+			trade_accts = [
+				('Cash','Asset'),
+				('Chequing','Asset'),
+				('Savings','Asset'),
+				('Investments','Asset'),
+				('Visa','Liability'),
+				('Student Credit','Liability'),
+				('Credit Line','Liability'),
+				('Uncategorized','Admin'),
+				('Info','Admin'),
+				('Commission Expense','Expense'),
+				('Investment Gain','Revenue'),
+				('Investment Loss','Expense'),
+				('Unrealized Gain','Revenue'),
+				('Unrealized Loss','Expense'),
+				('Interest Expense','Expense'),
+				('Dividend Receivable','Asset'),
+				('Dividend Income','Revenue'),
+				('Interest Income','Revenue')
+			]
+			accts.add_acct(trade_accts)
+			return
 		with open(infile, 'r') as f:
 			load_df = pd.read_csv(f, keep_default_na=False)
 			lol = load_df.values.tolist()
