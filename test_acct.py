@@ -8,6 +8,7 @@ import logging
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.INFO) #filename='logs/output.log')
 
 db_name = 'test.db'
+db_path = 'db/'
 
 class TestAcct(unittest.TestCase):
 	def set_up(self):
@@ -34,11 +35,11 @@ class TestAcct(unittest.TestCase):
 		self.assertEqual(ledger.get_qty(item), 10, 'Quantity')
 
 	def tear_down(self):
-		if os.path.exists(db_name):
-			os.remove(db_name)
-			logging.warning('Test database file removed: {}'.format(db_name))
+		if os.path.exists(db_path + db_name):
+			os.remove(db_path + db_name)
+			logging.warning('Test database file removed: {}'.format(db_path + db_name))
 		else:
-			logging.error('The database file does not exist.')
+			logging.error('The database file does not exist at {}.'.format(db_path + db_name))
 
 if __name__ == '__main__':
 	logging.warning('Starting testing of acct.py and trading_platform.py')

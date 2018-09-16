@@ -132,7 +132,7 @@ class RandomAlgo(Trading):
 		print(algo.time() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
 
 	# First algo functions
-	def rank_wk52high(self, nav, date=None): # TODO Make able to use live data
+	def rank_wk52high(self, assets, date=None): # TODO Make able to use live data
 		if date is None:
 			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
 		print('Date: {}'.format(date))
@@ -147,7 +147,7 @@ class RandomAlgo(Trading):
 			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		stats_df = data.load_file(path)
 		merged = data.merge_data(quote_df, stats_df)
-		merged = merged[(merged.close <= nav)]
+		merged = merged[(merged.close <= assets)]
 
 		wk52high = merged['week52high']
 		close = merged['close']
@@ -156,7 +156,7 @@ class RandomAlgo(Trading):
 		#print('rank_wk52: \n{}'.format(rank_wk52))
 		return rank_wk52
 
-	def rank_day50avg(self, nav, date=None): # TODO Make able to use live data
+	def rank_day50avg(self, assets, date=None): # TODO Make able to use live data
 		if date is None:
 			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
 		end_point = 'quote'
@@ -170,7 +170,7 @@ class RandomAlgo(Trading):
 			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		stats_df = data.load_file(path)
 		merged = data.merge_data(quote_df, stats_df)
-		merged = merged[(merged.close <= nav)]
+		merged = merged[(merged.close <= assets)]
 
 		day50avg = merged['day50MovingAvg']
 		close = merged['close']
@@ -179,12 +179,12 @@ class RandomAlgo(Trading):
 		#print('rank_day50: \n{}'.format(rank_day50))
 		return rank_day50
 
-	def rank(self, nav, date=None):
-		rank_wk52 = self.rank_wk52high(nav, date)
+	def rank(self, assets, date=None):
+		rank_wk52 = self.rank_wk52high(assets, date)
 		rank_wk52 = rank_wk52.rank()
 		rank_wk52 = rank_wk52 / WK52_REDUCE
 		#print('rank_wk52: \n{}'.format(rank_wk52))
-		rank_day50 = self.rank_day50avg(nav, date)
+		rank_day50 = self.rank_day50avg(assets, date)
 		rank_day50 = rank_day50.rank()
 		#print('rank_day50: \n{}'.format(rank_day50))
 		rank = rank_wk52.add(rank_day50, fill_value=0)
@@ -261,14 +261,16 @@ class RandomAlgo(Trading):
 				return
 
 		capital = algo.check_capital()
-		nav = trade.balance_sheet()
+		assets = trade.balance_sheet(['Cash','Investments'])
+		#print(assets)
 
 		# Initial day of portfolio setup
 		try:
 			portfolio = algo.get_portfolio()
 		except:
 			print(algo.time() + 'Initial porfolio setup.')
-			rank = algo.rank(nav, date)
+			rank = algo.rank(assets, date)
+			#print(rank)
 			ticker = rank.index[0]
 			capital_remain, qty = algo.buy_max(capital, ticker, date)
 			print('-' * DISPLAY_WIDTH)
@@ -278,7 +280,7 @@ class RandomAlgo(Trading):
 			return nav
 
 
-		rank = algo.rank(nav, date)
+		rank = algo.rank(assets, date)
 		ticker = rank.index[0]
 		portfolio = algo.get_portfolio()
 		if ticker == portfolio['symbol'][0]:
@@ -352,6 +354,7 @@ if __name__ == '__main__':
 		if algo.check_capital() == 0:
 			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), trade.trade_date(dates[0]), 'Deposit capital', '', '', '', 'Cash', 'Wealth', cap] ]
 			trade.journal_entry(deposit_capital)
+			#print(deposit_capital)
 		for date in dates:
 			algo.main(date)
 		print('-' * DISPLAY_WIDTH)

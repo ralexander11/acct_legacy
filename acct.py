@@ -14,29 +14,29 @@ class Accounts(object):
 	def __init__(self, conn=None):
 		if conn is None:
 			try:
-				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
+				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
 				website = True
 				logging.debug('Website: {}'.format(website))
 			except:
-				conn = sqlite3.connect('acct.db')
+				conn = sqlite3.connect('db/acct.db')
 				website = False
 				logging.debug('Website: {}'.format(website))
 		elif isinstance(conn, str):
 			try:
-				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/' + conn)
+				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/' + conn)
 				website = True
 				logging.debug('Website: {}'.format(website))
 			except:
-				conn = sqlite3.connect(conn)
+				conn = sqlite3.connect('db/' + conn)
 				website = False
 				logging.debug('Website: {}'.format(website))
 		else:
 			try:
-				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/acct.db')
+				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
 				website = True
 				logging.debug('Website: {}'.format(website))
 			except:
-				conn = sqlite3.connect('acct.db')
+				conn = sqlite3.connect('db/acct.db')
 				website = False
 				logging.debug('Website: {}'.format(website))
 
@@ -262,7 +262,7 @@ class Ledger(Accounts):
 	def __init__(self, ledger_name=None, entity=None, date=None, start_date=None, txn=None):
 		self.conn = Accounts.conn
 		if ledger_name is None:
-			self.ledger_name = 'random_1' #input('Enter a name for the ledger: ')
+			self.ledger_name = 'gen_ledger'
 		else:
 			self.ledger_name = ledger_name
 		self.entity = entity
@@ -275,7 +275,7 @@ class Ledger(Accounts):
 			
 	def create_ledger(self): # TODO Change entity_id to string type
 		create_ledger_query = '''
-			CREATE TABLE IF NOT EXISTS ledger_''' + self.ledger_name + ''' (
+			CREATE TABLE IF NOT EXISTS ''' + self.ledger_name + ''' (
 				txn_id INTEGER PRIMARY KEY,
 				event_id integer NOT NULL,
 				entity_id integer NOT NULL,
@@ -340,7 +340,7 @@ class Ledger(Accounts):
 		self.balance_sheet()
 
 	def refresh_ledger(self):
-		self.df = pd.read_sql_query('SELECT * FROM ledger_' + self.ledger_name + ';', self.conn, index_col='txn_id')
+		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', self.conn, index_col='txn_id')
 		if self.entity != None: # TODO make able to select multiple entities
 			self.df = self.df[(self.df.entity_id == self.entity)]
 		if self.date != None:
@@ -584,7 +584,7 @@ class Ledger(Accounts):
 
 	# Used when booking journal entries to match related transactions
 	def get_event(self):
-		event_query = 'SELECT event_id FROM ledger_'+ self.ledger_name +' ORDER BY event_id DESC LIMIT 1;'
+		event_query = 'SELECT event_id FROM ' + self.ledger_name +' ORDER BY event_id DESC LIMIT 1;'
 		cur = self.conn.cursor()
 		cur.execute(event_query)
 		event_id = cur.fetchone()
@@ -652,7 +652,7 @@ class Ledger(Accounts):
 				price = amount
 
 			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
-			cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
+			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		else: # Create journal entries by passing data to the function
 			for je in journal_data:
@@ -682,7 +682,7 @@ class Ledger(Accounts):
 
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 				#print(values)
-				cur.execute('INSERT INTO ledger_' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
+				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		self.conn.commit()
 		cur.close()
@@ -707,7 +707,7 @@ class Ledger(Accounts):
 
 	def export_gl(self):
 		self.reset()
-		outfile = 'ledger_' + self.ledger_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
+		outfile = self.ledger_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 		save_location = 'data/'
 		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
 		print ('File saved as ' + save_location + outfile)
@@ -716,7 +716,7 @@ class Ledger(Accounts):
 	# TODO Add logic to prevent reversing a reversal
 		if txn is None:
 			txn = input('Which txn_id to reverse? ')
-		rvsl_query = 'SELECT * FROM ledger_'+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
+		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
 		cur = self.conn.cursor()
 		cur.execute(rvsl_query)
 		rvsl = cur.fetchone()
