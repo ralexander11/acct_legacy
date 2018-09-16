@@ -20,7 +20,10 @@ class TestAcct(unittest.TestCase):
 		self.start_date = trade.start_date
 		self.txn = trade.txn
 
-		accts.load_accts('accounts.csv') # Load accounts
+		try:
+			accts.load_accts('accounts.csv') # Load accounts
+		except:
+			accts.load_accts('trading') # If error from iOS SSH app
 		ledger.load_gl('data/ledger_test_1.csv') # Load sample transactions
 		logging.warning('Setup complete.')
 

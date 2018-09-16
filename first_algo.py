@@ -135,7 +135,7 @@ class RandomAlgo(Trading):
 	def rank_wk52high(self, assets, date=None): # TODO Make able to use live data
 		if date is None:
 			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
-		print('Date: {}'.format(date))
+		#print('Data Date: {}'.format(date))
 		end_point = 'quote'
 		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
@@ -279,7 +279,7 @@ class RandomAlgo(Trading):
 			print(algo.time() + 'Done initial porfolio setup.')
 			return nav
 
-
+		# Trading Algo
 		rank = algo.rank(assets, date)
 		ticker = rank.index[0]
 		portfolio = algo.get_portfolio()
@@ -289,6 +289,7 @@ class RandomAlgo(Trading):
 		algo.liquidate(portfolio, date)
 		capital = algo.check_capital()
 		capital_remain, qty = algo.buy_max(capital, ticker, date)
+
 		print('-' * DISPLAY_WIDTH)
 		trade.print_bs()
 		nav = trade.balance_sheet()
@@ -317,31 +318,31 @@ if __name__ == '__main__':
 	if trade.sim:
 		print(algo.time() + 'Setup default accounts:')
 		t0_start = time.perf_counter()
-		trade_accts = [
-			('Cash','Asset'),
-			('Chequing','Asset'),
-			('Savings','Asset'),
-			('Investments','Asset'),
-			('Visa','Liability'),
-			('Student Credit','Liability'),
-			('Credit Line','Liability'),
-			('Uncategorized','Admin'),
-			('Info','Admin'),
-			('Commission Expense','Expense'),
-			('Investment Gain','Revenue'),
-			('Investment Loss','Expense'),
-			('Unrealized Gain','Revenue'),
-			('Unrealized Loss','Expense'),
-			('Interest Expense','Expense'),
-			('Dividend Receivable','Asset'),
-			('Dividend Income','Revenue'),
-			('Interest Income','Revenue')
-		]
-		accts.add_acct(trade_accts)
-		#accts.load_accts('accounts.csv')
+		# trade_accts = [
+		# 	('Cash','Asset'),
+		# 	('Chequing','Asset'),
+		# 	('Savings','Asset'),
+		# 	('Investments','Asset'),
+		# 	('Visa','Liability'),
+		# 	('Student Credit','Liability'),
+		# 	('Credit Line','Liability'),
+		# 	('Uncategorized','Admin'),
+		# 	('Info','Admin'),
+		# 	('Commission Expense','Expense'),
+		# 	('Investment Gain','Revenue'),
+		# 	('Investment Loss','Expense'),
+		# 	('Unrealized Gain','Revenue'),
+		# 	('Unrealized Loss','Expense'),
+		# 	('Interest Expense','Expense'),
+		# 	('Dividend Receivable','Asset'),
+		# 	('Dividend Income','Revenue'),
+		# 	('Interest Income','Revenue')
+		# ]
+		#accts.add_acct(trade_accts)
+		accts.load_accts('trading')
 		cap = args.capital
 		if cap is None:
-			cap = float(10000)#(input('How much capital? '))
+			cap = float(10000)
 		print(algo.time() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
 		path = 'trading/market_data/quote/*.csv'
 		dates = []

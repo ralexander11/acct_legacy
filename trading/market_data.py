@@ -64,13 +64,14 @@ class Feed(object):
 
 	def save_errors(self, invalid_tickers):
 		error_df = pd.DataFrame(np.array(invalid_tickers))
-		print(error_df)
+		#print(error_df)
 		error_df.to_csv(self.save_location + 'invalid_tickers/' + 'invalid_tickers_' + end_point + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv')
 
 if __name__ == '__main__':
 	feed = Feed()
 	t0_start = time.perf_counter()
-	source = 'iex' # input("Which ticker source? ").lower()
+	source = 'iex' # input('Which ticker source? ').lower()
+	print('=' * DISPLAY_WIDTH)
 	print(feed.time() + 'Getting data from: {}'.format(source))
 	symbols = feed.get_symbols(source)
 	end_points = ['quote', 'stats'] #['company','financials','earnings','peers']

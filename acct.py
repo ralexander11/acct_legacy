@@ -270,7 +270,7 @@ class Ledger(Accounts):
 		self.start_date = start_date
 		self.txn = txn
 		self.create_ledger()
-		self.refresh_ledger()
+		self.refresh_ledger() # TODO Make this self.df = self.refresh_ledger()
 		self.balance_sheet()
 			
 	def create_ledger(self): # TODO Change entity_id to string type
@@ -331,6 +331,8 @@ class Ledger(Accounts):
 		self.balance_sheet()
 		return self.txn
 
+	# TODO Add set_start_txn() function
+
 	def reset(self):
 		self.entity = None
 		self.date = None
@@ -341,13 +343,13 @@ class Ledger(Accounts):
 
 	def refresh_ledger(self):
 		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', self.conn, index_col='txn_id')
-		if self.entity != None: # TODO make able to select multiple entities
+		if self.entity is not None: # TODO make able to select multiple entities
 			self.df = self.df[(self.df.entity_id == self.entity)]
-		if self.date != None:
+		if self.date is not None:
 			self.df = self.df[(self.df.date <= self.date)]
-		if self.start_date != None:
+		if self.start_date is not None:
 			self.df = self.df[(self.df.date >= self.start_date)]
-		if self.txn != None:
+		if self.txn is not None:
 			self.df = self.df[(self.df.index <= self.txn)] # TODO Add start txn and event range
 		return self.df
 
@@ -516,7 +518,7 @@ class Ledger(Accounts):
 				self.bs.to_sql('balance_sheet', self.conn, if_exists='replace')
 			else:
 				self.bs.to_sql('balance_sheet_' + str(self.entity), self.conn, if_exists='replace')
-		return net_asset_value # TODO Change to return df also
+		return net_asset_value
 
 	def print_bs(self):
 		self.balance_sheet() # Refresh Balance Sheet
