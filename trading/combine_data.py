@@ -2,7 +2,7 @@ import pandas as pd
 import glob, os
 import datetime
 
-DISPLAY_WIDTH = 98
+DISPLAY_WIDTH = 97
 pd.set_option('display.width',DISPLAY_WIDTH)
 pd.set_option('display.max_columns', 5)
 pd.set_option('display.max_rows', 20)

@@ -219,7 +219,7 @@ class RandomAlgo(Trading):
 		logging.info('-' * (DISPLAY_WIDTH - 32))
 		print(algo.time() + 'Booking unrealized gains and losses for {} positions.'.format(len(trade.get_qty())))
 		t3_start = time.perf_counter()
-		trade.unrealized(date)
+		trade.unrealized(date=date)
 		t3_end = time.perf_counter()
 		print(algo.time() + 'Done booking unrealized gains and losses in: {:,.2f} min.'.format((t3_end - t3_start) / 60))
 

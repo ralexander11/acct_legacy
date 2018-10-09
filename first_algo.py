@@ -2,6 +2,7 @@ from acct import Accounts
 from acct import Ledger
 from trade_platform import Trading
 from trading.combine_data import MarketData
+from trading.market_data import Feed
 import pandas as pd
 import argparse
 import logging
@@ -10,11 +11,11 @@ import random
 import time
 import glob, os
 
-DISPLAY_WIDTH = 98
+DISPLAY_WIDTH = 97
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 pd.set_option('display.max_columns', 10)
-pd.set_option('display.max_rows', 20)
+pd.set_option('display.max_rows', 30)
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
 random.seed()
@@ -44,6 +45,55 @@ class RandomAlgo(Trading):
 	def time(self):
 		time = datetime.datetime.now().strftime('[%Y-%b-%d %I:%M:%S %p] ')
 		return time
+
+	def check_weekend(self, date=None):
+		# Get the day of the week (Monday is 0)
+		if trade.sim:
+			weekday = datetime.datetime.strptime(date, '%Y-%m-%d').weekday()
+		else:
+			weekday = datetime.datetime.today().weekday()
+
+		# Don't do anything on weekends
+		if weekday == 5 or weekday == 6:
+			print(algo.time() + 'Today is a weekend.')
+			return weekday
+
+	def check_holiday(self, date=None):
+		# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
+		trade_holidays = [
+							'2018-01-01',
+							'2018-01-15',
+							'2018-02-19',
+							'2018-03-30',
+							'2018-05-28',
+							'2018-07-04',
+							'2018-09-03',
+							'2018-11-22',
+							'2018-12-25',
+							'2018-05-26'
+							]
+
+		# Don't do anything on trade holidays
+		if trade.sim:
+			current_date = date
+		else:
+			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
+		for holiday in trade_holidays:
+			if holiday == current_date:
+				print(algo.time() + 'Today is a trade holiday.')
+				return holiday
+
+	def check_hours(self, begin_time=None, end_time=None, check_time=None):
+		if begin_time is None:
+			begin_time = datetime.time(6, 30) # Market opens at 9:30 am EST
+		if end_time is None:
+			end_time = datetime.time(13) # Market closes at 4:00 pm EST
+		# If check time is not given, default to current server (PST) time
+		check_time = check_time or datetime.datetime.now().time()
+		if begin_time < end_time:
+			return check_time >= begin_time and check_time <= end_time
+		else: # crosses midnight
+			return check_time >= begin_time or check_time <= end_time
 
 	def get_symbols(self, flag, date=None):
 		if flag == 'iex' and not trade.sim:
@@ -132,7 +182,9 @@ class RandomAlgo(Trading):
 		print(algo.time() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
 
 	# First algo functions
-	def rank_wk52high(self, assets, date=None): # TODO Make able to use live data
+	def rank_wk52high(self, assets, date=None): # TODO Make this able to be a percentage change calc
+		if date is not None:
+			date = datetime.datetime.strptime(date, '%Y-%m-%d').date() - datetime.timedelta(days=1)
 		if date is None:
 			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
 		#print('Data Date: {}'.format(date))
@@ -156,7 +208,9 @@ class RandomAlgo(Trading):
 		#print('rank_wk52: \n{}'.format(rank_wk52))
 		return rank_wk52
 
-	def rank_day50avg(self, assets, date=None): # TODO Make able to use live data
+	def rank_day50avg(self, assets, date=None): # TODO Make this able to be a percentage change calc
+		if date is not None:
+			date = datetime.datetime.strptime(date, '%Y-%m-%d').date() - datetime.timedelta(days=1)
 		if date is None:
 			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
 		end_point = 'quote'
@@ -179,17 +233,20 @@ class RandomAlgo(Trading):
 		#print('rank_day50: \n{}'.format(rank_day50))
 		return rank_day50
 
-	def rank(self, assets, date=None):
+	def rank(self, assets, date=None, v=False):
 		rank_wk52 = self.rank_wk52high(assets, date)
 		rank_wk52 = rank_wk52.rank()
 		rank_wk52 = rank_wk52 / WK52_REDUCE
-		#print('rank_wk52: \n{}'.format(rank_wk52))
+		if v:
+			print('\nrank_wk52: {}\n{}'.format(date, rank_wk52.head(30)))
 		rank_day50 = self.rank_day50avg(assets, date)
 		rank_day50 = rank_day50.rank()
-		#print('rank_day50: \n{}'.format(rank_day50))
+		if v:
+			print('\nrank_day50: {}\n{}'.format(date, rank_day50.head(30)))
 		rank = rank_wk52.add(rank_day50, fill_value=0)
 		rank.sort_values(ascending=False, inplace=True)
-		#print('Rank: \n{}'.format(rank))
+		if v:
+			print('\nRank: {}\n{}'.format(date, rank.head(30)))
 		return rank
 
 	def buy_single(self, symbol, date=None):
@@ -198,7 +255,7 @@ class RandomAlgo(Trading):
 		return capital
 
 	def buy_max(self, capital, symbol, date=None):
-		price = trade.get_price(symbol, date)
+		price = trade.get_price(symbol, date=date)
 		qty = capital // price
 		if qty == 0:
 			return capital, qty
@@ -218,46 +275,23 @@ class RandomAlgo(Trading):
 		#print(algo.time() + 'Entity: {} \nCommission: {}, Min QTY: {}, Max QTY: {}, Liquidate Chance: {}, Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
 		print ('-' * DISPLAY_WIDTH)
 
-		trade.int_exp(ledger, date=date)
+		trade.int_exp(ledger, date=date) # TODO ensure this only runs daily
 		if not trade.sim: # TODO Temp restriction while historical CA data is missing
 			trade.dividends() # TODO Add perf timers
 			trade.div_accr()
 			trade.splits()
 		logging.info('-' * (DISPLAY_WIDTH - 32))
-
-		# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
-		trade_holidays = [
-							'2018-01-01',
-							'2018-01-15',
-							'2018-02-19',
-							'2018-03-30',
-							'2018-05-28',
-							'2018-07-04',
-							'2018-09-03',
-							'2018-11-22',
-							'2018-12-25',
-							'2018-05-26'
-							]
-
-		# Get the day of the week (Monday is 0)
-		if trade.sim:
-			weekday = datetime.datetime.strptime(date, '%Y-%m-%d').weekday()
-		else:
-			weekday = datetime.datetime.today().weekday()
-
+		
 		# Don't do anything on weekends
-		if weekday == 5 or weekday == 6:
-			print(algo.time() + 'Today is a weekend.')
+		if algo.check_weekend(date) is not None:
+			return
+		# Don't do anything on trade holidays
+		if algo.check_holiday(date) is not None:
 			return
 
-		# Don't do anything on trade holidays
-		if trade.sim:
-			current_date = date
-		else:
-			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
-		for holiday in trade_holidays:
-			if holiday == current_date:
-				print(algo.time() + 'Today is a trade holiday.')
+		if not trade.sim:
+			if not algo.check_hours():
+				print(algo.time() + 'Not within trading hours.')
 				return
 
 		capital = algo.check_capital()
@@ -265,7 +299,7 @@ class RandomAlgo(Trading):
 		#print(assets)
 
 		# Initial day of portfolio setup
-		try:
+		try: # TODO Move into own function maybe
 			portfolio = algo.get_portfolio()
 		except:
 			print(algo.time() + 'Initial porfolio setup.')
@@ -285,7 +319,9 @@ class RandomAlgo(Trading):
 		portfolio = algo.get_portfolio()
 		if ticker == portfolio['symbol'][0]:
 			print('No change from {}.'.format(ticker))
+			trade.unrealized(date=date)
 			return
+		trade.unrealized(rvsl=True, date=date)
 		algo.liquidate(portfolio, date)
 		capital = algo.check_capital()
 		capital_remain, qty = algo.buy_max(capital, ticker, date)
@@ -299,6 +335,16 @@ class RandomAlgo(Trading):
 		print(algo.time() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
 		return nav
 
+	def test1(self, date=None):
+		dates = ['2018-09-26','2018-09-27','2018-09-28','2018-10-01','2018-10-02']
+		capital = algo.check_capital()
+		assets = trade.balance_sheet(['Cash','Investments'])
+		print('Assets: {}'.format(assets))
+		for date in dates:
+			#print(date)
+			rank = algo.rank(assets, date, v=True)
+			#print(rank)
+		exit()
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -314,31 +360,13 @@ if __name__ == '__main__':
 	trade = Trading(ledger, sim=args.simulation)
 	algo = RandomAlgo(trade)
 	data = MarketData()
+	feed = Feed()
+
+	#algo.test1()
 
 	if trade.sim:
-		print(algo.time() + 'Setup default accounts:')
 		t0_start = time.perf_counter()
-		# trade_accts = [
-		# 	('Cash','Asset'),
-		# 	('Chequing','Asset'),
-		# 	('Savings','Asset'),
-		# 	('Investments','Asset'),
-		# 	('Visa','Liability'),
-		# 	('Student Credit','Liability'),
-		# 	('Credit Line','Liability'),
-		# 	('Uncategorized','Admin'),
-		# 	('Info','Admin'),
-		# 	('Commission Expense','Expense'),
-		# 	('Investment Gain','Revenue'),
-		# 	('Investment Loss','Expense'),
-		# 	('Unrealized Gain','Revenue'),
-		# 	('Unrealized Loss','Expense'),
-		# 	('Interest Expense','Expense'),
-		# 	('Dividend Receivable','Asset'),
-		# 	('Dividend Income','Revenue'),
-		# 	('Interest Income','Revenue')
-		# ]
-		#accts.add_acct(trade_accts)
+		print(algo.time() + 'Setup default accounts:')
 		accts.load_accts('trading')
 		cap = args.capital
 		if cap is None:
@@ -356,7 +384,7 @@ if __name__ == '__main__':
 			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), trade.trade_date(dates[0]), 'Deposit capital', '', '', '', 'Cash', 'Wealth', cap] ]
 			trade.journal_entry(deposit_capital)
 			#print(deposit_capital)
-		for date in dates:
+		for date in dates[1:]:
 			algo.main(date)
 		print('-' * DISPLAY_WIDTH)
 		trade.print_bs() # Display final bs

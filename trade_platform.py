@@ -25,7 +25,7 @@ class Trading(Ledger):
 		self.sim = sim
 		self.date = date
 
-	def get_price(self, symbol, date=None): # TODO Use global bool flag to get price from historical data for simulation trading
+	def get_price(self, symbol, date=None):
 		if not self.sim:
 			url = 'https://api.iextrading.com/1.0/stock/'
 			try:
@@ -40,7 +40,7 @@ class Trading(Ledger):
 			try:
 				with open(infile, 'r') as f:
 					hist_df = pd.read_csv(f, index_col='symbol')
-					price = float(hist_df.at[symbol.upper(),'close'])
+					price = float(hist_df.at[symbol.upper(),'open']) # close for unrealized
 					if pd.isnull(price):
 						print('Price is blank for: '+ symbol + '\n')
 						return 0
@@ -64,7 +64,7 @@ class Trading(Ledger):
 		if self.sim:
 			if date is None:
 				date = input('Enter a date as format yyyy-mm-dd: ')
-		price = self.get_price(symbol, date)
+		price = self.get_price(symbol, date=date)
 
 		# Check if there is enough capital
 		capital_accts = ['Cash','Chequing']
@@ -79,7 +79,7 @@ class Trading(Ledger):
 		# Journal entries for a buy transaction
 		buy_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty]
 		if self.com() != 0:
-			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Comm. buy', '', '', '', 'Commission Expense', 'Cash', self.com()]
+			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Comm. buy', symbol, '', '', 'Commission Expense', 'Cash', self.com()]
 		if self.com() != 0:
 			buy_event = [buy_entry, com_entry]
 		else:
@@ -100,7 +100,7 @@ class Trading(Ledger):
 			return
 
 		# Calculate profit
-		price = self.get_price(symbol, date)
+		price = self.get_price(symbol, date=date)
 		if price == 0:
 			return symbol
 		sale_proceeds = qty * price
@@ -115,11 +115,11 @@ class Trading(Ledger):
 		# Journal entries for a sell transaction
 		sell_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Shares sell', symbol, hist_cost / qty, qty, 'Cash', 'Investments', hist_cost]
 		if investment_gain is not None:
-			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Realized gain', '', price, '', 'Cash', 'Investment Gain', investment_gain]
+			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Realized gain', symbol, price, '', 'Cash', 'Investment Gain', investment_gain]
 		if investment_loss is not None:
-			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Realized loss', '', price, '', 'Investment Loss', 'Cash', investment_loss]
+			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Realized loss', symbol, price, '', 'Investment Loss', 'Cash', investment_loss]
 		if self.com() != 0:
-			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Comm. sell', '', '', '','Commission Expense', 'Cash', self.com()]
+			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Comm. sell', symbol, '', '','Commission Expense', 'Cash', self.com()]
 		if self.com() != 0:
 			sell_event = [sell_entry, profit_entry, com_entry]
 		else:
@@ -173,7 +173,7 @@ class Trading(Ledger):
 					self.journal_entry(int_exp_event)
 			cur.close()
 
-	def unrealized(self, date=None): # TODO Add commenting
+	def unrealized(self, rvsl=False, date=None): # TODO Add commenting
 		inv = self.get_qty(acct='Investments')
 		if inv.empty:
 			print('No securities held to true up.')
@@ -192,11 +192,13 @@ class Trading(Ledger):
 				self.reversal_entry(str(txn[0]), date)
 		except:
 			logging.warning('Unrealized booking error.')
+		if rvsl:
+			return
 
 		for index, item in inv.iterrows():
 			logging.debug(item.iloc[0])
 			symbol = item.iloc[0]
-			price = self.get_price(symbol, date)
+			price = self.get_price(symbol, date=date)
 			if price == 0:
 				return symbol
 			qty = item.iloc[1]
