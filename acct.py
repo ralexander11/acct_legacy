@@ -108,7 +108,7 @@ class Accounts(object):
 					1,
 					100,
 					0.5,
-					'sp500'
+					'iex'
 				);
 			''']
 

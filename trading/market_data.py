@@ -7,7 +7,7 @@ import urllib
 #import urllib.request
 #from tqdm import tqdm
 
-DISPLAY_WIDTH = 97
+DISPLAY_WIDTH = 98
 pd.set_option('display.width',DISPLAY_WIDTH)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 20)
@@ -82,7 +82,7 @@ class Feed(object):
 			
 		data = pd.concat(dfs, verify_integrity=True)
 		#print(data)
-		print('-' * DISPLAY_WIDTH)
+		#print('-' * DISPLAY_WIDTH)
 		return data, invalid_tickers
 
 	def get_batch(self, symbols_list, end_points='price'):
@@ -117,7 +117,7 @@ class Feed(object):
 		print (prices)
 		t1_end = time.perf_counter()
 		print(time.ctime() + 'Finished getting prices! It took {:,.2f} min.'.format((t1_end - t1_start) / 60))
-		print ('-' * DISPLAY_WIDTH)
+		print('-' * DISPLAY_WIDTH)
 		return prices, invalid_tickers
 
 	def dividends(self, symbols, end_point='dividends'):
@@ -147,25 +147,27 @@ class Feed(object):
 		print('-' * DISPLAY_WIDTH)
 		return divs, invalid_tickers_divs
 
-	def save_data(self, data):
-		#end_point = 'dividends/5y' # Temp
+	def save_data(self, data, end_point='quote'):
 		if '/' in end_point:
 			end_point = end_point.replace('/','_')
 		outfile = source + '_' + end_point + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv'
-		data.to_csv(self.save_location + end_point + '/' + outfile)
+		path = self.save_location + end_point + '/' + outfile
+		data.to_csv(path)
+		print(feed.time() + 'Data file saved to: {}'.format(path))
 
-	def save_errors(self, invalid_tickers):
-		#end_point = 'dividends/5y' # Temp
+	def save_errors(self, invalid_tickers, end_point='quote'):
 		if '/' in end_point:
 			end_point = end_point.replace('/','_')
 		error_df = pd.DataFrame(np.array(invalid_tickers))
 		#print(error_df)
-		error_df.to_csv(self.save_location + 'invalid_tickers/' + 'invalid_tickers_' + end_point + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv')
+		path = self.save_location + 'invalid_tickers/' + 'invalid_tickers_' + end_point + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv'
+		error_df.to_csv(path)
+		print(feed.time() + 'Invalid tickers file saved to: {}'.format(path))
 
 if __name__ == '__main__':
 	feed = Feed()
 	t0_start = time.perf_counter()
-	source = 'iex' # input('Which ticker source? ').lower()
+	source = 'iex' # input('Which ticker source? ').lower() # TODO Add support for argparse
 	print('=' * DISPLAY_WIDTH)
 	print(feed.time() + 'Getting data from: {}'.format(source))
 
@@ -193,9 +195,12 @@ if __name__ == '__main__':
 		try:
 			print(feed.time() + 'Getting data from ' + source + ' for end point: ' + end_point)
 			data, invalid_tickers = feed.get_data(symbols, end_point)
-			feed.save_data(data)
-			feed.save_errors(invalid_tickers)
-		except:
+			feed.save_data(data, end_point)
+			feed.save_errors(invalid_tickers, end_point)
+			print('-' * DISPLAY_WIDTH)
+		except Exception as e:
+			print(feed.time() + 'Error: {}'.format(e))
+			print('-' * DISPLAY_WIDTH)
 			continue
 	t0_end = time.perf_counter()
 	print(feed.time() + 'Finished getting market data! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
