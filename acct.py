@@ -529,13 +529,12 @@ class Ledger(Accounts):
 	def get_qty_txns(self, item=None, acct=None):
 		if acct is None:
 			acct = 'Investments' #input('Which account? ')
-		# TODO if a reversal is reversed, it will still cause issues
 		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of txns
 		qty_txns = self.df[(self.df['item_id'] == item) & (((self.df['debit_acct'] == acct) & (self.df['credit_acct'] == 'Cash')) | ((self.df['credit_acct'] == acct) & (self.df['debit_acct'] == 'Cash'))) & (~self.df['event_id'].isin(rvsl_txns))] # TODO Add support for non-cash
 		return qty_txns
 
-	def get_qty(self, item=None, acct=None): # TODO Add logic to ignore rvsls
+	def get_qty(self, item=None, acct=None):
 		if acct is None:
 			acct = 'Investments' #input('Which account? ')
 		if (item is None) or (item == ''): # Get qty for all items
@@ -561,7 +560,7 @@ class Ledger(Accounts):
 					credits = 0
 				qty = round(debits - credits, 2)
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
-				inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold # TODO Add arg flag to turn this off
+				inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold # TODO Add arg flag to turn this off for divs
 
 			if self.entity is None:
 				inventory.to_sql('inventory', self.conn, if_exists='replace')
@@ -715,14 +714,17 @@ class Ledger(Accounts):
 		print ('File saved as ' + save_location + outfile)
 
 	def reversal_entry(self, txn=None, date=None): # This func effectively deletes a transaction
-	# TODO Add logic to prevent reversing a reversal
 		if txn is None:
 			txn = input('Which txn_id to reverse? ')
 		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
 		cur = self.conn.cursor()
 		cur.execute(rvsl_query)
 		rvsl = cur.fetchone()
+		logging.debug('rvsl: {}'.format(rvsl))
 		cur.close()
+		if '[RVSL]' in rvsl[4]:
+			print('Cannot reverse a reversal. Enter a new entry instead.')
+			return
 		if date is None:
 			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
@@ -757,7 +759,7 @@ class Ledger(Accounts):
 			return amount
 
 		price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[avail_qty]}) # Create a list of lots with associated price
-		qty = qty - avail_qty # Sell the remainer of first lot of unsold items
+		qty = qty - avail_qty # Sell the remainder of first lot of unsold items
 
 		count += 1
 		for item in qty_txns[count::-1]:
