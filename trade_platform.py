@@ -36,7 +36,7 @@ class Trading(Ledger):
 			else:
 				return price
 		else:
-			infile = 'trading/market_data/quote/iex_quote_' + date + '.csv'
+			infile = 'market_data/data/quote/iex_quote_' + date + '.csv'
 			try:
 				with open(infile, 'r') as f:
 					hist_df = pd.read_csv(f, index_col='symbol')

@@ -241,7 +241,7 @@ class Accounts(object):
 		cur.close()
 		self.refresh_accts()
 
-	def print_entities(self): # TODO Add error checking if not entities exist
+	def print_entities(self): # TODO Add error checking if no entities exist
 		self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col=['entity_id'])
 		self.entities.to_csv('data/entities.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -249,7 +249,7 @@ class Accounts(object):
 		print('-' * DISPLAY_WIDTH)
 		return self.entities
 
-	def print_items(self): # TODO Add error checking if not items exist
+	def print_items(self): # TODO Add error checking if no items exist
 		self.items = pd.read_sql_query('SELECT * FROM items;', self.conn, index_col=['item_id'])
 		self.items.to_csv('data/items.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):

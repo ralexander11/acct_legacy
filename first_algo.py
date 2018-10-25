@@ -1,8 +1,8 @@
 from acct import Accounts
 from acct import Ledger
 from trade_platform import Trading
-from trading.combine_data import MarketData
-from trading.market_data import Feed
+from market_data.market_data import MarketData
+from market_data.combine_data import CombineData
 import pandas as pd
 import argparse
 import logging
@@ -21,7 +21,7 @@ logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='
 random.seed()
 WK52_REDUCE = 10
 
-class RandomAlgo(Trading):
+class TradingAlgo(Trading):
 	def __init__(self, trade):
 		self.df = trade.df
 		self.ledger_name = trade.ledger_name
@@ -102,7 +102,7 @@ class RandomAlgo(Trading):
 			symbols = symbols.sample(frac=1).reset_index(drop=True) #Randomize list
 
 		elif flag == 'iex' and trade.sim:
-			path = 'trading/market_data/tickers/iex_tickers_'
+			path = 'market_data/data/tickers/iex_tickers_'
 			infile = path + date + '.csv'
 			with open(infile, 'r') as f:
 				symbols = pd.read_csv(f)
@@ -189,16 +189,16 @@ class RandomAlgo(Trading):
 			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
 		#print('Data Date: {}'.format(date))
 		end_point = 'quote'
-		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
-			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
-		quote_df = data.load_file(path)
+			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		quote_df = combine_data.load_file(path)
 		end_point = 'stats'
-		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
-			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
-		stats_df = data.load_file(path)
-		merged = data.merge_data(quote_df, stats_df)
+			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		stats_df = combine_data.load_file(path)
+		merged = combine_data.merge_data(quote_df, stats_df)
 		merged = merged[(merged.close <= assets)]
 
 		wk52high = merged['week52high']
@@ -214,16 +214,16 @@ class RandomAlgo(Trading):
 		if date is None:
 			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
 		end_point = 'quote'
-		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
-			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
-		quote_df = data.load_file(path)
+			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		quote_df = combine_data.load_file(path)
 		end_point = 'stats'
-		path = '/home/robale5/becauseinterfaces.com/acct/trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
-			path = 'trading/market_data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
-		stats_df = data.load_file(path)
-		merged = data.merge_data(quote_df, stats_df)
+			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		stats_df = combine_data.load_file(path)
+		merged = combine_data.merge_data(quote_df, stats_df)
 		merged = merged[(merged.close <= assets)]
 
 		day50avg = merged['day50MovingAvg']
@@ -358,9 +358,9 @@ if __name__ == '__main__':
 	accts = Accounts(conn=args.database)
 	ledger = Ledger(ledger_name=args.ledger,entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
-	algo = RandomAlgo(trade)
+	algo = TradingAlgo(trade)
+	combine_data = CombineData()
 	data = MarketData()
-	feed = Feed()
 
 	#algo.test1()
 
@@ -372,7 +372,7 @@ if __name__ == '__main__':
 		if cap is None:
 			cap = float(10000)
 		print(algo.time() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
-		path = 'trading/market_data/quote/*.csv'
+		path = 'market_data/data/quote/*.csv'
 		dates = []
 		for fname in glob.glob(path):
 			fname_date = os.path.basename(fname)[-14:-4]
