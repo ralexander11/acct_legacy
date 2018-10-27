@@ -362,27 +362,34 @@ if __name__ == '__main__':
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
+	parser.add_argument('-c', '--command', type=str, help='A command for the program.')
 	parser.add_argument('-sim', '--simulation', action='store_true', help='Run on historical data.')
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
 	ledger = Ledger(ledger_name=args.ledger, entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
+	command = args.command
 
 	while True:
-		command = input('\nType one of the following commands:\nbuy, sell, exit\n')
-		if command.lower() == 'exit':
-			exit()
+		if args.command is None:
+			command = input('\nType one of the following commands:\nbuy, sell, exit\n')
 		# TODO Allow command to be a single line in any order (i.e. buy tsla 10)
-		elif command.lower() == 'buy':
+		if command.lower() == 'buy':
 			symbol = input('Which ticker? ')
 			trade.buy_shares(symbol)
+			if args.command is not None: exit()
 		elif command.lower() == 'sell':
 			symbol = input('Which ticker? ')
 			trade.sell_shares(symbol)
+			if args.command is not None: exit()
 		elif command.lower() == 'int':
 			trade.int_exp(ledger)
+			if args.command is not None: exit()
 		elif command.lower() == 'trueup':
 			trade.unrealized()
+			if args.command is not None: exit()
+		elif command.lower() == 'exit' or args.command is not None:
+			exit()
 		else:
 			print('Not a valid command. Type exit to close.')

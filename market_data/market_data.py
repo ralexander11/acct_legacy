@@ -80,10 +80,10 @@ class MarketData(object):
 			except:
 				invalid_tickers.append(symbol)
 			
-		data = pd.concat(dfs, verify_integrity=True)
-		#print(data)
+		data_feed = pd.concat(dfs, verify_integrity=True)
+		#print(data_feed)
 		#print('-' * DISPLAY_WIDTH)
-		return data, invalid_tickers
+		return data_feed, invalid_tickers
 
 	def get_batch(self, symbols_list, end_points='price'):
 		url = 'https://api.iextrading.com/1.0/stock/market/batch?symbols='
@@ -147,12 +147,12 @@ class MarketData(object):
 		print('-' * DISPLAY_WIDTH)
 		return divs, invalid_tickers_divs
 
-	def save_data(self, data, end_point='quote'):
+	def save_data(self, data_feed, end_point='quote'):
 		if '/' in end_point:
 			end_point = end_point.replace('/','_')
 		outfile = source + '_' + end_point + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv'
 		path = self.save_location + end_point + '/' + outfile
-		data.to_csv(path)
+		data_feed.to_csv(path)
 		print(self.time() + 'Data file saved to: {}'.format(path))
 
 	def save_errors(self, invalid_tickers, end_point='quote'):
@@ -170,12 +170,13 @@ if __name__ == '__main__':
 	source = 'iex' # input('Which ticker source? ').lower() # TODO Add support for argparse
 	print('=' * DISPLAY_WIDTH)
 	print(data.time() + 'Getting data from: {}'.format(source))
+	print('-' * DISPLAY_WIDTH)
 
 	batch_test = False
 	if batch_test:
 		t0_start = time.perf_counter()
 		symbols_list = data.get_symbols(source)[2]
-		data = data.get_batch(symbols_list)
+		batch_data = data.get_batch(symbols_list)
 		t0_end = time.perf_counter()
 		print(data.time() + 'Finished getting batch prices! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 		exit()
@@ -194,8 +195,8 @@ if __name__ == '__main__':
 	for end_point in end_points:
 		try:
 			print(data.time() + 'Getting data from ' + source + ' for end point: ' + end_point)
-			data, invalid_tickers = data.get_data(symbols, end_point)
-			data.save_data(data, end_point)
+			data_feed, invalid_tickers = data.get_data(symbols, end_point)
+			data.save_data(data_feed, end_point)
 			data.save_errors(invalid_tickers, end_point)
 			print('-' * DISPLAY_WIDTH)
 		except Exception as e:

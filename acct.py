@@ -739,7 +739,7 @@ class Ledger(Accounts):
 
 		# Find the first lot of unsold items
 		count = 0
-		qty_back = self.get_qty(item, acct)
+		qty_back = self.get_qty(item, acct) # TODO Confirm this work when there are multiple different lots of buys and sell in the past
 		for item in qty_txns[::-1]:
 			if qty_back <= 0:
 				break
@@ -855,60 +855,86 @@ if __name__ == '__main__':
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
+	parser.add_argument('-c', '--command', type=str, help='A command for the program.')
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
 	ledger = Ledger(ledger_name=args.ledger, entity=args.entity)
+	command = args.command
 
 	while True:
-		command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
-		if command.lower() == 'exit':
-			exit() # TODO Add help command to list full list of commands
-		elif command.lower() == 'gl':
+		if args.command is None:
+			command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
+		# TODO Add help command to list full list of commands
+		if command.lower() == 'gl':
 			ledger.print_gl()
+			if args.command is not None: exit()
 		elif command.lower() == 'exportgl':
 			ledger.export_gl()
+			if args.command is not None: exit()
 		elif command.lower() == 'loadgl':
 			ledger.load_gl()
+			if args.command is not None: exit()
 		elif command.lower() == 'accts':
 			accts.print_accts()
+			if args.command is not None: exit()
 		elif command.lower() == 'addacct':
 			accts.add_acct()
+			if args.command is not None: exit()
 		elif command.lower() == 'removeacct':
 			accts.remove_acct()
+			if args.command is not None: exit()
 		elif command.lower() == 'loadaccts':
 			accts.load_accts()
+			if args.command is not None: exit()
 		elif command.lower() == 'exportaccts':
 			accts.export_accts()
+			if args.command is not None: exit()
 		elif command.lower() == 'dupes':
 			accts.drop_dupe_accts()
+			if args.command is not None: exit()
 		elif command.lower() == 'je':
 			ledger.journal_entry()
+			if args.command is not None: exit()
 		elif command.lower() == 'rvsl':
 			ledger.reversal_entry()
+			if args.command is not None: exit()
 		elif command.lower() == 'bs':
 			ledger.print_bs()
+			if args.command is not None: exit()
 		elif command.lower() == 'qty':
 			item = input('Which ticker? ').lower()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				print (ledger.get_qty(item))
+			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()
+			if args.command is not None: exit()
 		elif command.lower() == 'date':
 			ledger.set_date()
+			if args.command is not None: exit()
 		elif command.lower() == 'startdate':
 			ledger.set_start_date()
+			if args.command is not None: exit()
 		elif command.lower() == 'txn':
 			ledger.set_txn()
+			if args.command is not None: exit()
 		elif command.lower() == 'reset':
 			ledger.reset()
+			if args.command is not None: exit()
 		elif command.lower() == 'hist':
 			ledger.print_hist()
+			if args.command is not None: exit()
 		elif command.lower() == 'entities':
 			accts.print_entities()
+			if args.command is not None: exit()
 		elif command.lower() == 'items':
 			accts.print_items()
+			if args.command is not None: exit()
 		elif command.lower() == 'width': # TODO Try and make this work
 			DISPLAY_WIDTH = int(input('Enter number for display width: '))
+			if args.command is not None: exit()
+		elif command.lower() == 'exit' or args.command is not None:
+			exit()
 		else:
 			print('Not a valid command. Type exit to close.')

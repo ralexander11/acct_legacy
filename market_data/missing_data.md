@@ -13,3 +13,7 @@ Resolved by copying data from the prior day.
 2018-10-09
 
 Resolved by copying data from the prior day.
+
+2018-10-25
+
+Resolved by copying data from the prior day.
