@@ -8,9 +8,10 @@ import urllib.request
 
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
-class Trading(Ledger):
+class Trading(object):
 	def __init__(self, ledger, comm=0.0, sim=False, date=None):
-		self.df = ledger.df
+		self.ledger = ledger
+		self.gl = ledger.gl
 		self.ledger_name = ledger.ledger_name
 		self.entity = ledger.entity
 		self.date = ledger.date
@@ -69,7 +70,7 @@ class Trading(Ledger):
 		# Check if there is enough capital
 		capital_accts = ['Cash','Chequing']
 		capital_bal = 0
-		capital_bal = self.balance_sheet(capital_accts)
+		capital_bal = self.ledger.balance_sheet(capital_accts)
 
 		if price * qty > capital_bal or price == 0:
 			logging.info('Buying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(round(price * qty, 2)) + '.')
@@ -77,15 +78,15 @@ class Trading(Ledger):
 			return capital_bal
 
 		# Journal entries for a buy transaction
-		buy_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty]
+		buy_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty ]
 		if self.com() != 0:
-			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Comm. buy', symbol, '', '', 'Commission Expense', 'Cash', self.com()]
+			com_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Comm. buy', symbol, '', '', 'Commission Expense', 'Cash', self.com() ]
 		if self.com() != 0:
 			buy_event = [buy_entry, com_entry]
 		else:
 			buy_event = [buy_entry]
 
-		self.journal_entry(buy_event)
+		self.ledger.journal_entry(buy_event)
 		return capital_bal
 
 	def sell_shares(self, symbol, qty=None, date=None):
@@ -94,7 +95,9 @@ class Trading(Ledger):
 		if self.sim:
 			if date is None:
 				date = input('Enter a date as format yyyy-mm-dd: ')
-		current_qty = self.get_qty(symbol, 'Investments')
+		current_qty = self.ledger.get_qty(symbol, 'Investments')
+		print('Current QTY: {}'.format(current_qty))
+		print('Symbol: {}'.format(symbol))
 		if qty > current_qty:
 			print('You currently have ' + str(round(current_qty, 2)) + ' shares of ' + symbol + ' but you tried to sell ' + str(round(qty, 2)) + ' shares.')
 			return
@@ -104,7 +107,7 @@ class Trading(Ledger):
 		if price == 0:
 			return symbol
 		sale_proceeds = qty * price
-		hist_cost = self.hist_cost(qty, symbol, 'Investments')
+		hist_cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 		investment_gain = None
 		investment_loss = None
 		if sale_proceeds >= hist_cost:
@@ -113,39 +116,39 @@ class Trading(Ledger):
 			investment_loss = hist_cost - sale_proceeds
 
 		# Journal entries for a sell transaction
-		sell_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Shares sell', symbol, hist_cost / qty, qty, 'Cash', 'Investments', hist_cost]
+		sell_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Shares sell', symbol, hist_cost / qty, qty, 'Cash', 'Investments', hist_cost ]
 		if investment_gain is not None:
-			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Realized gain', symbol, price, '', 'Cash', 'Investment Gain', investment_gain]
+			profit_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Realized gain', symbol, price, '', 'Cash', 'Investment Gain', investment_gain ]
 		if investment_loss is not None:
-			profit_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Realized loss', symbol, price, '', 'Investment Loss', 'Cash', investment_loss]
+			profit_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Realized loss', symbol, price, '', 'Investment Loss', 'Cash', investment_loss ]
 		if self.com() != 0:
-			com_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Comm. sell', symbol, '', '','Commission Expense', 'Cash', self.com()]
+			com_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Comm. sell', symbol, '', '','Commission Expense', 'Cash', self.com() ]
 		if self.com() != 0:
 			sell_event = [sell_entry, profit_entry, com_entry]
 		else:
 			sell_event = [sell_entry, profit_entry]
 
-		self.journal_entry(sell_event)
+		self.ledger.journal_entry(sell_event)
 
 		# TODO Handle stock splits
 
-	def int_exp(self, ledger, loan_accts=None, date=None): # TODO Add commenting
+	def int_exp(self, loan_accts=None, date=None): # TODO Add commenting
 		if loan_accts is None:
 			loan_accts = ['Credit Line','Student Credit'] # TODO Maybe generate list from liability accounts
 		loan_bal = 0
-		loan_bal = self.balance_sheet(loan_accts)
+		loan_bal = self.ledger.balance_sheet(loan_accts)
 		if loan_bal < 0:
 			logging.info('Loan exists!')
-			cur = ledger.conn.cursor()
+			cur = self.ledger.conn.cursor()
 			for loan_type in loan_accts:
-				loans = pd.unique(self.df.loc[self.df['credit_acct'] == loan_type]['item_id'])
+				loans = pd.unique(self.gl.loc[self.gl['credit_acct'] == loan_type]['item_id'])
 				for loan in loans:
 					try:
-						debits = self.df.loc[self.df['item_id'] == loan].groupby('debit_acct').sum()['amount'][loan_type]
+						debits = self.gl.loc[self.gl['item_id'] == loan].groupby('debit_acct').sum()['amount'][loan_type]
 					except:
 						debits = 0
 					try:
-						credits = self.df.loc[self.df['item_id'] == loan].groupby('credit_acct').sum()['amount'][loan_type]
+						credits = self.gl.loc[self.gl['item_id'] == loan].groupby('credit_acct').sum()['amount'][loan_type]
 					except:
 						credits = 0
 					loan_bal = credits - debits
@@ -168,28 +171,28 @@ class Trading(Ledger):
 					period = 1 / 365 # TODO Add frequency logic
 					int_amount = round(loan_bal * rate * period, 2)
 					logging.info('Int. Expense: {}'.format(int_amount))
-					int_exp_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Interest expense', '', '', '', 'Interest Expense', 'Cash', int_amount]
+					int_exp_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Interest expense', '', '', '', 'Interest Expense', 'Cash', int_amount ]
 					int_exp_event = [int_exp_entry]
-					self.journal_entry(int_exp_event)
+					self.ledger.journal_entry(int_exp_event)
 			cur.close()
 
 	def unrealized(self, rvsl=False, date=None): # TODO Add commenting
-		inv = self.get_qty(acct='Investments')
+		inv = self.ledger.get_qty(acct='Investments')
 		if inv.empty:
 			print('No securities held to true up.')
 			return
 		logging.debug('Inventory: \n{}'.format(inv))
 
 		try:
-			rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+			rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			if rvsl_txns.empty:
 				print('First or second true up run.')
 			logging.debug('RVSL TXNs: {}'.format(rvsl_txns))
 			# Get list of txns
-			inv_txns = self.df[( (self.df['debit_acct'] == 'Unrealized Loss') | (self.df['credit_acct'] == 'Unrealized Gain') ) & (~self.df['event_id'].isin(rvsl_txns))]
+			inv_txns = self.gl[( (self.gl['debit_acct'] == 'Unrealized Loss') | (self.gl['credit_acct'] == 'Unrealized Gain') ) & (~self.gl['event_id'].isin(rvsl_txns))]
 			logging.debug('Inv TXNs: {}'.format(inv_txns))
 			for txn in inv_txns.iterrows():
-				self.reversal_entry(str(txn[0]), date)
+				self.ledger.reversal_entry(str(txn[0]), date)
 		except:
 			logging.warning('Unrealized booking error.')
 		if rvsl:
@@ -203,7 +206,7 @@ class Trading(Ledger):
 				return symbol
 			qty = item.iloc[1]
 			market_value = qty * price
-			hist_cost = self.hist_cost(qty, symbol, 'Investments')
+			hist_cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 			unrealized_gain = None
 			unrealized_loss = None
 			if market_value == hist_cost:
@@ -214,20 +217,20 @@ class Trading(Ledger):
 			else:
 				unrealized_loss = hist_cost - market_value
 			if unrealized_gain is not None:
-				true_up_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Unrealized gain', symbol, price, '', 'Investments', 'Unrealized Gain', unrealized_gain ]
+				true_up_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Unrealized gain', symbol, price, '', 'Investments', 'Unrealized Gain', unrealized_gain ]
 				logging.debug(true_up_entry)
 			if unrealized_loss is not None:
-				true_up_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Unrealized loss', symbol, price, '', 'Unrealized Loss', 'Investments', unrealized_loss ]
+				true_up_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Unrealized loss', symbol, price, '', 'Unrealized Loss', 'Investments', unrealized_loss ]
 				logging.debug(true_up_entry)
-			true_up_event = [ true_up_entry ]
+			true_up_event = [true_up_entry]
 			logging.info(true_up_event)
 
-			self.journal_entry(true_up_event)
+			self.ledger.journal_entry(true_up_event)
 
 	def dividends(self, end_point='dividends/3m', date=None): # TODO Need to reengineer this due to delay in exdate divs displaying from IEX feed
 	# TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
-		portfolio = self.get_qty() # TODO Pass arg flag to show 0 qty stocks
+		portfolio = self.ledger.get_qty() # TODO Pass arg flag to show 0 qty stocks
 		#print(portfolio)
 		if portfolio.empty:
 			print('Dividends: No securities held.')
@@ -257,7 +260,7 @@ class Trading(Ledger):
 				if div_rate is None:
 					logging.warning('Div rate is blank for: ' + symbol)
 					continue
-				qty = self.get_qty(symbol, 'Investments')
+				qty = self.ledger.get_qty(symbol, 'Investments')
 				try:
 					div_proceeds = div_rate * qty
 				except:
@@ -266,16 +269,16 @@ class Trading(Ledger):
 				logging.debug('QTY: {}'.format(qty))
 				logging.debug('Div Rate: {}'.format(div.iloc[0,0]))
 				logging.debug('Div Proceeds: {}'.format(div_proceeds))
-				div_accr_entry = [self.get_event(), self.get_entity(), self.trade_date(date), 'Dividend income accrual', symbol, div_rate, qty, 'Dividend Receivable', 'Dividend Income', div_proceeds]
+				div_accr_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Dividend income accrual', symbol, div_rate, qty, 'Dividend Receivable', 'Dividend Income', div_proceeds ]
 				div_accr_event = [div_accr_entry]
 				print(div_accr_event)
-				self.journal_entry(div_accr_event)
+				self.ledger.journal_entry(div_accr_event)
 
 	def div_accr(self, end_point='dividends/3m', date=None): # TODO Rengineer this along with dividends function
 	# TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
-		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
-		div_accr_txns = self.df[( self.df['debit_acct'] == 'Dividend Receivable') & (~self.df['event_id'].isin(rvsl_txns))] # Get list of div accrual entries
+		rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		div_accr_txns = self.gl[( self.gl['debit_acct'] == 'Dividend Receivable') & (~self.gl['event_id'].isin(rvsl_txns))] # Get list of div accrual entries
 		logging.debug(div_accr_txns)
 		for index, div_accr_txn in div_accr_txns.iterrows():
 			logging.debug(div_accr_txn)
@@ -299,10 +302,10 @@ class Trading(Ledger):
 			logging.debug('Paydate: {}'.format(paydate))
 			logging.debug('Current Date: {}'.format(current_date))
 			if current_date == paydate:
-				div_relieve_entry = [div_accr_txn.iloc[0], div_accr_txn.iloc[1], self.trade_date(date), 'Dividend income payment', symbol, div_accr_txn.iloc[5], div_accr_txn.iloc[6], 'Cash', 'Dividend Receivable', div_accr_txn.iloc[9]]
+				div_relieve_entry = [ div_accr_txn.iloc[0], div_accr_txn.iloc[1], self.trade_date(date), 'Dividend income payment', symbol, div_accr_txn.iloc[5], div_accr_txn.iloc[6], 'Cash', 'Dividend Receivable', div_accr_txn.iloc[9] ]
 				div_relieve_event = [div_relieve_entry]
 				print(div_relieve_event)
-				self.journal_entry(div_relieve_event)
+				self.ledger.journal_entry(div_relieve_event)
 
 	def splits(self, end_point='splits/3m', date=None): # TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
@@ -333,8 +336,8 @@ class Trading(Ledger):
 				to_factor = split.iloc[0,6]
 				for_factor = split.iloc[0,2]
 				ratio = to_factor / for_factor
-				qty = self.get_qty(symbol)
-				cost = self.hist_cost(qty, symbol, 'Investments')
+				qty = self.ledger.get_qty(symbol)
+				cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 				old_price = cost / qty
 				new_qty = qty * ratio # TODO Handle fractional shares
 				new_price = cost / new_qty
@@ -349,11 +352,11 @@ class Trading(Ledger):
 				logging.debug('New QTY: {}'.format(new_qty))
 				logging.debug('New Price: {}'.format(new_price))
 
-				cost_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Stock split old', symbol, old_price, qty, 'Cash', 'Investments', cost]
-				split_entry = [ self.get_event(), self.get_entity(), self.trade_date(date), 'Stock split new', symbol, new_price, new_qty, 'Investments', 'Cash', cost]
+				cost_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Stock split old', symbol, old_price, qty, 'Cash', 'Investments', cost ]
+				split_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Stock split new', symbol, new_price, new_qty, 'Investments', 'Cash', cost ]
 				split_event = [cost_entry, split_entry]
 				print(split_event)
-				self.journal_entry(split_event)
+				self.ledger.journal_entry(split_event)
 
 
 if __name__ == '__main__':
@@ -367,7 +370,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
-	ledger = Ledger(ledger_name=args.ledger, entity=args.entity)
+	ledger = Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
 	command = args.command
 
@@ -384,7 +387,7 @@ if __name__ == '__main__':
 			trade.sell_shares(symbol)
 			if args.command is not None: exit()
 		elif command.lower() == 'int':
-			trade.int_exp(ledger)
+			trade.int_exp()
 			if args.command is not None: exit()
 		elif command.lower() == 'trueup':
 			trade.unrealized()

@@ -14,7 +14,7 @@ The below instructions apply when not using the acct.db file included in the rep
 1. Run acct.py
 2. You should see 9 standard accounts get loaded
 3. Type "loadAccts" command
-4. Enter "accounts.csv" file name
+4. Type "trading" and hit enter
 5. Type "JE" command
 6. Press enter 3 times until it asks you for a description
 7. Type "Deposit capital" for the description and hit enter

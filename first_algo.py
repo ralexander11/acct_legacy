@@ -21,14 +21,17 @@ logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='
 random.seed()
 WK52_REDUCE = 10
 
-class TradingAlgo(Trading):
-	def __init__(self, trade):
-		self.df = trade.df
+class TradingAlgo(object):
+	def __init__(self, ledger, trade, combine_data):
+		self.ledger = ledger
+		self.trade = trade
+		self.gl = trade.gl
 		self.ledger_name = trade.ledger_name
 		self.entity = trade.entity
 		self.date = trade.date
 		self.start_date = trade.start_date
 		self.txn = trade.txn
+		self.combine_data = combine_data
 
 		# Get entity settings for random trading parameters
 		if self.entity is None:
@@ -122,11 +125,11 @@ class TradingAlgo(Trading):
 	# Check how much capital is available
 	def check_capital(self, capital_accts=None):
 		logging.info(algo.time() + 'Checking capital...')
-		self.df = trade.df
+		self.gl = self.ledger.gl
 		if capital_accts is None:
 			capital_accts = ['Cash','Chequing']
 		capital_bal = 0
-		capital_bal = trade.balance_sheet(capital_accts)
+		capital_bal = self.ledger.balance_sheet(capital_accts)
 		logging.info(capital_bal)
 		return capital_bal
 	
@@ -156,7 +159,7 @@ class TradingAlgo(Trading):
 
 	# Get list of currently held tickers
 	def get_portfolio(self):
-		portfolio = trade.get_qty()
+		portfolio = self.ledger.get_qty()
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
 		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
@@ -167,7 +170,7 @@ class TradingAlgo(Trading):
 	def random_buy(self, capital, symbols, date=None):
 		logging.info('Randomly buying.')
 		while capital > 1000: # TODO Make this an entity setting
-			capital = trade.buy_shares(*algo.get_trade(symbols), date)
+			capital = self.trade.buy_shares(*self.get_trade(symbols), date)
 			logging.debug(capital)
 		logging.info('Out of capital.')
 
@@ -177,7 +180,7 @@ class TradingAlgo(Trading):
 		t1_start = time.perf_counter()
 		for count, symbol in enumerate(portfolio['symbol'][:random.randint(1,len(portfolio))]):
 			logging.debug('Selling shares of: {}'.format(symbol))
-			trade.sell_shares(*algo.get_trade(symbol, portfolio), date)
+			self.trade.sell_shares(*self.get_trade(symbol, portfolio), date)
 		t1_end = time.perf_counter()
 		print(algo.time() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
 
@@ -192,13 +195,13 @@ class TradingAlgo(Trading):
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
 			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
-		quote_df = combine_data.load_file(path)
+		quote_df = self.combine_data.load_file(path)
 		end_point = 'stats'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
 			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
-		stats_df = combine_data.load_file(path)
-		merged = combine_data.merge_data(quote_df, stats_df)
+		stats_df = self.combine_data.load_file(path)
+		merged = self.combine_data.merge_data(quote_df, stats_df)
 		merged = merged[(merged.close <= assets)]
 
 		wk52high = merged['week52high']
@@ -217,13 +220,13 @@ class TradingAlgo(Trading):
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
 			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
-		quote_df = combine_data.load_file(path)
+		quote_df = self.combine_data.load_file(path)
 		end_point = 'stats'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
 			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
-		stats_df = combine_data.load_file(path)
-		merged = combine_data.merge_data(quote_df, stats_df)
+		stats_df = self.combine_data.load_file(path)
+		merged = self.combine_data.merge_data(quote_df, stats_df)
 		merged = merged[(merged.close <= assets)]
 
 		day50avg = merged['day50MovingAvg']
@@ -251,98 +254,98 @@ class TradingAlgo(Trading):
 
 	def buy_single(self, symbol, date=None):
 		print(symbol)
-		capital = trade.buy_shares(symbol, 1, date)
+		capital = self.trade.buy_shares(symbol, 1, date)
 		return capital
 
 	def buy_max(self, capital, symbol, date=None):
-		price = trade.get_price(symbol, date=date)
+		price = self.trade.get_price(symbol, date=date)
 		qty = capital // price
 		if qty == 0:
 			return capital, qty
-		capital = trade.buy_shares(symbol, qty, date)
+		capital = self.trade.buy_shares(symbol, qty, date)
 		print('Purchased {} shares of {} for {} each.'.format(qty, symbol, price))
 		return capital, qty
 
 	def liquidate(self, portfolio, date=None):
 		for symbol, qty in portfolio.itertuples(index=False):
-			trade.sell_shares(symbol, qty, date)
+			self.trade.sell_shares(symbol, qty, date)
 			print('Liquidated {} shares of {}.'.format(qty, symbol))
 
 	def main(self, date=None):
 		t4_start = time.perf_counter()
 		print('=' * DISPLAY_WIDTH)
-		print(algo.time() + 'Sim date: {}'.format(date))
+		print(self.time() + 'Sim date: {}'.format(date))
 		#print(algo.time() + 'Entity: {} \nCommission: {}, Min QTY: {}, Max QTY: {}, Liquidate Chance: {}, Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
 		print ('-' * DISPLAY_WIDTH)
 
-		trade.int_exp(ledger, date=date) # TODO ensure this only runs daily
+		self.trade.int_exp(date=date) # TODO ensure this only runs daily
 		if not trade.sim: # TODO Temp restriction while historical CA data is missing
-			trade.dividends() # TODO Add perf timers
-			trade.div_accr()
-			trade.splits()
+			self.trade.dividends() # TODO Add perf timers
+			self.trade.div_accr()
+			self.trade.splits()
 		logging.info('-' * (DISPLAY_WIDTH - 32))
 		
 		# Don't do anything on weekends
-		if algo.check_weekend(date) is not None:
+		if self.check_weekend(date) is not None:
 			return
 		# Don't do anything on trade holidays
-		if algo.check_holiday(date) is not None:
+		if self.check_holiday(date) is not None:
 			return
 
-		if not trade.sim:
+		if not self.trade.sim:
 			if not algo.check_hours():
-				print(algo.time() + 'Not within trading hours.')
+				print(self.time() + 'Not within trading hours.')
 				return
 
-		capital = algo.check_capital()
-		assets = trade.balance_sheet(['Cash','Investments'])
+		capital = self.check_capital()
+		assets = self.ledger.balance_sheet(['Cash','Investments'])
 		#print(assets)
 
 		# Initial day of portfolio setup
 		try: # TODO Move into own function maybe
-			portfolio = algo.get_portfolio()
+			portfolio = self.get_portfolio()
 		except:
-			print(algo.time() + 'Initial porfolio setup.')
-			rank = algo.rank(assets, date)
+			print(self.time() + 'Initial porfolio setup.')
+			rank = self.rank(assets, date)
 			#print(rank)
 			ticker = rank.index[0]
-			capital_remain, qty = algo.buy_max(capital, ticker, date)
+			capital_remain, qty = self.buy_max(capital, ticker, date)
 			print('-' * DISPLAY_WIDTH)
-			trade.print_bs()
-			nav = trade.balance_sheet()
-			print(algo.time() + 'Done initial porfolio setup.')
+			self.ledger.print_bs()
+			nav = self.ledger.balance_sheet()
+			print(self.time() + 'Done initial porfolio setup.')
 			return nav
 
 		# Trading Algo
-		rank = algo.rank(assets, date)
+		rank = self.rank(assets, date)
 		ticker = rank.index[0]
-		portfolio = algo.get_portfolio()
+		portfolio = self.get_portfolio()
 		if ticker == portfolio['symbol'][0]:
 			print('No change from {}.'.format(ticker))
-			trade.unrealized(date=date)
+			self.trade.unrealized(date=date)
 			return
-		trade.unrealized(rvsl=True, date=date)
-		algo.liquidate(portfolio, date)
-		capital = algo.check_capital()
-		capital_remain, qty = algo.buy_max(capital, ticker, date)
+		self.trade.unrealized(rvsl=True, date=date)
+		self.liquidate(portfolio, date)
+		capital = self.check_capital()
+		capital_remain, qty = self.buy_max(capital, ticker, date)
 
 		print('-' * DISPLAY_WIDTH)
-		trade.print_bs()
-		nav = trade.balance_sheet()
-		trade.get_qty()
+		self.ledger.print_bs()
+		nav = self.ledger.balance_sheet()
+		self.ledger.get_qty()
 		#ledger.bs_hist()
 		t4_end = time.perf_counter()
-		print(algo.time() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
+		print(self.time() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
 		return nav
 
-	def test1(self, date=None):
+	def test1(self, date=None): # TODO Remove
 		dates = ['2018-09-26','2018-09-27','2018-09-28','2018-10-01','2018-10-02']
-		capital = algo.check_capital()
-		assets = trade.balance_sheet(['Cash','Investments'])
+		capital = self.check_capital()
+		assets = self.ledger.balance_sheet(['Cash','Investments'])
 		print('Assets: {}'.format(assets))
 		for date in dates:
 			#print(date)
-			rank = algo.rank(assets, date, v=True)
+			rank = self.rank(assets, date, v=True)
 			#print(rank)
 		exit()
 
@@ -356,11 +359,11 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
-	ledger = Ledger(ledger_name=args.ledger,entity=args.entity)
+	ledger = Ledger(accts, ledger_name=args.ledger,entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
-	algo = TradingAlgo(trade)
-	combine_data = CombineData()
 	data = MarketData()
+	combine_data = CombineData()
+	algo = TradingAlgo(ledger, trade, combine_data)
 
 	#algo.test1()
 
@@ -380,14 +383,15 @@ if __name__ == '__main__':
 		dates.sort()
 		#print(dates)
 		print(algo.time() + 'Number of Days: {}'.format(len(dates)))
+		print(accts.coa)
 		if algo.check_capital() == 0:
 			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), trade.trade_date(dates[0]), 'Deposit capital', '', '', '', 'Cash', 'Wealth', cap] ]
-			trade.journal_entry(deposit_capital)
+			ledger.journal_entry(deposit_capital)
 			#print(deposit_capital)
 		for date in dates[1:]:
 			algo.main(date)
 		print('-' * DISPLAY_WIDTH)
-		trade.print_bs() # Display final bs
+		ledger.print_bs() # Display final bs
 		t0_end = time.perf_counter()
 		print(algo.time() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:

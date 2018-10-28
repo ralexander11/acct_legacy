@@ -40,12 +40,12 @@ class Accounts(object):
 				website = False
 				logging.debug('Website: {}'.format(website))
 
-		Accounts.conn = conn
+		self.conn = conn
 
 		try:
 			self.refresh_accts()
 		except:
-			Accounts.df = None
+			self.coa = None
 			self.create_accts()
 			self.refresh_accts()
 			self.create_entities()
@@ -152,18 +152,18 @@ class Accounts(object):
 		cur.close()
 
 	def refresh_accts(self):
-		Accounts.df = pd.read_sql_query('SELECT * FROM accounts;', self.conn, index_col='accounts')
+		self.coa = pd.read_sql_query('SELECT * FROM accounts;', self.conn, index_col='accounts')
 
 	def print_accts(self):
 		self.refresh_accts()
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print (Accounts.df)
+			print(self.coa)
 		print('-' * DISPLAY_WIDTH)
-		return Accounts.df
+		return self.coa
 
 	def drop_dupe_accts(self):
-		Accounts.df = Accounts.df[~Accounts.df.index.duplicated(keep='first')]
-		Accounts.df.to_sql('accounts', self.conn, if_exists='replace')
+		self.coa = self.coa[~self.coa.index.duplicated(keep='first')]
+		self.coa.to_sql('accounts', self.conn, if_exists='replace')
 		self.refresh_accts()
 
 	def add_acct(self, acct_data=None):
@@ -171,8 +171,8 @@ class Accounts(object):
 		if acct_data is None:
 			account = input('Enter the account name: ')
 			child_of = input('Enter the parent account: ')
-			if child_of not in Accounts.df.index:
-				print ('\n' + child_of + ' is not a valid account.')
+			if child_of not in self.coa.index:
+				print('\n' + child_of + ' is not a valid account.')
 				return
 
 			details = (account,child_of)
@@ -219,18 +219,24 @@ class Accounts(object):
 			]
 			self.add_acct(trade_accts)
 			return
-		with open(infile, 'r') as f:
-			load_df = pd.read_csv(f, keep_default_na=False)
-			lol = load_df.values.tolist()
-			print(load_df)
-			print('-' * DISPLAY_WIDTH)
-			self.add_acct(lol)
+		try:
+			with open(infile, 'r') as f:
+				load_coa = pd.read_csv(f, keep_default_na=False)
+			lol = load_coa.values.tolist()
+		except Exception as e:
+			print('Error: {}'.format(e))
+		print(load_coa)
+		print('-' * DISPLAY_WIDTH)
+		self.add_acct(lol)
 
 	def export_accts(self):
 		outfile = 'accounts_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 		save_location = 'data/'
-		Accounts.df.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
-		print('File saved as ' + save_location + outfile + '\n')
+		try:
+			self.coa.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
+			print('File saved as ' + save_location + outfile + '\n')
+		except Exception as e:
+			print('Error: {}'.format(e))
 
 	def remove_acct(self, acct=None):
 		if acct is None:
@@ -258,9 +264,10 @@ class Accounts(object):
 		return self.items
 
 
-class Ledger(Accounts):
-	def __init__(self, ledger_name=None, entity=None, date=None, start_date=None, txn=None):
-		self.conn = Accounts.conn
+class Ledger(object):
+	def __init__(self, accts, ledger_name=None, entity=None, date=None, start_date=None, txn=None):
+		self.conn = accts.conn
+		self.coa = accts.coa
 		if ledger_name is None:
 			self.ledger_name = 'gen_ledger'
 		else:
@@ -270,7 +277,7 @@ class Ledger(Accounts):
 		self.start_date = start_date
 		self.txn = txn
 		self.create_ledger()
-		self.refresh_ledger() # TODO Make this self.df = self.refresh_ledger()
+		self.refresh_ledger() # TODO Make this self.gl = self.refresh_ledger()
 		self.balance_sheet()
 			
 	def create_ledger(self): # TODO Change entity_id to string type
@@ -342,37 +349,37 @@ class Ledger(Accounts):
 		self.balance_sheet()
 
 	def refresh_ledger(self):
-		self.df = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', self.conn, index_col='txn_id')
+		self.gl = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', self.conn, index_col='txn_id')
 		if self.entity is not None: # TODO make able to select multiple entities
-			self.df = self.df[(self.df.entity_id == self.entity)]
+			self.gl = self.gl[(self.gl.entity_id == self.entity)]
 		if self.date is not None:
-			self.df = self.df[(self.df.date <= self.date)]
+			self.gl = self.gl[(self.gl.date <= self.date)]
 		if self.start_date is not None:
-			self.df = self.df[(self.df.date >= self.start_date)]
+			self.gl = self.gl[(self.gl.date >= self.start_date)]
 		if self.txn is not None:
-			self.df = self.df[(self.df.index <= self.txn)] # TODO Add start txn and event range
-		return self.df
+			self.gl = self.gl[(self.gl.index <= self.txn)] # TODO Add start txn and event range
+		return self.gl
 
 	def print_gl(self):
 		self.refresh_ledger() # Refresh Ledger
 		#with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
-		print (self.df)
-		print ('-' * DISPLAY_WIDTH)
-		return self.df
+		print(self.gl)
+		print('-' * DISPLAY_WIDTH)
+		return self.gl
 
 	def get_acct_elem(self, acct):
 		if acct in ['Asset','Liability','Wealth','Revenue','Expense','None']:
 			return acct
 		else:
-			return self.get_acct_elem(Accounts.df.loc[acct, 'child_of'])
+			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
 
 	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
 		all_accts = False
 		#accounts=['Wealth']
 		if accounts is None: # Create a list of all the accounts
 			all_accts = True
-			debit_accts = pd.unique(self.df['debit_acct'])
-			credit_accts = pd.unique(self.df['credit_acct'])
+			debit_accts = pd.unique(self.gl['debit_acct'])
+			credit_accts = pd.unique(self.gl['credit_acct'])
 			accounts = list( set(debit_accts) | set(credit_accts) )
 		account_details = []
 
@@ -412,12 +419,12 @@ class Ledger(Accounts):
 		for acct in assets:
 			logging.debug('Account: {}'.format(acct))
 			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Asset Debit Error')
 				debits = 0
 			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Asset Crebit Error')
 				credits = 0
@@ -430,12 +437,12 @@ class Ledger(Accounts):
 		for acct in liabilities:
 			logging.debug('Account: {}'.format(acct))
 			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Liabilities Debit Error')
 				debits = 0
 			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Liabilities Crebit Error')
 				credits = 0
@@ -448,12 +455,12 @@ class Ledger(Accounts):
 		for acct in wealth:
 			logging.debug('Account: {}'.format(acct))
 			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Wealth Debit Error')
 				debits = 0
 			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Wealth Crebit Error')
 				credits = 0
@@ -466,12 +473,12 @@ class Ledger(Accounts):
 		for acct in revenues:
 			logging.debug('Account: {}'.format(acct))
 			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Revenues Debit Error')
 				debits = 0
 			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Revenues Crebit Error')
 				credits = 0
@@ -484,12 +491,12 @@ class Ledger(Accounts):
 		for acct in expenses:
 			logging.debug('Account: {}'.format(acct))
 			try:
-				debits = self.df.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Expenses Debit Error')
 				debits = 0
 			try:
-				credits = self.df.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except:
 				logging.debug('Expenses Crebit Error')
 				credits = 0
@@ -522,16 +529,16 @@ class Ledger(Accounts):
 
 	def print_bs(self):
 		self.balance_sheet() # Refresh Balance Sheet
-		print (self.bs)
-		print ('-' * DISPLAY_WIDTH)
+		print(self.bs)
+		print('-' * DISPLAY_WIDTH)
 		return self.bs
 
 	def get_qty_txns(self, item=None, acct=None):
 		if acct is None:
 			acct = 'Investments' #input('Which account? ')
-		rvsl_txns = self.df[self.df['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of txns
-		qty_txns = self.df[(self.df['item_id'] == item) & (((self.df['debit_acct'] == acct) & (self.df['credit_acct'] == 'Cash')) | ((self.df['credit_acct'] == acct) & (self.df['debit_acct'] == 'Cash'))) & (~self.df['event_id'].isin(rvsl_txns))] # TODO Add support for non-cash
+		qty_txns = self.gl[(self.gl['item_id'] == item) & (((self.gl['debit_acct'] == acct) & (self.gl['credit_acct'] == 'Cash')) | ((self.gl['credit_acct'] == acct) & (self.gl['debit_acct'] == 'Cash'))) & (~self.gl['event_id'].isin(rvsl_txns))] # TODO Add support for non-cash
 		return qty_txns
 
 	def get_qty(self, item=None, acct=None):
@@ -539,9 +546,9 @@ class Ledger(Accounts):
 			acct = 'Investments' #input('Which account? ')
 		if (item is None) or (item == ''): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
-			item_ids = self.df['item_id'].replace('', np.nan, inplace=True)
-			item_ids = self.df['qty'].replace('None', np.nan, inplace=True) # TODO This line may not be needed on a clean ledger
-			item_ids = pd.unique(self.df['item_id'].dropna())
+			item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
+			item_ids = self.gl['qty'].replace('None', np.nan, inplace=True) # TODO This line may not be needed on a clean ledger
+			item_ids = pd.unique(self.gl['item_id'].dropna())
 			for item in item_ids:
 				logging.debug(item)
 				qty_txns = self.get_qty_txns(item)
@@ -621,12 +628,12 @@ class Ledger(Accounts):
 			price = input('Enter an optional price: ')
 			qty = input('Enter an optional quantity: ')
 			debit = input('Enter the account to debit: ')
-			if debit not in Accounts.df.index:
-				print ('\n' + debit + ' is not a valid account.')
+			if debit not in self.coa.index:
+				print('\n' + debit + ' is not a valid account.')
 				return
 			credit = input('Enter the account to credit: ')
-			if credit not in Accounts.df.index:
-				print ('\n' + credit + ' is not a valid account.')
+			if credit not in self.coa.index:
+				print('\n' + credit + ' is not a valid account.')
 				return
 			while True:
 				amount = input('Enter the amount: ')
@@ -687,31 +694,37 @@ class Ledger(Accounts):
 
 		self.conn.commit()
 		cur.close()
-		self.refresh_ledger() # Ensures the df is in sync with the db
+		self.refresh_ledger() # Ensures the gl is in sync with the db
 		self.balance_sheet() # Ensures the bs is in sync with the ledger
 		self.get_qty() # Ensures the inv is in sync with the ledger
 
 	def sanitize_ledger(self): # This is not implemented yet
-		self.df = self.df.drop_duplicates() # TODO Test this
+		self.gl = self.gl.drop_duplicates() # TODO Test this
 
 	def load_gl(self, infile=None):
 		if infile is None:
 			infile = input('Enter a filename: ')
-		with open(infile, 'r') as f:
-			load_df = pd.read_csv(f, keep_default_na=False)
-			load_df.set_index('txn_id', inplace=True)
-			lol = load_df.values.tolist()
-			print(load_df)
-			print ('-' * DISPLAY_WIDTH)
-			self.journal_entry(lol)
-			#self.sanitize_ledger() # Not sure if I need this anymore
+		try:
+			with open(infile, 'r') as f:
+				load_gl = pd.read_csv(f, keep_default_na=False)
+			load_gl.set_index('txn_id', inplace=True)
+			lol = load_gl.values.tolist()
+		except Exception as e:
+			print('Error: {}'.format(e))
+		print(load_gl)
+		print('-' * DISPLAY_WIDTH)
+		self.journal_entry(lol)
+		#self.sanitize_ledger() #TODO Not sure if I need this anymore
 
 	def export_gl(self):
 		self.reset()
 		outfile = self.ledger_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 		save_location = 'data/'
-		self.df.to_csv(save_location + outfile, date_format='%Y-%m-%d')
-		print ('File saved as ' + save_location + outfile)
+		try:
+			self.gl.to_csv(save_location + outfile, date_format='%Y-%m-%d')
+			print('File saved as ' + save_location + outfile)
+		except Exception as e:
+			print('Error: {}'.format(e))
 
 	def reversal_entry(self, txn=None, date=None): # This func effectively deletes a transaction
 		if txn is None:
@@ -752,13 +765,13 @@ class Ledger(Accounts):
 
 		amount = 0
 		if qty <= avail_qty: # Case when first available lot covers the need
-			price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[qty]})
+			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[qty]})
 			amount = price_chart.price.dot(price_chart.qty)
 			logging.debug('Hist Cost Case: One')
 			logging.debug(amount)
 			return amount
 
-		price_chart = pd.DataFrame({'price':[self.df.loc[start_index]['price']],'qty':[avail_qty]}) # Create a list of lots with associated price
+		price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[avail_qty]}) # Create a list of lots with associated price
 		qty = qty - avail_qty # Sell the remainder of first lot of unsold items
 
 		count += 1
@@ -766,15 +779,15 @@ class Ledger(Accounts):
 			current_index = qty_txns.index[count]
 			while qty > 0: # Running amount of qty to be sold
 				count += 1
-				if qty - self.df.loc[current_index]['qty'] < 0: # Final case when the last sellable lot is larger than remaining qty to be sold
-					price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
+				if qty - self.gl.loc[current_index]['qty'] < 0: # Final case when the last sellable lot is larger than remaining qty to be sold
+					price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
 					amount = price_chart.price.dot(price_chart.qty)
 					logging.debug('Hist Cost Case: Two')
 					logging.debug(amount)
 					return amount
 				
-				price_chart = price_chart.append({'price':self.df.loc[current_index]['price'], 'qty':self.df.loc[current_index]['qty']}, ignore_index=True)
-				qty = qty - self.df.loc[current_index]['qty']
+				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':self.gl.loc[current_index]['qty']}, ignore_index=True)
+				qty = qty - self.gl.loc[current_index]['qty']
 
 			amount = price_chart.price.dot(price_chart.qty) # Take dot product
 			logging.debug('Hist Cost Case: Three')
@@ -782,9 +795,9 @@ class Ledger(Accounts):
 			return amount
 
 	def bs_hist(self): # TODO Optimize this so it does not recalculate each time
-		gl_entities = pd.unique(self.df['entity_id'])
+		gl_entities = pd.unique(self.gl['entity_id'])
 		logging.info(gl_entities)
-		dates = pd.unique(self.df['date'])
+		dates = pd.unique(self.gl['date'])
 		logging.info(dates)
 
 		cur = self.conn.cursor()
@@ -807,12 +820,12 @@ class Ledger(Accounts):
 		cur.execute('DELETE FROM hist_bs')
 		for entity in gl_entities:
 			logging.info(entity)
-			ledger.set_entity(entity)
+			self.set_entity(entity)
 			for date in dates:
 				logging.info(entity)
-				ledger.set_date(date)
+				self.set_date(date)
 				logging.info(date)
-				ledger.balance_sheet()
+				self.balance_sheet()
 				self.bs.set_index('line_item', inplace=True)
 				col0 = str(entity)
 				col1 = self.bs.loc['Total Assets:'][0]
@@ -846,7 +859,7 @@ class Ledger(Accounts):
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
 			print(self.hist_bs)
 		print('File saved to: {}'.format(path))
-		print ('-' * DISPLAY_WIDTH)
+		print('-' * DISPLAY_WIDTH)
 		return self.hist_bs
 
 
@@ -859,7 +872,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
-	ledger = Ledger(ledger_name=args.ledger, entity=args.entity)
+	ledger = Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	command = args.command
 
 	while True:
@@ -903,9 +916,9 @@ if __name__ == '__main__':
 			ledger.print_bs()
 			if args.command is not None: exit()
 		elif command.lower() == 'qty':
-			item = input('Which ticker? ').lower()
+			item = input('Which ticker? ')#.lower()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				print (ledger.get_qty(item))
+				print(ledger.get_qty(item))
 			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()
