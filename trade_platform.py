@@ -309,7 +309,7 @@ class Trading(object):
 
 	def splits(self, end_point='splits/3m', date=None): # TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
-		portfolio = self.get_qty()
+		portfolio = self.ledger.get_qty()
 		if portfolio.empty:
 			print('Stock Splits: No securities held.')
 			return
