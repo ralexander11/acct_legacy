@@ -219,6 +219,16 @@ class Accounts(object):
 			]
 			self.add_acct(trade_accts)
 			return
+		elif infile == 'econ':
+			econ_accts = [
+				('Cash','Asset'),
+				('Inventory','Asset'),
+				('Food','Inventory'),
+				('Food Produced','Revenue'),
+				('Food Consumed','Expense')
+			]
+			self.add_acct(econ_accts)
+			return
 		try:
 			with open(infile, 'r') as f:
 				load_coa = pd.read_csv(f, keep_default_na=False)
@@ -547,11 +557,11 @@ class Ledger(object):
 		if (item is None) or (item == ''): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
 			item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
-			item_ids = self.gl['qty'].replace('None', np.nan, inplace=True) # TODO This line may not be needed on a clean ledger
+			item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # TODO Look into
 			item_ids = pd.unique(self.gl['item_id'].dropna())
 			for item in item_ids:
 				logging.debug(item)
-				qty_txns = self.get_qty_txns(item)
+				qty_txns = self.get_qty_txns(item, acct)
 				logging.debug(qty_txns)
 				try:
 					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
@@ -575,10 +585,12 @@ class Ledger(object):
 				inventory.to_sql('inventory_' + str(self.entity), self.conn, if_exists='replace')
 			return inventory
 
-		# Get qty for one item specified
-		qty_txns = self.get_qty_txns(item)
+		# Get qty for one item specified # TODO Maybe add else
+		item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
+		item_ids = self.gl['qty'].replace('', np.nan, inplace=True)
+		qty_txns = self.get_qty_txns(item, acct)
 		try:
-			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
+			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash'] # TODO Remove Cash restriction, but requires fixing filler qtys
 		except:
 			logging.debug('Error debit')
 			debits = 0
@@ -655,7 +667,7 @@ class Ledger(object):
 				date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 			if qty == '': # TODO No qty and price default needed now
-				qty = 1
+				qty = ''
 			if price == '':
 				price = amount
 

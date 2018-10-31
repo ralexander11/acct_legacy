@@ -9,14 +9,14 @@ pd.options.display.float_format = '${:,.2f}'.format
 class World(object):
 	def __init__(self):
 		print('Create World')
-		self.farm = self.create_org('Farm') # TODO Make this general
-		self.farmer = self.create_indv('Farmer') # TODO Make this general
+		self.farm = self.create_org('Farm', self) # TODO Make this general
+		self.farmer = self.create_indv('Farmer', self) # TODO Make this general
 
-	def create_org(self, name):
-		return Organization(name)
+	def create_org(self, name, world):
+		return Organization(name, world)
 
-	def create_indv(self, name):
-		return Individual(name)
+	def create_indv(self, name, world):
+		return Individual(name, world)
 
 	def update_econ(self):
 		print('Econ Updated')
@@ -26,55 +26,84 @@ class World(object):
 		self.farm.produce()
 		print('Farm Food: {}'.format(self.farm.food))
 
-		self.farmer.threshold()
+		self.farmer.threshold_check()
 
+	# TODO Maybe an update_world method
 
 class Entity(object):
-	def __init__(self, name):
+	def __init__(self, name, world):
 		print('Create Entity')
 
 class Organization(Entity):
-	def __init__(self, name):
-		super().__init__(name)
+	def __init__(self, name, world):
+		super().__init__(name, world)
 		print('Create Org: {}'.format(name))
-		self.food = 0
+		#self.food = 0 # TODO Use ledger.get_qty() to get starting amount
+		self.food = ledger.get_qty(item='Food', acct='Food')
+		print('Starting Farm Food: {}'.format(self.food))
 
-	def produce(self): # TODO Turn into journal entry
-		self.food += 1
+	def produce(self):
 
-	def sell(self, qty): # TODO Turn into journal entry
+		price = 1
+		qty = 1
+		produce_entry = [ ledger.get_event(), ledger.get_entity(), '', 'Food produced', 'Food', price, qty, 'Food', 'Food Produced', price * qty ]
+		produce_event = [produce_entry]
+		ledger.journal_entry(produce_event)
+
+	def sell(self, qty): # TODO Move into Entity class
 		print('Sell: {}'.format(qty))
-		self.food -= qty
+
+		price = 1
+		qty = 1
+		sell_entry = [ ledger.get_event(), ledger.get_entity(), '', 'Food sold', 'Food', price, qty, 'Cash', 'Food', price * qty ]
+		sell_event = [sell_entry]
+		ledger.journal_entry(sell_event)
 
 class Individual(Entity):
-	def __init__(self, name):
-		super().__init__(name)
+	def __init__(self, name, world):
+		super().__init__(name, world)
 		print('Create Indv: {}'.format(name))
 		self.max_need = 100
 		self.need =  50
 		print('Initial Need: {}'.format(self.need))
+		# TODO Make entry in entities table upon creation
 
 	def need_decay(self, need):
 		self.need -= 1
 
 	def consume(self, qty):
 		print('Consume: {}'.format(qty))
-		self.food += qty
+
+		price = 1
+		qty = 1
+		consume_entry = [ ledger.get_event(), ledger.get_entity(), '', 'Food consumed', 'Food', price, qty, 'Food Consumed', 'Food', price * qty ]
+		consume_event = [consume_entry]
+		ledger.journal_entry(consume_event)
+
 		self.need += qty
 
-	def purchase(self, qty): # TODO Turn into journal entry
+	def purchase(self, qty): # TODO Move into Entity class
 		print('Purchase: {}'.format(qty))
-		self.farm.sell(qty) # TODO Figure out how to get entities to interact
+		world.farm.sell(qty) # TODO Figure out how to get entities to interact
 
-	def threshold(self):
+		price = 1
+		qty = 1
+		purchase_entry = [ ledger.get_event(), ledger.get_entity(), '', 'Food purchased', 'Food', price, qty, 'Food', 'Cash', price * qty ]
+		purchase_event = [purchase_entry]
+		ledger.journal_entry(purchase_event)
+
+	def threshold_check(self):
 		if self.need <= 40:
-			print('Threhold met!')
+			print('Threshold met!')
 			self.purchase(10)
-			self.consume(5)
+			self.consume(5) # TODO Make random int between 5 and 15
 
 
 if __name__ == '__main__':
 	print('Start Econ Sim')
+	accts = Accounts(conn='econ01.db') #TODO Fix init of accounts
+	ledger = Ledger(accts) # TODO Fix generalization of get_qty() and hist_cost()
+	accts.load_accts('econ')
 	world = World()
 	# TODO Init starting ledger and accounts
 
@@ -86,7 +115,8 @@ if __name__ == '__main__':
 
 
 exit()
-#Note for factory functions
+
+# Notes for factory functions
 def g():
     return B()
 

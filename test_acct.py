@@ -13,12 +13,13 @@ db_path = 'db/'
 class TestAcct(unittest.TestCase):
 	def set_up(self):
 		logging.warning('Setup started.')
-		self.df = trade.df
-		self.ledger_name = trade.ledger_name
-		self.entity = trade.entity
-		self.date = trade.date
-		self.start_date = trade.start_date
-		self.txn = trade.txn
+		self.ledger = ledger
+		self.gl = ledger.gl
+		self.ledger_name = ledger.ledger_name
+		self.entity = ledger.entity
+		self.date = ledger.date
+		self.start_date = ledger.start_date
+		self.txn = ledger.txn
 
 		try:
 			accts.load_accts('accounts.csv') # Load accounts
@@ -47,7 +48,7 @@ class TestAcct(unittest.TestCase):
 if __name__ == '__main__':
 	logging.warning('Starting testing of acct.py and trading_platform.py')
 	accts = acct.Accounts(db_name)
-	ledger = acct.Ledger('test_1')
+	ledger = acct.Ledger(accts, ledger_name='test_1')
 	trade = trade_platform.Trading(ledger)
 	test = TestAcct()
 	try:
@@ -57,7 +58,7 @@ if __name__ == '__main__':
 		ledger.print_bs()
 		test.test_qty('abc')
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print (ledger.get_qty())
+			print(ledger.get_qty())
 
 	finally:
 		test.tear_down()
