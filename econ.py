@@ -1,6 +1,7 @@
 from acct import Accounts
 from acct import Ledger
 import pandas as pd
+import datetime
 
 DISPLAY_WIDTH = 97
 pd.set_option('display.width', DISPLAY_WIDTH)
@@ -9,8 +10,14 @@ pd.options.display.float_format = '${:,.2f}'.format
 class World(object):
 	def __init__(self):
 		print('Create World')
+		self.now = datetime.datetime(1986,10,1).date()
+		print(self.now)
 		self.farm = self.create_org('Farm', self) # TODO Make this general
 		self.farmer = self.create_indv('Farmer', self) # TODO Make this general
+
+	def ticktock(self, ticks=1):
+		self.now += datetime.timedelta(days=ticks)
+		print(self.now)
 
 	def create_org(self, name, world):
 		return Organization(name, world)
@@ -20,6 +27,7 @@ class World(object):
 
 	def update_econ(self):
 		print('Econ Updated')
+		self.ticktock()
 		self.farmer.need_decay(self.farmer.need)
 		print('Farmer Need: {}'.format(self.farmer.need))
 
@@ -46,7 +54,7 @@ class Organization(Entity):
 
 		price = 1
 		qty = 1
-		produce_entry = [ ledger.get_event(), ledger.get_entity(), '', 'Food produced', 'Food', price, qty, 'Food', 'Food Produced', price * qty ]
+		produce_entry = [ ledger.get_event(), ledger.get_entity(), world.now, 'Food produced', 'Food', price, qty, 'Food', 'Food Produced', price * qty ]
 		produce_event = [produce_entry]
 		ledger.journal_entry(produce_event)
 
@@ -55,7 +63,7 @@ class Organization(Entity):
 
 		price = 1
 		qty = 1
-		sell_entry = [ ledger.get_event(), ledger.get_entity(), '', 'Food sold', 'Food', price, qty, 'Cash', 'Food', price * qty ]
+		sell_entry = [ ledger.get_event(), ledger.get_entity(), world.now, 'Food sold', 'Food', price, qty, 'Cash', 'Food', price * qty ]
 		sell_event = [sell_entry]
 		ledger.journal_entry(sell_event)
 
@@ -76,7 +84,7 @@ class Individual(Entity):
 
 		price = 1
 		qty = 1
-		consume_entry = [ ledger.get_event(), ledger.get_entity(), '', 'Food consumed', 'Food', price, qty, 'Food Consumed', 'Food', price * qty ]
+		consume_entry = [ ledger.get_event(), ledger.get_entity(), world.now, 'Food consumed', 'Food', price, qty, 'Food Consumed', 'Food', price * qty ]
 		consume_event = [consume_entry]
 		ledger.journal_entry(consume_event)
 
@@ -88,7 +96,7 @@ class Individual(Entity):
 
 		price = 1
 		qty = 1
-		purchase_entry = [ ledger.get_event(), ledger.get_entity(), '', 'Food purchased', 'Food', price, qty, 'Food', 'Cash', price * qty ]
+		purchase_entry = [ ledger.get_event(), ledger.get_entity(), world.now, 'Food purchased', 'Food', price, qty, 'Food', 'Cash', price * qty ]
 		purchase_event = [purchase_entry]
 		ledger.journal_entry(purchase_event)
 

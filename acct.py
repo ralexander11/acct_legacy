@@ -70,13 +70,46 @@ class Accounts(object):
 			('Transfer','Wealth')
 		]
 
+		# TODO Fix this so these accounts aren't needed here
+		trade_accts = [
+				('Cash','Asset'),
+				('Chequing','Asset'),
+				('Savings','Asset'),
+				('Investments','Asset'),
+				('Visa','Liability'),
+				('Student Credit','Liability'),
+				('Credit Line','Liability'),
+				('Uncategorized','Admin'),
+				('Info','Admin'),
+				('Commission Expense','Expense'),
+				('Investment Gain','Revenue'),
+				('Investment Loss','Expense'),
+				('Unrealized Gain','Revenue'),
+				('Unrealized Loss','Expense'),
+				('Interest Expense','Expense'),
+				('Dividend Receivable','Asset'),
+				('Dividend Income','Revenue'),
+				('Interest Income','Revenue')
+			]
+
+		econ_accts = [
+				#('Cash','Asset'),
+				('Inventory','Asset'),
+				('Food','Inventory'),
+				('Food Produced','Revenue'),
+				('Food Consumed','Expense')
+			]
+
+		tmp_accts_fix = standard_accts + trade_accts + econ_accts
+		#print(tmp_accts_fix)
+
 		cur = self.conn.cursor()
 		cur.execute(create_accts_query)
-		for acct in standard_accts:
+		for acct in tmp_accts_fix:#standard_accts:
 				account = str(acct[0])
 				child_of = str(acct[1])
 				print(acct)
-				details = (account,child_of)
+				details = (account, child_of)
 				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 		self.conn.commit()
 		cur.close()
@@ -548,12 +581,13 @@ class Ledger(object):
 			acct = 'Investments' #input('Which account? ')
 		rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of txns
-		qty_txns = self.gl[(self.gl['item_id'] == item) & (((self.gl['debit_acct'] == acct) & (self.gl['credit_acct'] == 'Cash')) | ((self.gl['credit_acct'] == acct) & (self.gl['debit_acct'] == 'Cash'))) & (~self.gl['event_id'].isin(rvsl_txns))] # TODO Add support for non-cash
+		#qty_txns = self.gl[(self.gl['item_id'] == item) & (((self.gl['debit_acct'] == acct) & (self.gl['credit_acct'] == 'Cash')) | ((self.gl['credit_acct'] == acct) & (self.gl['debit_acct'] == 'Cash'))) & (~self.gl['event_id'].isin(rvsl_txns))] # TODO Add support for non-cash
+		qty_txns = self.gl[(self.gl['item_id'] == item) & ((self.gl['debit_acct'] == acct) | (self.gl['credit_acct'] == acct)) & (~self.gl['event_id'].isin(rvsl_txns))] # TODO Add support for non-cash
 		return qty_txns
 
 	def get_qty(self, item=None, acct=None):
 		if acct is None:
-			acct = 'Investments' #input('Which account? ')
+			acct = 'Investments' #input('Which account? ') # TODO Remove this maybe
 		if (item is None) or (item == ''): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
 			item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
@@ -585,7 +619,8 @@ class Ledger(object):
 				inventory.to_sql('inventory_' + str(self.entity), self.conn, if_exists='replace')
 			return inventory
 
-		# Get qty for one item specified # TODO Maybe add else
+		# Get qty for one item specified
+		# TODO Maybe add else
 		item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
 		item_ids = self.gl['qty'].replace('', np.nan, inplace=True)
 		qty_txns = self.get_qty_txns(item, acct)
@@ -696,7 +731,7 @@ class Ledger(object):
 					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 				if qty == '': # TODO No qty and price default needed now
-					qty = 1
+					qty = ''
 				if price == '':
 					price = amount
 
@@ -758,7 +793,7 @@ class Ledger(object):
 
 	def hist_cost(self, qty, item=None, acct=None):
 		if acct is None:
-			acct = 'Investments' #input('Which account? ')
+			acct = 'Investments' #input('Which account? ') # TODO Remove this maybe
 
 		qty_txns = self.get_qty_txns(item, acct)['qty']
 

@@ -230,7 +230,7 @@ class Trading(object):
 	def dividends(self, end_point='dividends/3m', date=None): # TODO Need to reengineer this due to delay in exdate divs displaying from IEX feed
 	# TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
-		portfolio = self.ledger.get_qty() # TODO Pass arg flag to show 0 qty stocks
+		portfolio = self.ledger.get_qty(acct='Investments') # TODO Pass arg flag to show 0 qty stocks
 		#print(portfolio)
 		if portfolio.empty:
 			print('Dividends: No securities held.')
@@ -336,7 +336,7 @@ class Trading(object):
 				to_factor = split.iloc[0,6]
 				for_factor = split.iloc[0,2]
 				ratio = to_factor / for_factor
-				qty = self.ledger.get_qty(symbol)
+				qty = self.ledger.get_qty(symbol, 'Investments')
 				cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 				old_price = cost / qty
 				new_qty = qty * ratio # TODO Handle fractional shares

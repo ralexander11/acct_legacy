@@ -159,7 +159,7 @@ class TradingAlgo(object):
 
 	# Get list of currently held tickers
 	def get_portfolio(self):
-		portfolio = self.ledger.get_qty()
+		portfolio = self.ledger.get_qty(acct='Investments')
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
 		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
@@ -332,7 +332,7 @@ class TradingAlgo(object):
 		print('-' * DISPLAY_WIDTH)
 		self.ledger.print_bs()
 		nav = self.ledger.balance_sheet()
-		self.ledger.get_qty()
+		self.ledger.get_qty(acct='Investments')
 		#ledger.bs_hist()
 		t4_end = time.perf_counter()
 		print(self.time() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
