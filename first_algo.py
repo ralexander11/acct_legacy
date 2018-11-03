@@ -11,7 +11,7 @@ import random
 import time
 import glob, os
 
-DISPLAY_WIDTH = 97
+DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 pd.set_option('display.max_columns', 10)

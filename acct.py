@@ -5,7 +5,7 @@ import argparse
 import datetime
 import logging
 
-DISPLAY_WIDTH = 97
+DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
@@ -588,6 +588,7 @@ class Ledger(object):
 	def get_qty(self, item=None, acct=None):
 		if acct is None:
 			acct = 'Investments' #input('Which account? ') # TODO Remove this maybe
+		#print('Acct: {}'.format(acct))
 		if (item is None) or (item == ''): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
 			item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
@@ -596,20 +597,23 @@ class Ledger(object):
 			for item in item_ids:
 				logging.debug(item)
 				qty_txns = self.get_qty_txns(item, acct)
-				logging.debug(qty_txns)
+				#print(qty_txns)
 				try:
-					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
-					logging.debug(debits)
+					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
+					#print('Debits:')
+					#print(debits)
 				except:
 					logging.debug('Error debit')
 					debits = 0
 				try:
-					credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
-					logging.debug(credits)
+					credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
+					#print('Credits:')
+					#print(credits)
 				except:
 					logging.debug('Error credit')
 					credits = 0
 				qty = round(debits - credits, 2)
+				#print('\nQTY: {}'.format(qty))
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
 				inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold # TODO Add arg flag to turn this off for divs
 
@@ -624,13 +628,14 @@ class Ledger(object):
 		item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
 		item_ids = self.gl['qty'].replace('', np.nan, inplace=True)
 		qty_txns = self.get_qty_txns(item, acct)
+		#print('Item: {}'.format(item))
 		try:
-			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash'] # TODO Remove Cash restriction, but requires fixing filler qtys
+			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash'] # TODO Remove Cash restriction, but requires fixing filler qtys
 		except:
 			logging.debug('Error debit')
 			debits = 0
 		try:
-			credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
+			credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
 		except:
 			logging.debug('Error credit')
 			credits = 0
@@ -677,7 +682,7 @@ class Ledger(object):
 			debit = input('Enter the account to debit: ')
 			if debit not in self.coa.index:
 				print('\n' + debit + ' is not a valid account.')
-				return
+				return # TODO Make accounts foreign key constraint
 			credit = input('Enter the account to credit: ')
 			if credit not in self.coa.index:
 				print('\n' + credit + ' is not a valid account.')
@@ -736,7 +741,7 @@ class Ledger(object):
 					price = amount
 
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
-				#print(values)
+				print(values)
 				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		self.conn.commit()
@@ -810,12 +815,15 @@ class Ledger(object):
 		start_index = qty_txns.index[count]
 		avail_qty = qty_back + start_qty # Portion of first lot of unsold items that has not been sold
 
+		print('Avail qty: {}'.format(avail_qty))
 		amount = 0
 		if qty <= avail_qty: # Case when first available lot covers the need
+			print('QTY: {}'.format(qty))
 			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[qty]})
+			print(price_chart)
 			amount = price_chart.price.dot(price_chart.qty)
-			logging.debug('Hist Cost Case: One')
-			logging.debug(amount)
+			print('Hist Cost Case: One')
+			print(amount)
 			return amount
 
 		price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[avail_qty]}) # Create a list of lots with associated price
@@ -829,16 +837,16 @@ class Ledger(object):
 				if qty - self.gl.loc[current_index]['qty'] < 0: # Final case when the last sellable lot is larger than remaining qty to be sold
 					price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
 					amount = price_chart.price.dot(price_chart.qty)
-					logging.debug('Hist Cost Case: Two')
-					logging.debug(amount)
+					print('Hist Cost Case: Two')
+					print(amount)
 					return amount
 				
 				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':self.gl.loc[current_index]['qty']}, ignore_index=True)
 				qty = qty - self.gl.loc[current_index]['qty']
 
 			amount = price_chart.price.dot(price_chart.qty) # Take dot product
-			logging.debug('Hist Cost Case: Three')
-			logging.debug(amount)
+			print('Hist Cost Case: Three')
+			print(amount)
 			return amount
 
 	def bs_hist(self): # TODO Optimize this so it does not recalculate each time

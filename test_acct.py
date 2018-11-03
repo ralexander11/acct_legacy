@@ -40,12 +40,14 @@ class TestAcct(unittest.TestCase):
 
 	def test_hist(self, date=None, qty=None, item=None):
 		if date is None:
-			date = '2018-07-22'
+			date = '2018-07-21'
 		if qty is None:
 			qty = 34
 		if item is None:
 			item = 'xmpl'
 		ledger.set_date(date)
+		ledger.print_gl()
+		print('Date: {}'.format(date))
 		cost = ledger.hist_cost(qty, item, 'Investments')
 		ledger.reset()
 		return cost
@@ -71,7 +73,7 @@ if __name__ == '__main__':
 		#ledger.print_bs()
 		cost = test.test_hist()
 		print('Cost: {}'.format(cost))
-		test.test_qty('abc')
+		#test.test_qty('abc')
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			print(ledger.get_qty())
 
