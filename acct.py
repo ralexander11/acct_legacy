@@ -4,8 +4,9 @@ import sqlite3
 import argparse
 import datetime
 import logging
+import traceback
 
-DISPLAY_WIDTH = 98
+DISPLAY_WIDTH = 143
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
@@ -94,6 +95,7 @@ class Accounts(object):
 
 		econ_accts = [
 				#('Cash','Asset'),
+				('Shares','Wealth'),
 				('Inventory','Asset'),
 				('Food','Inventory'),
 				('Food Produced','Revenue'),
@@ -123,7 +125,9 @@ class Accounts(object):
 				min_qty INTEGER NOT NULL,
 				max_qty INTEGER NOT NULL,
 				liquidate_chance real NOT NULL,
-				ticker_source text DEFAULT 'iex'
+				ticker_source text DEFAULT 'iex',
+				needs test,
+				decay_rate INTEGER DEFAULT 1
 			);
 			'''
 		default_entities = ['''
@@ -133,7 +137,9 @@ class Accounts(object):
 				min_qty,
 				max_qty,
 				liquidate_chance,
-				ticker_source
+				ticker_source,
+				needs,
+				decay_rate
 				)
 				VALUES (
 					'Trader01',
@@ -141,7 +147,9 @@ class Accounts(object):
 					1,
 					100,
 					0.5,
-					'iex'
+					'iex',
+					'[''Hunger'']',
+					1
 				);
 			''']
 
@@ -586,7 +594,7 @@ class Ledger(object):
 		return qty_txns
 
 	def get_qty(self, item=None, acct=None):
-		if acct is None:
+		if (acct is None) or (acct == ''):
 			acct = 'Investments' #input('Which account? ') # TODO Remove this maybe
 		#print('Acct: {}'.format(acct))
 		if (item is None) or (item == ''): # Get qty for all items
@@ -600,17 +608,17 @@ class Ledger(object):
 				#print(qty_txns)
 				try:
 					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
-					#print('Debits:')
-					#print(debits)
-				except:
-					logging.debug('Error debit')
+					#print('Debits: {}'.format(debits))
+				except KeyError as e:
+					#print('Error debits: {}'.format(e))
+					#print(traceback.format_exc())
 					debits = 0
 				try:
 					credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
-					#print('Credits:')
-					#print(credits)
-				except:
-					logging.debug('Error credit')
+					#print('Credits: {}'.format(credits))
+				except KeyError as e:
+					#print('Error credits: {}'.format(e))
+					#print(traceback.format_exc())
 					credits = 0
 				qty = round(debits - credits, 2)
 				#print('\nQTY: {}'.format(qty))
@@ -628,16 +636,22 @@ class Ledger(object):
 		item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
 		item_ids = self.gl['qty'].replace('', np.nan, inplace=True)
 		qty_txns = self.get_qty_txns(item, acct)
+		#print(qty_txns)
+		#print('Acct: {}'.format(acct))
 		#print('Item: {}'.format(item))
 		try:
 			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash'] # TODO Remove Cash restriction, but requires fixing filler qtys
-		except:
-			logging.debug('Error debit')
+			#print('Debits: {}'.format(debits))
+		except KeyError as e:
+			#print('Error debits: {}'.format(e))
+			#print(traceback.format_exc())
 			debits = 0
 		try:
 			credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
-		except:
-			logging.debug('Error credit')
+			#print('Credits: {}'.format(credits))
+		except KeyError as e:
+			#print('Error credits: {}'.format(e))
+			#print(traceback.format_exc())
 			credits = 0
 		qty = round(debits - credits, 2)
 		return qty
@@ -972,8 +986,9 @@ if __name__ == '__main__':
 			if args.command is not None: exit()
 		elif command.lower() == 'qty':
 			item = input('Which ticker? ')#.lower()
+			acct = input('Which account? ')#.title()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				print(ledger.get_qty(item))
+				print(ledger.get_qty(item, acct))
 			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()

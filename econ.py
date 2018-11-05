@@ -17,6 +17,11 @@ class World(object):
 		self.farm = self.create_org('Farm', self) # TODO Make this general
 		self.farmer = self.create_indv('Farmer', self) # TODO Make this general
 
+		self.farmer.buy_shares('Farm', 100000, 5, 2)
+
+		self.food_price = 2 # TODO Fix how prices work
+		self.price = self.food_price
+
 	def clear_ledger(self):
 		clear_ledger_query = '''
 			DELETE FROM gen_ledger;
@@ -44,7 +49,7 @@ class World(object):
 		self.farmer.need_decay(self.farmer.need)
 		print('Farmer Need: {}'.format(self.farmer.need))
 
-		self.farm.produce()
+		self.farm.produce('Food', 1, self.food_price)
 		ledger.set_entity(2)
 		self.food = ledger.get_qty(item='Food', acct='Inventory')
 		ledger.reset()
@@ -52,49 +57,74 @@ class World(object):
 
 		self.farmer.threshold_check()
 
-	# TODO Maybe an update_world method
+	# TODO Maybe an update_world method to change the needs
 
 class Entity(object):
 	def __init__(self, name, world):
-		#print('Create Entity')
-		pass
+		self.world = world
+		#print('Entity created')
 
-	def purchase(self, item, qty, counterparty): # TODO Move this into Entity class
+	def transact(self, item, acct_buy, acct_sell, qty, price, counterparty):
 		ledger.set_entity(self.entity)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
+		ledger.set_entity(counterparty)
+		qty_avail = ledger.get_qty(item=item, acct=acct_sell)
+		ledger.reset()
 		if cash > (qty * price):
-			print('Purchase: {}'.format(qty))
+			if qty <= qty_avail:
+				print('Purchase: {} {}'.format(qty, item))
 
-			purchase_entry = [ ledger.get_event(), self.entity, world.now, item + ' purchased', item, price, qty, 'Inventory', 'Cash', price * qty ]
-			purchase_event = [purchase_entry]
-			ledger.journal_entry(purchase_event)
+				purchase_entry = [ ledger.get_event(), self.entity, self.world.now, item + ' purchased', item, price, qty, acct_buy, 'Cash', price * qty ]
+				sell_entry = [ ledger.get_event(), counterparty, self.world.now, item + ' sold', item, price, qty, 'Cash', acct_sell, price * qty ]
+				purchase_event = [purchase_entry, sell_entry]
+				ledger.journal_entry(purchase_event)
+			else:
+				print('Not enough units on hand to sell {} units of {}.'.format(qty, item))
 
-			world.farm.sell(item, qty, counterparty) # TODO Add parameter for counterparty
 		else:
 			print('Not enough cash to purchase {} units of {}.'.format(qty, item))
 
-	def sell(self, item, qty, counterparty): # TODO Move this into Entity class
+	# TODO Maybe replace with transact method
+	def purchase(self, item, qty, price, counterparty):
 		ledger.set_entity(self.entity)
-		self.qty_avail = ledger.get_qty(item=item, acct='Inventory')
+		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
-		if self.qty_avail > 0:
-			print('Sell: {}'.format(qty))
+		print('Cash: {}'.format(cash))
+		if cash > (qty * price):
+			sell_entry = self.sell(item, qty, price, counterparty)
+			if sell_entry is not None:
+				print('Purchase: {} {}'.format(qty, item))
+
+				purchase_entry = [ ledger.get_event(), self.entity, world.now, item + ' purchased', item, price, qty, 'Inventory', 'Cash', price * qty ]
+				purchase_event = [purchase_entry, sell_entry]
+				ledger.journal_entry(purchase_event)
+
+		else:
+			print('Not enough cash to purchase {} units of {}.'.format(qty, item))
+
+	def sell(self, item, qty, price, counterparty):
+		ledger.set_entity(counterparty)
+		qty_avail = ledger.get_qty(item=item, acct='Inventory')
+		ledger.reset()
+		if qty <= qty_avail:
+			print('Sell: {} {}'.format(qty, item))
 
 			sell_entry = [ ledger.get_event(), counterparty, world.now, item + ' sold', item, price, qty, 'Cash', 'Inventory', price * qty ]
-			sell_event = [sell_entry]
-			ledger.journal_entry(sell_event)
+
+			return sell_entry
 		else:
 			print('Not enough on hand to sell {} units of {}.'.format(qty, item))
 
+	# TODO Use historical price
 	def consume(self, item, qty):
 		ledger.set_entity(self.entity)
 		qty_held = ledger.get_qty(item='Food', acct='Inventory')
 		ledger.reset()
 		if qty_held > 0:
-			print('Consume: {}'.format(qty))
+			print('Consume: {} {}'.format(qty, item))
 
-			consume_entry = [ ledger.get_event(), self.entity, world.now, item + ' consumed', 'Food', price, qty, item + ' Consumed', 'Inventory', price * qty ]
+			consume_entry = [ ledger.get_event(), self.entity, world.now, item + ' consumed', 'Food', self.world.price, qty, item + ' Consumed', 'Inventory', self.world.price * qty ]
 			consume_event = [consume_entry]
 			ledger.journal_entry(consume_event)
 
@@ -103,19 +133,47 @@ class Entity(object):
 		else:
 			print('Not enough on hand to consume {} units of {}.'.format(qty, item))
 
-	def produce(self, item=None, qty=None):
-		if item is None:
-			item = 'Food'
-		if qty is None:
-			qty = 1
+	# TODO Proper costing
+	def produce(self, item, qty, price):
 		produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' produced', item, price, qty, 'Inventory', item + ' Produced', price * qty ]
 		produce_event = [produce_entry]
 		ledger.journal_entry(produce_event)
+
+	# TODO Fix this
+	def purchase_asset(self, asset, qty, price, counterparty):
+		price = 100
+		ledger.set_entity(self.entity)
+		cash = ledger.balance_sheet(['Cash'])
+		ledger.reset()
+		if cash > (qty * price):
+			print('Purchase: {} {}'.format(qty, asset))
+
+			purchase_asset_entry = [ ledger.get_event(), self.entity, world.now, asset + ' purchased', asset, price, qty, asset, 'Cash', price * qty ]
+			purchase_asset_event = [purchase_asset_entry]
+			ledger.journal_entry(purchase_asset_event)
+
+			self.sell_asset(asset, qty, counterparty)
+		else:
+			print('Not enough cash to purchase {} units of {}.'.format(qty, asset))
+
+	def capitalize(self, amount):
+		capital_entry = [ ledger.get_event(), self.entity, self.world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', amount ]
+		capital_event = [capital_entry]
+		ledger.journal_entry(capital_event)
+
+	def auth_shares(self, ticker, amount):
+		auth_shares_entry = [ ledger.get_event(), self.entity, self.world.now, 'Authorize shares', ticker, '', amount, 'Shares', 'Info', 0 ]
+		auth_shares_event = [auth_shares_entry]
+		ledger.journal_entry(auth_shares_event)
+
+	def buy_shares(self, item, qty, price, counterparty):
+		self.transact(item, 'Investments', 'Shares', qty, price, counterparty)
 
 
 class Individual(Entity):
 	def __init__(self, name, world):
 		super().__init__(name, world)
+		self.name = name
 		print('Create Indv: {}'.format(name))
 		self.entity = 1 # TODO Have this read from the entities table
 		self.max_need = 100
@@ -123,9 +181,7 @@ class Individual(Entity):
 		print('Initial Need: {}'.format(self.need))
 		# TODO Make entry in entities table upon creation
 
-		start_entry = [ ledger.get_event(), self.entity, world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', 10000 ]
-		start_event = [start_entry]
-		ledger.journal_entry(start_event)
+		self.capitalize(500100)
 
 	def need_decay(self, need):
 		self.need -= 1
@@ -133,22 +189,20 @@ class Individual(Entity):
 	def threshold_check(self):
 		if self.need <= 40:
 			print('Threshold met!')
-			self.purchase('Food', 10, 2)
+			self.purchase('Food', 10, world.food_price, 2)
 			self.consume('Food', 5) # TODO Make random int between 5 and 15
 
 class Organization(Entity):
 	def __init__(self, name, world):
 		super().__init__(name, world)
+		self.name = name
 		print('Create Org: {}'.format(name))
-		self.entity = 2
+		self.entity = 2 # TODO Have this read from the entities table
+		self.auth_shares(name, 1000000)
 		ledger.set_entity(2)
 		self.food = ledger.get_qty(item='Food', acct='Inventory')
 		ledger.reset()
 		print('Starting Farm Food: {}'.format(self.food))
-
-		start_entry = [ ledger.get_event(), self.entity, world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', 10000 ]
-		start_event = [start_entry]
-		ledger.journal_entry(start_event)
 
 
 if __name__ == '__main__':
@@ -157,19 +211,26 @@ if __name__ == '__main__':
 	ledger = Ledger(accts) # TODO Move this into init for World() # TODO Fix generalization of get_qty() and hist_cost()
 	accts.load_accts('econ')
 	world = World()
-	# TODO Init starting ledger and accounts
-	food_price = 1.50
-	price = food_price
-	#print(world.farm.food)
 	#exit()
 	#while True:
 	for _ in range(20):
 		world.update_econ()
 
-	print('End Econ Sim')
+	print('End of Econ Sim')
 
 
 exit()
+
+# Magically start with capital
+# Incorporate farm
+# Deposit capital in farm
+# Farm claims land
+# Produce food
+# Farmer draws wages
+# Farmer buys food from other farms
+
+# Buying land, Incorporation, buying equipment, equipment depreciation, buying services, paying wages
+
 
 # Notes for factory functions
 def g():
