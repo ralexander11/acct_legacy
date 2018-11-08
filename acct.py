@@ -372,6 +372,8 @@ class Ledger(object):
 
 	def print_gl(self):
 		self.refresh_ledger() # Refresh Ledger
+		self.gl['qty'].replace(np.nan, '', inplace=True)
+		self.gl['price'].replace(np.nan, '', inplace=True)
 		#with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
 		print(self.gl)
 		print('-' * DISPLAY_WIDTH)
@@ -666,10 +668,10 @@ class Ledger(object):
 			if date == 'NaT':
 				date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-			if qty == '': # TODO No qty and price default needed now
-				qty = ''
+			if qty == '':
+				qty = np.nan
 			if price == '':
-				price = amount
+				price = np.nan
 
 			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
@@ -695,10 +697,10 @@ class Ledger(object):
 				if date == 'NaT':
 					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-				if qty == '': # TODO No qty and price default needed now
-					qty = 1
+				if qty == '':
+					qty = np.nan
 				if price == '':
-					price = amount
+					price = np.nan
 
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 				#print(values)
@@ -750,10 +752,10 @@ class Ledger(object):
 		if '[RVSL]' in rvsl[4]:
 			print('Cannot reverse a reversal. Enter a new entry instead.')
 			return
-		if date is None:
+		if date is None: # rvsl[7] or np.nan
 			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
+		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7] or '', rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)
 
 	def hist_cost(self, qty, item=None, acct=None):
@@ -874,6 +876,28 @@ class Ledger(object):
 		print('-' * DISPLAY_WIDTH)
 		return self.hist_bs
 
+	def fix_qty(self): # Temp qty fix function
+		cur = self.conn.cursor()
+		qty = np.nan
+		#print('QTY: {}'.format(qty))
+		value = (qty,)
+		#print('Value: {}'.format(value))
+		cur.execute('UPDATE ' + self.ledger_name + ' SET qty = (?) WHERE qty = 1', value)
+		self.conn.commit()
+		cur.close()
+		print('QTYs converted.')
+
+	def fix_price(self): # Temp price fix function
+		cur = self.conn.cursor()
+		price = np.nan
+		#print('QTY: {}'.format(qty))
+		value = (price,)
+		#print('Value: {}'.format(value))
+		cur.execute('UPDATE ' + self.ledger_name + ' SET price = (?) WHERE price = amount', value)
+		self.conn.commit()
+		cur.close()
+		print('Prices converted.')
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -958,6 +982,12 @@ if __name__ == '__main__':
 			if args.command is not None: exit()
 		elif command.lower() == 'width': # TODO Try and make this work
 			DISPLAY_WIDTH = int(input('Enter number for display width: '))
+			if args.command is not None: exit()
+		elif command.lower() == 'fixqty': # Temp qty fix function
+			ledger.fix_qty()
+			if args.command is not None: exit()
+		elif command.lower() == 'fixprice': # Temp price fix function
+			ledger.fix_price()
 			if args.command is not None: exit()
 		elif command.lower() == 'exit' or args.command is not None:
 			exit()
