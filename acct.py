@@ -6,7 +6,7 @@ import datetime
 import logging
 import traceback
 
-DISPLAY_WIDTH = 143
+DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
@@ -96,6 +96,7 @@ class Accounts(object):
 		econ_accts = [
 				#('Cash','Asset'),
 				('Shares','Wealth'),
+				('Land','Asset'),
 				('Inventory','Asset'),
 				('Food','Inventory'),
 				('Food Produced','Revenue'),
@@ -413,6 +414,8 @@ class Ledger(object):
 
 	def print_gl(self):
 		self.refresh_ledger() # Refresh Ledger
+		self.gl['qty'].replace(np.nan, '', inplace=True)
+		self.gl['price'].replace(np.nan, '', inplace=True)
 		#with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
 		print(self.gl)
 		print('-' * DISPLAY_WIDTH)
@@ -599,8 +602,8 @@ class Ledger(object):
 		#print('Acct: {}'.format(acct))
 		if (item is None) or (item == ''): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
-			item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
-			item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # TODO Look into
+			item_ids = self.gl['item_id'].replace('', np.nan, inplace=True) # Not needed
+			item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # Not needed
 			item_ids = pd.unique(self.gl['item_id'].dropna())
 			for item in item_ids:
 				logging.debug(item)
@@ -633,8 +636,8 @@ class Ledger(object):
 
 		# Get qty for one item specified
 		# TODO Maybe add else
-		item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
-		item_ids = self.gl['qty'].replace('', np.nan, inplace=True)
+		item_ids = self.gl['item_id'].replace('', np.nan, inplace=True) # Not needed
+		item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # Not needed
 		qty_txns = self.get_qty_txns(item, acct)
 		#print(qty_txns)
 		#print('Acct: {}'.format(acct))
@@ -721,9 +724,9 @@ class Ledger(object):
 				date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 			if qty == '': # TODO No qty and price default needed now
-				qty = ''
+				qty = np.nan
 			if price == '':
-				price = amount
+				price = np.nan
 
 			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
@@ -750,9 +753,9 @@ class Ledger(object):
 					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 				if qty == '': # TODO No qty and price default needed now
-					qty = ''
+					qty = np.nan
 				if price == '':
-					price = amount
+					price = np.nan
 
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
 				print(values)
@@ -804,7 +807,7 @@ class Ledger(object):
 		if '[RVSL]' in rvsl[4]:
 			print('Cannot reverse a reversal. Enter a new entry instead.')
 			return
-		if date is None:
+		if date is None: # rvsl[6] or np.nan
 			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]

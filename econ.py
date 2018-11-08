@@ -14,10 +14,11 @@ class World(object):
 		print('Create World')
 		self.now = datetime.datetime(1986,10,1).date()
 		print(self.now)
+
 		self.farm = self.create_org('Farm', self) # TODO Make this general
 		self.farmer = self.create_indv('Farmer', self) # TODO Make this general
 
-		self.farmer.buy_shares('Farm', 100000, 5, 2)
+		self.farmer.buy_shares('Farm', 5, 100000, 2)
 
 		self.food_price = 2 # TODO Fix how prices work
 		self.price = self.food_price
@@ -49,7 +50,7 @@ class World(object):
 		self.farmer.need_decay(self.farmer.need)
 		print('Farmer Need: {}'.format(self.farmer.need))
 
-		self.farm.produce('Food', 1, self.food_price)
+		self.farm.produce('Food', self.food_price, 1)
 		ledger.set_entity(2)
 		self.food = ledger.get_qty(item='Food', acct='Inventory')
 		ledger.reset()
@@ -64,7 +65,7 @@ class Entity(object):
 		self.world = world
 		#print('Entity created')
 
-	def transact(self, item, acct_buy, acct_sell, qty, price, counterparty):
+	def transact(self, item, acct_buy, acct_sell, price, qty, counterparty):
 		ledger.set_entity(self.entity)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
@@ -86,13 +87,13 @@ class Entity(object):
 			print('Not enough cash to purchase {} units of {}.'.format(qty, item))
 
 	# TODO Maybe replace with transact method
-	def purchase(self, item, qty, price, counterparty):
+	def purchase(self, item, price, qty, counterparty):
 		ledger.set_entity(self.entity)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
 		print('Cash: {}'.format(cash))
 		if cash > (qty * price):
-			sell_entry = self.sell(item, qty, price, counterparty)
+			sell_entry = self.sell(item, price, qty, counterparty)
 			if sell_entry is not None:
 				print('Purchase: {} {}'.format(qty, item))
 
@@ -103,7 +104,7 @@ class Entity(object):
 		else:
 			print('Not enough cash to purchase {} units of {}.'.format(qty, item))
 
-	def sell(self, item, qty, price, counterparty):
+	def sell(self, item, price, qty, counterparty):
 		ledger.set_entity(counterparty)
 		qty_avail = ledger.get_qty(item=item, acct='Inventory')
 		ledger.reset()
@@ -134,13 +135,13 @@ class Entity(object):
 			print('Not enough on hand to consume {} units of {}.'.format(qty, item))
 
 	# TODO Proper costing
-	def produce(self, item, qty, price):
+	def produce(self, item, price, qty):
 		produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' produced', item, price, qty, 'Inventory', item + ' Produced', price * qty ]
 		produce_event = [produce_entry]
 		ledger.journal_entry(produce_event)
 
 	# TODO Fix this
-	def purchase_asset(self, asset, qty, price, counterparty):
+	def purchase_asset(self, asset, price, qty, counterparty):
 		price = 100
 		ledger.set_entity(self.entity)
 		cash = ledger.balance_sheet(['Cash'])
@@ -166,9 +167,16 @@ class Entity(object):
 		auth_shares_event = [auth_shares_entry]
 		ledger.journal_entry(auth_shares_event)
 
-	def buy_shares(self, item, qty, price, counterparty):
-		self.transact(item, 'Investments', 'Shares', qty, price, counterparty)
+	def buy_shares(self, item, price, qty, counterparty):
+		self.transact(item, 'Investments', 'Shares', price, qty, counterparty)
 
+	def claim_land(self, qty, price): # QTY in square meters
+		claim_land_entry = [ ledger.get_event(), self.entity, self.world.now, 'Claim land', 'Land', price, qty, 'Land', 'Wealth', qty * price ]
+		claim_land_event = [claim_land_entry]
+		ledger.journal_entry(claim_land_event)
+
+	def pay_wages(self):
+		pass
 
 class Individual(Entity):
 	def __init__(self, name, world):
@@ -189,7 +197,7 @@ class Individual(Entity):
 	def threshold_check(self):
 		if self.need <= 40:
 			print('Threshold met!')
-			self.purchase('Food', 10, world.food_price, 2)
+			self.purchase('Food', world.food_price, 10, 2)
 			self.consume('Food', 5) # TODO Make random int between 5 and 15
 
 class Organization(Entity):
@@ -199,6 +207,7 @@ class Organization(Entity):
 		print('Create Org: {}'.format(name))
 		self.entity = 2 # TODO Have this read from the entities table
 		self.auth_shares(name, 1000000)
+		self.claim_land(4000, 5) # TODO Need some way to determine price of land
 		ledger.set_entity(2)
 		self.food = ledger.get_qty(item='Food', acct='Inventory')
 		ledger.reset()
