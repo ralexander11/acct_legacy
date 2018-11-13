@@ -100,7 +100,9 @@ class Accounts(object):
 				('Inventory','Asset'),
 				('Food','Inventory'),
 				('Food Produced','Revenue'),
-				('Food Consumed','Expense')
+				('Food Consumed','Expense'),
+				('Salary Expense','Expense'),
+				('Salary Revenue','Revenue')
 			]
 
 		tmp_accts_fix = standard_accts + trade_accts + econ_accts
@@ -117,18 +119,20 @@ class Accounts(object):
 		self.conn.commit()
 		cur.close()
 
+	# TODO Maybe make entities a class
 	def create_entities(self): # TODO Add command to book more entities
 		create_entities_query = '''
 			CREATE TABLE IF NOT EXISTS entities (
 				entity_id INTEGER PRIMARY KEY,
 				name text,
 				comm real DEFAULT 0,
-				min_qty INTEGER NOT NULL,
-				max_qty INTEGER NOT NULL,
-				liquidate_chance real NOT NULL,
+				min_qty INTEGER,
+				max_qty INTEGER,
+				liquidate_chance real,
 				ticker_source text DEFAULT 'iex',
-				needs test,
-				decay_rate INTEGER DEFAULT 1
+				needs text,
+				decay_rate INTEGER DEFAULT 1,
+				outputs text
 			);
 			'''
 		default_entities = ['''
@@ -140,17 +144,19 @@ class Accounts(object):
 				liquidate_chance,
 				ticker_source,
 				needs,
-				decay_rate
+				decay_rate,
+				outputs
 				)
 				VALUES (
-					'Trader01',
+					'Person001',
 					0.0,
 					1,
 					100,
 					0.5,
 					'iex',
-					'[''Hunger'']',
-					1
+					'Hunger',
+					1,
+					'Labour'
 				);
 			''']
 
@@ -162,26 +168,45 @@ class Accounts(object):
 		self.conn.commit()
 		cur.close()
 
+	# Maybe make items a class
 	def create_items(self):# TODO Add command to book more items
 		create_items_query = '''
 			CREATE TABLE IF NOT EXISTS items (
 				item_id text PRIMARY KEY,
 				int_rate_fix real,
 				int_rate_var real,
-				freq integer DEFAULT 365
+				freq integer DEFAULT 365,
+				child_of text,
+				requirements text,
+				satisfy text,
+				satisfy_rate real,
+				lifespan integer,
+				metric text DEFAULT 'ticks'
 			);
-			'''
+			''' # Metric can have values of 'ticks' or 'units'
 		default_item = ['''
 			INSERT INTO items (
 				item_id,
 				int_rate_fix,
 				int_rate_var,
-				freq
+				freq,
+				child_of,
+				requirements,
+				satisfy,
+				satisfy_rate,
+				lifespan,
+				metric
 				) VALUES (
 					'credit_line_01',
 					0.0409,
 					NULL,
-					365
+					365,
+					'loan',
+					'Bank',
+					'Capital',
+					1,
+					3650,
+					'ticks'
 				);
 			''']
 
@@ -217,11 +242,11 @@ class Accounts(object):
 				print('\n' + child_of + ' is not a valid account.')
 				return
 
-			details = (account,child_of)
+			details = (account, child_of)
 			cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 			
 		else:
-			for acct in acct_data:
+			for acct in acct_data: # TODO Turn this into a list comprehension
 				account = str(acct[0])
 				child_of = str(acct[1])
 				print(acct)
@@ -233,9 +258,82 @@ class Accounts(object):
 		self.refresh_accts()
 		self.drop_dupe_accts()
 
-		# TODO Add error checking to ensure all accounts lead to a standard account
+	def add_entity(self, entity_data=None): # TODO Cleanup and make nicer
+		cur = self.conn.cursor()
+		if entity_data is None:
+			name = input('Enter the entity name: ')
+			comm = input('Enter the commission amount: ')
+			min_qty = '' # TODO Remove parameters related to random algo
+			max_qty = ''
+			liquidate_chance = ''
+			ticker_source = input('Enter the source for tickers: ')
+			needs = input('Enter the needs of the entity as a list: ')
+			decay_rate = input('Enter the rates of decay per day for each need.') # TODO Add int validation
+			outputs = input('Enter the output names as a list: ') # For corporations
 
-	def load_accts(self, infile=None):
+			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,needs,decay_rate,outputs)
+			cur.execute('INSERT INTO entities VALUES (?,?,?,?,?,?,?,?,?)', details)
+			
+		else:
+			for entity in entity_data: # TODO Turn this into a list comprehension
+				name = str(entity[0])
+				comm = str(entity[1])
+				min_qty = str(entity[2])
+				max_qty = str(entity[3])
+				liquidate_chance = str(entity[4])
+				ticker_source = str(entity[5])
+				needs = str(entity[6])
+				decay_rate = str(entity[7])
+				outputs = str(entity[8])
+
+				print(entity)
+				details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,needs,decay_rate,outputs)
+				cur.execute('INSERT INTO entities VALUES (?,?,?,?,?,?,?,?,?)', details)
+
+		self.conn.commit()
+		cur.close()
+
+	def add_item(self, item_data=None): # TODO Cleanup and make nicer
+		cur = self.conn.cursor()
+		if item_data is None:
+			item_id = input('Enter the item name: ')
+			int_rate_fix = ''#input('Enter the fixed interest rate if there is one: ')
+			int_rate_var = ''#input('Enter the variable interest rate or leave blank: ')
+			freq = ''#int(input('Enter the frequency of interest payments: '))
+			child_of = input('Enter the category the item belongs to: ')
+			# if child_of not in self.coa.index: # TODO Ensure item always points to an existing item
+			# 	print('\n' + child_of + ' is not a valid account.')
+			# 	return
+			requirements = input('Enter the requirments to produce the item as a list: ')
+			satisfy = input('Enter the needs the item satisfies as a list: ')
+			satisfy_rate = input('Enter the rate the item satisfies the needs as a list: ')
+			metric = input('Enter either "ticks" or "units" for how the lifespan is measured: ')
+			lifespan = input('Enter how long the item lasts: ')
+
+			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,satisfy,satisfy_rate,lifespan,metric)
+			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?)', details)
+			
+		else:
+			for item in item_data: # TODO Turn this into a list comprehension
+				item_id = str(item[0])
+				int_rate_fix = str(item[1])
+				int_rate_var = str(item[2])
+				freq = str(item[3])
+				child_of = str(item[4])
+				requirements = str(item[5])
+				satisfy = str(item[6])
+				satisfy_rate = str(item[7])
+				lifespan = str(item[8])
+				metric = str(item[9])
+
+				print(item)
+				details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,satisfy,satisfy_rate,lifespan,metric)
+				cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?)', details)
+
+		self.conn.commit()
+		cur.close()
+
+	def load_csv(self, infile=None):
 		if infile is None:
 			infile = input('Enter a filename: ')
 		if infile == 'trading': # Workaround due to an app limitation
@@ -259,8 +357,7 @@ class Accounts(object):
 				('Dividend Income','Revenue'),
 				('Interest Income','Revenue')
 			]
-			self.add_acct(trade_accts)
-			return
+			return trade_accts
 		elif infile == 'econ':
 			econ_accts = [
 				('Cash','Asset'),
@@ -269,17 +366,25 @@ class Accounts(object):
 				('Food Produced','Revenue'),
 				('Food Consumed','Expense')
 			]
-			self.add_acct(econ_accts)
-			return
+			return econ_accts
 		try:
 			with open(infile, 'r') as f:
-				load_coa = pd.read_csv(f, keep_default_na=False)
-			lol = load_coa.values.tolist()
+				load_csv = pd.read_csv(f, keep_default_na=False)
+			lol = load_csv.values.tolist()
 		except Exception as e:
 			print('Error: {}'.format(e))
-		print(load_coa)
+		print(load_csv)
 		print('-' * DISPLAY_WIDTH)
-		self.add_acct(lol)
+		return lol
+
+	def load_accts(self, infile=None):
+		self.add_acct(self.load_csv(infile))
+
+	def load_entities(self, infile=None):
+		self.add_entity(self.load_csv(infile))
+
+	def load_items(self, infile=None):
+		self.add_item(self.load_csv(infile))
 
 	def export_accts(self):
 		outfile = 'accounts_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
@@ -329,10 +434,10 @@ class Ledger(object):
 		self.start_date = start_date
 		self.txn = txn
 		self.create_ledger()
-		self.refresh_ledger() # TODO Make this self.gl = self.refresh_ledger()
+		self.refresh_ledger() # TODO Maybe make this self.gl = self.refresh_ledger()
 		self.balance_sheet()
 			
-	def create_ledger(self): # TODO Change entity_id to string type
+	def create_ledger(self): # TODO Change entity_id to string type maybe
 		create_ledger_query = '''
 			CREATE TABLE IF NOT EXISTS ''' + self.ledger_name + ''' (
 				txn_id INTEGER PRIMARY KEY,
@@ -416,8 +521,8 @@ class Ledger(object):
 		self.refresh_ledger() # Refresh Ledger
 		self.gl['qty'].replace(np.nan, '', inplace=True)
 		self.gl['price'].replace(np.nan, '', inplace=True)
-		#with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
-		print(self.gl)
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
+			print(self.gl)
 		print('-' * DISPLAY_WIDTH)
 		return self.gl
 
@@ -807,10 +912,10 @@ class Ledger(object):
 		if '[RVSL]' in rvsl[4]:
 			print('Cannot reverse a reversal. Enter a new entry instead.')
 			return
-		if date is None: # rvsl[6] or np.nan
+		if date is None:
 			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7], rvsl[9], rvsl[8], rvsl[10] ]]
+		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7] or '', rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)
 
 	def hist_cost(self, qty, item=None, acct=None):
@@ -949,7 +1054,7 @@ if __name__ == '__main__':
 
 	while True:
 		if args.command is None:
-			command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
+			command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, Accts, addAcct, loadAccts, exit\n')
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'gl':
 			ledger.print_gl()

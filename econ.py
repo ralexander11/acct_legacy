@@ -1,6 +1,7 @@
 from acct import Accounts
 from acct import Ledger
 import pandas as pd
+import argparse
 import datetime
 import random
 
@@ -8,19 +9,24 @@ DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 
+def time():
+	time = datetime.datetime.now().strftime('[%Y-%b-%d %I:%M:%S %p] ')
+	return time
+
 class World(object):
 	def __init__(self):
 		self.clear_ledger()
 		print('Create World')
+		self.end = False
 		self.now = datetime.datetime(1986,10,1).date()
 		print(self.now)
 
 		self.farm = self.create_org('Farm', self) # TODO Make this general
 		self.farmer = self.create_indv('Farmer', self) # TODO Make this general
 
-		self.farmer.buy_shares('Farm', 5, 100000, 2)
+		self.farmer.buy_shares('Farm', 5, 10000, 2)
 
-		self.food_price = 2 # TODO Fix how prices work
+		self.food_price = 10 # TODO Fix how prices work
 		self.price = self.food_price
 
 	def clear_ledger(self):
@@ -50,7 +56,8 @@ class World(object):
 		self.farmer.need_decay(self.farmer.need)
 		print('Farmer Need: {}'.format(self.farmer.need))
 
-		self.farm.produce('Food', self.food_price, 1)
+		self.farm.pay_salary(counterparty=1) # TODO Pull parameters from farmer object properties that are set at init
+		self.farm.produce('Food', self.food_price, 10) # TODO Fix how much is produced
 		ledger.set_entity(2)
 		self.food = ledger.get_qty(item='Food', acct='Inventory')
 		ledger.reset()
@@ -91,7 +98,7 @@ class Entity(object):
 		ledger.set_entity(self.entity)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
-		print('Cash: {}'.format(cash))
+		print('Purchaser Cash: {}'.format(cash))
 		if cash > (qty * price):
 			sell_entry = self.sell(item, price, qty, counterparty)
 			if sell_entry is not None:
@@ -122,40 +129,40 @@ class Entity(object):
 		ledger.set_entity(self.entity)
 		qty_held = ledger.get_qty(item='Food', acct='Inventory')
 		ledger.reset()
-		if qty_held > 0:
+		if qty_held > qty:
 			print('Consume: {} {}'.format(qty, item))
 
 			consume_entry = [ ledger.get_event(), self.entity, world.now, item + ' consumed', 'Food', self.world.price, qty, item + ' Consumed', 'Inventory', self.world.price * qty ]
 			consume_event = [consume_entry]
 			ledger.journal_entry(consume_event)
 
-			self.need += (10 * qty)
+			self.need += (1 * qty)
 			print('Farmer Need: {}'.format(self.need))
 		else:
 			print('Not enough on hand to consume {} units of {}.'.format(qty, item))
 
 	# TODO Proper costing
 	def produce(self, item, price, qty):
-		produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' produced', item, price, qty, 'Inventory', item + ' Produced', price * qty ]
-		produce_event = [produce_entry]
-		ledger.journal_entry(produce_event)
-
-	# TODO Fix this
-	def purchase_asset(self, asset, price, qty, counterparty):
-		price = 100
-		ledger.set_entity(self.entity)
-		cash = ledger.balance_sheet(['Cash'])
-		ledger.reset()
-		if cash > (qty * price):
-			print('Purchase: {} {}'.format(qty, asset))
-
-			purchase_asset_entry = [ ledger.get_event(), self.entity, world.now, asset + ' purchased', asset, price, qty, asset, 'Cash', price * qty ]
-			purchase_asset_event = [purchase_asset_entry]
-			ledger.journal_entry(purchase_asset_event)
-
-			self.sell_asset(asset, qty, counterparty)
+		land_req = ['Land']
+		labour_req = ['Labourer'] # TODO Have this pulled from items table
+		requirements = land_req + labour_req
+		for requirement in requirements: # Make requirements for Labour, Land, Equipment/Building, Services, Raw Materials/Components
+			if requirement == 'Land':
+				land = ledger.get_qty(item=requirement, acct='Land')
+				print('Land: {}'.format(land))
+			if requirement == 'Labourer':
+				ledger.set_start_date(str(world.now))
+				labour_done = ledger.get_qty(item=requirement, acct='Salary Expense')
+				print('Labour Done: {}'.format(labour_done))
+				ledger.reset()
+		if (labour_done >= 8) and (land >= 4000):
+				produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' produced', item, price, qty, 'Inventory', item + ' Produced', price * qty ]
+				produce_event = [produce_entry]
+				ledger.journal_entry(produce_event)
+		elif land >= 4000:
+			print('No land to produce on.')
 		else:
-			print('Not enough cash to purchase {} units of {}.'.format(qty, asset))
+			print('No labour done today for production.') #TODO Fix message to add land
 
 	def capitalize(self, amount):
 		capital_entry = [ ledger.get_event(), self.entity, self.world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', amount ]
@@ -175,8 +182,24 @@ class Entity(object):
 		claim_land_event = [claim_land_entry]
 		ledger.journal_entry(claim_land_event)
 
-	def pay_wages(self):
-		pass
+	def pay_salary(self, counterparty, job=None, salary=None, hours=None): # TODO Remove job default
+		if job is None:
+			job = 'Labourer'
+		if salary is None:
+			salary = 5
+		if hours is None:
+			hours = 8
+		ledger.set_entity(self.entity)
+		cash = ledger.balance_sheet(['Cash'])
+		ledger.reset()
+		if cash >= (salary * hours):
+			# TODO Add check if enough cash, if not becomes salary payable
+			salary_exp_entry = [ ledger.get_event(), self.entity, world.now, job + ' salary paid', job, salary, hours, 'Salary Expense', 'Cash', salary * hours ]
+			salary_rev_entry = [ ledger.get_event(), counterparty, self.world.now, job + ' salary received', job, salary, hours, 'Cash', 'Salary Revenue', salary * hours ]
+			pay_salary_event = [salary_exp_entry, salary_rev_entry]
+			ledger.journal_entry(pay_salary_event)
+		else:
+			print('not enough cash to pay for labour.')
 
 class Individual(Entity):
 	def __init__(self, name, world):
@@ -189,16 +212,18 @@ class Individual(Entity):
 		print('Initial Need: {}'.format(self.need))
 		# TODO Make entry in entities table upon creation
 
-		self.capitalize(500100)
+		self.capitalize(50100)
 
 	def need_decay(self, need):
 		self.need -= 1
+		if self.need <= 0:
+			world.end = True
 
 	def threshold_check(self):
 		if self.need <= 40:
 			print('Threshold met!')
-			self.purchase('Food', world.food_price, 10, 2)
-			self.consume('Food', 5) # TODO Make random int between 5 and 15
+			self.purchase('Food', world.food_price, 100, 2)
+			self.consume('Food', 50) # TODO Make random int between 5 and 15
 
 class Organization(Entity):
 	def __init__(self, name, world):
@@ -215,28 +240,31 @@ class Organization(Entity):
 
 
 if __name__ == '__main__':
-	print('Start Econ Sim')
-	accts = Accounts(conn='econ01.db') #TODO Fix init of accounts
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
+	args = parser.parse_args()
+	if args.database is None:
+		args.database = 'econ02.db'
+
+	print(time() + 'Start Econ Sim')
+	accts = Accounts(conn=args.database) #TODO Fix init of accounts
 	ledger = Ledger(accts) # TODO Move this into init for World() # TODO Fix generalization of get_qty() and hist_cost()
 	accts.load_accts('econ')
 	world = World()
-	#exit()
-	#while True:
-	for _ in range(20):
-		world.update_econ()
 
-	print('End of Econ Sim')
+	#for _ in range(20):
+	while True:
+		world.update_econ()
+		if world.end:
+			break
+
+	print(time() + 'End of Econ Sim')
 
 
 exit()
 
-# Magically start with capital
-# Incorporate farm
-# Deposit capital in farm
-# Farm claims land
-# Produce food
-# Farmer draws wages
-# Farmer buys food from other farms
+# Add entity
+# Add item
 
 # Buying land, Incorporation, buying equipment, equipment depreciation, buying services, paying wages
 
