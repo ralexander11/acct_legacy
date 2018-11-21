@@ -95,7 +95,7 @@ class Trading(object):
 		if self.sim:
 			if date is None:
 				date = input('Enter a date as format yyyy-mm-dd: ')
-		current_qty = self.ledger.get_qty(symbol, 'Investments')
+		current_qty = self.ledger.get_qty(symbol, ['Investments'])
 		print('Current QTY: {}'.format(current_qty))
 		print('Symbol: {}'.format(symbol))
 		if qty > current_qty:
@@ -177,7 +177,7 @@ class Trading(object):
 			cur.close()
 
 	def unrealized(self, rvsl=False, date=None): # TODO Add commenting
-		inv = self.ledger.get_qty(acct='Investments')
+		inv = self.ledger.get_qty(accounts=['Investments'])
 		if inv.empty:
 			print('No securities held to true up.')
 			return
@@ -230,7 +230,7 @@ class Trading(object):
 	def dividends(self, end_point='dividends/3m', date=None): # TODO Need to reengineer this due to delay in exdate divs displaying from IEX feed
 	# TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
-		portfolio = self.ledger.get_qty(acct='Investments') # TODO Pass arg flag to show 0 qty stocks
+		portfolio = self.ledger.get_qty(accounts=['Investments']) # TODO Pass arg flag to show 0 qty stocks
 		#print(portfolio)
 		if portfolio.empty:
 			print('Dividends: No securities held.')
@@ -260,7 +260,7 @@ class Trading(object):
 				if div_rate is None:
 					logging.warning('Div rate is blank for: ' + symbol)
 					continue
-				qty = self.ledger.get_qty(symbol, 'Investments')
+				qty = self.ledger.get_qty(symbol, ['Investments'])
 				try:
 					div_proceeds = div_rate * qty
 				except:
@@ -309,7 +309,7 @@ class Trading(object):
 
 	def splits(self, end_point='splits/3m', date=None): # TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
-		portfolio = self.ledger.get_qty(acct='Investments')
+		portfolio = self.ledger.get_qty(accounts=['Investments'])
 		if portfolio.empty:
 			print('Stock Splits: No securities held.')
 			return
@@ -336,7 +336,7 @@ class Trading(object):
 				to_factor = split.iloc[0,6]
 				for_factor = split.iloc[0,2]
 				ratio = to_factor / for_factor
-				qty = self.ledger.get_qty(symbol, 'Investments')
+				qty = self.ledger.get_qty(symbol, ['Investments'])
 				cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 				old_price = cost / qty
 				new_qty = qty * ratio # TODO Handle fractional shares
