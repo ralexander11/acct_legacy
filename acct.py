@@ -540,9 +540,12 @@ class Ledger(object):
 		else:
 			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
 
-	def balance_sheet(self, accounts=None): # TODO Needs to be optimized # TODO Add parameter for items
+	def balance_sheet(self, accounts=None, item=None): # TODO Needs to be optimized
 		all_accts = False
-		#accounts=['Wealth']
+
+		if item is not None: # TODO Add support for multiple items maybe
+			self.gl = self.gl[self.gl['item_id'] == item]
+
 		if accounts is None: # Create a list of all the accounts
 			all_accts = True
 			debit_accts = pd.unique(self.gl['debit_acct'])
@@ -601,6 +604,8 @@ class Ledger(object):
 				credits = 0
 			bal = debits - credits
 			asset_bal += bal
+			#print('Bal: {}'.format(bal))
+			#if bal != 0: # TODO Not sure if should display empty accounts
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 		self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
 
@@ -717,7 +722,7 @@ class Ledger(object):
 
 	def get_qty(self, item=None, accounts=None):
 		if (accounts is None) or (accounts == ''):
-			accounts = ['Investments'] #input('Which account? ') # TODO Remove this
+			accounts = ['Investments'] #input('Which account? ') # TODO Remove this or change to all accounts like bs
 		if isinstance(accounts, str):
 			accounts = [accounts]
 		#print('Accounts: {}'.format(accounts))

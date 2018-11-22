@@ -92,18 +92,23 @@ class World(object):
 
 		self.farmer.threshold_check()
 
-		if str(self.now) == '1986-10-03':
+		self.farmer.depreciation_check() # Should something depreciate the first day it is bought?
+
+		ledger.set_entity(1)
+		plow_qty = ledger.get_qty(item='Plow', accounts=['Equipment'])
+		ledger.reset()
+		if plow_qty < 1:
 			self.farmer.make_equip('Plow', 1, 100)
 
-		if str(self.now) == '1986-10-05':
-			self.farmer.depreciation_check()
+		#if str(self.now) == '1986-10-15': # Temp
+			#world.end = True # Temp
 
 	# TODO Maybe an update_world method to change the needs
 
 class Entity(object):
 	def __init__(self, name, world):
 		self.world = world
-		#print('Entity created')
+		#print('Entity created: {}'.format(name))
 
 	def transact(self, item, acct_buy, acct_sell, price, qty, counterparty):
 		ledger.set_entity(self.entity)
@@ -252,23 +257,32 @@ class Entity(object):
 		make_equip_event = [make_equip_entry]
 		ledger.journal_entry(make_equip_event)
 
-	def depreciation_check(self, items=None):
+	def depreciation_check(self, items=None): # TODO Add support for explicitly provided items
 		if items is None:
+			ledger.set_entity(self.entity)
 			equip_list = ledger.get_qty(accounts=['Equipment'])# TODO Add other account types for base items such as Raw Materials and Buildings
-			print('Equipment List: \n{}'.format(equip_list))
+			#print('Equipment List: \n{}'.format(equip_list))
 		for index, item in equip_list.iterrows():
-			print(item['item_id'], item['qty'])
+			#print(item)
+			qty = item['qty']
+			item = item['item_id']
 			cur = ledger.conn.cursor()
-			lifespan = cur.execute('SELECT lifespan FROM items WHERE item_id = ?;', (item['item_id'],)).fetchone()[0]
-			metric = cur.execute('SELECT metric FROM items WHERE item_id = ?;', (item['item_id'],)).fetchone()[0]
+			lifespan = cur.execute('SELECT lifespan FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
+			metric = cur.execute('SELECT metric FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
 			cur.close()
-			self.depreciation(item=item['item_id'], lifespan=lifespan, metric=metric)
+			#lifespan = 10 # Temp
+			self.derecognize(item, qty)
+			self.depreciation(item, lifespan, metric)
+			ledger.reset()
 
-	def depreciation(self, item=None, lifespan=None, metric=None):
+	def depreciation(self, item, lifespan, metric):
 		if metric == 'depreciation':
-			asset_bal = ledger.balance_sheet(['Equipment']) # TODO Support other accounts
+			asset_bal = ledger.balance_sheet(accounts=['Equipment'], item=item) # TODO Support other accounts
+			if asset_bal == 0:
+				return
+			#print('Asset Bal: {}'.format(asset_bal))
 			dep_amount = asset_bal / lifespan
-			print('Depreciation: {} {} {}'.format(item, lifespan, metric))
+			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
 			depreciation_entry = [ ledger.get_event(), self.entity, self.world.now, 'Depreciation on ' + item, item, '', '', 'Depreciation Expense', 'Accumulated Depreciation', dep_amount ]
 			depreciation_event = [depreciation_entry]
 			ledger.journal_entry(depreciation_event)
@@ -276,6 +290,16 @@ class Entity(object):
 		if metric == 'spoilage':
 			print('Spoilage: {} {} {}'.format(item, lifespan, metric))
 			return
+
+	def derecognize(self, item, qty):
+		asset_bal = ledger.balance_sheet(accounts=['Equipment'], item=item)# TODO Support other accounts
+		if asset_bal == 0:
+				return
+		accum_dep_bal = ledger.balance_sheet(accounts=['Accumulated Depreciation'], item=item)
+		if asset_bal == abs(accum_dep_bal):
+			derecognition_entry = [ ledger.get_event(), self.entity, self.world.now, 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accumulated Depreciation', 'Equipment', asset_bal ]
+			derecognition_event = [derecognition_entry]
+			ledger.journal_entry(derecognition_event)
 
 
 class Individual(Entity):
