@@ -98,7 +98,7 @@ class World(object):
 		plow_qty = ledger.get_qty(item='Plow', accounts=['Equipment'])
 		ledger.reset()
 		if plow_qty < 1:
-			self.farmer.make_equip('Plow', 1, 100)
+			self.farmer.make_equip(item='Plow', qty=1, price=100)
 
 		#if str(self.now) == '1986-10-15': # Temp
 			#world.end = True # Temp
@@ -182,34 +182,44 @@ class Entity(object):
 			return self.get_base_item(self.world.items.loc[item, 'child_of'])
 
 	# TODO Proper costing
+	# TODO Make each item take a certain amount of labour hours and have items able to reduce that
 	def produce(self, item, price, qty=None):
+		v = False
 		cur = ledger.conn.cursor()
-		requirements = cur.execute("SELECT requirements FROM items WHERE item_id = '"+ item +"';").fetchone()[0]
+		requirements_info = cur.execute("SELECT requirements, amount FROM items WHERE item_id = '"+ item +"';").fetchone()
 		cur.close()
-		requirements = requirements.split(',')
+		if v: print('From Table: {}'.format(requirements_info))
+		requirements = [x.strip() for x in requirements_info[0].split(',')]
 		requirement_details = []
 		for requirement in requirements:
 			base_item = self.get_base_item(requirement)
 			item_details = (requirement, base_item)
 			requirement_details.append(item_details)
-		#print('Requirements: {}'.format(requirement_details))
+		if v: print('Requirements: {}'.format(requirement_details))
+		amounts = [x.strip() for x in requirements_info[1].split(',')]
+		amounts = list(map(float, amounts))
+		if v: print('Amounts: {}'.format(amounts))
+		requirement_details = list(zip(requirement_details, amounts))
+		if v: print('Requirement Details: {}'.format(requirement_details))
 		for requirement in requirement_details:
-			if requirement[1] == 'Land':
-				land = ledger.get_qty(item=requirement[0], accounts=['Land'])
-				#print('Land: {}'.format(land))
-			if requirement[1] == 'Labour':
+			if v: print('Requirement: {}'.format(requirement))
+			if requirement[0][1] == 'Land':
+				land = ledger.get_qty(item=requirement[0][0], accounts=['Land'])
+				if v: print('Land: {}'.format(land))
+				if land < (requirement[1] * qty):
+					print('Not enough land to produce on.')
+					return
+			if requirement[0][1] == 'Labour':
 				ledger.set_start_date(str(world.now))
-				labour_done = ledger.get_qty(item=requirement[0], accounts=['Salary Expense'])
+				labour_done = ledger.get_qty(item=requirement[0][0], accounts=['Salary Expense'])
 				ledger.reset()
-				#print('Labour Done: {}'.format(labour_done))
-		if (labour_done >= 8) and (land >= 4000):
-				produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' produced', item, price, qty, 'Inventory', item + ' Produced', price * qty ]
-				produce_event = [produce_entry]
-				ledger.journal_entry(produce_event)
-		elif land < 4000:
-			print('No land to produce on.')
-		else:
-			print('No labour done today for production.')
+				if v: print('Labour Done: {}'.format(labour_done))
+				if labour_done < (requirement[1] * qty):
+					print('Not enough labour done today for production.')
+					return
+		produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' produced', item, price, qty, 'Inventory', item + ' Produced', price * qty ]
+		produce_event = [produce_entry]
+		ledger.journal_entry(produce_event)
 
 	def capitalize(self, amount):
 		capital_entry = [ ledger.get_event(), self.entity, self.world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', amount ]
@@ -252,15 +262,20 @@ class Entity(object):
 		else:
 			print('Not enough cash to pay for ' + job + ': {}'.format(cash))
 
-	def make_equip(self, item, qty, price): # Assuming all materials found
-		make_equip_entry = [ ledger.get_event(), self.entity, self.world.now, 'Make ' + item, item, price, qty, 'Equipment', 'Wealth', qty * price ] # TODO Generalize to support components
+	def collect_material(self):
+		pass # TODO Spend time collecting food, wood, ore
+
+	def make_equip(self, item, qty, price=1, account=None): # Assuming all materials found
+		if account is None:
+			account = 'Equipment'
+		make_equip_entry = [ ledger.get_event(), self.entity, self.world.now, 'Make ' + item, item, price, qty, account, 'Wealth', qty * price ]
 		make_equip_event = [make_equip_entry]
 		ledger.journal_entry(make_equip_event)
 
 	def depreciation_check(self, items=None): # TODO Add support for explicitly provided items
 		if items is None:
 			ledger.set_entity(self.entity)
-			equip_list = ledger.get_qty(accounts=['Equipment'])# TODO Add other account types for base items such as Raw Materials and Buildings
+			equip_list = ledger.get_qty(accounts=['Buildings','Equipment','Furniture','Inventory'])# TODO Add other account types for base items such as Raw Materials
 			#print('Equipment List: \n{}'.format(equip_list))
 		for index, item in equip_list.iterrows():
 			#print(item)
@@ -276,8 +291,8 @@ class Entity(object):
 			ledger.reset()
 
 	def depreciation(self, item, lifespan, metric):
-		if metric == 'depreciation':
-			asset_bal = ledger.balance_sheet(accounts=['Equipment'], item=item) # TODO Support other accounts
+		if (metric == 'depreciation') or (metric == 'ticks'):
+			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Furniture'], item=item) # TODO Support other accounts
 			if asset_bal == 0:
 				return
 			#print('Asset Bal: {}'.format(asset_bal))
@@ -287,7 +302,7 @@ class Entity(object):
 			depreciation_event = [depreciation_entry]
 			ledger.journal_entry(depreciation_event)
 
-		if metric == 'spoilage':
+		if (metric == 'spoilage') or (metric == 'obsolescence'):
 			print('Spoilage: {} {} {}'.format(item, lifespan, metric))
 			return
 

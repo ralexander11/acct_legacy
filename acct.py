@@ -73,7 +73,7 @@ class Accounts(object):
 
 		# TODO Fix this so these accounts aren't needed here
 		trade_accts = [
-				('Cash','Asset'),
+				#('Cash','Asset'),
 				('Chequing','Asset'),
 				('Savings','Asset'),
 				('Investments','Asset'),
@@ -94,11 +94,13 @@ class Accounts(object):
 			]
 
 		econ_accts = [
-				#('Cash','Asset'),
+				('Cash','Asset'),
 				('Shares','Wealth'),
 				('Land','Asset'),
 				('Buildings','Asset'),
+				('Machine','Asset'),
 				('Equipment','Asset'),
+				('Furniture','Asset'),
 				('Inventory','Asset'),
 				('Raw Materials','Inventory'),
 				('Food','Raw Materials'),
@@ -195,6 +197,7 @@ class Accounts(object):
 				freq integer DEFAULT 365,
 				child_of text,
 				requirements text,
+				amount text,
 				satisfies text,
 				satisfy_rate real,
 				lifespan integer,
@@ -209,6 +212,7 @@ class Accounts(object):
 				freq,
 				child_of,
 				requirements,
+				amount,
 				satisfies,
 				satisfy_rate,
 				lifespan,
@@ -220,6 +224,7 @@ class Accounts(object):
 					365,
 					'loan',
 					'Bank',
+					'1',
 					'Capital',
 					1,
 					3650,
@@ -316,18 +321,19 @@ class Accounts(object):
 			# 	print('\n' + child_of + ' is not a valid account.')
 			# 	return
 			requirements = input('Enter the requirments to produce the item as a list: ')
+			amount = input('Enter a value for the amount of each requirement as a list: ')
 			satisfies = input('Enter the needs the item satisfies as a list: ')
 			satisfy_rate = input('Enter the rate the item satisfies the needs as a list: ')
 			metric = input('Enter either "ticks" or "units" for how the lifespan is measured: ')
 			lifespan = input('Enter how long the item lasts: ')
 
-			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,satisfies,satisfy_rate,lifespan,metric)
-			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?)', details)
+			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,satisfies,satisfy_rate,lifespan,metric)
+			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for item in item_data:
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
-				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, item)
 
 		self.conn.commit()
@@ -730,12 +736,13 @@ class Ledger(object):
 			inventory = pd.DataFrame(columns=['item_id','qty'])
 			for acct in accounts:
 				#print('Acct: {}'.format(acct))
-				item_ids = self.gl['item_id'].replace('', np.nan, inplace=True) # Not needed
-				item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # Not needed
+				#item_ids = self.gl['item_id'].replace('', np.nan, inplace=True) # Not needed
+				#item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # Not needed
+				#print(self.gl)
 				item_ids = pd.unique(self.gl[self.gl['debit_acct'] == acct]['item_id'].dropna()) # Assuming you can't have a negative inventory
 				#print('Item IDs: {}'.format(item_ids))
 				for item in item_ids:
-					logging.debug(item)
+					#print('Item: {}'.format(item))
 					qty_txns = self.get_qty_txns(item, acct)
 					try:
 						debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
@@ -754,11 +761,11 @@ class Ledger(object):
 					inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
 					inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold # TODO Add arg flag to turn this off for divs
 
-				if self.entity is None:
-					inventory.to_sql('inventory', self.conn, if_exists='replace')
-				else:
-					inventory.to_sql('inventory_' + str(self.entity), self.conn, if_exists='replace')
-				return inventory
+			if self.entity is None:
+				inventory.to_sql('inventory', self.conn, if_exists='replace')
+			else:
+				inventory.to_sql('inventory_' + str(self.entity), self.conn, if_exists='replace')
+			return inventory
 
 		# Get qty for one item specified
 		# TODO Maybe add else
