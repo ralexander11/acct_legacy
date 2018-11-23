@@ -95,17 +95,18 @@ class Accounts(object):
 
 		econ_accts = [
 				('Cash','Asset'),
+				('Natural Wealth','Wealth'),
 				('Shares','Wealth'),
 				('Land','Asset'),
 				('Buildings','Asset'),
-				('Machine','Asset'),
 				('Equipment','Asset'),
-				('Furniture','Asset'),
+				('Machine','Equipment'),
+				('Tools','Equipment'),
+				('Furniture','Equipment'),
 				('Inventory','Asset'),
 				('Raw Materials','Inventory'),
-				('Food','Raw Materials'),
-				('Food Produced','Revenue'),
-				('Food Consumed','Expense'),
+				('Goods Produced','Revenue'),
+				('Goods Consumed','Expense'),
 				('Salary Expense','Expense'),
 				('Salary Revenue','Revenue'),
 				('Depreciation Expense','Expense'),
@@ -364,7 +365,7 @@ class Accounts(object):
 				('Interest Income','Revenue')
 			]
 			return trade_accts
-		elif infile == 'econ':
+		elif infile == 'econ': # TODO Out of date
 			econ_accts = [
 				('Cash','Asset'),
 				('Inventory','Asset'),
@@ -548,7 +549,7 @@ class Ledger(object):
 
 	def balance_sheet(self, accounts=None, item=None): # TODO Needs to be optimized
 		all_accts = False
-
+		#print(self.gl)
 		if item is not None: # TODO Add support for multiple items maybe
 			self.gl = self.gl[self.gl['item_id'] == item]
 
@@ -726,11 +727,13 @@ class Ledger(object):
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, item=None, accounts=None):
+	def get_qty(self, item=None, accounts=None): # TODO Refact to generate one list of items. If it's None then generate a list of all items. If it's multiple then normal. If it's one then return just the qty. All using same loop logic.
 		if (accounts is None) or (accounts == ''):
 			accounts = ['Investments'] #input('Which account? ') # TODO Remove this or change to all accounts like bs
 		if isinstance(accounts, str):
 			accounts = [accounts]
+		#if isinstance(item, str): # TODO Make able to handle multiple items as a string with spaces
+		#	items = [item]
 		#print('Accounts: {}'.format(accounts))
 		if (item is None) or (item == ''): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
@@ -791,7 +794,7 @@ class Ledger(object):
 			#print(traceback.format_exc())
 			credits = 0
 		qty = round(debits - credits, 2)
-		return qty
+		return qty # TODO Use this after: if len(items) == 1
 
 	# Used when booking journal entries to match related transactions
 	def get_event(self):
@@ -1128,7 +1131,7 @@ if __name__ == '__main__':
 	ledger = Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	command = args.command
 
-	while True:
+	while True: # TODO Make this a function that has the command passed in as an argument
 		if args.command is None:
 			command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, Accts, addAcct, loadAccts, exit\n')
 		# TODO Add help command to list full list of commands
