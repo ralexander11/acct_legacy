@@ -11,7 +11,7 @@ import random
 import time
 import glob, os
 
-DISPLAY_WIDTH = 97
+DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 pd.set_option('display.max_columns', 10)
@@ -159,7 +159,7 @@ class TradingAlgo(object):
 
 	# Get list of currently held tickers
 	def get_portfolio(self):
-		portfolio = self.ledger.get_qty()
+		portfolio = self.ledger.get_qty(accounts=['Investments'])
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
 		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
@@ -292,14 +292,13 @@ class TradingAlgo(object):
 		if self.check_holiday(date) is not None:
 			return
 
-		if not self.trade.sim:
-			if not algo.check_hours():
-				print(self.time() + 'Not within trading hours.')
-				return
+		# if not self.trade.sim:
+		# 	if not algo.check_hours():
+		# 		print(self.time() + 'Not within trading hours.')
+		# 		return
 
 		capital = self.check_capital()
 		assets = self.ledger.balance_sheet(['Cash','Investments'])
-		#print(assets)
 
 		# Initial day of portfolio setup
 		try: # TODO Move into own function maybe
@@ -307,7 +306,6 @@ class TradingAlgo(object):
 		except:
 			print(self.time() + 'Initial porfolio setup.')
 			rank = self.rank(assets, date)
-			#print(rank)
 			ticker = rank.index[0]
 			capital_remain, qty = self.buy_max(capital, ticker, date)
 			print('-' * DISPLAY_WIDTH)
@@ -318,6 +316,7 @@ class TradingAlgo(object):
 
 		# Trading Algo
 		rank = self.rank(assets, date)
+		print('Rank: \n{}'.format(rank.head()))
 		ticker = rank.index[0]
 		portfolio = self.get_portfolio()
 		if ticker == portfolio['symbol'][0]:
@@ -332,7 +331,7 @@ class TradingAlgo(object):
 		print('-' * DISPLAY_WIDTH)
 		self.ledger.print_bs()
 		nav = self.ledger.balance_sheet()
-		self.ledger.get_qty()
+		self.ledger.get_qty(accounts=['Investments'])
 		#ledger.bs_hist()
 		t4_end = time.perf_counter()
 		print(self.time() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))

@@ -21,11 +21,11 @@ class TestAcct(unittest.TestCase):
 		self.start_date = ledger.start_date
 		self.txn = ledger.txn
 
-		try:
-			accts.load_accts('accounts.csv') # Load accounts
-		except:
-			accts.load_accts('trading') # If error from iOS SSH app
-		ledger.load_gl('data/ledger_test_1.csv') # Load sample transactions
+		#try:
+			#accts.load_accts('accounts.csv') # Load accounts
+		#except:
+			#accts.load_accts('trading') # If error from iOS SSH app
+		ledger.load_gl('data/ledger_test_2.csv') # Load sample transactions
 		logging.warning('Setup complete.')
 
 	def test_bs(self):
@@ -36,7 +36,15 @@ class TestAcct(unittest.TestCase):
 		logging.warning('Testing qty function.')
 		if item is None:
 			item = input('Which ticker? ').lower()
-		self.assertEqual(ledger.get_qty(item), 10, 'Quantity')
+		self.assertEqual(ledger.get_qty(item, 'Investments'), 10, 'Quantity')
+
+	def test_hist(self, date=None, qty=None, item=None):
+		ledger.set_date(date)
+		ledger.print_gl()
+		print('Date: {}'.format(date))
+		cost = ledger.hist_cost(qty, item, 'Investments')
+		ledger.reset()
+		return cost
 
 	def tear_down(self):
 		if os.path.exists(db_path + db_name):
@@ -51,14 +59,18 @@ if __name__ == '__main__':
 	ledger = acct.Ledger(accts, ledger_name='test_1')
 	trade = trade_platform.Trading(ledger)
 	test = TestAcct()
+
 	try:
 		test.set_up()
 
-		test.test_bs()
-		ledger.print_bs()
+		cost = test.test_hist('2018-07-21', 34, 'xmpl')
+		print('Cost: {}'.format(cost))
+
+		#test.test_bs()
+		#ledger.print_bs()
 		test.test_qty('abc')
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print(ledger.get_qty())
+			print(ledger.get_qty(accounts='Investments'))
 
 	finally:
 		test.tear_down()

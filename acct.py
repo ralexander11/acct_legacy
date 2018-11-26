@@ -4,8 +4,9 @@ import sqlite3
 import argparse
 import datetime
 import logging
+import traceback
 
-DISPLAY_WIDTH = 97
+DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
@@ -70,29 +71,82 @@ class Accounts(object):
 			('Transfer','Wealth')
 		]
 
+		# TODO Fix this so these accounts aren't needed here
+		trade_accts = [
+				#('Cash','Asset'),
+				('Chequing','Asset'),
+				('Savings','Asset'),
+				('Investments','Asset'),
+				('Visa','Liability'),
+				('Student Credit','Liability'),
+				('Credit Line','Liability'),
+				('Uncategorized','Admin'),
+				('Info','Admin'),
+				('Commission Expense','Expense'),
+				('Investment Gain','Revenue'),
+				('Investment Loss','Expense'),
+				('Unrealized Gain','Revenue'),
+				('Unrealized Loss','Expense'),
+				('Interest Expense','Expense'),
+				('Dividend Receivable','Asset'),
+				('Dividend Income','Revenue'),
+				('Interest Income','Revenue')
+			]
+
+		econ_accts = [
+				('Cash','Asset'),
+				('Natural Wealth','Wealth'),
+				('Shares','Wealth'),
+				('Land','Asset'),
+				('Buildings','Asset'),
+				('Equipment','Asset'),
+				('Machine','Equipment'),
+				('Tools','Equipment'),
+				('Furniture','Equipment'),
+				('Inventory','Asset'),
+				('Raw Materials','Inventory'),
+				('Goods Produced','Revenue'),
+				('Goods Consumed','Expense'),
+				('Salary Expense','Expense'),
+				('Salary Revenue','Revenue'),
+				('Depreciation Expense','Expense'),
+				('Accumulated Depreciation','Asset')
+			]
+
+		tmp_accts_fix = standard_accts + trade_accts + econ_accts
+		#print(tmp_accts_fix)
+
 		cur = self.conn.cursor()
 		cur.execute(create_accts_query)
-		for acct in standard_accts:
+		for acct in tmp_accts_fix:#standard_accts:
 				account = str(acct[0])
 				child_of = str(acct[1])
-				print(acct)
-				details = (account,child_of)
+				#print(acct)
+				details = (account, child_of)
 				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 		self.conn.commit()
 		cur.close()
 
+	# TODO Maybe make entities a class
 	def create_entities(self): # TODO Add command to book more entities
 		create_entities_query = '''
 			CREATE TABLE IF NOT EXISTS entities (
 				entity_id INTEGER PRIMARY KEY,
 				name text,
 				comm real DEFAULT 0,
-				min_qty INTEGER NOT NULL,
-				max_qty INTEGER NOT NULL,
-				liquidate_chance real NOT NULL,
-				ticker_source text DEFAULT 'iex'
+				min_qty INTEGER,
+				max_qty INTEGER,
+				liquidate_chance real,
+				ticker_source text DEFAULT 'iex',
+				needs text,
+				need_max INTEGER DEFAULT 100,
+				decay_rate INTEGER DEFAULT 1,
+				need_threshold INTEGER DEFAULT 40,
+				current_need INTEGER DEFAULT 50,
+				auth_shares INTEGER,
+				outputs text
 			);
-			'''
+			''' # TODO Add needs table
 		default_entities = ['''
 			INSERT INTO entities (
 				name,
@@ -100,53 +154,89 @@ class Accounts(object):
 				min_qty,
 				max_qty,
 				liquidate_chance,
-				ticker_source
+				ticker_source,
+				needs,
+				need_max,
+				decay_rate,
+				need_threshold,
+				current_need,
+				auth_shares,
+				outputs
 				)
 				VALUES (
-					'Trader01',
+					'Person001',
 					0.0,
 					1,
 					100,
 					0.5,
-					'iex'
+					'iex',
+					'Hunger',
+					100,
+					1,
+					40,
+					50,
+					1000000,
+					'Labour'
 				);
 			''']
 
 		cur = self.conn.cursor()
 		cur.execute(create_entities_query)
 		for entity in default_entities:
-				print('Entities created.')
+				print('Entities table created.')
 				cur.execute(entity)
 		self.conn.commit()
 		cur.close()
 
+	# Maybe make items a class
 	def create_items(self):# TODO Add command to book more items
 		create_items_query = '''
 			CREATE TABLE IF NOT EXISTS items (
 				item_id text PRIMARY KEY,
 				int_rate_fix real,
 				int_rate_var real,
-				freq integer DEFAULT 365
+				freq integer DEFAULT 365,
+				child_of text,
+				requirements text,
+				amount text,
+				satisfies text,
+				satisfy_rate real,
+				lifespan integer,
+				metric text DEFAULT 'ticks'
 			);
-			'''
+			''' # Metric can have values of 'ticks' or 'units' or 'spoilage'
 		default_item = ['''
 			INSERT INTO items (
 				item_id,
 				int_rate_fix,
 				int_rate_var,
-				freq
+				freq,
+				child_of,
+				requirements,
+				amount,
+				satisfies,
+				satisfy_rate,
+				lifespan,
+				metric
 				) VALUES (
 					'credit_line_01',
 					0.0409,
 					NULL,
-					365
+					365,
+					'loan',
+					'Bank',
+					'1',
+					'Capital',
+					1,
+					3650,
+					'ticks'
 				);
 			''']
 
 		cur = self.conn.cursor()
 		cur.execute(create_items_query)
 		for item in default_item:
-				print('Items created.')
+				print('Items table created.')
 				cur.execute(item)
 		self.conn.commit()
 		cur.close()
@@ -175,11 +265,11 @@ class Accounts(object):
 				print('\n' + child_of + ' is not a valid account.')
 				return
 
-			details = (account,child_of)
+			details = (account, child_of)
 			cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 			
 		else:
-			for acct in acct_data:
+			for acct in acct_data: # TODO Turn this into a list comprehension
 				account = str(acct[0])
 				child_of = str(acct[1])
 				print(acct)
@@ -191,9 +281,66 @@ class Accounts(object):
 		self.refresh_accts()
 		self.drop_dupe_accts()
 
-		# TODO Add error checking to ensure all accounts lead to a standard account
+	def add_entity(self, entity_data=None): # TODO Cleanup and make nicer
+		cur = self.conn.cursor()
+		if entity_data is None:
+			name = input('Enter the entity name: ')
+			comm = input('Enter the commission amount: ')
+			min_qty = '' # TODO Remove parameters related to random algo
+			max_qty = ''
+			liquidate_chance = ''
+			ticker_source = input('Enter the source for tickers: ')
+			needs = input('Enter the needs of the entity as a list: ')
+			need_max = input('Enter the maximum need value as a list: ')
+			decay_rate = input('Enter the rates of decay per day for each need.') # TODO Add int validation
+			need_threshold = input('Enter the threshold for the needs as a list: ')
+			current_need = input('Enter the starting level for the needs as a list: ')
+			auth_shares = input('Enter the number of shares authorized: ')
+			outputs = input('Enter the output names as a list: ') # For corporations
 
-	def load_accts(self, infile=None):
+			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,needs,need_max,decay_rate,need_threshold,current_need,auth_shares,outputs)
+			cur.execute('INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			
+		else:
+			for entity in entity_data:
+				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
+				insert_sql = 'INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				cur.execute(insert_sql, entity)
+
+		self.conn.commit()
+		cur.close()
+
+	def add_item(self, item_data=None): # TODO Cleanup and make nicer
+		cur = self.conn.cursor()
+		if item_data is None:
+			item_id = input('Enter the item name: ')
+			int_rate_fix = ''#input('Enter the fixed interest rate if there is one: ')
+			int_rate_var = ''#input('Enter the variable interest rate or leave blank: ')
+			freq = ''#int(input('Enter the frequency of interest payments: '))
+			child_of = input('Enter the category the item belongs to: ')
+			# if child_of not in self.coa.index: # TODO Ensure item always points to an existing item
+			# 	print('\n' + child_of + ' is not a valid account.')
+			# 	return
+			requirements = input('Enter the requirments to produce the item as a list: ')
+			amount = input('Enter a value for the amount of each requirement as a list: ')
+			satisfies = input('Enter the needs the item satisfies as a list: ')
+			satisfy_rate = input('Enter the rate the item satisfies the needs as a list: ')
+			metric = input('Enter either "ticks" or "units" for how the lifespan is measured: ')
+			lifespan = input('Enter how long the item lasts: ')
+
+			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,satisfies,satisfy_rate,lifespan,metric)
+			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)', details)
+			
+		else:
+			for item in item_data:
+				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
+				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+				cur.execute(insert_sql, item)
+
+		self.conn.commit()
+		cur.close()
+
+	def load_csv(self, infile=None):
 		if infile is None:
 			infile = input('Enter a filename: ')
 		if infile == 'trading': # Workaround due to an app limitation
@@ -217,9 +364,8 @@ class Accounts(object):
 				('Dividend Income','Revenue'),
 				('Interest Income','Revenue')
 			]
-			self.add_acct(trade_accts)
-			return
-		elif infile == 'econ':
+			return trade_accts
+		elif infile == 'econ': # TODO Out of date
 			econ_accts = [
 				('Cash','Asset'),
 				('Inventory','Asset'),
@@ -227,17 +373,33 @@ class Accounts(object):
 				('Food Produced','Revenue'),
 				('Food Consumed','Expense')
 			]
-			self.add_acct(econ_accts)
-			return
+			return econ_accts
 		try:
 			with open(infile, 'r') as f:
-				load_coa = pd.read_csv(f, keep_default_na=False)
-			lol = load_coa.values.tolist()
+				load_csv = pd.read_csv(f, keep_default_na=False)
+			lol = load_csv.values.tolist()
 		except Exception as e:
 			print('Error: {}'.format(e))
-		print(load_coa)
-		print('-' * DISPLAY_WIDTH)
-		self.add_acct(lol)
+		#print(load_csv)
+		#print('-' * DISPLAY_WIDTH)
+		return lol
+
+	def load_accts(self, infile=None):
+		self.add_acct(self.load_csv(infile))
+
+	def load_entities(self, infile=None):
+		if infile is None:
+			infile = 'data/entities.csv'
+		self.add_entity(self.load_csv(infile))
+		self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col='entity_id')
+		return self.entities
+
+	def load_items(self, infile=None):
+		if infile is None:
+			infile = 'data/items.csv'
+		self.add_item(self.load_csv(infile))
+		self.items = pd.read_sql_query('SELECT * FROM items;', self.conn, index_col='item_id')
+		return self.items
 
 	def export_accts(self):
 		outfile = 'accounts_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
@@ -287,10 +449,10 @@ class Ledger(object):
 		self.start_date = start_date
 		self.txn = txn
 		self.create_ledger()
-		self.refresh_ledger() # TODO Make this self.gl = self.refresh_ledger()
+		self.refresh_ledger() # TODO Maybe make this self.gl = self.refresh_ledger()
 		self.balance_sheet()
 			
-	def create_ledger(self): # TODO Change entity_id to string type
+	def create_ledger(self): # TODO Change entity_id to string type maybe
 		create_ledger_query = '''
 			CREATE TABLE IF NOT EXISTS ''' + self.ledger_name + ''' (
 				txn_id INTEGER PRIMARY KEY,
@@ -374,8 +536,8 @@ class Ledger(object):
 		self.refresh_ledger() # Refresh Ledger
 		self.gl['qty'].replace(np.nan, '', inplace=True)
 		self.gl['price'].replace(np.nan, '', inplace=True)
-		#with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
-		print(self.gl)
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
+			print(self.gl)
 		print('-' * DISPLAY_WIDTH)
 		return self.gl
 
@@ -385,9 +547,12 @@ class Ledger(object):
 		else:
 			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
 
-	def balance_sheet(self, accounts=None): # TODO Needs to be optimized
+	def balance_sheet(self, accounts=None, item=None): # TODO Needs to be optimized
 		all_accts = False
-		#accounts=['Wealth']
+		#print(self.gl)
+		if item is not None: # TODO Add support for multiple items maybe
+			self.gl = self.gl[self.gl['item_id'] == item]
+
 		if accounts is None: # Create a list of all the accounts
 			all_accts = True
 			debit_accts = pd.unique(self.gl['debit_acct'])
@@ -400,6 +565,9 @@ class Ledger(object):
 			elem = self.get_acct_elem(acct)
 			account_elem = (acct, elem)
 			account_details.append(account_elem)
+
+		#print('Account Details:')
+		#print(account_details)
 
 		# Group all the accounts together in lists based on their fundamental account element
 		accounts = None
@@ -429,19 +597,22 @@ class Ledger(object):
 
 		asset_bal = 0
 		for acct in assets:
-			logging.debug('Account: {}'.format(acct))
+			#print(self.gl)
+			#print('Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-			except:
-				logging.debug('Asset Debit Error')
+			except KeyError as e:
+				#print('Asset Debit Error: {}'.format(e))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-			except:
-				logging.debug('Asset Crebit Error')
+			except KeyError as e:
+				#print('Asset Credit Error: {}'.format(e))
 				credits = 0
 			bal = debits - credits
 			asset_bal += bal
+			#print('Bal: {}'.format(bal))
+			#if bal != 0: # TODO Not sure if should display empty accounts
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 		self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
 
@@ -450,12 +621,12 @@ class Ledger(object):
 			logging.debug('Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-			except:
+			except KeyError as e:
 				logging.debug('Liabilities Debit Error')
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-			except:
+			except KeyError as e:
 				logging.debug('Liabilities Crebit Error')
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
@@ -468,12 +639,12 @@ class Ledger(object):
 			logging.debug('Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-			except:
+			except KeyError as e:
 				logging.debug('Wealth Debit Error')
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-			except:
+			except KeyError as e:
 				logging.debug('Wealth Crebit Error')
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
@@ -486,12 +657,12 @@ class Ledger(object):
 			logging.debug('Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-			except:
+			except KeyError as e:
 				logging.debug('Revenues Debit Error')
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-			except:
+			except KeyError as e:
 				logging.debug('Revenues Crebit Error')
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
@@ -504,12 +675,12 @@ class Ledger(object):
 			logging.debug('Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-			except:
+			except KeyError as e:
 				logging.debug('Expenses Debit Error')
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-			except:
+			except KeyError as e:
 				logging.debug('Expenses Crebit Error')
 				credits = 0
 			bal = debits - credits
@@ -547,39 +718,51 @@ class Ledger(object):
 
 	def get_qty_txns(self, item=None, acct=None):
 		if acct is None:
-			acct = 'Investments' #input('Which account? ')
+			acct = 'Investments' #input('Which account? ') # TODO Remove this
 		rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of txns
-		qty_txns = self.gl[(self.gl['item_id'] == item) & (((self.gl['debit_acct'] == acct) & (self.gl['credit_acct'] == 'Cash')) | ((self.gl['credit_acct'] == acct) & (self.gl['debit_acct'] == 'Cash'))) & (~self.gl['event_id'].isin(rvsl_txns))] # TODO Add support for non-cash
+		#qty_txns = self.gl[(self.gl['item_id'] == item) & (((self.gl['debit_acct'] == acct) & (self.gl['credit_acct'] == 'Cash')) | ((self.gl['credit_acct'] == acct) & (self.gl['debit_acct'] == 'Cash'))) & (~self.gl['event_id'].isin(rvsl_txns))] # TODO Remove this as it does not support non-cash
+		qty_txns = self.gl[(self.gl['item_id'] == item) & ((self.gl['debit_acct'] == acct) | (self.gl['credit_acct'] == acct)) & pd.notnull(self.gl['qty']) & (~self.gl['event_id'].isin(rvsl_txns))]
+		#print('QTY TXNs:')
+		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, item=None, acct=None):
-		if acct is None:
-			acct = 'Investments' #input('Which account? ')
+	def get_qty(self, item=None, accounts=None): # TODO Refact to generate one list of items. If it's None then generate a list of all items. If it's multiple then normal. If it's one then return just the qty. All using same loop logic.
+		if (accounts is None) or (accounts == ''):
+			accounts = ['Investments'] #input('Which account? ') # TODO Remove this or change to all accounts like bs
+		if isinstance(accounts, str):
+			accounts = [accounts]
+		#if isinstance(item, str): # TODO Make able to handle multiple items as a string with spaces
+		#	items = [item]
+		#print('Accounts: {}'.format(accounts))
 		if (item is None) or (item == ''): # Get qty for all items
 			inventory = pd.DataFrame(columns=['item_id','qty'])
-			item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
-			item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # TODO Look into
-			item_ids = pd.unique(self.gl['item_id'].dropna())
-			for item in item_ids:
-				logging.debug(item)
-				qty_txns = self.get_qty_txns(item, acct)
-				logging.debug(qty_txns)
-				try:
-					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
-					logging.debug(debits)
-				except:
-					logging.debug('Error debit')
-					debits = 0
-				try:
-					credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
-					logging.debug(credits)
-				except:
-					logging.debug('Error credit')
-					credits = 0
-				qty = round(debits - credits, 2)
-				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
-				inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold # TODO Add arg flag to turn this off for divs
+			for acct in accounts:
+				#print('Acct: {}'.format(acct))
+				#item_ids = self.gl['item_id'].replace('', np.nan, inplace=True) # Not needed
+				#item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # Not needed
+				#print(self.gl)
+				item_ids = pd.unique(self.gl[self.gl['debit_acct'] == acct]['item_id'].dropna()) # Assuming you can't have a negative inventory
+				#print('Item IDs: {}'.format(item_ids))
+				for item in item_ids:
+					#print('Item: {}'.format(item))
+					qty_txns = self.get_qty_txns(item, acct)
+					try:
+						debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
+						#print('Debits: {}'.format(debits))
+					except KeyError as e:
+						#print('Error debits: {}'.format(e))
+						debits = 0
+					try:
+						credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
+						#print('Credits: {}'.format(credits))
+					except KeyError as e:
+						#print('Error credits: {}'.format(e))
+						credits = 0
+					qty = round(debits - credits, 2)
+					#print('\nQTY: {}'.format(qty))
+					inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
+					inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold # TODO Add arg flag to turn this off for divs
 
 			if self.entity is None:
 				inventory.to_sql('inventory', self.conn, if_exists='replace')
@@ -587,22 +770,31 @@ class Ledger(object):
 				inventory.to_sql('inventory_' + str(self.entity), self.conn, if_exists='replace')
 			return inventory
 
-		# Get qty for one item specified # TODO Maybe add else
-		item_ids = self.gl['item_id'].replace('', np.nan, inplace=True)
-		item_ids = self.gl['qty'].replace('', np.nan, inplace=True)
+		# Get qty for one item specified
+		# TODO Maybe add else
+		item_ids = self.gl['item_id'].replace('', np.nan, inplace=True) # Not needed
+		item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # Not needed
+		acct = accounts[0]
 		qty_txns = self.get_qty_txns(item, acct)
+		#print(qty_txns)
+		#print('Acct: {}'.format(acct))
+		#print('Item: {}'.format(item))
 		try:
-			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash'] # TODO Remove Cash restriction, but requires fixing filler qtys
-		except:
-			logging.debug('Error debit')
+			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash'] # TODO Remove Cash restriction, but requires fixing filler qtys
+			#print('Debits: {}'.format(debits))
+		except KeyError as e:
+			#print('Error debits: {}'.format(e))
+			#print(traceback.format_exc())
 			debits = 0
 		try:
-			credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][['credit_acct'] == 'Cash']
-		except:
-			logging.debug('Error credit')
+			credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
+			#print('Credits: {}'.format(credits))
+		except KeyError as e:
+			#print('Error credits: {}'.format(e))
+			#print(traceback.format_exc())
 			credits = 0
 		qty = round(debits - credits, 2)
-		return qty
+		return qty # TODO Use this after: if len(items) == 1
 
 	# Used when booking journal entries to match related transactions
 	def get_event(self):
@@ -644,7 +836,7 @@ class Ledger(object):
 			debit = input('Enter the account to debit: ')
 			if debit not in self.coa.index:
 				print('\n' + debit + ' is not a valid account.')
-				return
+				return # TODO Make accounts foreign key constraint
 			credit = input('Enter the account to credit: ')
 			if credit not in self.coa.index:
 				print('\n' + credit + ' is not a valid account.')
@@ -668,7 +860,8 @@ class Ledger(object):
 			if date == 'NaT':
 				date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-			if qty == '':
+
+			if qty == '': # TODO No qty and price default needed now
 				qty = np.nan
 			if price == '':
 				price = np.nan
@@ -697,13 +890,14 @@ class Ledger(object):
 				if date == 'NaT':
 					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-				if qty == '':
+
+				if qty == '': # TODO No qty and price default needed now
 					qty = np.nan
 				if price == '':
 					price = np.nan
 
 				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
-				#print(values)
+				print(values)
 				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		self.conn.commit()
@@ -759,54 +953,104 @@ class Ledger(object):
 		self.journal_entry(rvsl_entry)
 
 	def hist_cost(self, qty, item=None, acct=None):
+		v = False
 		if acct is None:
-			acct = 'Investments' #input('Which account? ')
+			acct = 'Investments' #input('Which account? ') # TODO Remove this maybe
 
-		qty_txns = self.get_qty_txns(item, acct)['qty']
+		qty_txns = self.get_qty_txns(item, acct)
+		m1 = qty_txns.credit_acct == acct
+		m2 = qty_txns.credit_acct != acct
+		qty_txns = np.select([m1, m2], [-qty_txns['qty'], qty_txns['qty']])
+
+		if v: print('QTY TXNs:')
+		if v: print(qty_txns)
 
 		# Find the first lot of unsold items
 		count = 0
-		qty_back = self.get_qty(item, acct) # TODO Confirm this work when there are multiple different lots of buys and sell in the past
-		for item in qty_txns[::-1]:
+		qty_back = self.get_qty(item, [acct]) # TODO Confirm this work when there are multiple different lots of buys and sell in the past
+		if v: print('Init QTY Back: {}'.format(qty_back))
+
+		qty_change = []
+		qty_change.append(qty_back)
+		for txn in qty_txns[::-1]:
+			if v: print('Item: {}'.format(txn))
+			# if qty_back <= 0:
+			# 	break
+			count -= 1
+			if v: print('Count: {}'.format(count))
+			qty_back -= txn
+			qty_change.append(qty_back)
+			if v: print('QTY Back: {}'.format(qty_back))
 			if qty_back <= 0:
 				break
-			count -= 1
-			qty_back -= item
 
-		start_qty = qty_txns.iloc[count]
-		start_index = qty_txns.index[count]
-		avail_qty = qty_back + start_qty # Portion of first lot of unsold items that has not been sold
+		if v: print('QTY Change List:')
+		if v: print(qty_change)
+		if v: print('QTY Back End: {}'.format(qty_back))
+		start_qty = qty_txns[count]
+		if v: print('Start QTY: {}'.format(start_qty))
 
+		qty_txns_gl = self.get_qty_txns(item, acct)
+		mask = qty_txns_gl.credit_acct == acct
+		qty_txns_gl.loc[mask, 'qty'] = qty_txns_gl['qty'] * -1
+		#qty_txns_gl = qty_txns_gl[~(qty_txns_gl['qty'] < 0)]
+
+		if v: print('QTY TXNs GL:')
+		if v: print(qty_txns_gl)
+		start_index = qty_txns_gl.index[count]
+		if v: print('Start Index: {}'.format(start_index))
+		if len(qty_change) >= 3:
+			avail_qty = start_qty - qty_change[-3]# Portion of first lot of unsold items that has not been sold
+		else:
+			avail_qty = start_qty
+
+		if v: print('Avail qty: {}'.format(avail_qty))
 		amount = 0
 		if qty <= avail_qty: # Case when first available lot covers the need
+			if v: print('QTY: {}'.format(qty))
 			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[qty]})
+			if v: print(price_chart)
 			amount = price_chart.price.dot(price_chart.qty)
-			logging.debug('Hist Cost Case: One')
-			logging.debug(amount)
+			print('Hist Cost Case: One')
+			print(amount)
 			return amount
 
 		price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[avail_qty]}) # Create a list of lots with associated price
 		qty = qty - avail_qty # Sell the remainder of first lot of unsold items
-
+		if v: print(price_chart)
+		if v: print('qty First: {}'.format(qty))
 		count += 1
-		for item in qty_txns[count::-1]:
-			current_index = qty_txns.index[count]
-			while qty > 0: # Running amount of qty to be sold
+		if v: print('Count First: {}'.format(count))
+		#for txn in qty_txns[count::-1]: # TODO Remove this loop
+		current_index = qty_txns_gl.index[count]
+		if v: print('Current Index First: {}'.format(current_index))
+		while qty > 0: # Running amount of qty to be sold
+			if v: print('QTY Check: {}'.format(qty_txns_gl.loc[current_index]['qty']))
+			while qty_txns_gl.loc[current_index]['qty'] < 0:
 				count += 1
-				if qty - self.gl.loc[current_index]['qty'] < 0: # Final case when the last sellable lot is larger than remaining qty to be sold
-					price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
-					amount = price_chart.price.dot(price_chart.qty)
-					logging.debug('Hist Cost Case: Two')
-					logging.debug(amount)
-					return amount
-				
-				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':self.gl.loc[current_index]['qty']}, ignore_index=True)
-				qty = qty - self.gl.loc[current_index]['qty']
+				if v: print('Count Check: {}'.format(count))
+				current_index = qty_txns_gl.index[count]
+			current_index = qty_txns_gl.index[count]
+			if v: print('Current Index: {}'.format(current_index))
+			if v: print('QTY Left to be Sold: {}'.format(qty))
+			if v: print('Current TXN QTY: {}'.format(qty_txns_gl.loc[current_index]['qty']))
+			if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
+				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
+				if v: print(price_chart)
+				amount = price_chart.price.dot(price_chart.qty) # Take dot product
+				print('Hist Cost Case: Two')
+				print(amount)
+				return amount
+			
+			price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':self.gl.loc[current_index]['qty']}, ignore_index=True)
+			if v: print(price_chart)
+			qty = qty - self.gl.loc[current_index]['qty']
+			count += 1
 
-			amount = price_chart.price.dot(price_chart.qty) # Take dot product
-			logging.debug('Hist Cost Case: Three')
-			logging.debug(amount)
-			return amount
+		amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
+		print('Hist Cost Case: Three')
+		print(amount)
+		return amount
 
 	def bs_hist(self): # TODO Optimize this so it does not recalculate each time
 		gl_entities = pd.unique(self.gl['entity_id'])
@@ -911,9 +1155,9 @@ if __name__ == '__main__':
 	ledger = Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	command = args.command
 
-	while True:
+	while True: # TODO Make this a function that has the command passed in as an argument
 		if args.command is None:
-			command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, exportGL, Accts, loadAccts, addAcct, exit\n')
+			command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, Accts, addAcct, loadAccts, exit\n')
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'gl':
 			ledger.print_gl()
@@ -953,8 +1197,9 @@ if __name__ == '__main__':
 			if args.command is not None: exit()
 		elif command.lower() == 'qty':
 			item = input('Which ticker? ')#.lower()
+			acct = input('Which account? ')#.title()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				print(ledger.get_qty(item))
+				print(ledger.get_qty(item, [acct]))
 			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()
@@ -979,6 +1224,16 @@ if __name__ == '__main__':
 			if args.command is not None: exit()
 		elif command.lower() == 'items':
 			accts.print_items()
+		elif command.lower() == 'addentity':
+			accts.add_entity()
+			if args.command is not None: exit()
+		elif command.lower() == 'additem':
+			accts.add_item()
+		elif command.lower() == 'loadentities':
+			accts.load_entities()
+			if args.command is not None: exit()
+		elif command.lower() == 'loaditems':
+			accts.load_items()
 			if args.command is not None: exit()
 		elif command.lower() == 'width': # TODO Try and make this work
 			DISPLAY_WIDTH = int(input('Enter number for display width: '))
