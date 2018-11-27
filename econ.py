@@ -92,25 +92,25 @@ class World(object):
 			self.farm.pay_salary(counterparty=1, job='Labourer') # TODO Pull parameters from farmer object properties that are set at init
 			self.farm.produce(item='Food', price=self.food_price, qty=10) # TODO Fix how much is produced
 
-			print('Farmer:')
-			self.farmer.collect_material(item='Wood', qty=20, price=1)
-			self.farmer.collect_material(item='Metal', qty=10, price=3)
-			self.farmer.produce(item='Plow', price=100, qty=1)
+			# print('Farmer:')
+			# self.farmer.collect_material(item='Wood', qty=20, price=1)
+			# self.farmer.collect_material(item='Metal', qty=10, price=3)
+			# self.farmer.produce(item='Plow', price=100, qty=1)
 
-			print('Farm:')
-			self.farm.collect_material(item='Wood', qty=20, price=1)
-			self.farm.collect_material(item='Metal', qty=10, price=3)
-			self.farm.produce(item='Plow', price=100, qty=1)
+			# print('Farm:')
+			# self.farm.collect_material(item='Wood', qty=20, price=1)
+			# self.farm.collect_material(item='Metal', qty=10, price=3)
+			# self.farm.produce(item='Plow', price=100, qty=1)
 
 			ledger.set_entity(2)
-			self.food = ledger.get_qty(item='Food', accounts=['Inventory'])
+			self.food = ledger.get_qty(items='Food', accounts=['Inventory'])
 			ledger.reset()
 			print('Farm Food: {}'.format(self.food))
 
 			self.farmer.threshold_check()
 
 			ledger.set_entity(1)
-			plow_qty = ledger.get_qty(item='Plow', accounts=['Equipment'])
+			plow_qty = ledger.get_qty(items='Plow', accounts=['Equipment'])
 			ledger.reset()
 			if plow_qty < 1:
 				self.farmer.make_equip(item='Plow', qty=1, price=100)
@@ -155,7 +155,7 @@ class Entity(object):
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
 		ledger.set_entity(counterparty)
-		qty_avail = ledger.get_qty(item=item, accounts=[acct_sell])
+		qty_avail = ledger.get_qty(items=item, accounts=[acct_sell])
 		ledger.reset()
 		if cash > (qty * price):
 			if qty <= qty_avail:
@@ -191,7 +191,7 @@ class Entity(object):
 
 	def sell(self, item, price, qty, counterparty):
 		ledger.set_entity(counterparty)
-		qty_avail = ledger.get_qty(item=item, accounts=['Inventory'])
+		qty_avail = ledger.get_qty(items=item, accounts=['Inventory'])
 		ledger.reset()
 		if qty <= qty_avail:
 			print('Sell: {} {}'.format(qty, item))
@@ -204,7 +204,7 @@ class Entity(object):
 	# TODO Make qty wanting to be consumed smarter (this is to be done in the world)
 	def consume(self, item, qty):
 		ledger.set_entity(self.entity)
-		qty_held = ledger.get_qty(item=item, accounts=['Inventory'])
+		qty_held = ledger.get_qty(items=item, accounts=['Inventory'])
 		ledger.reset()
 		if qty_held > qty:
 			print('Consume: {} {}'.format(qty, item))
@@ -250,7 +250,7 @@ class Entity(object):
 			ledger.set_entity(self.entity)
 			if v: print('Requirement: {}'.format(requirement))
 			if requirement[0][1] == 'Land':
-				land = ledger.get_qty(item=requirement[0][0], accounts=['Land'])
+				land = ledger.get_qty(items=requirement[0][0], accounts=['Land'])
 				if v: print('Land: {}'.format(land))
 				if land < (requirement[1] * qty):
 					print('Not enough land to produce on.')
@@ -259,7 +259,7 @@ class Entity(object):
 				# TODO Get list of all equipment that covers the requirement
 				
 				ledger.set_start_date(str(world.now))
-				labour_done = ledger.get_qty(item=requirement[0][0], accounts=['Salary Expense'])
+				labour_done = ledger.get_qty(items=requirement[0][0], accounts=['Salary Expense'])
 				ledger.reset()
 				if v: print('Labour Done: {}'.format(labour_done))
 				if labour_done < (requirement[1] * qty): # TODO Have this call for labour to be done if it hasn't been done
@@ -268,19 +268,19 @@ class Entity(object):
 			if requirement[0][1] == 'Building':
 				pass
 			if requirement[0][1] == 'Equipment': # TODO Make generic for process
-				equip_qty = ledger.get_qty(item=requirement[0][0], accounts=['Equipment'])
+				equip_qty = ledger.get_qty(items=requirement[0][0], accounts=['Equipment'])
 				if v: print('Equipment: {} {}'.format(equip_qty, requirement[0][0]))
 				if ((equip_qty * requirement[1]) / qty) < 1: # TODO Test turning requirement into capacity
 					print('Not enough land to produce on.')
 					return
 			if requirement[0][1] == 'Components':
-				component_qty = ledger.get_qty(item=requirement[0][0], accounts=['Components'])
+				component_qty = ledger.get_qty(items=requirement[0][0], accounts=['Components'])
 				if v: print('Land: {}'.format(component_qty))
 				if component_qty < (requirement[1] * qty):
 					print('Not enough {}.'.format(requirement[0][0]))
 					return
 			if requirement[0][1] == 'Raw Material':
-				material_qty = ledger.get_qty(item=requirement[0][0], accounts=['Raw Materials'])
+				material_qty = ledger.get_qty(items=requirement[0][0], accounts=['Raw Materials'])
 				if v: print('Land: {}'.format(material_qty))
 				if material_qty < (requirement[1] * qty):
 					print('Not enough {}.'.format(requirement[0][0]))
@@ -444,7 +444,7 @@ class Individual(Entity):
 			self.address_need()
 
 	def address_need(self):
-		self.purchase(item='Food', price=world.food_price, qty=100, counterparty=2)
+		self.purchase(item='Food', price=world.food_price, qty=100, counterparty=2) # TODO Change to transact() function
 		qty = random.randint(40, 80)
 		self.consume(item='Food', qty=qty) # TODO Make random int between 50 and 150
 
@@ -459,7 +459,7 @@ class Organization(Entity):
 		self.auth_shares(self.name, 1000000) # TODO Pull shares authorized from entities table
 		self.claim_land(4000, 5) # TODO Need a way to determine price of land
 		ledger.set_entity(2)
-		self.food = ledger.get_qty(item='Food', accounts=['Inventory'])
+		self.food = ledger.get_qty(items='Food', accounts=['Inventory'])
 		ledger.reset()
 		print('Starting Farm Food: {}'.format(self.food))
 

@@ -717,84 +717,77 @@ class Ledger(object):
 		return self.bs
 
 	def get_qty_txns(self, item=None, acct=None):
-		if acct is None:
-			acct = 'Investments' #input('Which account? ') # TODO Remove this
 		rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of txns
-		#qty_txns = self.gl[(self.gl['item_id'] == item) & (((self.gl['debit_acct'] == acct) & (self.gl['credit_acct'] == 'Cash')) | ((self.gl['credit_acct'] == acct) & (self.gl['debit_acct'] == 'Cash'))) & (~self.gl['event_id'].isin(rvsl_txns))] # TODO Remove this as it does not support non-cash
 		qty_txns = self.gl[(self.gl['item_id'] == item) & ((self.gl['debit_acct'] == acct) | (self.gl['credit_acct'] == acct)) & pd.notnull(self.gl['qty']) & (~self.gl['event_id'].isin(rvsl_txns))]
 		#print('QTY TXNs:')
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, item=None, accounts=None): # TODO Refact to generate one list of items. If it's None then generate a list of all items. If it's multiple then normal. If it's one then return just the qty. All using same loop logic.
+	def get_qty(self, items=None, accounts=None, show_zeros=False):
+		v_qty = True
+		all_accts = False
+		single_item = False
+		no_item = False
 		if (accounts is None) or (accounts == ''):
-			accounts = ['Investments'] #input('Which account? ') # TODO Remove this or change to all accounts like bs
+			if v_qty: print('No account given.')
+			all_accts = True
+			debit_accts = pd.unique(self.gl['debit_acct'])
+			#credit_accts = pd.unique(self.gl['credit_acct'])
+			#accounts = list( set(debit_accts) | set(credit_accts) )
+			accounts = debit_accts
+		if v_qty: print('Accounts: {}'.format(accounts))
 		if isinstance(accounts, str):
-			accounts = [accounts]
-		#if isinstance(item, str): # TODO Make able to handle multiple items as a string with spaces
-		#	items = [item]
-		#print('Accounts: {}'.format(accounts))
-		if (item is None) or (item == ''): # Get qty for all items
-			inventory = pd.DataFrame(columns=['item_id','qty'])
-			for acct in accounts:
-				#print('Acct: {}'.format(acct))
-				#item_ids = self.gl['item_id'].replace('', np.nan, inplace=True) # Not needed
-				#item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # Not needed
-				#print(self.gl)
-				item_ids = pd.unique(self.gl[self.gl['debit_acct'] == acct]['item_id'].dropna()) # Assuming you can't have a negative inventory
-				#print('Item IDs: {}'.format(item_ids))
-				for item in item_ids:
-					#print('Item: {}'.format(item))
-					qty_txns = self.get_qty_txns(item, acct)
-					try:
-						debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
-						#print('Debits: {}'.format(debits))
-					except KeyError as e:
-						#print('Error debits: {}'.format(e))
-						debits = 0
-					try:
-						credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
-						#print('Credits: {}'.format(credits))
-					except KeyError as e:
-						#print('Error credits: {}'.format(e))
-						credits = 0
-					qty = round(debits - credits, 2)
-					#print('\nQTY: {}'.format(qty))
-					inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
-					inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold # TODO Add arg flag to turn this off for divs
-
+			accounts = [x.strip() for x in accounts.split(',')]
+		accounts = list(filter(None, accounts))
+		if v_qty: print('Items: {}'.format(items))
+		if (items is None) or (items == '') or (not items):
+			items = None
+			no_item = True
+		if isinstance(items, str):
+			items = [x.strip() for x in items.split(',')]
+			items = list(filter(None, items))
+			if v_qty: print('Select Item IDs: {}'.format(items))
+		if items is not None and len(items) == 1:
+			single_item = True
+			if v_qty: print('Single Item: {}'.format(single_item))
+		inventory = pd.DataFrame(columns=['item_id','qty'])
+		for acct in accounts:
+			if v_qty: print('Acct: {}'.format(acct))
+			if no_item: # Get qty for all items
+				if v_qty: print('No item given.')
+				items = pd.unique(self.gl[self.gl['debit_acct'] == acct]['item_id'].dropna()).tolist() # Assuming you can't have a negative inventory
+				if v_qty: print('All Item IDs: {}'.format(items))
+				items = list(filter(None, items))
+			for item in items:
+				if v_qty: print('Item: {}'.format(item))
+				qty_txns = self.get_qty_txns(item, acct)
+				try:
+					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]
+					#print('Debits: {}'.format(debits))
+				except KeyError as e:
+					print('Error Debits: {}'.format(e))
+					debits = 0
+				try:
+					credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]
+					#print('Credits: {}'.format(credits))
+				except KeyError as e:
+					print('Error Credits: {}'.format(e))
+					credits = 0
+				qty = round(debits - credits, 2)
+				if v_qty: print('QTY: {}'.format(qty))
+				if single_item:
+					return qty
+				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
+				if v_qty: print(inventory)
+		if not show_zeros:
+			inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold
+		if all_accts:
 			if self.entity is None:
 				inventory.to_sql('inventory', self.conn, if_exists='replace')
 			else:
 				inventory.to_sql('inventory_' + str(self.entity), self.conn, if_exists='replace')
-			return inventory
-
-		# Get qty for one item specified
-		# TODO Maybe add else
-		item_ids = self.gl['item_id'].replace('', np.nan, inplace=True) # Not needed
-		item_ids = self.gl['qty'].replace('', np.nan, inplace=True) # Not needed
-		acct = accounts[0]
-		qty_txns = self.get_qty_txns(item, acct)
-		#print(qty_txns)
-		#print('Acct: {}'.format(acct))
-		#print('Item: {}'.format(item))
-		try:
-			debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash'] # TODO Remove Cash restriction, but requires fixing filler qtys
-			#print('Debits: {}'.format(debits))
-		except KeyError as e:
-			#print('Error debits: {}'.format(e))
-			#print(traceback.format_exc())
-			debits = 0
-		try:
-			credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]#[['credit_acct'] == 'Cash']
-			#print('Credits: {}'.format(credits))
-		except KeyError as e:
-			#print('Error credits: {}'.format(e))
-			#print(traceback.format_exc())
-			credits = 0
-		qty = round(debits - credits, 2)
-		return qty # TODO Use this after: if len(items) == 1
+		return inventory
 
 	# Used when booking journal entries to match related transactions
 	def get_event(self):
@@ -1199,7 +1192,7 @@ if __name__ == '__main__':
 			item = input('Which ticker? ')#.lower()
 			acct = input('Which account? ')#.title()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				print(ledger.get_qty(item, [acct]))
+				print(ledger.get_qty(item, acct))
 			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()
