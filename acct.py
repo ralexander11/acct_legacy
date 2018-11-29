@@ -725,7 +725,7 @@ class Ledger(object):
 		return qty_txns
 
 	def get_qty(self, items=None, accounts=None, show_zeros=False):
-		v_qty = True
+		v_qty = False
 		all_accts = False
 		single_item = False
 		no_item = False
@@ -740,46 +740,48 @@ class Ledger(object):
 		if isinstance(accounts, str):
 			accounts = [x.strip() for x in accounts.split(',')]
 		accounts = list(filter(None, accounts))
-		if v_qty: print('Items: {}'.format(items))
+		if v_qty: print('Items Given: {}'.format(items))
 		if (items is None) or (items == '') or (not items):
 			items = None
 			no_item = True
 		if isinstance(items, str):
 			items = [x.strip() for x in items.split(',')]
 			items = list(filter(None, items))
-			if v_qty: print('Select Item IDs: {}'.format(items))
+			if v_qty: print('Select Items: {}'.format(items))
 		if items is not None and len(items) == 1:
 			single_item = True
 			if v_qty: print('Single Item: {}'.format(single_item))
 		inventory = pd.DataFrame(columns=['item_id','qty'])
 		for acct in accounts:
+			if v_qty: print('GL: \n{}'.format(self.gl))
 			if v_qty: print('Acct: {}'.format(acct))
 			if no_item: # Get qty for all items
 				if v_qty: print('No item given.')
 				items = pd.unique(self.gl[self.gl['debit_acct'] == acct]['item_id'].dropna()).tolist() # Assuming you can't have a negative inventory
-				if v_qty: print('All Item IDs: {}'.format(items))
 				items = list(filter(None, items))
+				if v_qty: print('All Items: {}'.format(items))
 			for item in items:
 				if v_qty: print('Item: {}'.format(item))
 				qty_txns = self.get_qty_txns(item, acct)
+				if v_qty: print('QTY TXNs: \n{}'.format(qty_txns))
 				try:
 					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]
 					#print('Debits: {}'.format(debits))
 				except KeyError as e:
-					print('Error Debits: {}'.format(e))
+					#print('Error Debits: {} | {}'.format(e, repr(e)))
 					debits = 0
 				try:
 					credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]
 					#print('Credits: {}'.format(credits))
 				except KeyError as e:
-					print('Error Credits: {}'.format(e))
+					#print('Error Credits: {} | {}'.format(e, repr(e)))
 					credits = 0
 				qty = round(debits - credits, 2)
 				if v_qty: print('QTY: {}'.format(qty))
 				if single_item:
 					return qty
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
-				if v_qty: print(inventory)
+				#if v_qty: print(inventory)
 		if not show_zeros:
 			inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold
 		if all_accts:
