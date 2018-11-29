@@ -89,7 +89,7 @@ class World(object):
 		self.farmer.depreciation_check() # Should something depreciate the first day it is bought?
 
 		if not self.player:
-			self.farm.pay_salary(counterparty=1, job='Labourer') # TODO Pull parameters from farmer object properties that are set at init
+			self.farm.pay_salary(counterparty=1, job='Cultivator') # TODO Pull parameters from farmer object properties that are set at init
 			self.farm.produce(item='Food', price=self.food_price, qty=10) # TODO Fix how much is produced
 
 			# print('Farmer:')
@@ -109,18 +109,18 @@ class World(object):
 
 			self.farmer.threshold_check()
 
-			ledger.set_entity(1)
+			ledger.set_entity(2)
 			plow_qty = ledger.get_qty(items='Plow', accounts=['Equipment'])
 			ledger.reset()
 			if plow_qty < 1:
-				self.farmer.make_equip(item='Plow', qty=1, price=100)
+				self.farm.make_equip(item='Plow', qty=1, price=100)
 
 		hours = 0
 		while hours < 8 and self.player: # TODO Need to test hours to be used before executing function
 			print('Player Hours Remaining: {}'.format(hours))
 			action = input('\nType one of the following actions:\nHarvest, Forage, Purchase, Consume, Make, exit\n')
 			if action.lower() == 'harvest':
-				hours += self.farm.pay_salary(counterparty=1, job='Labourer')
+				hours += self.farm.pay_salary(counterparty=1, job='Cultivator')
 				self.farm.produce(item='Food', price=self.food_price, qty=10)
 				print(hours)
 			elif action.lower() == 'forage':
@@ -257,6 +257,8 @@ class Entity(object):
 					return
 			if requirement[0][1] == 'Labour':
 				# TODO Get list of all equipment that covers the requirement
+				equip_list = ledger.get_qty(accounts=['Equipment'], v_qty=True)
+				print('Equip List: \n{}'.format(equip_list))
 				
 				ledger.set_start_date(str(world.now))
 				labour_done = ledger.get_qty(items=requirement[0][0], accounts=['Salary Expense'])
@@ -372,7 +374,7 @@ class Entity(object):
 
 	def depreciation(self, item, lifespan, metric):
 		if (metric == 'depreciation') or (metric == 'ticks'):
-			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Furniture'], item=item) # TODO Support other accounts
+			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Furniture'], item=item) # TODO Support other accounts like Tools
 			if asset_bal == 0:
 				return
 			#print('Asset Bal: {}'.format(asset_bal))

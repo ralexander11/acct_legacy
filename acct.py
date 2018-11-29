@@ -724,8 +724,8 @@ class Ledger(object):
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, items=None, accounts=None, show_zeros=False):
-		v_qty = False
+	def get_qty(self, items=None, accounts=None, show_zeros=False, v_qty=False):
+		#v_qty = True
 		all_accts = False
 		single_item = False
 		no_item = False
