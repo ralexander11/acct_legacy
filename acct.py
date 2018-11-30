@@ -110,7 +110,12 @@ class Accounts(object):
 				('Salary Expense','Expense'),
 				('Salary Revenue','Revenue'),
 				('Depreciation Expense','Expense'),
-				('Accumulated Depreciation','Asset')
+				('Accumulated Depreciation','Asset'),
+				('Service Info','Info'),
+				('Order Service','Info'),
+				('Cancel Service','Info'),
+				('Service Expense','Expense'),
+				('Service Revenue','Revenue')
 			]
 
 		tmp_accts_fix = standard_accts + trade_accts + econ_accts
