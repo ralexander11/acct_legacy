@@ -316,6 +316,7 @@ class TradingAlgo(object):
 
 		# Trading Algo
 		rank = self.rank(assets, date)
+		#with pd.options.display.float_format = '{:,.2f}'.format: # Test this
 		print('Rank: \n{}'.format(rank.head()))
 		ticker = rank.index[0]
 		portfolio = self.get_portfolio()

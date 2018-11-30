@@ -419,17 +419,29 @@ class Accounts(object):
 		cur.close()
 		self.refresh_accts()
 
-	def print_entities(self): # TODO Add error checking if no entities exist
+	def get_entities(self):
 		self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col=['entity_id'])
-		self.entities.to_csv('data/entities.csv', index=True)
+		return self.entities
+
+	def get_items(self):
+		self.items = pd.read_sql_query('SELECT * FROM items;', self.conn, index_col=['item_id'])
+		return self.items
+
+	def print_entities(self, save=True): # TODO Add error checking if no entities exist
+		#self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col=['entity_id'])
+		self.entities = get_entities()
+		if save:
+			self.entities.to_csv('data/entities.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			print(self.entities)
 		print('-' * DISPLAY_WIDTH)
 		return self.entities
 
-	def print_items(self): # TODO Add error checking if no items exist
-		self.items = pd.read_sql_query('SELECT * FROM items;', self.conn, index_col=['item_id'])
-		self.items.to_csv('data/items.csv', index=True)
+	def print_items(self, save=True): # TODO Add error checking if no items exist
+		#self.items = pd.read_sql_query('SELECT * FROM items;', self.conn, index_col=['item_id'])
+		self.items = get_items()
+		if save:
+			self.items.to_csv('data/items.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			print(self.items)
 		print('-' * DISPLAY_WIDTH)
@@ -733,8 +745,8 @@ class Ledger(object):
 			if v_qty: print('No account given.')
 			all_accts = True
 			debit_accts = pd.unique(self.gl['debit_acct'])
-			#credit_accts = pd.unique(self.gl['credit_acct'])
-			#accounts = list( set(debit_accts) | set(credit_accts) )
+			#credit_accts = pd.unique(self.gl['credit_acct']) # Not needed
+			#accounts = list( set(debit_accts) | set(credit_accts) ) # Not needed
 			accounts = debit_accts
 		if v_qty: print('Accounts: {}'.format(accounts))
 		if isinstance(accounts, str):

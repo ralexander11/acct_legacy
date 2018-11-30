@@ -256,24 +256,42 @@ class Entity(object):
 					print('Not enough land to produce on.')
 					return
 			if requirement[0][1] == 'Labour':
+				modifier = 1
 				# TODO Get list of all equipment that covers the requirement
-				equip_list = ledger.get_qty(accounts=['Equipment'], v_qty=True)
-				print('Equip List: \n{}'.format(equip_list))
+				equip_list = ledger.get_qty(accounts=['Equipment'])#, v_qty=True)
+				if v: print('Equip List: \n{}'.format(equip_list))
 				
+				items_data = accts.get_items()
+				items_data = items_data[items_data['satisfies'].str.contains(requirement[0][0], na=False)] # If item satisfies multiple needs
+				items_data.reset_index(inplace=True)
+				if v: print('Items Table: \n{}'.format(items_data))
+
+				if not equip_list.empty:
+					equip_info = equip_list.merge(items_data)
+					equip_info.sort_values(by='satisfy_rate', ascending=False, inplace=True)
+					if v: print('Items Table Merged: \n{}'.format(equip_info))
+					modifier = 1 / equip_info['satisfy_rate'].iloc[0]
+					if v: print('Modifier: {}'.format(modifier))
+				# TODO Factor in equipment capacity
+
 				ledger.set_start_date(str(world.now))
 				labour_done = ledger.get_qty(items=requirement[0][0], accounts=['Salary Expense'])
 				ledger.reset()
 				if v: print('Labour Done: {}'.format(labour_done))
-				if labour_done < (requirement[1] * qty): # TODO Have this call for labour to be done if it hasn't been done
+				if labour_done < (requirement[1] * modifier * qty): # TODO Have this call for labour to be done if it hasn't been done
 					print('Not enough labour done today for production.')
 					return
 			if requirement[0][1] == 'Building':
-				pass
+				building = ledger.get_qty(items=requirement[0][0], accounts=['Buildings'])
+				if v: print('Building: {}'.format(land))
+				if land < (requirement[1] * qty):
+					print('Not enough building to produce in.')
+					return
 			if requirement[0][1] == 'Equipment': # TODO Make generic for process
 				equip_qty = ledger.get_qty(items=requirement[0][0], accounts=['Equipment'])
 				if v: print('Equipment: {} {}'.format(equip_qty, requirement[0][0]))
 				if ((equip_qty * requirement[1]) / qty) < 1: # TODO Test turning requirement into capacity
-					print('Not enough land to produce on.')
+					print('No required equipment.')
 					return
 			if requirement[0][1] == 'Components':
 				component_qty = ledger.get_qty(items=requirement[0][0], accounts=['Components'])
@@ -309,8 +327,8 @@ class Entity(object):
 	def buy_shares(self, item, price, qty, counterparty):
 		self.transact(item, 'Investments', 'Shares', price, qty, counterparty)
 
-	def claim_land(self, qty, price): # QTY in square meters
-		claim_land_entry = [ ledger.get_event(), self.entity, self.world.now, 'Claim land', 'Land', price, qty, 'Land', 'Natural Wealth', qty * price ]
+	def claim_land(self, qty, price, item='Land'): # QTY in square meters
+		claim_land_entry = [ ledger.get_event(), self.entity, self.world.now, 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
 		claim_land_event = [claim_land_entry]
 		ledger.journal_entry(claim_land_event)
 
@@ -318,7 +336,7 @@ class Entity(object):
 		if salary is None:
 			salary = 5
 		if labour_hours is None:
-			labour_hours = 8
+			labour_hours = 4
 		ledger.set_entity(self.entity)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
@@ -459,7 +477,7 @@ class Organization(Entity):
 		self.entity = 2 # TODO Have this read from the entities table
 		print('Create Organization: {} | Entity: {}'.format(self.name, self.entity))
 		self.auth_shares(self.name, 1000000) # TODO Pull shares authorized from entities table
-		self.claim_land(4000, 5) # TODO Need a way to determine price of land
+		self.claim_land(4000, 5, 'Arable Land') # TODO Need a way to determine price of land
 		ledger.set_entity(2)
 		self.food = ledger.get_qty(items='Food', accounts=['Inventory'])
 		ledger.reset()
