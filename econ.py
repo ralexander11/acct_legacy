@@ -1,6 +1,7 @@
 from acct import Accounts
 from acct import Ledger
 import pandas as pd
+import collections
 import argparse
 import datetime
 import random
@@ -39,9 +40,11 @@ class World(object):
 
 		self.farmer = self.create_indv('Farmer', self) # TODO Make this general
 		self.farm = self.create_org('Farm', self) # TODO Make this general
+		self.farmer.auth_shares('Farm', 1000000, 2) # TODO Pull shares authorized from entities table
 
 		self.farmer.capitalize(amount=10000)
 		self.farmer.buy_shares(item='Farm', price=5, qty=1000, counterparty=2) # TODO Maybe 'Farm shares'
+		self.farm.claim_land(4000, 5, 'Arable Land') # TODO Need a way to determine price and qty of land
 
 		self.food_price = 10 # TODO Fix how prices work
 		self.price = self.food_price
@@ -85,12 +88,14 @@ class World(object):
 	def update_econ(self):
 		print(('=' * 42) + ' Econ Updated ' + ('=' * 42))
 		self.ticktock()
-		self.farmer.need_decay(need=self.farmer.need)
-		print('Farmer Need: {}'.format(self.farmer.need))
+		for need in self.farmer.needs:
+			self.farmer.need_decay(need)
+			print('{} {} Need: {}'.format(self.farmer.name, need, self.farmer.needs[need]['Current Need']))
 
 		self.farmer.depreciation_check() # Should something depreciate the first day it is bought?
+		self.farm.depreciation_check() # TODO Add all entities to a register and then loop through objects and run method
 
-		self.farm.pay_service('Water', 1, 3) # TODO Get price and counterparty from service order
+		self.farm.pay_service('Water', 1, 3) # TODO Make into service check # TODO Get price and counterparty from service order
 
 		if not self.player:
 			self.farm.pay_salary(counterparty=1, job='Cultivator') # TODO Pull parameters from farmer object properties that are set at init
@@ -111,7 +116,8 @@ class World(object):
 			ledger.reset()
 			print('Farm Food: {}'.format(self.food))
 
-			self.farmer.threshold_check()
+			for need in self.farmer.needs:
+				self.farmer.threshold_check(need)
 
 			ledger.set_entity(2)
 			plow_qty = ledger.get_qty(items='Plow', accounts=['Equipment'])
@@ -206,10 +212,11 @@ class Entity(object):
 
 	# TODO Use historical price
 	# TODO Make qty wanting to be consumed smarter (this is to be done in the world)
-	def consume(self, item, qty):
+	def consume(self, item, qty, need=None):
 		ledger.set_entity(self.entity)
 		qty_held = ledger.get_qty(items=item, accounts=['Inventory'])
 		ledger.reset()
+		qty = 80 # Temp
 		if qty_held > qty:
 			print('Consume: {} {}'.format(qty, item))
 
@@ -217,8 +224,13 @@ class Entity(object):
 			consume_event = [consume_entry]
 			ledger.journal_entry(consume_event)
 
-			self.need += (1 * qty)
-			print('Farmer Need: {}'.format(self.need))
+			if need is not None:
+				new_need = self.needs[need]['Current Need'] + (self.world.items.loc[item, 'satisfy_rate'] * qty)
+				if new_need < self.needs[need]['Max Need']:
+					self.needs[need]['Current Need'] = new_need
+				else:
+					self.needs[need]['Current Need'] = self.needs[need]['Max Need']
+				print('{} Need: {}'.format(self.name, self.needs[need]['Current Need'])) # TODO Get entity name from object data
 			return qty * 0.01
 		else:
 			print('Not enough on hand to consume {} units of {}.'.format(qty, item))
@@ -327,8 +339,10 @@ class Entity(object):
 		capital_event = [capital_entry]
 		ledger.journal_entry(capital_event)
 
-	def auth_shares(self, ticker, amount):
-		auth_shares_entry = [ ledger.get_event(), self.entity, self.world.now, 'Authorize shares', ticker, '', amount, 'Shares', 'Info', 0 ]
+	def auth_shares(self, ticker, qty, counterparty=None):
+		if counterparty is None:
+			counterparty = self.entity
+		auth_shares_entry = [ ledger.get_event(), counterparty, self.world.now, 'Authorize shares', ticker, '', qty, 'Shares', 'Info', 0 ]
 		auth_shares_event = [auth_shares_entry]
 		ledger.journal_entry(auth_shares_event)
 
@@ -356,9 +370,9 @@ class Entity(object):
 			ledger.journal_entry(pay_salary_event)
 
 			ledger.set_entity(self.entity)
-			print('Farm Cash: ' + str(ledger.balance_sheet(['Cash'])))
+			print('{} Cash: {}'.format(self.name, ledger.balance_sheet(['Cash'])))
 			ledger.set_entity(counterparty)
-			print('Farmer Cash: ' + str(ledger.balance_sheet(['Cash'])))
+			print('{} Cash: {}'.format('Farmer', ledger.balance_sheet(['Cash']))) # TOTO Pull counterparty name from counterparty object
 			ledger.reset()
 			return labour_hours
 		else:
@@ -381,10 +395,10 @@ class Entity(object):
 		ledger.set_entity(self.entity)
 		service_state = ledger.get_qty(items=item, accounts=['Service Info'])
 		ledger.reset()
-		print('Service State: {}'.format(service_state))
+		#print('Service State: {}'.format(service_state))
 		if service_state:
 			pay_service_entry = [ ledger.get_event(), self.entity, self.world.now, 'Payment for ' + item, item, price, qty, 'Service Expense', 'Cash', price ]
-			charge_service_entry = [ ledger.get_event(), counterparty, self.world.now, 'Receive payment for ' + item, item, price, qty, 'Cash', 'Service Revenue', price ]
+			charge_service_entry = [ ledger.get_event(), counterparty, self.world.now, 'Received payment for ' + item, item, price, qty, 'Cash', 'Service Revenue', price ]
 			pay_service_event = [pay_service_entry, charge_service_entry]
 			ledger.journal_entry(pay_service_event)
 			return 0
@@ -408,9 +422,9 @@ class Entity(object):
 	def depreciation_check(self, items=None): # TODO Add support for explicitly provided items
 		if items is None:
 			ledger.set_entity(self.entity)
-			equip_list = ledger.get_qty(accounts=['Buildings','Equipment','Furniture','Inventory'])# TODO Add other account types for base items such as Raw Materials
-			#print('Equipment List: \n{}'.format(equip_list))
-		for index, item in equip_list.iterrows():
+			items_list = ledger.get_qty(accounts=['Buildings','Equipment','Furniture','Inventory'])#, v_qty=False)# TODO Add other account types for base items such as Raw Materials
+			#print('Dep. Items List: \n{}'.format(items_list))
+		for index, item in items_list.iterrows():
 			#print(item)
 			qty = item['qty']
 			item = item['item_id']
@@ -421,7 +435,7 @@ class Entity(object):
 			#lifespan = 10 # Temp
 			self.derecognize(item, qty)
 			self.depreciation(item, lifespan, metric)
-			ledger.reset()
+		ledger.reset()
 
 	def depreciation(self, item, lifespan, metric):
 		if (metric == 'depreciation') or (metric == 'ticks'):
@@ -436,7 +450,7 @@ class Entity(object):
 			ledger.journal_entry(depreciation_event)
 
 		if (metric == 'spoilage') or (metric == 'obsolescence'):
-			print('Spoilage: {} {} {}'.format(item, lifespan, metric))
+			print('Spoilage: {} {} day {} to be implemented'.format(item, lifespan, metric))
 			return
 
 	def derecognize(self, item, qty):
@@ -453,65 +467,82 @@ class Entity(object):
 class Individual(Entity):
 	def __init__(self, name, world):
 		super().__init__(name, world)
-		entity_data = [ ('Farmer',0.0,1,100,0.5,'iex','Hunger',100,1,40,50,None,'Labour') ] # TODO Change to proper values
-		accts.add_entity(entity_data)
+		entity_data = [ (name,0.0,1,100,0.5,'iex','Hunger,Thirst','100,100','1,2','40,60','50,100',None,'Labour') ] # TODO Change to proper values
+		# TODO Add entity skills (Cultivator)
+		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]
-		self.entity = 1 # TODO Have this read from the entities table
-		print('Create Individual: {} | Entity: {}'.format(self.name, self.entity))
-		self.max_need = entity_data[0][7]
-		self.need = entity_data[0][10]
-		print('Initial Need: {}'.format(self.need))
+		#self.entity = 1 # TODO Have this read from the entities table
+		print('Create Individual: {} | entity_id: {}'.format(self.name, self.entity))
+		self.setup_needs(entity_data)
+		for need in self.needs:
+			print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need']))
 
-	def set_need(self, need_delta):
-		self.need += need_delta
+	def setup_needs(self, entity_data):
+		self.needs = collections.defaultdict(dict)
+		needs_names = [x.strip() for x in entity_data[0][6].split(',')]
+		needs_max = [x.strip() for x in str(entity_data[0][7]).split(',')]
+		decay_rate = [x.strip() for x in str(entity_data[0][8]).split(',')]
+		threshold = [x.strip() for x in str(entity_data[0][9]).split(',')]
+		current_need = [x.strip() for x in str(entity_data[0][10]).split(',')]
+		for i, name in enumerate(needs_names):
+			self.needs[name]['Max Need'] = int(needs_max[i])
+			self.needs[name]['Decay Rate'] = int(decay_rate[i])
+			self.needs[name]['Threshold'] = int(threshold[i])
+			self.needs[name]['Current Need'] = int(current_need[i])
+		#print(self.needs)
+		return self.needs
+
+	def set_need(self, need, need_delta):
+		#self.need += need_delta
+		self.needs[need]['Current Need'] += need_delta
 		cur = ledger.conn.cursor()
 		set_need_query = '''
 			UPDATE entities
 			SET current_need = ?
 			WHERE entity_id = ?;
 		'''
-		values = (self.need, self.entity)
+		values = (self.needs[need]['Current Need'], self.entity)
 		cur.execute(set_need_query, values)
 		ledger.conn.commit()
 		cur.close()
-		if self.need <= 0:
+		if self.needs[need]['Current Need'] <= 0:
 			world.end = True
-		return self.need
+		return self.needs[need]['Current Need']
 
 	def need_decay(self, need):
-		cur = ledger.conn.cursor()
-		decay_rate = cur.execute('SELECT decay_rate FROM entities WHERE entity_id = ?;', str(self.entity)).fetchone()[0]
-		cur.close()
-		self.decay_rate = decay_rate * -1
-		#print('Decay Rate: {}'.format(self.decay_rate))
-		self.set_need(self.decay_rate)
-		return self.decay_rate
+		#cur = ledger.conn.cursor()
+		#decay_rate = cur.execute('SELECT decay_rate FROM entities WHERE entity_id = ?;', str(self.entity)).fetchone()[0]
+		#cur.close()
+		decay_rate = self.needs[need]['Decay Rate'] * -1
+		#print('{} Decay Rate: {}'.format(need, decay_rate))
+		self.set_need(need, decay_rate)
+		return decay_rate
 
-	def threshold_check(self):
-		cur = ledger.conn.cursor()
-		self.need_threshold = cur.execute('SELECT need_threshold FROM entities WHERE entity_id = ?;', str(self.entity)).fetchone()[0]
-		cur.close()
+	def threshold_check(self, need):
+		#cur = ledger.conn.cursor()
+		#self.need_threshold = cur.execute('SELECT need_threshold FROM entities WHERE entity_id = ?;', str(self.entity)).fetchone()[0]
+		#cur.close()
 		#print('Need Threshold: {}'.format(need_threshold))
-		if self.need <= self.need_threshold: # TODO Pull from entities table
-			print('Threshold met!')
-			self.address_need()
+		if self.needs[need]['Current Need'] <= self.needs[need]['Threshold']:
+			print('{} Threshold met!'.format(need))
+			self.address_need(need)
 
-	def address_need(self):
-		self.purchase(item='Food', price=world.food_price, qty=100, counterparty=2) # TODO Change to transact() function
-		qty = random.randint(40, 80)
-		self.consume(item='Food', qty=qty) # TODO Make random int between 50 and 150
+	def address_need(self, need): # TODO This needs a demand system
+		if need == 'Hunger':
+			self.purchase(item='Food', price=world.food_price, qty=100, counterparty=2) # TODO Change to transact() function
+			qty = random.randint(40, 80)
+			self.consume('Food', qty, need) # TODO Make random int between 50 and 150 and if not enough food try again
+		else:
+			print('Trying to address {} need.'.format(need))
 
 class Organization(Entity):
 	def __init__(self, name, world):
 		super().__init__(name, world)
-		entity_data = [ ('Farm',0.0,1,100,0.5,'iex',None,None,None,None,None,1000000,'Food') ]
-		accts.add_entity(entity_data)
+		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,1000000,'Food') ]
+		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0] # TODO Change this to pull from entities table
-		self.entity = 2 # TODO Have this read from the entities table
-		print('Create Organization: {} | Entity: {}'.format(self.name, self.entity))
-		self.auth_shares(self.name, 1000000) # TODO Pull shares authorized from entities table
-		self.claim_land(4000, 5, 'Arable Land') # TODO Need a way to determine price of land
-		ledger.set_entity(2)
+		print('Create Organization: {} | entity_id: {}'.format(self.name, self.entity))
+		ledger.set_entity(self.entity)
 		self.food = ledger.get_qty(items='Food', accounts=['Inventory'])
 		ledger.reset()
 		print('Starting Farm Food: {}'.format(self.food))

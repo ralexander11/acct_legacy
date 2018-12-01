@@ -313,7 +313,9 @@ class Accounts(object):
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()
+		entity_id = cur.lastrowid
 		cur.close()
+		return entity_id
 
 	def add_item(self, item_data=None): # TODO Cleanup and make nicer
 		cur = self.conn.cursor()
