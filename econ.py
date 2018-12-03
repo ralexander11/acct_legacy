@@ -6,6 +6,7 @@ import argparse
 import datetime
 import random
 import time
+import math
 import os
 
 DISPLAY_WIDTH = 98
@@ -38,13 +39,17 @@ class World(object):
 		self.now = datetime.datetime(1986,10,1).date()
 		print(self.now)
 
+		# TODO Set amounts of land world has on init
+
 		self.farmer = self.create_indv('Farmer', self) # TODO Make this general
 		self.farm = self.create_org('Farm', self) # TODO Make this general
-		self.farmer.auth_shares('Farm', 1000000, 2) # TODO Pull shares authorized from entities table
 
+		self.farmer.auth_shares('Farm', 1000000, self.farm.entity) # TODO Pull shares authorized from entities table
+		self.farmer.claim_land(100, 2, 'Land')
 		self.farmer.capitalize(amount=10000)
-		self.farmer.buy_shares(item='Farm', price=5, qty=1000, counterparty=2) # TODO Maybe 'Farm shares'
+		self.farmer.buy_shares(ticker='Farm', price=5, qty=1000, counterparty=self.farm.entity) # TODO Maybe 'Farm shares'
 		self.farm.claim_land(4000, 5, 'Arable Land') # TODO Need a way to determine price and qty of land
+		self.farm.hire_worker('Cultivator', self.farmer.entity)
 
 		self.food_price = 10 # TODO Fix how prices work
 		self.price = self.food_price
@@ -85,9 +90,20 @@ class World(object):
 	def create_indv(self, name, world):
 		return Individual(name, world)
 
+	def price(self, item):
+		if item == 'Food':
+			price = 10
+		elif item == 'Water':
+			price = 3
+		else:
+			price = 5
+		return price
+
 	def update_econ(self):
 		print(('=' * 42) + ' Econ Updated ' + ('=' * 42))
 		self.ticktock()
+
+		#for entity in registry:
 		for need in self.farmer.needs:
 			self.farmer.need_decay(need)
 			print('{} {} Need: {}'.format(self.farmer.name, need, self.farmer.needs[need]['Current Need']))
@@ -95,43 +111,44 @@ class World(object):
 		self.farmer.depreciation_check() # Should something depreciate the first day it is bought?
 		self.farm.depreciation_check() # TODO Add all entities to a register and then loop through objects and run method
 
+		self.farm.check_salary('Cultivator', self.farmer.entity)
+		self.farm.pay_wages('Cultivator', self.farmer.entity)
+
 		self.farm.pay_service('Water', 1, 3) # TODO Make into service check # TODO Get price and counterparty from service order
 
 		if not self.player:
-			self.farm.pay_salary(counterparty=1, job='Cultivator') # TODO Pull parameters from farmer object properties that are set at init
-			self.farm.produce(item='Food', price=self.food_price, qty=10) # TODO Fix how much is produced
+			#self.farm.pay_salary(job='Cultivator', counterparty=self.farmer.entity) # TODO Pull parameters from farmer object properties that are set at init
+			self.farm.produce(item='Food', qty=10, price=self.food_price) # TODO Fix how much is produced
 
 			# print('Farmer:')
 			# self.farmer.collect_material(item='Wood', qty=20, price=1)
 			# self.farmer.collect_material(item='Metal', qty=10, price=3)
-			# self.farmer.produce(item='Plow', price=100, qty=1)
+			# self.farmer.produce(item='Plow', qty=1, price=100)
 
 			# print('Farm:')
 			# self.farm.collect_material(item='Wood', qty=20, price=1)
 			# self.farm.collect_material(item='Metal', qty=10, price=3)
-			# self.farm.produce(item='Plow', price=100, qty=1)
+			# self.farm.produce(item='Plow', qty=1, price=100)
 
-			ledger.set_entity(2)
+			ledger.set_entity(self.farm.entity)
 			self.food = ledger.get_qty(items='Food', accounts=['Inventory'])
 			ledger.reset()
 			print('Farm Food: {}'.format(self.food))
 
-			for need in self.farmer.needs:
-				self.farmer.threshold_check(need)
-
-			ledger.set_entity(2)
+			#self.farmer.produce(item='Plow', qty=1, price=100)
+			ledger.set_entity(self.farm.entity)
 			plow_qty = ledger.get_qty(items='Plow', accounts=['Equipment'])
 			ledger.reset()
 			if plow_qty < 1:
-				self.farm.make_item(item='Plow', qty=1, price=100)
+				self.farm.find_item(item='Plow', qty=1, price=100)
 
 		hours = 0
 		while hours < 8 and self.player: # TODO Need to test hours to be used before executing function
 			print('Player Hours Remaining: {}'.format(hours))
 			action = input('\nType one of the following actions:\nHarvest, Forage, Purchase, Consume, Make, exit\n')
 			if action.lower() == 'harvest':
-				hours += self.farm.pay_salary(counterparty=1, job='Cultivator')
-				self.farm.produce(item='Food', price=self.food_price, qty=10)
+				hours += self.farm.pay_salary(job='Cultivator', counterparty=1)
+				self.farm.produce(item='Food', qty=10, price=self.food_price)
 				print(hours)
 			elif action.lower() == 'forage':
 				item = input('Which item? (wood, metal) ').title()
@@ -143,12 +160,14 @@ class World(object):
 				qty = int(input('How much food? '))
 				hours += self.farmer.consume(item='Food', qty=qty)
 			elif action.lower() == 'make':
-				hours += self.farmer.make_item(item='Plow', qty=1, price=100, account='Equipment')
+				hours += self.farmer.find_item(item='Plow', qty=1, price=100, account='Equipment')
 			elif action.lower() == 'exit':
 				exit()
 			else:
 				print('Not a valid action. Type exit to close.')
 
+		for need in self.farmer.needs:
+			self.farmer.threshold_check(need)
 
 		#if str(self.now) == '1986-10-15': # Temp
 			#world.end = True # Temp
@@ -160,7 +179,7 @@ class Entity(object):
 		self.world = world
 		#print('Entity created: {}'.format(name))
 
-	def transact(self, item, acct_buy, acct_sell, price, qty, counterparty):
+	def transact(self, item, price, qty, counterparty, acct_buy='Inventory', acct_sell='Inventory'):
 		ledger.set_entity(self.entity)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
@@ -216,7 +235,6 @@ class Entity(object):
 		ledger.set_entity(self.entity)
 		qty_held = ledger.get_qty(items=item, accounts=['Inventory'])
 		ledger.reset()
-		qty = 80 # Temp
 		if qty_held > qty:
 			print('Consume: {} {}'.format(qty, item))
 
@@ -230,7 +248,7 @@ class Entity(object):
 					self.needs[need]['Current Need'] = new_need
 				else:
 					self.needs[need]['Current Need'] = self.needs[need]['Max Need']
-				print('{} Need: {}'.format(self.name, self.needs[need]['Current Need'])) # TODO Get entity name from object data
+				print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need'])) # TODO Get entity name from object data
 			return qty * 0.01
 		else:
 			print('Not enough on hand to consume {} units of {}.'.format(qty, item))
@@ -244,7 +262,7 @@ class Entity(object):
 	# TODO Proper costing
 	# TODO Make each item take a certain amount of labour hours and have items able to reduce that
 	# TODO Add WIP accounting and COGS
-	def produce(self, item, price, qty=None):
+	def produce(self, item, qty, price):
 		v = False
 		cur = ledger.conn.cursor()
 		requirements_info = cur.execute("SELECT requirements, amount FROM items WHERE item_id = '"+ item +"';").fetchone()
@@ -262,6 +280,7 @@ class Entity(object):
 		if v: print('Amounts: {}'.format(amounts))
 		requirement_details = list(zip(requirement_details, amounts))
 		if v: print('Requirement Details: {}'.format(requirement_details))
+		# TODO Sort so capacity requirements are first
 		for requirement in requirement_details:
 			ledger.set_entity(self.entity)
 			if v: print('Requirement: {}'.format(requirement))
@@ -269,8 +288,56 @@ class Entity(object):
 				land = ledger.get_qty(items=requirement[0][0], accounts=['Land'])
 				if v: print('Land: {}'.format(land))
 				if land < (requirement[1] * qty):
-					print('Not enough land to produce on.')
-					return
+					print('Not enough {} to produce on.'.format(requirement[0][0]))
+					required_qty = (requirement[1] * qty) - land
+					# TODO Attempt to purchase land
+					self.claim_land(required_qty, price=world.price(requirement[0][0]), item=requirement[0][0])
+					#return
+			if requirement[0][1] == 'Building':
+				building = ledger.get_qty(items=requirement[0][0], accounts=['Buildings'])
+				if v: print('Building: {}'.format(land))
+				if building < (requirement[1] * qty): # TODO FIx qty required
+					if building == 0:
+						print('No {} building to produce in. Will attempt to aquire some.'.format(requirement[0][0]))
+					print('Not enough capacity in {} building to produce in. Will attempt to aquire some.'.format(requirement[0][0]))
+					# TODO Attempt to purchase before producing self if makes sense
+					self.produce(requirement[0][0], qty=requirement[1] * qty, price=1)
+					#return
+			if requirement[0][1] == 'Equipment': # TODO Make generic for process
+				equip_qty = ledger.get_qty(items=requirement[0][0], accounts=['Equipment'])
+				if v: print('Equipment: {} {}'.format(equip_qty, requirement[0][0]))
+				if ((equip_qty * requirement[1]) / qty) < 1: # TODO Test turning requirement into capacity
+					if equip_qty == 0:
+						print('No {} equipment to use. Will attempt to aquire some.'.format(requirement[0][0]))
+					print('Not enough capacity on {} equipment. Will attempt to aquire some.'.format(requirement[0][0]))
+					remaining_qty = qty - (equip_qty * requirement[1])
+					required_qty = math.ceil(remaining_qty / requirement[1])
+					# TODO Attempt to purchase before producing self if makes sense
+					self.produce(requirement[0][0], required_qty, world.price(requirement[0][0]))
+					#return
+			if requirement[0][1] == 'Components':
+				component_qty = ledger.get_qty(items=requirement[0][0], accounts=['Components'])
+				if v: print('Land: {}'.format(component_qty))
+				if component_qty < (requirement[1] * qty):
+					print('Not enough {} components. Will attempt to aquire some.'.format(requirement[0][0]))
+					# TODO Attempt to purchase before producing self if makes sense
+					self.produce(requirement[0][0], qty=requirement[1] * qty, price=1)
+					#return
+			if requirement[0][1] == 'Raw Material':
+				material_qty = ledger.get_qty(items=requirement[0][0], accounts=['Raw Materials'])
+				if v: print('Land: {}'.format(material_qty))
+				if material_qty < (requirement[1] * qty):
+					print('Not enough {} raw material. Will attempt to aquire some.'.format(requirement[0][0]))
+					# TODO Attempt to purchase before producing self if makes sense
+					self.produce(requirement[0][0], qty=requirement[1] * qty, price=1)
+					#return
+			if requirement[0][1] == 'Service': # TODO Add check to ensure payment has been made recently (maybe on day of)
+				service_state = ledger.get_qty(items=requirement[0][0], accounts=['Service Info'])
+				if v: print('Service State for {}: {}'.format(requirement[0][0], service_state))
+				if not service_state:
+					print('{} service is not active. Will attempt to activate it.'.format(requirement[0][0]))
+					self.order_service(item=requirement[0][0], counterparty=1, price=world.price(requirement[0][0]), qty=1) # TODO Fix counterparty
+					#return
 			if requirement[0][1] == 'Labour': # TODO How to handle multiple workers
 				modifier = 1
 				# TODO Get list of all equipment that covers the requirement
@@ -278,7 +345,7 @@ class Entity(object):
 				if v: print('Equip List: \n{}'.format(equip_list))
 				
 				items_data = accts.get_items()
-				items_data = items_data[items_data['satisfies'].str.contains(requirement[0][0], na=False)] # If item satisfies multiple needs
+				items_data = items_data[items_data['satisfies'].str.contains(requirement[0][0], na=False)] # Supports if item satisfies multiple needs
 				items_data.reset_index(inplace=True)
 				if v: print('Items Table: \n{}'.format(items_data))
 
@@ -295,39 +362,11 @@ class Entity(object):
 				ledger.reset()
 				if v: print('Labour Done: {}'.format(labour_done))
 				if labour_done < (requirement[1] * modifier * qty): # TODO Have this call for labour to be done if it hasn't been done
-					print('Not enough labour done today for production.')
-					return
-			if requirement[0][1] == 'Building':
-				building = ledger.get_qty(items=requirement[0][0], accounts=['Buildings'])
-				if v: print('Building: {}'.format(land))
-				if land < (requirement[1] * qty):
-					print('Not enough building to produce in.')
-					return
-			if requirement[0][1] == 'Equipment': # TODO Make generic for process
-				equip_qty = ledger.get_qty(items=requirement[0][0], accounts=['Equipment'])
-				if v: print('Equipment: {} {}'.format(equip_qty, requirement[0][0]))
-				if ((equip_qty * requirement[1]) / qty) < 1: # TODO Test turning requirement into capacity
-					print('No required equipment.')
-					return
-			if requirement[0][1] == 'Components':
-				component_qty = ledger.get_qty(items=requirement[0][0], accounts=['Components'])
-				if v: print('Land: {}'.format(component_qty))
-				if component_qty < (requirement[1] * qty):
-					print('Not enough {}.'.format(requirement[0][0]))
-					return
-			if requirement[0][1] == 'Raw Material':
-				material_qty = ledger.get_qty(items=requirement[0][0], accounts=['Raw Materials'])
-				if v: print('Land: {}'.format(material_qty))
-				if material_qty < (requirement[1] * qty):
-					print('Not enough {}.'.format(requirement[0][0]))
-					return
-			if requirement[0][1] == 'Service': # TODO Add check to ensure payment has been made recently (maybe on day of)
-				service_state = ledger.get_qty(items=requirement[0][0], accounts=['Service Info'])
-				if not service_state:
-					print('{} service is not active.'.format(requirement[0][0]))
-					return
-		print('Service State: {}'.format(service_state))
-			# TODO Add other base requirements
+					required_hours = (requirement[1] * modifier * qty) - labour_done
+					print('Not enough {} labour done today for production. Will attempt to hire a worker for {} hours.'.format(requirement[0][0], required_hours))
+					#print('Price: {}'.format(world.price('Cultivator'))) # TODO Fix error this gives
+					self.accru_wages(job=requirement[0][0], counterparty=1, wage=5, labour_hours=required_hours) # TODO Fix counterparty and price
+					#return
 		ledger.reset()
 		produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' produced', item, price, qty, 'Inventory', 'Goods Produced', price * qty ]
 		produce_event = [produce_entry]
@@ -346,17 +385,73 @@ class Entity(object):
 		auth_shares_event = [auth_shares_entry]
 		ledger.journal_entry(auth_shares_event)
 
-	def buy_shares(self, item, price, qty, counterparty):
-		self.transact(item, 'Investments', 'Shares', price, qty, counterparty)
+	def buy_shares(self, ticker, price, qty, counterparty):
+		self.transact(ticker, price, qty, counterparty, 'Investments', 'Shares')
+
+	def incorporate(self):
+		pass
 
 	def claim_land(self, qty, price, item='Land'): # QTY in square meters
 		claim_land_entry = [ ledger.get_event(), self.entity, self.world.now, 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
 		claim_land_event = [claim_land_entry]
 		ledger.journal_entry(claim_land_event)
 
-	def pay_salary(self, counterparty, job, salary=None, labour_hours=None): # TODO Fix defaults
+	def pay_wages(self, job, counterparty):
+		ledger.set_entity(self.entity)
+		wages_payable = abs(ledger.balance_sheet(accounts=['Wages Payable'], item=job))
+		labour_hours = abs(ledger.get_qty(items=job, accounts=['Wages Payable']))
+		ledger.reset()
+		#print('Labour Hours: {}'.format(labour_hours))
+		if wages_payable:
+			# TODO Add check if enough cash, if not becomes salary payable
+			wages_pay_entry = [ ledger.get_event(), self.entity, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
+			wages_chg_entry = [ ledger.get_event(), counterparty, self.world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
+			pay_wages_event = [wages_pay_entry, wages_chg_entry]
+			ledger.journal_entry(pay_wages_event)
+			return 0# labour_hours
+		#else:
+			#print('No wages to pay for {} work.'.format(job))
+
+	def accru_wages(self, job, counterparty, wage, labour_hours):
+		check_wages = True # TODO Add check_wages() function to ensure wages have not gone unpaid too long
+		if check_wages:
+			# TODO Add check if enough cash, if not becomes salary payable
+			wages_exp_entry = [ ledger.get_event(), self.entity, world.now, job + ' wages to be paid', job, wage, labour_hours, 'Wages Expense', 'Wages Payable', wage * labour_hours ]
+			wages_rev_entry = [ ledger.get_event(), counterparty, self.world.now, job + ' wages to be received', job, wage, labour_hours, 'Wages Receivable', 'Wages Revenue', wage * labour_hours ]
+			accru_wages_event = [wages_exp_entry, wages_rev_entry]
+			ledger.journal_entry(accru_wages_event)
+			return labour_hours
+		else:
+			print('Wages have no been paid for {} recently.'.format(job))
+
+	def hire_worker(self, job, counterparty, price=0, qty=1):
+		hire_worker_entry = [ ledger.get_event(), self.entity, self.world.now, 'Hired ' + job, job, price, qty, 'Worker Info', 'Hire Worker', 0 ]
+		hire_worker_event = [hire_worker_entry]
+		ledger.journal_entry(hire_worker_event)
+		return 1
+
+	def fire_worker(self, job, counterparty, price=0, qty=-1):
+		fire_worker_entry = [ ledger.get_event(), self.entity, self.world.now, 'Fired ' + job, job, price, qty, 'Worker Info', 'Fire Worker', 0 ]
+		fire_worker_event = [fire_worker_entry]
+		ledger.journal_entry(fire_worker_event)
+		return 1
+
+	def check_salary(self, job, counterparty):
+		 # TODO Get price and counterparty from hiring of worker
+		ledger.set_entity(self.entity)
+		worker_state = ledger.get_qty(items=job, accounts=['Worker Info'])
+		ledger.reset()
+		if worker_state is not None:
+			worker_state = int(worker_state)
+		#print('Worker State: {}'.format(worker_state))
+		if not worker_state:
+			return 0
+		for _ in range(worker_state):
+			self.pay_salary(job, counterparty)
+
+	def pay_salary(self, job, counterparty, salary=None, labour_hours=None): # TODO Fix defaults
 		if salary is None:
-			salary = 5
+			salary = 10
 		if labour_hours is None:
 			labour_hours = 4
 		ledger.set_entity(self.entity)
@@ -376,7 +471,7 @@ class Entity(object):
 			ledger.reset()
 			return labour_hours
 		else:
-			print('Not enough cash to pay for ' + job + ': {}'.format(cash))
+			print('Not enough cash to pay for {}: {}'.format(job, cash))
 
 	def order_service(self, item, counterparty, price, qty=1):
 		order_service_entry = [ ledger.get_event(), self.entity, self.world.now, 'Ordered ' + item, item, price, qty, 'Service Info', 'Order Service', 0 ]
@@ -395,13 +490,17 @@ class Entity(object):
 		ledger.set_entity(self.entity)
 		service_state = ledger.get_qty(items=item, accounts=['Service Info'])
 		ledger.reset()
+		if service_state is not None:
+			service_state = int(service_state)
 		#print('Service State: {}'.format(service_state))
-		if service_state:
+		if not service_state:
+			return 0
+		for _ in range(service_state):
 			pay_service_entry = [ ledger.get_event(), self.entity, self.world.now, 'Payment for ' + item, item, price, qty, 'Service Expense', 'Cash', price ]
 			charge_service_entry = [ ledger.get_event(), counterparty, self.world.now, 'Received payment for ' + item, item, price, qty, 'Cash', 'Service Revenue', price ]
 			pay_service_event = [pay_service_entry, charge_service_entry]
 			ledger.journal_entry(pay_service_event)
-			return 0
+		return 0
 
 	def collect_material(self, item, qty, price=1, account=None): # TODO Make cost based on time spent and salary
 		if account is None:
@@ -411,12 +510,12 @@ class Entity(object):
 		ledger.journal_entry(collect_mat_event)
 		return qty * 1 # TODO Spend time collecting food, wood, ore
 
-	def make_item(self, item, qty, price=1, account=None): # Assuming all materials found
+	def find_item(self, item, qty, price=1, account=None): # Assuming all materials found
 		if account is None:
 			account = 'Equipment'
-		make_item_entry = [ ledger.get_event(), self.entity, self.world.now, 'Make ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
-		make_item_event = [make_item_entry]
-		ledger.journal_entry(make_item_event)
+		find_item_entry = [ ledger.get_event(), self.entity, self.world.now, 'Find ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
+		find_item_event = [find_item_entry]
+		ledger.journal_entry(find_item_event)
 		return qty * 10
 
 	def depreciation_check(self, items=None): # TODO Add support for explicitly provided items
@@ -467,7 +566,7 @@ class Entity(object):
 class Individual(Entity):
 	def __init__(self, name, world):
 		super().__init__(name, world)
-		entity_data = [ (name,0.0,1,100,0.5,'iex','Hunger,Thirst','100,100','1,2','40,60','50,100',None,'Labour') ] # TODO Change to proper values
+		entity_data = [ (name,0.0,1,100,0.5,'iex','Hunger,Thirst','100,100','1,2','40,60','50,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
 		# TODO Add entity skills (Cultivator)
 		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]
@@ -493,7 +592,6 @@ class Individual(Entity):
 		return self.needs
 
 	def set_need(self, need, need_delta):
-		#self.need += need_delta
 		self.needs[need]['Current Need'] += need_delta
 		cur = ledger.conn.cursor()
 		set_need_query = '''
@@ -510,35 +608,31 @@ class Individual(Entity):
 		return self.needs[need]['Current Need']
 
 	def need_decay(self, need):
-		#cur = ledger.conn.cursor()
-		#decay_rate = cur.execute('SELECT decay_rate FROM entities WHERE entity_id = ?;', str(self.entity)).fetchone()[0]
-		#cur.close()
 		decay_rate = self.needs[need]['Decay Rate'] * -1
 		#print('{} Decay Rate: {}'.format(need, decay_rate))
 		self.set_need(need, decay_rate)
 		return decay_rate
 
 	def threshold_check(self, need):
-		#cur = ledger.conn.cursor()
-		#self.need_threshold = cur.execute('SELECT need_threshold FROM entities WHERE entity_id = ?;', str(self.entity)).fetchone()[0]
-		#cur.close()
-		#print('Need Threshold: {}'.format(need_threshold))
 		if self.needs[need]['Current Need'] <= self.needs[need]['Threshold']:
 			print('{} Threshold met!'.format(need))
 			self.address_need(need)
 
 	def address_need(self, need): # TODO This needs a demand system
-		if need == 'Hunger':
-			self.purchase(item='Food', price=world.food_price, qty=100, counterparty=2) # TODO Change to transact() function
-			qty = random.randint(40, 80)
-			self.consume('Food', qty, need) # TODO Make random int between 50 and 150 and if not enough food try again
-		else:
-			print('Trying to address {} need.'.format(need))
+		items_info = accts.get_items()
+		items_info = items_info[items_info['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
+		items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
+		items_info.reset_index(inplace=True)
+		item_choosen = items_info['item_id'].iloc[0]
+		#self.purchase(item_choosen, price=world.food_price, qty=100, counterparty=2) # TODO Change to transact() function
+		self.transact(item_choosen, price=world.food_price, qty=100, counterparty=2)#, buy_acct='Inventory', sell_acct='Inventory')
+		qty = random.randint(40, 80)
+		self.consume(item_choosen, qty, need) # TODO Make random int between 50 and 150 and if not enough food try again
 
 class Organization(Entity):
 	def __init__(self, name, world):
 		super().__init__(name, world)
-		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,1000000,'Food') ]
+		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,1000000,'Food') ] # Note: The 2nd to 5th values are for another program
 		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0] # TODO Change this to pull from entities table
 		print('Create Organization: {} | entity_id: {}'.format(self.name, self.entity))
@@ -546,6 +640,8 @@ class Organization(Entity):
 		self.food = ledger.get_qty(items='Food', accounts=['Inventory'])
 		ledger.reset()
 		print('Starting Farm Food: {}'.format(self.food))
+
+	# TODO Add subclasses to Organization() for company, non-profits, and government
 
 
 if __name__ == '__main__':
@@ -562,7 +658,7 @@ if __name__ == '__main__':
 		print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))	
 	delete_db(args.database)
 	accts = Accounts(conn=args.database) #TODO Fix init of accounts
-	ledger = Ledger(accts) # TODO Move this into init for World() # TODO Fix generalization of get_qty() and hist_cost()
+	ledger = Ledger(accts) # TODO Move this into init for World()
 	world = World(args.player)
 
 	while True:
@@ -575,11 +671,6 @@ if __name__ == '__main__':
 
 
 exit()
-
-# Add entity
-# Add item
-
-# Buying land, Incorporation, buying raw materials, buying equipment, equipment depreciation, buying services, paying wages
 
 
 # Notes for factory functions

@@ -109,8 +109,15 @@ class Accounts(object):
 				('Goods Consumed','Expense'),
 				('Salary Expense','Expense'),
 				('Salary Revenue','Revenue'),
+				('Wages Payable','Liability'),
+				('Wages Expense','Expense'),
+				('Wages Receivable','Asset'),
+				('Wages Revenue','Revenue'),
 				('Depreciation Expense','Expense'),
 				('Accumulated Depreciation','Asset'),
+				('Worker Info','Info'),
+				('Hire Worker','Info'),
+				('Fire Worker','Info'),
 				('Service Info','Info'),
 				('Order Service','Info'),
 				('Cancel Service','Info'),
@@ -1006,8 +1013,10 @@ class Ledger(object):
 
 		qty_txns_gl = self.get_qty_txns(item, acct)
 		mask = qty_txns_gl.credit_acct == acct
-		qty_txns_gl.loc[mask, 'qty'] = qty_txns_gl['qty'] * -1
-		#qty_txns_gl = qty_txns_gl[~(qty_txns_gl['qty'] < 0)]
+		#qty_txns_gl.loc[mask, 'qty'] = qty_txns_gl['qty'] * -1
+		qty_txns_gl = qty_txns_gl.loc[mask, 'qty']
+		qty_txns_gl = qty_txns_gl['qty'] * -1
+		#qty_txns_gl = qty_txns_gl[~(qty_txns_gl['qty'] < 0)] # Not used
 
 		if v: print('QTY TXNs GL:')
 		if v: print(qty_txns_gl)
