@@ -188,7 +188,7 @@ class Trading(object):
 			if rvsl_txns.empty:
 				print('First or second true up run.')
 			logging.debug('RVSL TXNs: {}'.format(rvsl_txns))
-			# Get list of txns
+			# Get list of Unrealized Gain / Loss txns
 			inv_txns = self.gl[( (self.gl['debit_acct'] == 'Unrealized Loss') | (self.gl['credit_acct'] == 'Unrealized Gain') ) & (~self.gl['event_id'].isin(rvsl_txns))]
 			logging.debug('Inv TXNs: {}'.format(inv_txns))
 			for txn in inv_txns.iterrows():

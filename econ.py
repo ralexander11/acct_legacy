@@ -16,8 +16,8 @@ pd.options.display.float_format = '${:,.2f}'.format
 random.seed()
 
 def time_stamp():
-	time = datetime.datetime.now().strftime('[%Y-%b-%d %I:%M:%S %p] ')
-	return time
+	time_stamp = datetime.datetime.now().strftime('[%Y-%b-%d %I:%M:%S %p] ')
+	return time_stamp
 
 def delete_db(db_name=None): # TODO Test and fix this for long term
 	if db_name is None:
@@ -25,9 +25,11 @@ def delete_db(db_name=None): # TODO Test and fix this for long term
 	db_path = 'db/'
 	if os.path.exists(db_path + db_name):
 		os.remove(db_path + db_name)
-		print(time_stamp() + 'Database file removed: {}'.format(db_path + db_name))
+		print(time_stamp() + 'Database file removed: {}'
+			.format(db_path + db_name))
 	else:
-		print(time_stamp() + 'The database file does not exist at {}.'.format(db_path + db_name))
+		print(time_stamp() + 'The database file does not exist at {}.'
+			.format(db_path + db_name))
 
 class World(object):
 	def __init__(self, player=False):
@@ -38,17 +40,26 @@ class World(object):
 		self.player = player
 		self.now = datetime.datetime(1986,10,1).date()
 		print(self.now)
+		self.create_land('Land', 100000)
+		self.create_land('Arable Land', 10000)
+		self.create_land('Forest', 1000)
+		self.create_land('Rocky Land', 1000)
+		self.create_land('Mountain', 1000)
 
 		# TODO Set amounts of land world has on init
 
 		self.farmer = self.create_indv('Farmer', self) # TODO Make this general
 		self.farm = self.create_org('Farm', self) # TODO Make this general
 
-		self.farmer.auth_shares('Farm', 1000000, self.farm.entity) # TODO Pull shares authorized from entities table
+		# TODO Pull shares authorized from entities table
+		self.farmer.auth_shares('Farm', 1000000, self.farm.entity)
 		self.farmer.claim_land(100, 2, 'Land')
 		self.farmer.capitalize(amount=10000)
-		self.farmer.buy_shares(ticker='Farm', price=5, qty=1000, counterparty=self.farm.entity) # TODO Maybe 'Farm shares'
-		self.farm.claim_land(4000, 5, 'Arable Land') # TODO Need a way to determine price and qty of land
+		# TODO Maybe 'Farm shares'
+		self.farmer.buy_shares(ticker='Farm', price=5, qty=1000
+								, counterparty=self.farm.entity)
+		# TODO Need a way to determine price and qty of land
+		self.farm.claim_land(4000, 5, 'Arable Land')
 		self.farm.hire_worker('Cultivator', self.farmer.entity)
 
 		self.food_price = 10 # TODO Fix how prices work
@@ -79,6 +90,11 @@ class World(object):
 		cur.close()
 		#print('Clear tables.')
 
+	def create_land(self, item, qty):
+		land_entry = [ ledger.get_event(), 0, self.now, item + ' created', item, '', qty, 'Natural Wealth', 'Land', 0 ]
+		land_event = [land_entry]
+		ledger.journal_entry(land_event)
+
 	def ticktock(self, ticks=1):
 		self.now += datetime.timedelta(days=ticks)
 		print(self.now)
@@ -97,6 +113,7 @@ class World(object):
 			price = 3
 		else:
 			price = 5
+		print('Price: {}'.format(price))
 		return price
 
 	def update_econ(self):
@@ -106,44 +123,57 @@ class World(object):
 		#for entity in registry:
 		for need in self.farmer.needs:
 			self.farmer.need_decay(need)
-			print('{} {} Need: {}'.format(self.farmer.name, need, self.farmer.needs[need]['Current Need']))
+			print('{} {} Need: {}'
+				.format(self.farmer.name, need
+						, self.farmer.needs[need]['Current Need']))
 
-		self.farmer.depreciation_check() # Should something depreciate the first day it is bought?
-		self.farm.depreciation_check() # TODO Add all entities to a register and then loop through objects and run method
+		# Should something depreciate the first day it is bought?
+		self.farmer.depreciation_check()
+		# TODO Add all entities to a register and then loop to run method
+		self.farm.depreciation_check()
 
+		self.farm.wip_check()
+
+		# TODO Convert to Salary Payable and make payment only on 15th and last day of month
 		self.farm.check_salary('Cultivator', self.farmer.entity)
+		# TODO Make payment only on 15th and last day of month
 		self.farm.pay_wages('Cultivator', self.farmer.entity)
 
-		self.farm.pay_service('Water', 1, 3) # TODO Make into service check # TODO Get price and counterparty from service order
+		# TODO Make into service check
+		# TODO Get price and counterparty from service order
+		self.farm.pay_service('Water', 1, 3)
 
 		if not self.player:
-			#self.farm.pay_salary(job='Cultivator', counterparty=self.farmer.entity) # TODO Pull parameters from farmer object properties that are set at init
-			self.farm.produce(item='Food', qty=10, price=self.food_price) # TODO Fix how much is produced
-
-			# print('Farmer:')
-			# self.farmer.collect_material(item='Wood', qty=20, price=1)
-			# self.farmer.collect_material(item='Metal', qty=10, price=3)
-			# self.farmer.produce(item='Plow', qty=1, price=100)
-
-			# print('Farm:')
-			# self.farm.collect_material(item='Wood', qty=20, price=1)
-			# self.farm.collect_material(item='Metal', qty=10, price=3)
-			# self.farm.produce(item='Plow', qty=1, price=100)
+			# TODO Pull parameters from farmer object that are set at init
+			#self.farm.pay_salary(job='Cultivator'
+			#					, counterparty=self.farmer.entity)
+			# TODO Fix how much is produced
+			#if str(self.now) == '1986-10-02': # Temp
+			#self.farm.produce(item='Food', qty=10, price=self.food_price)
+			#if str(self.now) == '1986-10-04': # Temp
+			rand_food = random.randint(0, 20)
+			#rand_food = 20 #Temp
+			self.farm.produce(item='Food', qty=rand_food, price=self.food_price)
 
 			ledger.set_entity(self.farm.entity)
-			self.food = ledger.get_qty(items='Food', accounts=['Inventory'])
+			self.farm.food = ledger.get_qty(items='Food', accounts=['Inventory'])
 			ledger.reset()
-			print('Farm Food: {}'.format(self.food))
+			print('Farm Food: {}'.format(self.farm.food))
+			ledger.set_entity(self.farmer.entity)
+			self.farmer.food = ledger.get_qty(items='Food', accounts=['Inventory'])
+			ledger.reset()
+			print('Farmer Food: {}'.format(self.farmer.food))
 
 			#self.farmer.produce(item='Plow', qty=1, price=100)
 			ledger.set_entity(self.farm.entity)
 			plow_qty = ledger.get_qty(items='Plow', accounts=['Equipment'])
 			ledger.reset()
 			if plow_qty < 1:
-				self.farm.find_item(item='Plow', qty=1, price=100)
+				self.farm.produce(item='Plow', qty=1, price=100, account='Equipment')#find_item
 
 		hours = 0
-		while hours < 8 and self.player: # TODO Need to test hours to be used before executing function
+		# TODO Need to test hours to be used before executing function
+		while hours < 8 and self.player:
 			print('Player Hours Remaining: {}'.format(hours))
 			action = input('\nType one of the following actions:\nHarvest, Forage, Purchase, Consume, Make, exit\n')
 			if action.lower() == 'harvest':
@@ -161,6 +191,8 @@ class World(object):
 				hours += self.farmer.consume(item='Food', qty=qty)
 			elif action.lower() == 'make':
 				hours += self.farmer.find_item(item='Plow', qty=1, price=100, account='Equipment')
+			elif action.lower() == 'incorp':
+				hours += self.farmer.incorporate(item='Farm', price=5, qty=1000, counterparty=2)
 			elif action.lower() == 'exit':
 				exit()
 			else:
@@ -196,7 +228,7 @@ class Entity(object):
 				ledger.journal_entry(purchase_event)
 				return 0.5 # TODO Factor in qty for large purchases
 			else:
-				print('Not enough units on hand to sell {} units of {}.'.format(qty, item))
+				print('Not enough {} on hand to sell {} units of {}.'.format(item, qty, item))
 
 		else:
 			print('Not enough cash to purchase {} units of {}.'.format(qty, item))
@@ -235,10 +267,12 @@ class Entity(object):
 		ledger.set_entity(self.entity)
 		qty_held = ledger.get_qty(items=item, accounts=['Inventory'])
 		ledger.reset()
-		if qty_held > qty:
-			print('Consume: {} {}'.format(qty, item))
+		#print('QTY Held: {} {}'.format(qty_held, item))
+		if qty_held >= qty:
+			#print('Consume: {} {}'.format(qty, item))
+			price = 5 #self.world.price(item)
 
-			consume_entry = [ ledger.get_event(), self.entity, world.now, item + ' consumed', item, self.world.price, qty, 'Goods Consumed', 'Inventory', self.world.price * qty ]
+			consume_entry = [ ledger.get_event(), self.entity, world.now, item + ' consumed', item, price, qty, 'Goods Consumed', 'Inventory', price * qty ]
 			consume_event = [consume_entry]
 			ledger.journal_entry(consume_event)
 
@@ -251,10 +285,10 @@ class Entity(object):
 				print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need'])) # TODO Get entity name from object data
 			return qty * 0.01
 		else:
-			print('Not enough on hand to consume {} units of {}.'.format(qty, item))
+			print('Not enough {} on hand to consume {} units of {}.'.format(item, qty, item))
 
 	def get_base_item(self, item):
-		if item in ['Land','Labour','Equipment','Building','Service','Raw Material','Components','None']:
+		if item in ['Land','Labour','Equipment','Building','Service','Raw Material','Components','Time','None']:
 			return item
 		else:
 			return self.get_base_item(self.world.items.loc[item, 'child_of'])
@@ -262,15 +296,20 @@ class Entity(object):
 	# TODO Proper costing
 	# TODO Make each item take a certain amount of labour hours and have items able to reduce that
 	# TODO Add WIP accounting and COGS
-	def produce(self, item, qty, price):
+	def produce(self, item, qty, price, account=None):
 		v = False
+		if qty == 0:
+			return
+		time_required = False
 		cur = ledger.conn.cursor()
-		requirements_info = cur.execute("SELECT requirements, amount FROM items WHERE item_id = '"+ item +"';").fetchone()
+		requirements_info = cur.execute("SELECT requirements, amount FROM items WHERE item_id = '"+ item +"';").fetchone() # TODO Maybe get from items dataframe
 		cur.close()
 		if v: print('From Table: {}'.format(requirements_info))
 		requirements = [x.strip() for x in requirements_info[0].split(',')]
+		if v: print('Requirements Split: {}'.format(requirements))
 		requirement_details = []
 		for requirement in requirements:
+			if v: print('Requirement: {}'.format(requirement))
 			base_item = self.get_base_item(requirement)
 			item_details = (requirement, base_item)
 			requirement_details.append(item_details)
@@ -280,10 +319,10 @@ class Entity(object):
 		if v: print('Amounts: {}'.format(amounts))
 		requirement_details = list(zip(requirement_details, amounts))
 		if v: print('Requirement Details: {}'.format(requirement_details))
-		# TODO Sort so capacity requirements are first
+		# TODO Sort so requirements with a capacity are first
 		for requirement in requirement_details:
 			ledger.set_entity(self.entity)
-			if v: print('Requirement: {}'.format(requirement))
+			if v: print('Requirement: {} {}'.format(requirement, requirement[0][1]))
 			if requirement[0][1] == 'Land':
 				land = ledger.get_qty(items=requirement[0][0], accounts=['Land'])
 				if v: print('Land: {}'.format(land))
@@ -291,7 +330,7 @@ class Entity(object):
 					print('Not enough {} to produce on.'.format(requirement[0][0]))
 					required_qty = (requirement[1] * qty) - land
 					# TODO Attempt to purchase land
-					self.claim_land(required_qty, price=world.price(requirement[0][0]), item=requirement[0][0])
+					self.claim_land(required_qty, price=5, item=requirement[0][0])#world.price(requirement[0][0])
 					#return
 			if requirement[0][1] == 'Building':
 				building = ledger.get_qty(items=requirement[0][0], accounts=['Buildings'])
@@ -323,14 +362,17 @@ class Entity(object):
 					# TODO Attempt to purchase before producing self if makes sense
 					self.produce(requirement[0][0], qty=requirement[1] * qty, price=1)
 					#return
+				self.consume(requirement[0][0], qty=requirement[1] * qty)
+			# TODO Add consumption calls for the raw materials and components
 			if requirement[0][1] == 'Raw Material':
 				material_qty = ledger.get_qty(items=requirement[0][0], accounts=['Raw Materials'])
 				if v: print('Land: {}'.format(material_qty))
 				if material_qty < (requirement[1] * qty):
-					print('Not enough {} raw material. Will attempt to aquire some.'.format(requirement[0][0]))
+					print('Not enough raw material: {}. Will attempt to aquire some.'.format(requirement[0][0]))
 					# TODO Attempt to purchase before producing self if makes sense
 					self.produce(requirement[0][0], qty=requirement[1] * qty, price=1)
 					#return
+				self.consume(requirement[0][0], qty=requirement[1] * qty)
 			if requirement[0][1] == 'Service': # TODO Add check to ensure payment has been made recently (maybe on day of)
 				service_state = ledger.get_qty(items=requirement[0][0], accounts=['Service Info'])
 				if v: print('Service State for {}: {}'.format(requirement[0][0], service_state))
@@ -362,25 +404,59 @@ class Entity(object):
 				ledger.reset()
 				if v: print('Labour Done: {}'.format(labour_done))
 				if labour_done < (requirement[1] * modifier * qty): # TODO Have this call for labour to be done if it hasn't been done
-					required_hours = (requirement[1] * modifier * qty) - labour_done
+					required_hours = int(math.ceil((requirement[1] * modifier * qty) - labour_done))
 					print('Not enough {} labour done today for production. Will attempt to hire a worker for {} hours.'.format(requirement[0][0], required_hours))
 					#print('Price: {}'.format(world.price('Cultivator'))) # TODO Fix error this gives
 					self.accru_wages(job=requirement[0][0], counterparty=1, wage=5, labour_hours=required_hours) # TODO Fix counterparty and price
 					#return
+			if requirement[0][1] == 'Time':
+				time_required = True
+				if v: print('Time Required: {}'.format(time_required))
 		ledger.reset()
-		produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' produced', item, price, qty, 'Inventory', 'Goods Produced', price * qty ]
+		if time_required:
+			produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' in process', item, price, qty, 'WIP Inventory', 'Goods Produced', price * qty ]
+		else:
+			if account is None:
+				account = 'Inventory'
+			produce_entry = [ ledger.get_event(), self.entity, world.now, item + ' produced', item, price, qty, account, 'Goods Produced', price * qty ]
 		produce_event = [produce_entry]
 		ledger.journal_entry(produce_event)
 		#return labour_done # TODO This shouldn't be needed as it is covered by pay_salary()
+
+	def wip_check(self):
+		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		# Get list of WIP Inventory txns
+		wip_txns = ledger.gl[(ledger.gl['debit_acct'] == 'WIP Inventory') & (~ledger.gl['event_id'].isin(rvsl_txns))]
+		if not wip_txns.empty:
+			# Compare the gl dates to the WIP time from the items table
+			items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
+			for index, wip_lot in wip_txns.iterrows():
+				item = wip_lot.loc['item_id']
+				requirements = [x.strip() for x in items_time['requirements'][item].split(',')]
+				for i, requirement in enumerate(requirements):
+					if requirement == 'Time':
+						break
+				amounts = [x.strip() for x in items_time['amount'][item].split(',')]
+				amounts = list(map(float, amounts))
+				lifespan = amounts[i]
+				date_done = (datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=lifespan)).date()
+				# If the time elapsed has passed
+				if date_done == world.now:
+					# Book the entry to move from WIP to Inventory
+					wip_entry = [[ wip_lot[0], wip_lot[1], world.now, wip_lot[4] + ' produced', wip_lot[4], wip_lot[5], wip_lot[6] or '', 'Inventory', wip_lot[7], wip_lot[9] ]]
+					ledger.journal_entry(wip_entry)
+			
 
 	def capitalize(self, amount):
 		capital_entry = [ ledger.get_event(), self.entity, self.world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', amount ]
 		capital_event = [capital_entry]
 		ledger.journal_entry(capital_event)
 
-	def auth_shares(self, ticker, qty, counterparty=None):
+	def auth_shares(self, ticker, qty=None, counterparty=None):
 		if counterparty is None:
 			counterparty = self.entity
+		if qty is None:
+			qty = 1000000
 		auth_shares_entry = [ ledger.get_event(), counterparty, self.world.now, 'Authorize shares', ticker, '', qty, 'Shares', 'Info', 0 ]
 		auth_shares_event = [auth_shares_entry]
 		ledger.journal_entry(auth_shares_event)
@@ -388,13 +464,22 @@ class Entity(object):
 	def buy_shares(self, ticker, price, qty, counterparty):
 		self.transact(ticker, price, qty, counterparty, 'Investments', 'Shares')
 
-	def incorporate(self):
-		pass
+	# TODO Add logic triggers so individuals will incorporate companies on their own
+	def incorporate(self, ticker, price, qty, counterparty):
+		# TODO Add entity creation
+		self.auth_shares(ticker, counterparty)
+		self.buy_shares(ticker, price, qty, counterparty)
+		return 4
 
 	def claim_land(self, qty, price, item='Land'): # QTY in square meters
-		claim_land_entry = [ ledger.get_event(), self.entity, self.world.now, 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
-		claim_land_event = [claim_land_entry]
-		ledger.journal_entry(claim_land_event)
+		ledger.set_entity(0)
+		unused_land = ledger.get_qty(items=item)#, accounts=['Natural Wealth'])
+		ledger.reset()
+		#print('Unused Land: {}'.format(unused_land))
+		if unused_land >= qty:
+			claim_land_entry = [ ledger.get_event(), self.entity, self.world.now, 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
+			claim_land_event = [claim_land_entry]
+			ledger.journal_entry(claim_land_event)
 
 	def pay_wages(self, job, counterparty):
 		ledger.set_entity(self.entity)
@@ -437,11 +522,12 @@ class Entity(object):
 		return 1
 
 	def check_salary(self, job, counterparty):
+		# TODO Check all jobs
 		 # TODO Get price and counterparty from hiring of worker
 		ledger.set_entity(self.entity)
 		worker_state = ledger.get_qty(items=job, accounts=['Worker Info'])
 		ledger.reset()
-		if worker_state is not None:
+		if worker_state:
 			worker_state = int(worker_state)
 		#print('Worker State: {}'.format(worker_state))
 		if not worker_state:
@@ -486,11 +572,12 @@ class Entity(object):
 		return 1
 
 	def pay_service(self, item, counterparty, price, qty=''):
+		# TODO Should check all active services and pay them with a check_service() function
 		 # TODO Get price and counterparty from service order
 		ledger.set_entity(self.entity)
 		service_state = ledger.get_qty(items=item, accounts=['Service Info'])
 		ledger.reset()
-		if service_state is not None:
+		if service_state:
 			service_state = int(service_state)
 		#print('Service State: {}'.format(service_state))
 		if not service_state:
@@ -504,7 +591,7 @@ class Entity(object):
 
 	def collect_material(self, item, qty, price=1, account=None): # TODO Make cost based on time spent and salary
 		if account is None:
-			account = 'Raw Materials'
+			account = 'Inventory'
 		collect_mat_entry = [ ledger.get_event(), self.entity, self.world.now, 'Forage ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
 		collect_mat_event = [collect_mat_entry]
 		ledger.journal_entry(collect_mat_event)
@@ -527,11 +614,11 @@ class Entity(object):
 			#print(item)
 			qty = item['qty']
 			item = item['item_id']
+			# TODO Lookup to items DataFrame
 			cur = ledger.conn.cursor()
 			lifespan = cur.execute('SELECT lifespan FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
 			metric = cur.execute('SELECT metric FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
 			cur.close()
-			#lifespan = 10 # Temp
 			self.derecognize(item, qty)
 			self.depreciation(item, lifespan, metric)
 		ledger.reset()
@@ -544,13 +631,26 @@ class Entity(object):
 			#print('Asset Bal: {}'.format(asset_bal))
 			dep_amount = asset_bal / lifespan
 			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
-			depreciation_entry = [ ledger.get_event(), self.entity, self.world.now, 'Depreciation on ' + item, item, '', '', 'Depreciation Expense', 'Accumulated Depreciation', dep_amount ]
+			depreciation_entry = [ ledger.get_event(), self.entity, self.world.now, 'Depreciation of ' + item, item, '', '', 'Depreciation Expense', 'Accumulated Depreciation', dep_amount ]
 			depreciation_event = [depreciation_entry]
 			ledger.journal_entry(depreciation_event)
 
 		if (metric == 'spoilage') or (metric == 'obsolescence'):
-			print('Spoilage: {} {} day {} to be implemented'.format(item, lifespan, metric))
-			return
+			print('Spoilage: {} {} days {}'.format(item, lifespan, metric))
+			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+			# Get list of Inventory txns
+			inv_txns = ledger.gl[(ledger.gl['debit_acct'] == 'Inventory') & (ledger.gl['item_id'] == item) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			if not inv_txns.empty:
+				# Compare the gl dates to the lifetime from the items table
+				items_spoil = world.items[world.items['metric'].str.contains('spoilage', na=False)]
+				lifespan = items_spoil['lifespan'][item]
+				for index, inv_lot in inv_txns.iterrows():
+					date_done = (datetime.datetime.strptime(inv_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=lifespan)).date()
+					# If the time elapsed has passed
+					if date_done == world.now:
+						# Book thes spoilage entry
+						spoil_entry = [[ inv_lot[0], inv_lot[1], world.now, inv_lot[4] + ' spoilage', inv_lot[4], inv_lot[5], inv_lot[6] or '', 'Spoilage Expense', 'Inventory', inv_lot[9] ]]
+						ledger.journal_entry(spoil_entry)
 
 	def derecognize(self, item, qty):
 		asset_bal = ledger.balance_sheet(accounts=['Equipment'], item=item)# TODO Support other accounts
@@ -624,10 +724,39 @@ class Individual(Entity):
 		items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
 		items_info.reset_index(inplace=True)
 		item_choosen = items_info['item_id'].iloc[0]
-		#self.purchase(item_choosen, price=world.food_price, qty=100, counterparty=2) # TODO Change to transact() function
-		self.transact(item_choosen, price=world.food_price, qty=100, counterparty=2)#, buy_acct='Inventory', sell_acct='Inventory')
-		qty = random.randint(40, 80)
-		self.consume(item_choosen, qty, need) # TODO Make random int between 50 and 150 and if not enough food try again
+		satisfy_rate = items_info['satisfy_rate'].iloc[0]
+
+		item_type = self.get_base_item(item_choosen)
+		print('Item Type: {}'.format(item_type))
+
+		if item_type == 'Service':
+			ledger.set_entity(self.entity)
+			service_state = ledger.get_qty(items=item_choosen, accounts=['Service Info'])
+			ledger.reset()
+			if service_state:
+				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
+			else:
+				self.order_service(item_choosen, counterparty=2, price=3)
+		else:
+			need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
+			print('Need Needed: {}'.format(need_needed))
+			qty_needed = math.ceil(need_needed / satisfy_rate)
+			print('QTY Needed: {}'.format(qty_needed))
+			ledger.set_entity(self.entity)
+			qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
+			ledger.reset()
+			if qty_held < qty_needed:
+				qty_purchase = qty_needed - qty_held
+				print('QTY Purchase: {}'.format(qty_purchase))
+				#self.purchase(item_choosen, price=world.food_price, qty=100, counterparty=2) # TODO Change to transact() function
+				self.transact(item_choosen, price=world.food_price, qty=qty_purchase, counterparty=2)#, buy_acct='Inventory', sell_acct='Inventory')
+				ledger.set_entity(self.entity)
+				qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
+				ledger.reset()
+				print('QTY Held: {}'.format(qty_held))
+			# TODO Maybe have consume() return how much was consumed and need adjustment calculated here
+			if qty_held:
+				self.consume(item_choosen, qty_held, need)
 
 class Organization(Entity):
 	def __init__(self, name, world):
@@ -649,6 +778,7 @@ if __name__ == '__main__':
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
 	parser.add_argument('-p', '--player', action="store_true", help='Turn on player interaction.')
+	# TODO Add an argparse for number of individuals to create
 	args = parser.parse_args()
 	if args.database is None:
 		args.database = 'econ01.db'

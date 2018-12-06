@@ -104,6 +104,7 @@ class Accounts(object):
 				('Tools','Equipment'),
 				('Furniture','Equipment'),
 				('Inventory','Asset'),
+				('WIP Inventory','Asset'),
 				('Raw Materials','Inventory'),
 				('Goods Produced','Revenue'),
 				('Goods Consumed','Expense'),
@@ -115,6 +116,7 @@ class Accounts(object):
 				('Wages Revenue','Revenue'),
 				('Depreciation Expense','Expense'),
 				('Accumulated Depreciation','Asset'),
+				('Spoilage Expense','Expense'),
 				('Worker Info','Info'),
 				('Hire Worker','Info'),
 				('Fire Worker','Info'),
@@ -958,7 +960,7 @@ class Ledger(object):
 	def reversal_entry(self, txn=None, date=None): # This func effectively deletes a transaction
 		if txn is None:
 			txn = input('Which txn_id to reverse? ')
-		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';'
+		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
 		cur = self.conn.cursor()
 		cur.execute(rvsl_query)
 		rvsl = cur.fetchone()
@@ -1013,9 +1015,9 @@ class Ledger(object):
 
 		qty_txns_gl = self.get_qty_txns(item, acct)
 		mask = qty_txns_gl.credit_acct == acct
-		#qty_txns_gl.loc[mask, 'qty'] = qty_txns_gl['qty'] * -1
-		qty_txns_gl = qty_txns_gl.loc[mask, 'qty']
-		qty_txns_gl = qty_txns_gl['qty'] * -1
+		qty_txns_gl.loc[mask, 'qty'] = qty_txns_gl['qty'] * -1
+		#qty_txns_gl = qty_txns_gl.loc[mask, 'qty']
+		#qty_txns_gl = qty_txns_gl['qty'] * -1
 		#qty_txns_gl = qty_txns_gl[~(qty_txns_gl['qty'] < 0)] # Not used
 
 		if v: print('QTY TXNs GL:')
