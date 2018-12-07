@@ -781,7 +781,7 @@ class Ledger(object):
 			if v_qty: print('Single Item: {}'.format(single_item))
 		inventory = pd.DataFrame(columns=['item_id','qty'])
 		for acct in accounts:
-			if v_qty: print('GL: \n{}'.format(self.gl))
+			#if v_qty: print('GL: \n{}'.format(self.gl))
 			if v_qty: print('Acct: {}'.format(acct))
 			if no_item: # Get qty for all items
 				if v_qty: print('No item given.')
@@ -793,14 +793,14 @@ class Ledger(object):
 				qty_txns = self.get_qty_txns(item, acct)
 				if v_qty: print('QTY TXNs: \n{}'.format(qty_txns))
 				try:
-					debits = qty_txns.groupby(['debit_acct','credit_acct']).sum()['qty'][acct][0]
-					#print('Debits: {}'.format(debits))
+					debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
+					#print('Debits: \n{}'.format(debits))
 				except KeyError as e:
 					#print('Error Debits: {} | {}'.format(e, repr(e)))
 					debits = 0
 				try:
-					credits = qty_txns.groupby(['credit_acct','debit_acct']).sum()['qty'][acct][0]
-					#print('Credits: {}'.format(credits))
+					credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
+					#print('Credits: \n{}'.format(credits))
 				except KeyError as e:
 					#print('Error Credits: {} | {}'.format(e, repr(e)))
 					credits = 0

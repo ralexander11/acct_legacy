@@ -480,12 +480,15 @@ class Entity(object):
 			claim_land_entry = [ ledger.get_event(), self.entity, self.world.now, 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
 			claim_land_event = [claim_land_entry]
 			ledger.journal_entry(claim_land_event)
+		else:
+			print('Not enough {} available to claim.'.format(item))
 
 	def pay_wages(self, job, counterparty):
 		ledger.set_entity(self.entity)
 		wages_payable = abs(ledger.balance_sheet(accounts=['Wages Payable'], item=job))
 		labour_hours = abs(ledger.get_qty(items=job, accounts=['Wages Payable']))
 		ledger.reset()
+		print('Wages Payable: {}'.format(wages_payable))
 		#print('Labour Hours: {}'.format(labour_hours))
 		if wages_payable:
 			# TODO Add check if enough cash, if not becomes salary payable
@@ -636,7 +639,7 @@ class Entity(object):
 			ledger.journal_entry(depreciation_event)
 
 		if (metric == 'spoilage') or (metric == 'obsolescence'):
-			print('Spoilage: {} {} days {}'.format(item, lifespan, metric))
+			#print('Spoilage: {} {} days {}'.format(item, lifespan, metric))
 			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			# Get list of Inventory txns
 			inv_txns = ledger.gl[(ledger.gl['debit_acct'] == 'Inventory') & (ledger.gl['item_id'] == item) & (~ledger.gl['event_id'].isin(rvsl_txns))]
@@ -727,7 +730,7 @@ class Individual(Entity):
 		satisfy_rate = items_info['satisfy_rate'].iloc[0]
 
 		item_type = self.get_base_item(item_choosen)
-		print('Item Type: {}'.format(item_type))
+		#print('Item Type: {}'.format(item_type))
 
 		if item_type == 'Service':
 			ledger.set_entity(self.entity)
@@ -739,21 +742,21 @@ class Individual(Entity):
 				self.order_service(item_choosen, counterparty=2, price=3)
 		else:
 			need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
-			print('Need Needed: {}'.format(need_needed))
+			#print('Need Needed: {}'.format(need_needed))
 			qty_needed = math.ceil(need_needed / satisfy_rate)
-			print('QTY Needed: {}'.format(qty_needed))
+			#print('QTY Needed: {}'.format(qty_needed))
 			ledger.set_entity(self.entity)
 			qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 			ledger.reset()
 			if qty_held < qty_needed:
 				qty_purchase = qty_needed - qty_held
-				print('QTY Purchase: {}'.format(qty_purchase))
+				#print('QTY Purchase: {}'.format(qty_purchase))
 				#self.purchase(item_choosen, price=world.food_price, qty=100, counterparty=2) # TODO Change to transact() function
 				self.transact(item_choosen, price=world.food_price, qty=qty_purchase, counterparty=2)#, buy_acct='Inventory', sell_acct='Inventory')
 				ledger.set_entity(self.entity)
 				qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 				ledger.reset()
-				print('QTY Held: {}'.format(qty_held))
+				#print('QTY Held: {}'.format(qty_held))
 			# TODO Maybe have consume() return how much was consumed and need adjustment calculated here
 			if qty_held:
 				self.consume(item_choosen, qty_held, need)
@@ -813,3 +816,19 @@ def f(): # Singleton
     return f.obj
 
 f.obj = None
+
+
+# import pygame, sys
+# from pygame.locals import *
+
+# pygame.init()
+# pygame.display.set_mode((100,100))
+
+# while True:
+#    for event in pygame.event.get():
+#       if event.type == QUIT: sys.exit()
+#       if event.type == KEYDOWN and event.dict['key'] == 50:
+#          print 'break'
+#    pygame.event.pump()
+
+   # http://forums.xkcd.com/viewtopic.php?t=99890
