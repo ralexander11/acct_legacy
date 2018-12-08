@@ -106,13 +106,13 @@ class World(object):
 	def create_indv(self, name, world):
 		return Individual(name, world)
 
-	def price(self, item):
+	def get_price(self, item):
 		if item == 'Food':
 			price = 10
 		elif item == 'Water':
 			price = 3
 		else:
-			price = 5
+			price = 1
 		print('Price: {}'.format(price))
 		return price
 
@@ -152,7 +152,7 @@ class World(object):
 			#self.farm.produce(item='Food', qty=10, price=self.food_price)
 			#if str(self.now) == '1986-10-04': # Temp
 			rand_food = random.randint(0, 20)
-			#rand_food = 20 #Temp
+			#rand_food = 10 #Temp
 			self.farm.produce(item='Food', qty=rand_food, price=self.food_price)
 
 			ledger.set_entity(self.farm.entity)
@@ -201,8 +201,8 @@ class World(object):
 		for need in self.farmer.needs:
 			self.farmer.threshold_check(need)
 
-		#if str(self.now) == '1986-10-15': # Temp
-			#world.end = True # Temp
+		#if str(self.now) == '1986-10-24': # For debugging
+			#world.end = True
 
 	# TODO Maybe an update_world method to change the needs
 
@@ -270,7 +270,7 @@ class Entity(object):
 		#print('QTY Held: {} {}'.format(qty_held, item))
 		if qty_held >= qty:
 			#print('Consume: {} {}'.format(qty, item))
-			price = 5 #self.world.price(item)
+			price = self.world.get_price(item)
 
 			consume_entry = [ ledger.get_event(), self.entity, world.now, item + ' consumed', item, price, qty, 'Goods Consumed', 'Inventory', price * qty ]
 			consume_event = [consume_entry]
@@ -330,7 +330,7 @@ class Entity(object):
 					print('Not enough {} to produce on.'.format(requirement[0][0]))
 					required_qty = (requirement[1] * qty) - land
 					# TODO Attempt to purchase land
-					self.claim_land(required_qty, price=5, item=requirement[0][0])#world.price(requirement[0][0])
+					self.claim_land(required_qty, price=world.get_price(requirement[0][0]), item=requirement[0][0])
 					#return
 			if requirement[0][1] == 'Building':
 				building = ledger.get_qty(items=requirement[0][0], accounts=['Buildings'])
@@ -352,7 +352,7 @@ class Entity(object):
 					remaining_qty = qty - (equip_qty * requirement[1])
 					required_qty = math.ceil(remaining_qty / requirement[1])
 					# TODO Attempt to purchase before producing self if makes sense
-					self.produce(requirement[0][0], required_qty, world.price(requirement[0][0]))
+					self.produce(requirement[0][0], required_qty, world.get_price(requirement[0][0]))
 					#return
 			if requirement[0][1] == 'Components':
 				component_qty = ledger.get_qty(items=requirement[0][0], accounts=['Components'])
@@ -378,7 +378,7 @@ class Entity(object):
 				if v: print('Service State for {}: {}'.format(requirement[0][0], service_state))
 				if not service_state:
 					print('{} service is not active. Will attempt to activate it.'.format(requirement[0][0]))
-					self.order_service(item=requirement[0][0], counterparty=1, price=world.price(requirement[0][0]), qty=1) # TODO Fix counterparty
+					self.order_service(item=requirement[0][0], counterparty=1, price=world.get_price(requirement[0][0]), qty=1) # TODO Fix counterparty
 					#return
 			if requirement[0][1] == 'Labour': # TODO How to handle multiple workers
 				modifier = 1
@@ -406,8 +406,8 @@ class Entity(object):
 				if labour_done < (requirement[1] * modifier * qty): # TODO Have this call for labour to be done if it hasn't been done
 					required_hours = int(math.ceil((requirement[1] * modifier * qty) - labour_done))
 					print('Not enough {} labour done today for production. Will attempt to hire a worker for {} hours.'.format(requirement[0][0], required_hours))
-					#print('Price: {}'.format(world.price('Cultivator'))) # TODO Fix error this gives
-					self.accru_wages(job=requirement[0][0], counterparty=1, wage=5, labour_hours=required_hours) # TODO Fix counterparty and price
+					#print('Price: {}'.format(world.get_price('Cultivator'))) # TODO Fix error this gives
+					self.accru_wages(job=requirement[0][0], counterparty=1, wage=world.get_price('Cultivator'), labour_hours=required_hours) # TODO Fix counterparty and price
 					#return
 			if requirement[0][1] == 'Time':
 				time_required = True
@@ -488,7 +488,7 @@ class Entity(object):
 		wages_payable = abs(ledger.balance_sheet(accounts=['Wages Payable'], item=job))
 		labour_hours = abs(ledger.get_qty(items=job, accounts=['Wages Payable']))
 		ledger.reset()
-		print('Wages Payable: {}'.format(wages_payable))
+		#print('Wages Payable: {}'.format(wages_payable))
 		#print('Labour Hours: {}'.format(labour_hours))
 		if wages_payable:
 			# TODO Add check if enough cash, if not becomes salary payable
@@ -643,17 +643,30 @@ class Entity(object):
 			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			# Get list of Inventory txns
 			inv_txns = ledger.gl[(ledger.gl['debit_acct'] == 'Inventory') & (ledger.gl['item_id'] == item) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			#print('Inv TXNs: \n{}'.format(inv_txns))
 			if not inv_txns.empty:
 				# Compare the gl dates to the lifetime from the items table
 				items_spoil = world.items[world.items['metric'].str.contains('spoilage', na=False)]
 				lifespan = items_spoil['lifespan'][item]
-				for index, inv_lot in inv_txns.iterrows():
+				for txn_id, inv_lot in inv_txns.iterrows():
+					#print('TXN ID: {}'.format(txn_id))
+					#print('Inv Lot: \n{}'.format(inv_lot))
 					date_done = (datetime.datetime.strptime(inv_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=lifespan)).date()
 					# If the time elapsed has passed
 					if date_done == world.now:
-						# Book thes spoilage entry
-						spoil_entry = [[ inv_lot[0], inv_lot[1], world.now, inv_lot[4] + ' spoilage', inv_lot[4], inv_lot[5], inv_lot[6] or '', 'Spoilage Expense', 'Inventory', inv_lot[9] ]]
-						ledger.journal_entry(spoil_entry)
+						ledger.set_entity(self.entity)
+						qty = ledger.get_qty(item, 'Inventory')
+						txns = ledger.hist_cost(qty, item, 'Inventory', True)
+						#print('TXNs: \n{}'.format(txns))
+						ledger.reset()
+						if txn_id in txns.index:
+							txn_qty = txns[txns.index == txn_id]['qty'].iloc[0]
+							# Book thes spoilage entry
+							if qty < txn_qty:
+								spoil_entry = [[ inv_lot[0], inv_lot[1], world.now, inv_lot[4] + ' spoilage', inv_lot[4], inv_lot[5], qty or '', 'Spoilage Expense', 'Inventory', inv_lot[5] * qty ]]
+							else:
+								spoil_entry = [[ inv_lot[0], inv_lot[1], world.now, inv_lot[4] + ' spoilage', inv_lot[4], inv_lot[5], inv_lot[6] or '', 'Spoilage Expense', 'Inventory', inv_lot[9] ]]
+							ledger.journal_entry(spoil_entry)
 
 	def derecognize(self, item, qty):
 		asset_bal = ledger.balance_sheet(accounts=['Equipment'], item=item)# TODO Support other accounts

@@ -975,7 +975,7 @@ class Ledger(object):
 		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7] or '', rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)
 
-	def hist_cost(self, qty, item=None, acct=None):
+	def hist_cost(self, qty, item=None, acct=None, remain_txn=False):
 		v = False
 		if acct is None:
 			acct = 'Investments' #input('Which account? ') # TODO Remove this maybe
@@ -997,8 +997,6 @@ class Ledger(object):
 		qty_change.append(qty_back)
 		for txn in qty_txns[::-1]:
 			if v: print('Item: {}'.format(txn))
-			# if qty_back <= 0:
-			# 	break
 			count -= 1
 			if v: print('Count: {}'.format(count))
 			qty_back -= txn
@@ -1018,7 +1016,6 @@ class Ledger(object):
 		qty_txns_gl.loc[mask, 'qty'] = qty_txns_gl['qty'] * -1
 		#qty_txns_gl = qty_txns_gl.loc[mask, 'qty']
 		#qty_txns_gl = qty_txns_gl['qty'] * -1
-		#qty_txns_gl = qty_txns_gl[~(qty_txns_gl['qty'] < 0)] # Not used
 
 		if v: print('QTY TXNs GL:')
 		if v: print(qty_txns_gl)
@@ -1030,6 +1027,9 @@ class Ledger(object):
 			avail_qty = start_qty
 
 		if v: print('Avail qty: {}'.format(avail_qty))
+		if remain_txn:
+			avail_txns = qty_txns_gl.loc[start_index:]
+			return avail_txns
 		amount = 0
 		if qty <= avail_qty: # Case when first available lot covers the need
 			if v: print('QTY: {}'.format(qty))
