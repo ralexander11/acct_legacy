@@ -105,6 +105,7 @@ class Accounts(object):
 				('Furniture','Equipment'),
 				('Inventory','Asset'),
 				('WIP Inventory','Asset'),
+				('In Use','Asset'),
 				('Raw Materials','Inventory'),
 				('Goods Produced','Revenue'),
 				('Goods Consumed','Expense'),
@@ -752,7 +753,7 @@ class Ledger(object):
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, items=None, accounts=None, show_zeros=False, v_qty=False):
+	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, v_qty=False):
 		#v_qty = True
 		all_accts = False
 		single_item = False
@@ -780,6 +781,9 @@ class Ledger(object):
 			single_item = True
 			if v_qty: print('Single Item: {}'.format(single_item))
 		inventory = pd.DataFrame(columns=['item_id','qty'])
+		# TODO Finish option to show qtys by entity
+		if by_entity:
+			inventory = pd.DataFrame(columns=['entity_id','item_id','qty'])
 		for acct in accounts:
 			#if v_qty: print('GL: \n{}'.format(self.gl))
 			if v_qty: print('Acct: {}'.format(acct))
