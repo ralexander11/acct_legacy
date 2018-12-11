@@ -9,7 +9,7 @@ import time
 import math
 import os
 
-DISPLAY_WIDTH = 98
+DISPLAY_WIDTH = 168
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 
@@ -40,8 +40,8 @@ class World(object):
 		self.player = player
 		self.now = datetime.datetime(1986,10,1).date()
 		print(self.now)
-		self.create_land('Land', 10000)
-		self.create_land('Arable Land', 8000)
+		self.create_land('Land', 100000)
+		self.create_land('Arable Land', 32000)
 		self.create_land('Forest', 100)
 		self.create_land('Rocky Land', 100)
 		self.create_land('Mountain', 100)
@@ -91,7 +91,7 @@ class World(object):
 		#print('Clear tables.')
 
 	def create_land(self, item, qty):
-		land_entry = [ ledger.get_event(), 0, self.now, item + ' created', item, '', qty, 'Natural Wealth', 'Land', 0 ]
+		land_entry = [ ledger.get_event(), 0, self.now, item + ' created', item, '', qty, 'Land', 'Natural Wealth', 0 ]
 		land_event = [land_entry]
 		ledger.journal_entry(land_event)
 
@@ -111,6 +111,8 @@ class World(object):
 			price = 10
 		elif item == 'Water':
 			price = 3
+		elif item == 'Arable Land':
+			price = 5
 		else:
 			price = 1
 		#print('Price Function: {}'.format(price))
@@ -134,14 +136,13 @@ class World(object):
 
 		self.farm.wip_check()
 
-		# TODO Convert to Salary Payable and make payment only on 15th and last day of month
-		self.farm.check_salary('Cultivator', self.farmer.entity)
-		# TODO Make payment only on 15th and last day of month
-		self.farm.pay_wages('Cultivator', self.farmer.entity)
-
 		# TODO Make into service check
 		# TODO Get price and counterparty from service order
-		self.farm.pay_service('Water', 1, 3)
+		self.farm.pay_service('Water', 1, 3) # Moved before salary to see updated cash balances
+		# TODO Make payment only on 15th and last day of month
+		self.farm.pay_wages('Cultivator', self.farmer.entity)
+		# TODO Convert to Salary Payable and make payment only on 15th and last day of month
+		self.farm.check_salary('Cultivator', self.farmer.entity)
 
 		if not self.player:
 			# TODO Pull parameters from farmer object that are set at init
@@ -201,8 +202,8 @@ class World(object):
 		for need in self.farmer.needs:
 			self.farmer.threshold_check(need)
 
-		#if str(self.now) == '1986-10-24': # For debugging
-			#world.end = True
+		# if str(self.now) == '1986-10-10': # For debugging
+		# 	world.end = True
 
 	# TODO Maybe an update_world method to change the needs
 
@@ -287,21 +288,16 @@ class Entity(object):
 		else:
 			print('Not enough {} on hand to consume {} units of {}.'.format(item, qty, item))
 
-	def in_use(self, item, qty, price, account, release=False):
+	def in_use(self, item, qty, price, account):
 		ledger.set_entity(self.entity)
 		qty_held = ledger.get_qty(items=item, accounts=[account])
 		ledger.reset()
-		if not release:
-			if qty_held >= qty:
-				in_use_entry = [ ledger.get_event(), self.entity, world.now, item + ' in use', item, price, qty, 'In Use', account, price * qty ]
-				in_use_event = [in_use_entry]
-				ledger.journal_entry(in_use_event)
-			else:
-				print('Not enough {} available to use.'.format(item))
+		if qty_held >= qty:
+			in_use_entry = [ ledger.get_event(), self.entity, world.now, item + ' in use', item, price, qty, 'In Use', account, price * qty ]
+			in_use_event = [in_use_entry]
+			ledger.journal_entry(in_use_event)
 		else:
-			release_entry = [ ledger.get_event(), self.entity, world.now, item + ' released', item, price, qty, account, 'In Use', price * qty ]
-			release_event = [release_entry]
-			ledger.journal_entry(release_event)
+			print('Not enough {} available to use.'.format(item))
 
 	def get_base_item(self, item):
 		if item in ['Land','Labour','Equipment','Building','Service','Raw Material','Components','Time','None']:
@@ -346,11 +342,12 @@ class Entity(object):
 				land = ledger.get_qty(items=requirement[0][0], accounts=['Land'])
 				if v: print('Land: {}'.format(land))
 				if land < (requirement[1] * qty):
-					print('Not enough {} to produce on. Will attempt to claim some more.'.format(requirement[0][0]))
+					print('Not enough {} to produce on. Will attempt to claim some.'.format(requirement[0][0]))
 					needed_qty = (requirement[1] * qty) - land
 					# TODO Attempt to purchase land
-					self.claim_land(needed_qty, price=world.get_price(requirement[0][0]), item=requirement[0][0])
-					#return
+					insufficient = self.claim_land(needed_qty, price=world.get_price(requirement[0][0]), item=requirement[0][0])
+					if insufficient:
+						return
 				if time_required: # TODO Handle land in use during one tick
 					self.in_use(requirement[0][0], requirement[1] * qty, world.get_price(requirement[0][0]), 'Land')
 			if requirement[0][1] == 'Building':
@@ -467,9 +464,14 @@ class Entity(object):
 				# If the time elapsed has passed
 				if date_done == world.now:
 					# Undo "in use" entries for related items
-					in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'In Use') & (ledger.gl['date'] <= wip_lot[2]) & (~ledger.gl['event_id'].isin(rvsl_txns))] # Ensure only captures related items, perhaps using date as a filter
+					release_txns = ledger.gl[(ledger.gl['credit_acct'] == 'In Use') & (~ledger.gl['event_id'].isin(rvsl_txns))]
+					#print('Release TXNs: \n{}'.format(release_txns))
+					in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'In Use') & (ledger.gl['date'] <= wip_lot[2]) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # Ensure only captures related items, perhaps using date as a filter
+					#print('In Use TXNs: \n{}'.format(in_use_txns))
 					for index, in_use_txn in in_use_txns.iterrows():
-						self.in_use(in_use_txn[4], in_use_txn[6], in_use_txn[5], in_use_txn[8], release=True) # TODO Instead of a separate function, book entry directly 
+						release_entry = [ in_use_txn[0], in_use_txn[1], world.now, in_use_txn[4] + ' released', in_use_txn[4], in_use_txn[5], in_use_txn[6], in_use_txn[8], 'In Use', in_use_txn[9] ]
+						release_event = [release_entry]
+						ledger.journal_entry(release_event)
 					# Book the entry to move from WIP to Inventory
 					wip_entry = [[ wip_lot[0], wip_lot[1], world.now, wip_lot[4] + ' produced', wip_lot[4], wip_lot[5], wip_lot[6] or '', 'Inventory', wip_lot[7], wip_lot[9] ]]
 					ledger.journal_entry(wip_entry)
@@ -501,15 +503,18 @@ class Entity(object):
 
 	def claim_land(self, qty, price, item='Land'): # QTY in square meters
 		ledger.set_entity(0)
-		unused_land = ledger.get_qty(items=item)#, accounts=['Natural Wealth'])
+		unused_land = ledger.get_qty(items=item, accounts=['Land'])
 		ledger.reset()
-		#print('Unused Land: {}'.format(unused_land))
+		print('Unused {}: {}'.format(item, unused_land))
 		if unused_land >= qty:
 			claim_land_entry = [ ledger.get_event(), self.entity, self.world.now, 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
-			claim_land_event = [claim_land_entry]
+			yield_land_entry = [ ledger.get_event(), 0, self.world.now, 'Bestow land', item, price, qty, 'Natural Wealth', 'Land', qty * price ]
+			claim_land_event = [yield_land_entry, claim_land_entry]
 			ledger.journal_entry(claim_land_event)
 		else:
-			print('Not enough {} available to claim.'.format(item))
+			print('Not enough {} available to claim {} square meters.'.format(item, qty))
+			insufficient = True
+			return insufficient
 
 	def pay_wages(self, job, counterparty):
 		ledger.set_entity(self.entity)
@@ -521,7 +526,9 @@ class Entity(object):
 		ledger.set_entity(self.entity)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
-		if (cash >= wages_payable) and wages_payable:
+		if not wages_payable:
+			print('No wages payable to pay for {} work.'.format(job))
+		elif cash >= wages_payable:
 			# TODO Add check if enough cash, if not becomes salary payable, if salary payable below a certain amount
 			wages_pay_entry = [ ledger.get_event(), self.entity, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
 			wages_chg_entry = [ ledger.get_event(), counterparty, self.world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
@@ -529,7 +536,7 @@ class Entity(object):
 			ledger.journal_entry(pay_wages_event)
 			return 0# labour_hours
 		else:
-			print('No wages to pay for {} work.'.format(job))
+			print('Not enough cash to pay wages for {} work. Cash: {}'.format(job, cash))
 
 	def accru_wages(self, job, counterparty, wage, labour_hours):
 		check_wages = True # TODO Add check_wages() function to ensure wages have not gone unpaid too long
@@ -541,7 +548,7 @@ class Entity(object):
 			ledger.journal_entry(accru_wages_event)
 			return labour_hours
 		else:
-			print('Wages have no been paid for {} recently.'.format(job))
+			print('Wages have not been paid for {} recently.'.format(job))
 
 	def hire_worker(self, job, counterparty, price=0, qty=1):
 		hire_worker_entry = [ ledger.get_event(), self.entity, self.world.now, 'Hired ' + job, job, price, qty, 'Worker Info', 'Hire Worker', 0 ]
@@ -597,7 +604,7 @@ class Entity(object):
 			ledger.reset()
 			return labour_hours
 		else:
-			print('Not enough cash to pay for {}: {}'.format(job, cash))
+			print('Not enough cash to pay for {} salary. Cash: {}'.format(job, cash))
 
 	def order_service(self, item, counterparty, price, qty=1):
 		order_service_entry = [ ledger.get_event(), self.entity, self.world.now, 'Ordered ' + item, item, price, qty, 'Service Info', 'Order Service', 0 ]
