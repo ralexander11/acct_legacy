@@ -153,6 +153,7 @@ class Accounts(object):
 				max_qty INTEGER,
 				liquidate_chance real,
 				ticker_source text DEFAULT 'iex',
+				hours INTEGER,
 				needs text,
 				need_max INTEGER DEFAULT 100,
 				decay_rate INTEGER DEFAULT 1,
@@ -170,6 +171,7 @@ class Accounts(object):
 				max_qty,
 				liquidate_chance,
 				ticker_source,
+				hours,
 				needs,
 				need_max,
 				decay_rate,
@@ -185,6 +187,7 @@ class Accounts(object):
 					100,
 					0.5,
 					'iex',
+					24,
 					'Hunger',
 					100,
 					1,
@@ -305,6 +308,7 @@ class Accounts(object):
 			max_qty = ''
 			liquidate_chance = ''
 			ticker_source = input('Enter the source for tickers: ')
+			hours = input('Enter the number of hours in a work day: ')
 			needs = input('Enter the needs of the entity as a list: ')
 			need_max = input('Enter the maximum need value as a list: ')
 			decay_rate = input('Enter the rates of decay per day for each need.') # TODO Add int validation
@@ -313,13 +317,13 @@ class Accounts(object):
 			auth_shares = input('Enter the number of shares authorized: ')
 			outputs = input('Enter the output names as a list: ') # For corporations
 
-			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,needs,need_max,decay_rate,need_threshold,current_need,auth_shares,outputs)
-			cur.execute('INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,hours,needs,need_max,decay_rate,need_threshold,current_need,auth_shares,outputs)
+			cur.execute('INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()
