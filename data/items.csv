@@ -20,3 +20,4 @@ Ore,None,None,None,Raw Material,Mountain,1,None,None,None,None
 Metal,None,None,None,Raw Material,"Forge, Ore","1, 2",None,None,None,None
 Forge,None,None,None,Equipment,"Rock, Wood","30, 5",Kiln,4,100,ticks
 Water,None,None,None,Service,None,None,Thirst,1,None,None
+Toy,None,None,None,Equipment,Wood,10,Fun,10,100,usage

@@ -9,7 +9,7 @@ import time
 import math
 import os
 
-DISPLAY_WIDTH = 98
+DISPLAY_WIDTH = 98#130#
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 
@@ -132,7 +132,7 @@ class World(object):
 			self.farmer.need_decay(need)
 			print('{} {} Need: {}'
 				.format(self.farmer.name, need
-						, self.farmer.needs[need]['Current Need']))
+					, self.farmer.needs[need]['Current Need']))
 
 		# Should something depreciate the first day it is bought?
 		self.farmer.depreciation_check()
@@ -143,7 +143,7 @@ class World(object):
 
 		# TODO Make into service check
 		# TODO Get price and counterparty from service order
-		self.farm.pay_service('Water', world.farmer, world.get_price('Water')) # Moved before salary to see updated cash balances
+		self.farm.pay_service('Water', world.farmer, world.get_price('Water'))
 		# TODO Make payment only on 15th and last day of month
 		self.farm.pay_wages('Cultivator', self.farmer)
 		# TODO Convert to Salary Payable and make payment only on 15th and last day of month
@@ -170,7 +170,14 @@ class World(object):
 			ledger.reset()
 			if plow_qty < 1:
 				print('{} attempting to produce {} {}.'.format(self.farm.name, 1, 'Plow'))
-				self.farm.produce(item='Plow', qty=1, price=100, account='Equipment')#find_item
+				self.farm.produce(item='Plow', qty=1, price=100, account='Equipment')
+
+			ledger.set_entity(self.farmer.entity)
+			plow_qty = ledger.get_qty(items='Toy', accounts=['Equipment'])
+			ledger.reset()
+			if plow_qty < 1:
+				print('{} attempting to produce {} {}.'.format(self.farmer.name, 1, 'Toy'))
+				self.farmer.produce(item='Toy', qty=1, price=10, account='Equipment')
 
 		# hours = 0
 		# # TODO Need to test hours to be used before executing function
@@ -208,7 +215,7 @@ class World(object):
 		print('{} Cash: {}'.format(self.farmer.name, ledger.balance_sheet(['Cash'])))
 		ledger.reset()
 
-		# if str(self.now) == '1986-10-10': # For debugging
+		# if str(self.now) == '1986-10-15': # For debugging
 		# 	world.end = True
 
 	# TODO Maybe an update_world method to change the needs
@@ -288,15 +295,8 @@ class Entity(object):
 				return consume_event
 			ledger.journal_entry(consume_event)
 
-			# TODO Move need logic to address_need()
-			if need is not None:
-				new_need = self.needs[need]['Current Need'] + (self.world.items.loc[item, 'satisfy_rate'] * qty)
-				if new_need < self.needs[need]['Max Need']:
-					self.needs[need]['Current Need'] = new_need
-				else:
-					self.needs[need]['Current Need'] = self.needs[need]['Max Need']
-				print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need'])) # TODO Get entity name from object data
-			return #qty * 0.01
+			self.adj_needs(item, qty)
+			return
 		else:
 			print('Not enough {} on hand to consume {} units of {}.'.format(item, qty, item))
 
@@ -311,19 +311,23 @@ class Entity(object):
 			if recur:
 				return in_use_event
 			ledger.journal_entry(in_use_event)
+			self.adj_needs(item, qty)
 		else:
 			print('Not enough {} available to use.'.format(item))
 
-	def use_item(self, item, recur=False):
-		cur = ledger.conn.cursor()
-		lifespan = cur.execute('SELECT lifespan FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
-		metric = cur.execute('SELECT metric FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
-		cur.close()
+	def use_item(self, item, uses=1, recur=False):
+		lifespan = world.items['lifespan'][item]
+		metric = world.items['metric'][item]
+		# cur = ledger.conn.cursor()
+		# lifespan = cur.execute('SELECT lifespan FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
+		# metric = cur.execute('SELECT metric FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
+		# cur.close()
 		if recur:
-			entries = self.depreciation(item, lifespan, metric, recur=True)
+			entries = self.depreciation(item, lifespan, metric, uses, recur=True)
 			return entries
-		self.depreciation(item, lifespan, metric)
-		# TODO Add address need logic
+		# TODO Maybe make recur also handle adj_needs() without error which would allow removing of the above if stmt
+		self.depreciation(item, lifespan, metric, uses)#, recur)
+		self.adj_needs(item, uses)
 
 	def get_base_item(self, item):
 		if item in ['Land','Labour','Equipment','Building','Service','Raw Material','Components','Time','None']:
@@ -784,26 +788,26 @@ class Entity(object):
 			items_list = ledger.get_qty(accounts=['Buildings','Equipment','Furniture','Inventory'])#, v_qty=False)# TODO Add other account types for base items such as Raw Materials
 			#print('Dep. Items List: \n{}'.format(items_list))
 		for index, item in items_list.iterrows():
-			#print(item)
+			#print('Depreciation Items: \n{}'.format(item))
 			qty = item['qty']
 			item = item['item_id']
-			# TODO Lookup to items DataFrame
-			cur = ledger.conn.cursor()
-			lifespan = cur.execute('SELECT lifespan FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
-			metric = cur.execute('SELECT metric FROM items WHERE item_id = ?;', (item,)).fetchone()[0]
-			cur.close()
+			#print('Depreciation Item: {}'.format(item))
+			lifespan = world.items['lifespan'][item]
+			metric = world.items['metric'][item]
+			#print('Item Lifespan: {}'.format(lifespan))
+			#print('Item Metric: {}'.format(metric))
 			self.derecognize(item, qty)
 			if metric != 'usage':
 				self.depreciation(item, lifespan, metric)
 		ledger.reset()
 
-	def depreciation(self, item, lifespan, metric, recur=False):
+	def depreciation(self, item, lifespan, metric, uses=1, recur=False):
 		if (metric == 'ticks') or (metric == 'usage'):
 			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Furniture'], item=item) # TODO Support other accounts like Tools
 			if asset_bal == 0:
 				return
 			#print('Asset Bal: {}'.format(asset_bal))
-			dep_amount = asset_bal / lifespan
+			dep_amount = (asset_bal / lifespan) * uses
 			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
 			depreciation_entry = [ ledger.get_event(), self.entity, self.world.now, 'Depreciation of ' + item, item, '', '', 'Depreciation Expense', 'Accumulated Depreciation', dep_amount ]
 			depreciation_event = [depreciation_entry]
@@ -813,27 +817,35 @@ class Entity(object):
 
 		if (metric == 'spoilage') or (metric == 'obsolescence'):
 			#print('Spoilage: {} {} days {}'.format(item, lifespan, metric))
+			ledger.refresh_ledger()
+			#print('GL: \n{}'.format(ledger.gl))
 			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			# Get list of Inventory txns
-			inv_txns = ledger.gl[(ledger.gl['debit_acct'] == 'Inventory') & (ledger.gl['item_id'] == item) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			inv_txns = ledger.gl[(ledger.gl['debit_acct'] == 'Inventory')
+				& (ledger.gl['item_id'] == item)
+				& (~ledger.gl['event_id'].isin(rvsl_txns))]
 			#print('Inv TXNs: \n{}'.format(inv_txns))
 			if not inv_txns.empty:
 				# Compare the gl dates to the lifetime from the items table
 				items_spoil = world.items[world.items['metric'].str.contains('spoilage', na=False)]
 				lifespan = items_spoil['lifespan'][item]
+				#print('Spoilage Lifespan: {}'.format(item))
 				for txn_id, inv_lot in inv_txns.iterrows():
 					#print('TXN ID: {}'.format(txn_id))
 					#print('Inv Lot: \n{}'.format(inv_lot))
 					date_done = (datetime.datetime.strptime(inv_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=lifespan)).date()
+					#print('Date Done: {}'.format(date_done))
 					# If the time elapsed has passed
 					if date_done == world.now:
 						ledger.set_entity(self.entity)
 						qty = ledger.get_qty(item, 'Inventory')
 						txns = ledger.hist_cost(qty, item, 'Inventory', True)
-						#print('TXNs: \n{}'.format(txns))
 						ledger.reset()
+						#print('TXNs: \n{}'.format(txns))
+						#print('Spoilage QTY: {}'.format(qty))
 						if txn_id in txns.index:
 							txn_qty = txns[txns.index == txn_id]['qty'].iloc[0]
+							#print('Spoilage TXN QTY: {}'.format(txn_qty))
 							# Book thes spoilage entry
 							if qty < txn_qty:
 								spoil_entry = [[ inv_lot[0], inv_lot[1], world.now, inv_lot[4] + ' spoilage', inv_lot[4], inv_lot[5], qty or '', 'Spoilage Expense', 'Inventory', inv_lot[5] * qty ]]
@@ -855,7 +867,7 @@ class Entity(object):
 class Individual(Entity):
 	def __init__(self, name, world):
 		super().__init__(name, world)
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger,Thirst','100,100','1,2','40,60','50,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger,Thirst,Fun','100,100,100','1,2,3,','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
 		# TODO Add entity skills (Cultivator)
 		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]
@@ -936,9 +948,10 @@ class Individual(Entity):
 		items_info.reset_index(inplace=True)
 		item_choosen = items_info['item_id'].iloc[0]
 		satisfy_rate = items_info['satisfy_rate'].iloc[0]
+		print('Item Choosen: {}'.format(item_choosen))
 
 		item_type = self.get_base_item(item_choosen)
-		#print('Item Type: {}'.format(item_type))
+		print('Item Type: {}'.format(item_type))
 
 		if item_type == 'Service':
 			ledger.set_entity(self.entity)
@@ -948,7 +961,7 @@ class Individual(Entity):
 				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
 			else:
 				self.order_service(item_choosen, counterparty=world.farm, price=world.get_price(item_choosen)) # TODO Generalize this for other entities
-		else:
+		elif (item_type == 'Raw Material') or (item_type == 'Component'):
 			need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 			#print('Need Needed: {}'.format(need_needed))
 			qty_needed = math.ceil(need_needed / satisfy_rate)
@@ -971,6 +984,35 @@ class Individual(Entity):
 			# TODO Have consume() return how much was consumed and need adjustment calculated here
 			if qty_held:
 				self.consume(item_choosen, qty_held, need)
+
+		elif item_type == 'Equipment':
+			# TODO Decide how qty will work with time spent using item
+			ledger.set_entity(self.entity)
+			qty_held = ledger.get_qty(items=item_choosen, accounts=['Equipment'])
+			#print('QTY Held: {}'.format(qty_held))
+			if qty_held > 0:
+				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
+				uses_needed = math.ceil(need_needed / satisfy_rate)
+				self.use_item(item_choosen, uses_needed)
+
+	def adj_needs(self, item, qty=1):
+		indiv_needs = list(self.needs.keys())
+		#print('Indiv Needs: \n{}'.format(indiv_needs))
+		satisfies = self.world.items.loc[item, 'satisfies']
+		satisfies = [x.strip() for x in satisfies.split(',')]
+		#print('Satisfies: \n{}'.format(satisfies))
+		#needs = indiv_needs.intersection(satisfies)
+		needs = list(set(indiv_needs) & set(satisfies))
+		#print('Needs: \n{}'.format(needs))
+		if needs is None:
+			return
+		for need in needs:
+			new_need = self.needs[need]['Current Need'] + (self.world.items.loc[item, 'satisfy_rate'] * qty)
+			if new_need < self.needs[need]['Max Need']:
+				self.needs[need]['Current Need'] = new_need
+			else:
+				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
+			print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need']))
 
 class Organization(Entity):
 	def __init__(self, name, world):
