@@ -31,26 +31,37 @@ def delete_db(db_name=None): # TODO Test and fix this for long term
 		print(time_stamp() + 'The database file does not exist at {}.'
 			.format(db_path + db_name))
 
-class World(object):
-	def __init__(self, player=False):
+class World:
+	def __init__(self, factory, player=False):
 		self.clear_ledger()
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Create World ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
+		self.factory = factory
 		self.items = accts.load_items('data/items.csv')
 		self.end = False
-		self.player = player
 		self.now = datetime.datetime(1986,10,1).date()
 		print(self.now)
+		self.player = player
 		self.create_land('Land', 100000)
 		self.create_land('Arable Land', 32000)
 		self.create_land('Forest', 100)
 		self.create_land('Rocky Land', 100)
 		self.create_land('Mountain', 100)
 
-		# TODO Set amounts of land world has on init
+		# TODO Make the below general
+		# self.farmer = self.create_indv('Farmer', self)
+		# self.farm = self.create_org('Farm', self)
 
-		self.farmer = self.create_indv('Farmer', self) # TODO Make this general
-		self.farm = self.create_org('Farm', self) # TODO Make this general
+		self.farmer = factory.create(Individual, 'Farmer')#, self)
+		self.farm = factory.create(Organization, 'Farm')#, self)
 
+		for typ in factory.registry.keys():
+			print('\nType: {}'.format(typ))
+			for entity in factory.get(typ):
+				print('Entity: {}'.format(entity))
+				print('Name: {}'.format(entity.name))
+
+		print('Test 1: {}'.format(factory.registry.get(Individual)[0]))
+		print('Test 2: {}'.format(self.farmer))
 		# TODO Pull shares authorized from entities table
 		self.farmer.auth_shares('Farm', 1000000, self.farm)
 		self.farmer.claim_land(100, 2, 'Land')
@@ -100,11 +111,11 @@ class World(object):
 		print(self.now)
 		return self.now
 
-	def create_org(self, name, world):
-		return Organization(name, world)
+	# def create_org(self, name, world):
+	# 	return Organization(name, world)
 
-	def create_indv(self, name, world):
-		return Individual(name, world)
+	# def create_indv(self, name, world):
+	# 	return Individual(name, world)
 
 	def get_price(self, item):
 		if item == 'Food':
@@ -151,7 +162,7 @@ class World(object):
 
 		if not self.player:
 			rand_food = random.randint(0, 20)
-			#rand_food = 10 #Temp
+			rand_food = 10 # Temp
 			print('{} attempting to grow {} {}.'.format(self.farm.name, rand_food, 'Food'))
 			self.farm.produce(item='Food', qty=rand_food, price=self.get_price('Food'))
 
@@ -220,9 +231,10 @@ class World(object):
 
 	# TODO Maybe an update_world method to change the needs
 
-class Entity(object):
-	def __init__(self, name, world):
-		self.world = world
+class Entity:
+	def __init__(self, name):#, world):
+		self.name = name
+		#self.world = world
 		#print('Entity created: {}'.format(name))
 
 	def transact(self, item, price, qty, counterparty, acct_buy='Inventory', acct_sell='Inventory'):
@@ -567,7 +579,7 @@ class Entity(object):
 			counterparty = self
 		if qty is None:
 			qty = 1000000
-		auth_shares_entry = [ ledger.get_event(), counterparty.entity, self.world.now, 'Authorize shares', ticker, '', qty, 'Shares', 'Info', 0 ]
+		auth_shares_entry = [ ledger.get_event(), counterparty.entity, world.now, 'Authorize shares', ticker, '', qty, 'Shares', 'Info', 0 ]
 		auth_shares_event = [auth_shares_entry]
 		ledger.journal_entry(auth_shares_event)
 
@@ -865,9 +877,9 @@ class Entity(object):
 
 
 class Individual(Entity):
-	def __init__(self, name, world):
-		super().__init__(name, world)
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger,Thirst,Fun','100,100,100','1,2,3,','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
+	def __init__(self, name):#, world):
+		super().__init__(name)#, world)
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Fun','100,100,100','1,2,3,','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
 		# TODO Add entity skills (Cultivator)
 		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]
@@ -1014,9 +1026,10 @@ class Individual(Entity):
 				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
 			print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need']))
 
+
 class Organization(Entity):
-	def __init__(self, name, world):
-		super().__init__(name, world)
+	def __init__(self, name):#, world):
+		super().__init__(name)#, world)
 		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,None,1000000,'Food') ] # Note: The 2nd to 5th values are for another program
 		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0] # TODO Change this to pull from entities table
@@ -1027,6 +1040,29 @@ class Organization(Entity):
 		print('Starting Farm Food: {}'.format(self.food))
 
 	# TODO Add subclasses to Organization() for company, non-profits, and government
+
+
+class EntityFactory:
+	def __init__(self):
+		self.registry = {}
+
+	def create(self, cls, *args, **kwargs):
+		obj = cls(*args, **kwargs)  # create the instance
+		self.register_instance(obj) # add to registry
+		return obj
+
+	def register_instance(self, obj):
+		typ = type(obj)
+		if typ not in self.registry:
+			self.registry[typ] = []
+		self.registry[typ].append(obj)
+
+	def get(self, typ):
+		return self.registry[typ]
+
+	def __str__(self):
+		counts = {typ.__name__: len(reg) for typ, reg in self.registry.items()}
+		return 'RegistryFactory: ' + str(counts)
 
 
 if __name__ == '__main__':
@@ -1043,9 +1079,10 @@ if __name__ == '__main__':
 	if (args.delay is not None) and (args.delay is not 0):
 		print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))	
 	delete_db(args.database)
-	accts = Accounts(conn=args.database) #TODO Fix init of accounts
+	accts = Accounts(args.database) #TODO Fix init of accounts
 	ledger = Ledger(accts) # TODO Move this into init for World()
-	world = World(args.player)
+	factory = EntityFactory()
+	world = World(factory, args.player)
 
 	while True:
 		world.update_econ()
@@ -1056,19 +1093,8 @@ if __name__ == '__main__':
 	print(time_stamp() + 'End of Econ Sim')
 
 
+
 exit()
-
-
-# Notes for factory functions
-def g():
-    return B()
-
-def f(): # Singleton
-    if f.obj is None:
-        f.obj = A()
-    return f.obj
-
-f.obj = None
 
 
 # import pygame, sys
