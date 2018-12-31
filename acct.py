@@ -123,6 +123,7 @@ class Accounts(object):
 				('Fire Worker','Info'),
 				('Service Info','Info'),
 				('Order Service','Info'),
+				('Sell Service','Info'),
 				('Cancel Service','Info'),
 				('Service Expense','Expense'),
 				('Service Revenue','Revenue')
@@ -765,10 +766,9 @@ class Ledger(object):
 		if (accounts is None) or (accounts == ''):
 			if v_qty: print('No account given.')
 			all_accts = True
-			debit_accts = pd.unique(self.gl['debit_acct'])
+			accounts = pd.unique(self.gl['debit_acct'])
 			#credit_accts = pd.unique(self.gl['credit_acct']) # Not needed
-			#accounts = list( set(debit_accts) | set(credit_accts) ) # Not needed
-			accounts = debit_accts
+			#accounts = list( set(accounts) | set(credit_accts) ) # Not needed
 		if v_qty: print('Accounts: {}'.format(accounts))
 		if isinstance(accounts, str):
 			accounts = [x.strip() for x in accounts.split(',')]
@@ -794,6 +794,8 @@ class Ledger(object):
 			if no_item: # Get qty for all items
 				if v_qty: print('No item given.')
 				items = pd.unique(self.gl[self.gl['debit_acct'] == acct]['item_id'].dropna()).tolist() # Assuming you can't have a negative inventory
+				#credit_items = pd.unique(self.gl[self.gl['credit_acct'] == acct]['item_id'].dropna()).tolist() # Causes issues
+				#items = list( set(items) | set(credit_items) ) # Causes issues
 				items = list(filter(None, items))
 				if v_qty: print('All Items: {}'.format(items))
 			for item in items:
@@ -998,7 +1000,7 @@ class Ledger(object):
 
 		# Find the first lot of unsold items
 		count = 0
-		qty_back = self.get_qty(item, [acct]) # TODO Confirm this work when there are multiple different lots of buys and sell in the past
+		qty_back = self.get_qty(item, [acct]) # TODO Confirm this work when there are multiple different lots of buys and sells in the past
 		if v: print('Init QTY Back: {}'.format(qty_back))
 
 		qty_change = []

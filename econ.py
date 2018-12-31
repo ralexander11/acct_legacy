@@ -36,7 +36,7 @@ class World:
 		self.clear_ledger()
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Create World ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 		self.factory = factory
-		self.items = accts.load_items('data/items.csv')
+		self.items = accts.load_items('data/items.csv') # TODO Change config file to JSON
 		self.now = datetime.datetime(1986,10,1).date()
 		self.end = False
 		print(self.now)
@@ -112,38 +112,46 @@ class World:
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Econ Updated ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 		self.ticktock()
 
+		for individual in factory.get(Individual):
+			individual.reset_hours()
+			for need in individual.needs:
+				individual.need_decay(need)
+				print('{} {} Need: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
+
 		for typ in factory.registry.keys():
 			print('Type: {}'.format(typ))
 			for entity in factory.get(typ):
 				print('Entity: {}'.format(entity))
 				print('Name: {}'.format(entity.name))
+				entity.depreciation_check()
+				entity.wip_check()
+				entity.check_services()
+				entity.pay_wages()
 
 		#for individual in registry:
-		self.farmer.reset_hours()
-		#for entity in registry:
-		for need in self.farmer.needs:
-			self.farmer.need_decay(need)
-			print('{} {} Need: {}'
-				.format(self.farmer.name, need
-					, self.farmer.needs[need]['Current Need']))
+		#self.farmer.reset_hours()
+		#for individual in registry:
+		# for need in self.farmer.needs:
+		# 	self.farmer.need_decay(need)
+		# 	print('{} {} Need: {}'.format(self.farmer.name, need, self.farmer.needs[need]['Current Need']))
 
-		self.farmer.depreciation_check()
+		# self.farmer.depreciation_check()
 		# TODO Add all entities to a register and then loop to run method
-		self.farm.depreciation_check()
-		self.farm.wip_check()
+		# self.farm.depreciation_check()
+		# self.farm.wip_check()
 
 		# TODO Make into service check for all services
 		# TODO Get price and counterparty from service order
-		self.farm.pay_service('Water', world.farmer, world.get_price('Water'))
+		#self.farm.pay_service('Water', world.farmer, world.get_price('Water'))
 		# TODO Make general for all jobs
-		self.farm.pay_wages('Cultivator', self.farmer)
+		#self.farm.pay_wages('Cultivator', self.farmer)
 		# TODO Convert to Salary Payable and make payment only on 15th and last day of month
 		self.farm.check_salary('Cultivator', self.farmer)
 
 
 		# TODO Add logic to decide when and how much food to produce
 		rand_food = random.randint(0, 20)
-		rand_food = 10 # Temp
+		#rand_food = 20 # Temp
 		print('{} attempting to grow {} {}.'.format(self.farm.name, rand_food, 'Food'))
 		self.farm.produce(item='Food', qty=rand_food, price=self.get_price('Food'))
 
@@ -282,7 +290,7 @@ class Entity:
 	def use_item(self, item, uses=1, recur=False):
 		lifespan = world.items['lifespan'][item]
 		metric = world.items['metric'][item]
-		entries = self.depreciation(item, lifespan, metric, uses, recur)
+		entries, uses = self.depreciation(item, lifespan, metric, uses, recur)
 		if entries:
 			try:
 				self.adj_needs(item, uses)
@@ -558,26 +566,53 @@ class Entity:
 			print('Not enough {} available to claim {} square meters.'.format(item, qty))
 			return
 
-	def pay_wages(self, job, counterparty):
-		ledger.set_entity(self.entity)
-		wages_payable = abs(ledger.balance_sheet(accounts=['Wages Payable'], item=job))
-		labour_hours = abs(ledger.get_qty(items=job, accounts=['Wages Payable']))
-		ledger.reset()
-		#print('Wages Payable: {}'.format(wages_payable))
-		#print('Labour Hours: {}'.format(labour_hours))
-		ledger.set_entity(self.entity)
-		cash = ledger.balance_sheet(['Cash'])
-		ledger.reset()
-		if not wages_payable:
-			print('No wages payable to pay for {} work.'.format(job))
-		elif cash >= wages_payable:
-			# TODO Add check if enough cash, if not becomes salary payable, if salary payable below a certain amount
-			wages_pay_entry = [ ledger.get_event(), self.entity, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
-			wages_chg_entry = [ ledger.get_event(), counterparty.entity, world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
-			pay_wages_event = [wages_pay_entry, wages_chg_entry]
-			ledger.journal_entry(pay_wages_event)
-		else:
-			print('Not enough cash to pay wages for {} work. Cash: {}'.format(job, cash))
+	def pay_wages(self, jobs=None, counterparty=None):
+		if jobs is None:
+			# Get list of jobs
+			# TODO Get list of jobs that have accruals only
+			ledger.set_entity(self.entity)
+			wages_payable_list = ledger.get_qty(accounts=['Wages Expense'])
+			ledger.reset()
+			#print('Wages Payable List: \n{}'.format(wages_payable_list))
+			jobs = wages_payable_list['item_id']
+		# Ensure jobs is a list
+		if isinstance(jobs, str):
+			jobs = [x.strip() for x in jobs.split(',')]
+		jobs = list(filter(None, jobs))
+		for job in jobs:
+			ledger.set_entity(self.entity)
+			wages_payable = abs(ledger.balance_sheet(accounts=['Wages Payable'], item=job))
+			#print('Wages Payable: {}'.format(wages_payable))
+			labour_hours = abs(ledger.get_qty(items=job, accounts=['Wages Payable']))
+			#print('Labour Hours: {}'.format(labour_hours))
+			ledger.reset()
+			#print('Wages Payable: {}'.format(wages_payable))
+			#print('Labour Hours: {}'.format(labour_hours))
+			ledger.set_entity(self.entity)
+			cash = ledger.balance_sheet(['Cash'])
+			ledger.reset()
+			if not wages_payable:
+				print('No wages payable to pay for {} work.'.format(job))
+			elif cash >= wages_payable:
+				# Get counterparty
+				rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+				wages_pay_txn = ledger.gl[( (ledger.gl['debit_acct'] == 'Wages Expense') & (ledger.gl['credit_acct'] == 'Wages Payable') ) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+				#print('Wages TXNs: \n{}'.format(wages_pay_txn))
+				event_id = wages_pay_txn.iloc[0].loc['event_id']
+				event_txns = ledger.gl[(ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+				#print('Event TXNs: \n{}'.format(event_txns))
+				item_txn = event_txns.loc[event_txns['item_id'] == job]
+				counterparty_txn = item_txn.loc[item_txn['debit_acct'] == 'Wages Receivable']
+				counterparty_id = counterparty_txn.iloc[0].loc['entity_id']
+				#print('Counterparty ID: \n{}'.format(counterparty_id))
+				counterparty = factory.get_by_id(counterparty_id)
+				# Book relieving entries
+				wages_pay_entry = [ ledger.get_event(), self.entity, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
+				wages_chg_entry = [ ledger.get_event(), counterparty.entity, world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
+				pay_wages_event = [wages_pay_entry, wages_chg_entry]
+				ledger.journal_entry(pay_wages_event)
+			else:
+				print('Not enough cash to pay wages for {} work. Cash: {}'.format(job, cash))
 
 	def check_wages(self, job):
 		TWO_PAY_PERIODS = 32 #datetime.timedelta(days=32)
@@ -685,7 +720,8 @@ class Entity:
 		ledger.reset()
 		if cash >= price:
 			order_service_entry = [ ledger.get_event(), self.entity, world.now, 'Ordered ' + item, item, price, qty, 'Service Info', 'Order Service', 0 ]
-			order_service_event = [order_service_entry]
+			sell_service_entry = [ ledger.get_event(), counterparty.entity, world.now, 'Sold ' + item, item, price, qty, 'Sell Service', 'Service Info', 0 ]
+			order_service_event = [order_service_entry, sell_service_entry]
 			# TODO Add entry for counterparty
 			if recur:
 				return order_service_event
@@ -695,13 +731,34 @@ class Entity:
 			return
 
 	def cancel_service(self, item, counterparty, price=0, qty=-1):
-		order_service_entry = [ ledger.get_event(), self.entity, world.now, 'Cancelled ' + item, item, price, qty, 'Service Info', 'Cancel Service', 0 ]
+		cancel_service_entry = [ ledger.get_event(), self.entity, world.now, 'Cancelled ' + item, item, price, qty, 'Service Info', 'Cancel Service', 0 ]
 		# TODO Add entry for counterparty
-		order_service_event = [order_service_entry]
-		ledger.journal_entry(order_service_event)
+		cancel_service_event = [cancel_service_entry]
+		ledger.journal_entry(cancel_service_event)
+
+	def check_services(self, counterparty=None):
+		ledger.set_entity(self.entity)
+		services_list = ledger.get_qty(accounts=['Service Info'])
+		#print('Services List: \n{}'.format(services_list))
+		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		services_txns = ledger.gl[( (ledger.gl['debit_acct'] == 'Service Info') & (ledger.gl['credit_acct'] == 'Order Service') ) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+		#print('Services TXNs: \n{}'.format(services_txns))
+		ledger.reset()
+		if not services_list.empty:
+			for index, service in services_list.iterrows():
+				txn = services_txns.loc[services_txns['item_id'] == service['item_id']]
+				#print('TXN: \n{}'.format(txn))
+				event_id = txn.iloc[0].loc['event_id']
+				event_txns = ledger.gl[(ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+				item_txn = event_txns.loc[event_txns['item_id'] == service['item_id']] # If there are multiple services
+				counterparty_txn = item_txn.loc[item_txn['credit_acct'] == 'Service Info']
+				counterparty_id = counterparty_txn.iloc[0].loc['entity_id']
+				#print('Counterparty ID: \n{}'.format(counterparty_id))
+				counterparty = factory.get_by_id(counterparty_id)
+				self.pay_service(service['item_id'], counterparty, world.get_price(service['item_id']), service['qty'])
 
 	def pay_service(self, item, counterparty, price, qty=''):
-		# TODO Should check all active services and pay them with a check_service() function
+		# TODO Should check all active services and pay them with a check_services() function
 		 # TODO Get price and counterparty from service order
 		ledger.set_entity(self.entity)
 		service_state = ledger.get_qty(items=item, accounts=['Service Info'])
@@ -770,15 +827,19 @@ class Entity:
 				return
 			#print('Asset Bal: {}'.format(asset_bal))
 			dep_amount = (asset_bal / lifespan) * uses
-			if dep_amount > asset_bal:
+			accum_dep_bal = ledger.balance_sheet(accounts=['Accumulated Depreciation'], item=item)
+			remaining_amount = asset_bal - accum_dep_bal
+			if dep_amount > remaining_amount:
 				print('The {} breaks. Another is required to use.'.format(item))
-				return
+				uses = remaining_amount / (asset_bal / lifespan)
+				dep_amount = remaining_amount
 			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
 			depreciation_entry = [ ledger.get_event(), self.entity, world.now, 'Depreciation of ' + item, item, '', '', 'Depreciation Expense', 'Accumulated Depreciation', dep_amount ]
 			depreciation_event = [depreciation_entry]
 			if recur:
-				return depreciation_event
+				return depreciation_event, uses
 			ledger.journal_entry(depreciation_event)
+			return depreciation_event, uses
 
 		if (metric == 'spoilage') or (metric == 'obsolescence'):
 			#print('Spoilage: {} {} days {}'.format(item, lifespan, metric))
@@ -832,7 +893,7 @@ class Entity:
 class Individual(Entity):
 	def __init__(self, name):
 		super().__init__(name)
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Fun','100,100,100','1,2,3,','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Fun','100,100,100','1,2,5,','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
 		# TODO Add entity skills (Cultivator)
 		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]
@@ -958,6 +1019,7 @@ class Individual(Entity):
 			if qty_held > 0:
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				uses_needed = math.ceil(need_needed / satisfy_rate)
+				print('Uses Needed: {}'.format(uses_needed))
 				self.use_item(item_choosen, uses_needed)
 
 	def adj_needs(self, item, qty=1):
@@ -966,9 +1028,8 @@ class Individual(Entity):
 		satisfies = world.items.loc[item, 'satisfies']
 		satisfies = [x.strip() for x in satisfies.split(',')]
 		#print('Satisfies: \n{}'.format(satisfies))
-		#needs = indiv_needs.intersection(satisfies)
 		needs = list(set(indiv_needs) & set(satisfies))
-		#print('Needs: \n{}'.format(needs))
+		#print('Adj. Needs: \n{}'.format(needs))
 		if needs is None:
 			return
 		for need in needs:
@@ -1012,6 +1073,23 @@ class EntityFactory:
 
 	def get(self, typ):
 		return self.registry[typ]
+
+	def get_by_name(self, name):
+		for typ in factory.registry.keys():
+			for entity in factory.get(typ):
+				if entity.name == name:
+					#print('Entity by Name: {}'.format(entity))
+					#print('Entity Name by Name: {}'.format(entity.name))
+					return entity
+
+	def get_by_id(self, entity_id):
+		world.entities = accts.get_entities()
+		entity_row = world.entities.loc[[entity_id]]
+		entity_name = world.entities.iloc[0].loc['name']
+		#print('Entity Name: \n{}'.format(entity_name))
+		entity = self.get_by_name(entity_name)
+		#print('Entity: {}'.format(entity))
+		return entity
 
 	def __str__(self):
 		counts = {typ.__name__: len(reg) for typ, reg in self.registry.items()}
