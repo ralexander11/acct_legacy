@@ -100,9 +100,9 @@ class World:
 	def update_econ(self):
 		if str(self.now) == '1986-10-01':
 			# TODO Pull shares authorized from entities table
+			self.farmer.capitalize(amount=10000)
 			self.farmer.auth_shares('Farm', 1000000, self.farm)
 			self.farmer.claim_land(100, 2, 'Land')
-			self.farmer.capitalize(amount=10000)
 			self.farmer.buy_shares(ticker='Farm', price=5, qty=1000, counterparty=self.farm) # TODO Maybe 'Farm shares'
 			# TODO Need a way to determine price and qty of land
 			self.farm.claim_land(4000, 5, 'Arable Land')
@@ -188,7 +188,7 @@ class World:
 		print('{} Cash: {}'.format(self.farmer.name, ledger.balance_sheet(['Cash'])))
 		ledger.reset()
 
-		# if str(self.now) == '1986-10-15': # For debugging
+		# if str(self.now) == '1986-10-05': # For debugging
 		# 	world.end = True
 
 
@@ -497,7 +497,7 @@ class Entity:
 	def wip_check(self):
 		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of WIP Inventory txns
-		wip_txns = ledger.gl[(ledger.gl['debit_acct'] == 'WIP Inventory') & (~ledger.gl['event_id'].isin(rvsl_txns))]
+		wip_txns = ledger.gl[(ledger.gl['debit_acct'] == 'WIP Inventory') & (ledger.gl['entity_id'] == self.entity) & (~ledger.gl['event_id'].isin(rvsl_txns))] # TODO Maybe change self.entity to self.entity_id
 		if not wip_txns.empty:
 			# Compare the gl dates to the WIP time from the items table
 			items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
@@ -514,9 +514,9 @@ class Entity:
 				# If the time elapsed has passed
 				if date_done == world.now:
 					# Undo "in use" entries for related items
-					release_txns = ledger.gl[(ledger.gl['credit_acct'] == 'In Use') & (~ledger.gl['event_id'].isin(rvsl_txns))]
+					release_txns = ledger.gl[(ledger.gl['credit_acct'] == 'In Use') & (ledger.gl['entity_id'] == self.entity) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 					#print('Release TXNs: \n{}'.format(release_txns))
-					in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'In Use') & (ledger.gl['date'] <= wip_lot[2]) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # Ensure only captures related items, perhaps using date as a filter
+					in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'In Use') & (ledger.gl['entity_id'] == self.entity) & (ledger.gl['date'] <= wip_lot[2]) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # Ensure only captures related items, perhaps using date as a filter
 					#print('In Use TXNs: \n{}'.format(in_use_txns))
 					for index, in_use_txn in in_use_txns.iterrows():
 						release_entry = [ in_use_txn[0], in_use_txn[1], world.now, in_use_txn[4] + ' released', in_use_txn[4], in_use_txn[5], in_use_txn[6], in_use_txn[8], 'In Use', in_use_txn[9] ]

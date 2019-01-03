@@ -759,7 +759,8 @@ class Ledger(object):
 		return qty_txns
 
 	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, v_qty=False):
-		#v_qty = True
+		# if items == 'Food':
+		# 	v_qty = True
 		all_accts = False
 		single_item = False
 		no_item = False
