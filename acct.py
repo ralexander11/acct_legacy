@@ -121,9 +121,12 @@ class Accounts(object):
 				('Worker Info','Info'),
 				('Hire Worker','Info'),
 				('Fire Worker','Info'),
+				('Start Job', 'Info'),
+				('Quit Job', 'Info'),
 				('Service Info','Info'),
 				('Order Service','Info'),
 				('Sell Service','Info'),
+				('End Service', 'Info'),
 				('Cancel Service','Info'),
 				('Service Expense','Expense'),
 				('Service Revenue','Revenue')
@@ -817,7 +820,7 @@ class Ledger(object):
 					credits = 0
 				qty = round(debits - credits, 2)
 				if v_qty: print('QTY: {}'.format(qty))
-				if single_item:
+				if single_item: # TODO Fix to handle multiple accounts
 					return qty
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
 				#if v_qty: print(inventory)

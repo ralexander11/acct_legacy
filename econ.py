@@ -47,7 +47,7 @@ class World:
 		self.create_land('Mountain', 100)
 
 		self.farmer = factory.create(Individual, 'Farmer')
-		self.farm = factory.create(Organization, 'Farm')
+		#self.farm = factory.create(Organization, 'Farm')
 
 		print()
 		print(ledger.gl.columns.values.tolist()) # For verbosity
@@ -85,7 +85,7 @@ class World:
 
 	def get_price(self, item):
 		if item == 'Food':
-			price = 10
+			price = 100
 		elif item == 'Water':
 			price = 3
 		elif item == 'Arable Land':
@@ -100,13 +100,13 @@ class World:
 	def update_econ(self):
 		if str(self.now) == '1986-10-01':
 			# TODO Pull shares authorized from entities table
-			self.farmer.capitalize(amount=10000)
-			self.farmer.auth_shares('Farm', 1000000, self.farm)
-			self.farmer.claim_land(100, 2, 'Land')
-			self.farmer.buy_shares(ticker='Farm', price=5, qty=1000, counterparty=self.farm) # TODO Maybe 'Farm shares'
+			self.farmer.capitalize(amount=10000) # Hardcoded for now
+			#self.farmer.claim_land(100, 2, 'Land')
+			#self.farmer.auth_shares('Farm', 1000000, self.farm)
+			#self.farmer.buy_shares(ticker='Farm', price=5, qty=1000, counterparty=self.farm) # TODO Maybe 'Farm shares'
 			# TODO Need a way to determine price and qty of land
-			self.farm.claim_land(4000, 5, 'Arable Land')
-			self.farm.hire_worker('Cultivator', self.farmer)
+			#self.farm.claim_land(4000, 5, 'Arable Land')
+			#self.farm.hire_worker('Cultivator', self.farmer)
 
 		# TODO Maybe an update_world() method to adjust the needs and time
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Econ Updated ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
@@ -115,6 +115,9 @@ class World:
 		for individual in factory.get(Individual):
 			individual.reset_hours()
 			for need in individual.needs:
+				corp = individual.need_demand(need) # TODO Remove temp assignment
+				if corp is not None:
+					self.farm = corp
 				individual.need_decay(need)
 				print('{} {} Need: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
 
@@ -126,6 +129,7 @@ class World:
 				entity.depreciation_check()
 				entity.wip_check()
 				entity.check_services()
+				entity.check_salary()
 				entity.pay_wages()
 
 		#for individual in registry:
@@ -146,12 +150,12 @@ class World:
 		# TODO Make general for all jobs
 		#self.farm.pay_wages('Cultivator', self.farmer)
 		# TODO Convert to Salary Payable and make payment only on 15th and last day of month
-		self.farm.check_salary('Cultivator', self.farmer)
+		#self.farm.check_salary('Cultivator', self.farmer)
 
 
 		# TODO Add logic to decide when and how much food to produce
 		rand_food = random.randint(0, 20)
-		#rand_food = 20 # Temp
+		rand_food = 10 # Temp
 		print('{} attempting to grow {} {}.'.format(self.farm.name, rand_food, 'Food'))
 		self.farm.produce(item='Food', qty=rand_food, price=self.get_price('Food'))
 
@@ -525,7 +529,6 @@ class Entity:
 					# Book the entry to move from WIP to Inventory
 					wip_entry = [[ wip_lot[0], wip_lot[1], world.now, wip_lot[4] + ' produced', wip_lot[4], wip_lot[5], wip_lot[6] or '', 'Inventory', wip_lot[7], wip_lot[9] ]]
 					ledger.journal_entry(wip_entry)
-			
 
 	def capitalize(self, amount):
 		capital_entry = [ ledger.get_event(), self.entity, world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', amount ]
@@ -545,10 +548,38 @@ class Entity:
 		self.transact(ticker, price, qty, counterparty, 'Investments', 'Shares')
 
 	# TODO Add logic triggers so individuals will incorporate companies on their own
-	def incorporate(self, ticker, price, qty, counterparty):
+	def incorporate(self, ticker=None, price=None, qty=None):
 		# TODO Add entity creation
-		self.auth_shares(ticker, counterparty)
+		if ticker is None:
+			ticker = 'Farm'
+		if price is None:
+			price = 5
+		if qty is None:
+			qty = 1000
+		corp = factory.create(Organization, ticker)
+		counterparty = corp
+		self.auth_shares(ticker, qty, counterparty)
 		self.buy_shares(ticker, price, qty, counterparty)
+		return corp
+
+	def need_demand(self, need):
+		# Choose item
+		items_info = accts.get_items()
+		#print('Items Info: \n{}'.format(items_info))
+		items_info = items_info[items_info['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
+		items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
+		items_info.reset_index(inplace=True)
+		item_choosen = items_info['item_id'].iloc[0]
+		print('Item Choosen: {}'.format(item_choosen))
+		# Check if item is produced or being produced
+		qty = ledger.get_qty(item_choosen, ['Inventory'])
+		qty += ledger.get_qty(item_choosen, ['WIP Inventory'])
+		print('QTY: {}'.format(qty))
+		# If not incorporate and produce item
+		if qty == 0:
+			print('Incorporate!')
+			corp = self.incorporate()
+			return corp
 
 	def claim_land(self, qty, price, item='Land', recur=False): # QTY in square meters
 		ledger.set_entity(0)
@@ -661,41 +692,63 @@ class Entity:
 
 	def hire_worker(self, job, counterparty, price=0, qty=1):
 		hire_worker_entry = [ ledger.get_event(), self.entity, world.now, 'Hired ' + job, job, price, qty, 'Worker Info', 'Hire Worker', 0 ]
-		# TODO Add entry for counterparty
-		hire_worker_event = [hire_worker_entry]
+		start_job_entry = [ ledger.get_event(), counterparty.entity, world.now, 'Started job as ' + job, job, price, qty, 'Start Job', 'Worker Info', 0 ]
+		hire_worker_event = [hire_worker_entry, start_job_entry]
 		ledger.journal_entry(hire_worker_event)
 
 	def fire_worker(self, job, counterparty, price=0, qty=-1):
 		fire_worker_entry = [ ledger.get_event(), self.entity, world.now, 'Fired ' + job, job, price, qty, 'Worker Info', 'Fire Worker', 0 ]
-		# TODO Add entry for counterparty
-		fire_worker_event = [fire_worker_entry]
+		quit_job_entry = [ ledger.get_event(), counterparty.entity, world.now, 'Quit job as ' + job, job, price, qty, 'Quit Job', 'Worker Info', 0 ]
+		fire_worker_event = [fire_worker_entry, quit_job_entry]
 		ledger.journal_entry(fire_worker_event)
 
 	def check_salary(self, job=None, counterparty=None):
-		# TODO Check all jobs properly
-		# TODO Get price and counterparty from hiring of worker
-		ledger.set_entity(self.entity)
-		#worker_state = ledger.get_qty(items=job, accounts=['Worker Info'])
-		worker_states = ledger.get_qty(accounts=['Worker Info'])
-		ledger.reset()
-		#print('Worker State: \n{}'.format(worker_states))
-		for _, row in worker_states.iterrows():
-			#print('Row: \n{}'.format(row))
-			job = row[0]
-			worker_state = row[1]
+		if job is not None:
+			ledger.set_entity(self.entity)
+			worker_state = ledger.get_qty(items=job, accounts=['Worker Info'])
+			ledger.reset()
 			if worker_state:
-				worker_state = int(worker_state)
+					worker_state = int(worker_state)
 			#print('Worker State: {}'.format(worker_state))
-			if not worker_state:
+			if not worker_state: # If worker_state is zero
 				return
 			for _ in range(worker_state):
 				self.pay_salary(job, counterparty)
+		elif job is None:
+			ledger.set_entity(self.entity)
+			worker_states = ledger.get_qty(accounts=['Worker Info'])
+			ledger.reset()
+			#print('Worker States: \n{}'.format(worker_states))
+			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+			salary_txns = ledger.gl[( (ledger.gl['debit_acct'] == 'Worker Info') & (ledger.gl['credit_acct'] == 'Hire Worker') ) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			#print('Worker TXNs: \n{}'.format(salary_txns))
+			for index, job in worker_states.iterrows():
+				#print('Salary Job: \n{}'.format(job))
+				#print('Job: {}'.format(job['item_id']))
+				worker_state = job[1]
+				#print('Worker State: {}'.format(worker_state))
+				if worker_state:
+					worker_state = int(worker_state)
+				#print('Worker State: {}'.format(worker_state))
+				if not worker_state: # If worker_state is zero
+					return
+				txn = salary_txns.loc[salary_txns['item_id'] == job['item_id']]
+				#print('TXN: \n{}'.format(txn))
+				event_id = txn.iloc[0].loc['event_id']
+				event_txns = ledger.gl[(ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+				item_txn = event_txns.loc[event_txns['item_id'] == job['item_id']] # If there are multiple services
+				counterparty_txn = item_txn.loc[item_txn['credit_acct'] == 'Worker Info']
+				counterparty_id = counterparty_txn.iloc[0].loc['entity_id']
+				#print('Counterparty ID: \n{}'.format(counterparty_id))
+				counterparty = factory.get_by_id(counterparty_id)
+				for _ in range(worker_state):
+					self.pay_salary(job['item_id'], counterparty)
 
-	def pay_salary(self, job, counterparty, salary=None, labour_hours=None): # TODO Fix defaults
+	def pay_salary(self, job, counterparty, salary=None, labour_hours=None):
 		if salary is None:
-			salary = world.get_price(job)
+			salary = world.get_price(job) # TODO Get price from hire entry
 		if labour_hours is None:
-			labour_hours = 4
+			labour_hours = 8
 		if counterparty.hours < labour_hours:
 			print('{} does not have enough time left to do {} job for {} hours.'.format(counterparty.name, job, labour_hours))
 			return
@@ -732,8 +785,8 @@ class Entity:
 
 	def cancel_service(self, item, counterparty, price=0, qty=-1):
 		cancel_service_entry = [ ledger.get_event(), self.entity, world.now, 'Cancelled ' + item, item, price, qty, 'Service Info', 'Cancel Service', 0 ]
-		# TODO Add entry for counterparty
-		cancel_service_event = [cancel_service_entry]
+		end_service_entry = [ ledger.get_event(), counterparty.entity, world.now, 'End ' + item, item, price, qty, 'End Service', 'Service Info', 0 ]
+		cancel_service_event = [cancel_service_entry, end_service_entry]
 		ledger.journal_entry(cancel_service_event)
 
 	def check_services(self, counterparty=None):
@@ -893,7 +946,8 @@ class Entity:
 class Individual(Entity):
 	def __init__(self, name):
 		super().__init__(name)
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Fun','100,100,100','1,2,5,','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
+		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Fun','100,100,100','1,2,5','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','40','50',None,'Labour') ]
 		# TODO Add entity skills (Cultivator)
 		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]

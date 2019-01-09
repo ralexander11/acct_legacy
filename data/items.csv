@@ -7,12 +7,14 @@ Service,None,None,None,None,None,None,None,None,None,None
 Raw Material,None,None,None,None,None,None,None,None,None,None
 Components,None,None,None,None,None,None,None,None,None,None
 Time,None,None,None,None,None,None,None,None,None,None
+Education,None,None,None,None,None,None,None,None,None,None
+Technology,None,None,None,None,None,None,None,None,None,None
 Arable Land,None,None,None,Land,None,None,None,None,None,None
 Forest,None,None,None,Land,None,None,None,None,None,None
 Rocky Land,None,None,None,Land,None,None,None,None,None,None
 Mountain,None,None,None,Rocky Land,None,None,None,None,None,None
 Cultivator,None,None,None,Labour,None,None,None,None,None,None
-Food,None,None,None,Raw Material,"Time, Arable Land, Cultivator, Water","7, 400, 0.8, 1",Hunger,1,7,spoilage
+Food,None,None,None,Raw Material,"Time, Arable Land, Cultivator, Water","7, 400, 0.1, 1",Hunger,1,7,spoilage
 Plow,None,None,None,Equipment,"Rock, Wood","10, 20",Cultivator,2,10,usage
 Wood,None,None,None,Raw Material,Land,1,None,None,None,None
 Rock,None,None,None,Raw Material,Land,1,None,None,None,None
