@@ -32,7 +32,7 @@ def delete_db(db_name=None): # TODO Test and fix this for long term
 			.format(db_path + db_name))
 
 class World:
-	def __init__(self, factory):
+	def __init__(self, factory, population):
 		self.clear_ledger()
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Create World ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 		self.factory = factory
@@ -40,13 +40,17 @@ class World:
 		self.now = datetime.datetime(1986,10,1).date()
 		self.end = False
 		print(self.now)
+		self.demand = pd.DataFrame(columns=['date','item_id','qty'])
+		self.population = population
 		self.create_land('Land', 100000)
 		self.create_land('Arable Land', 32000)
 		self.create_land('Forest', 100)
 		self.create_land('Rocky Land', 100)
 		self.create_land('Mountain', 100)
 
-		self.farmer = factory.create(Individual, 'Farmer')
+		for person in range(1, self.population+1):
+			print('Person: {}'.format(person))
+			self.farmer = factory.create(Individual, 'Farmer')
 		#self.farm = factory.create(Organization, 'Farm')
 
 		print()
@@ -115,11 +119,12 @@ class World:
 		for individual in factory.get(Individual):
 			individual.reset_hours()
 			for need in individual.needs:
-				corp = individual.need_demand(need) # TODO Remove temp assignment
+				corp = individual.corp_needed(need) # TODO Remove temp assignment
 				if corp is not None:
 					self.farm = corp
 				individual.need_decay(need)
 				print('{} {} Need: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
+				individual.item_demanded(need)
 
 		for typ in factory.registry.keys():
 			print('Type: {}'.format(typ))
@@ -131,6 +136,10 @@ class World:
 				entity.check_services()
 				entity.check_salary()
 				entity.pay_wages()
+
+		for organization in factory.get(Organization):
+			organization.check_demand()
+					
 
 		#for individual in registry:
 		#self.farmer.reset_hours()
@@ -154,10 +163,10 @@ class World:
 
 
 		# TODO Add logic to decide when and how much food to produce
-		rand_food = random.randint(0, 20)
-		rand_food = 10 # Temp
-		print('{} attempting to grow {} {}.'.format(self.farm.name, rand_food, 'Food'))
-		self.farm.produce(item='Food', qty=rand_food, price=self.get_price('Food'))
+		# rand_food = random.randint(0, 20)
+		# rand_food = 10 # Temp
+		# print('{} attempting to grow {} {}.'.format(self.farm.name, rand_food, 'Food'))
+		# self.farm.produce(item='Food', qty=rand_food, price=self.get_price('Food'))
 
 		ledger.set_entity(self.farm.entity)
 		self.farm.food = ledger.get_qty(items='Food', accounts=['Inventory'])
@@ -497,6 +506,7 @@ class Entity:
 			return
 		#print('Produce Event Final: \n{}'.format(produce_event))
 		ledger.journal_entry(produce_event)
+		return True
 
 	def wip_check(self):
 		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
@@ -547,39 +557,86 @@ class Entity:
 	def buy_shares(self, ticker, price, qty, counterparty):
 		self.transact(ticker, price, qty, counterparty, 'Investments', 'Shares')
 
-	# TODO Add logic triggers so individuals will incorporate companies on their own
-	def incorporate(self, ticker=None, price=None, qty=None):
+	# Logic to make individuals incorporate companies without input
+	def incorporate(self, ticker=None, item=None, price=None, qty=None):
 		# TODO Add entity creation
 		if ticker is None:
-			ticker = 'Farm'
+			ticker = 'Farm' # TODO Generalize the ticker
 		if price is None:
 			price = 5
 		if qty is None:
 			qty = 1000
-		corp = factory.create(Organization, ticker)
+		auth_qty = 100000
+		corp = factory.create(Organization, ticker, item)
 		counterparty = corp
-		self.auth_shares(ticker, qty, counterparty)
+		self.auth_shares(ticker, auth_qty, counterparty)
 		self.buy_shares(ticker, price, qty, counterparty)
 		return corp
 
-	def need_demand(self, need):
+	def corp_needed(self, need, item=None, ticker=None):
 		# Choose item
-		items_info = accts.get_items()
-		#print('Items Info: \n{}'.format(items_info))
-		items_info = items_info[items_info['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
-		items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
-		items_info.reset_index(inplace=True)
-		item_choosen = items_info['item_id'].iloc[0]
-		print('Item Choosen: {}'.format(item_choosen))
+		#print('Need Demand: {}'.format(need))
+		if item is None:
+			items_info = accts.get_items()
+			#print('Items Info: \n{}'.format(items_info))
+			items_info = items_info[items_info['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
+			items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
+			items_info.reset_index(inplace=True)
+			item = items_info['item_id'].iloc[0]
+		if ticker is None:
+			ticker = item # TODO Add number to this that increments
+		#print('Item Choosen: {}'.format(item))
 		# Check if item is produced or being produced
-		qty = ledger.get_qty(item_choosen, ['Inventory'])
-		qty += ledger.get_qty(item_choosen, ['WIP Inventory'])
-		print('QTY: {}'.format(qty))
+		qty_inv = ledger.get_qty(item, ['Inventory'])
+		qty_wip = ledger.get_qty(item, ['WIP Inventory'])
+		qty = qty_inv + qty_wip
+		#print('QTY of {} existing: {}'.format(item, qty))
 		# If not incorporate and produce item
 		if qty == 0:
-			print('Incorporate!')
-			corp = self.incorporate()
-			return corp
+			if item == 'Food':
+				ticker = 'Farm'
+			ledger.reset()
+			corp_shares = ledger.get_qty(ticker, ['Investments'])
+			if corp_shares == 0:
+				corp = self.incorporate(ticker, item)
+				return corp
+
+	def qty_demand(self, item): # TODO Determine qty for number of individuals
+		items_info = accts.get_items()
+		#print('Items Info: \n{}'.format(items_info))
+		item_info = items_info.loc[item]
+		#print('Item Info: \n{}'.format(item_info))
+		need = item_info['satisfies']
+		decay_rate = self.needs[need]['Decay Rate']
+		qty = decay_rate / item_info['satisfy_rate']
+		return qty
+
+	def item_demanded(self, need=None, item=None):
+		if item is None:
+			items_info = accts.get_items()
+			#print('Items Info: \n{}'.format(items_info))
+			items_info = items_info[items_info['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
+			items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
+			items_info.reset_index(inplace=True)
+			item = items_info['item_id'].iloc[0]
+		qty = self.qty_demand(item)
+		#print('Demand QTY: {}'.format(qty))
+		world.demand = world.demand.append({'date': world.now, 'item_id': item, 'qty': qty}, ignore_index=True)
+		#print('Demand after addition: \n{}'.format(world.demand))
+		return item, qty
+
+	def check_demand(self):
+		item = self.produces
+		for index, demand_row in world.demand.iterrows():
+			#print('Demand Row: \n{}'.format(demand_row))
+			#print('Produces: {}'.format(item))
+			if demand_row['item_id'] == item: # TODO Filter for item and add up all qtys and support multiple outputs
+				qty = demand_row['qty']
+				print('{} attempting to produce {} {}.'.format(self.name, qty, item))
+				outcome = self.produce(item=item, qty=qty, price=world.get_price(item))
+				if outcome:
+					world.demand = world.demand.drop(world.demand.index[[index]])
+					#print('Demand after drop: \n{}'.format(world.demand))
 
 	def claim_land(self, qty, price, item='Land', recur=False): # QTY in square meters
 		ledger.set_entity(0)
@@ -1096,12 +1153,14 @@ class Individual(Entity):
 
 
 class Organization(Entity):
-	def __init__(self, name):
+	def __init__(self, name, item):
 		super().__init__(name)
-		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,None,1000000,'Food') ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,None,1000000,item) ] # Note: The 2nd to 5th values are for another program
 		self.entity = accts.add_entity(entity_data)
 		self.name = entity_data[0][0] # TODO Change this to pull from entities table
-		print('Create Organization: {} | entity_id: {}'.format(self.name, self.entity))
+		self.produces = entity_data[0][13]
+		print('Create Organization: {} | entity_id: {} | Produces: {}'.format(self.name, self.entity, self.produces))
+
 		ledger.set_entity(self.entity)
 		self.food = ledger.get_qty(items='Food', accounts=['Inventory'])
 		ledger.reset()
@@ -1154,7 +1213,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
-	parser.add_argument('-p', '--people', type=int, default=1, help='The number of people in the econ sim.')
+	parser.add_argument('-p', '--population', type=int, default=1, help='The number of people in the econ sim.')
 	args = parser.parse_args()
 	if args.database is None:
 		args.database = 'econ01.db'
@@ -1166,7 +1225,7 @@ if __name__ == '__main__':
 	accts = Accounts(args.database)
 	ledger = Ledger(accts)
 	factory = EntityFactory()
-	world = World(factory)
+	world = World(factory, args.population)
 
 	while True:
 		world.update_econ()

@@ -166,7 +166,7 @@ class Accounts(object):
 				auth_shares INTEGER,
 				outputs text
 			);
-			''' # TODO Add needs table
+			''' # TODO Add needs table?
 		default_entities = ['''
 			INSERT INTO entities (
 				name,
@@ -200,7 +200,7 @@ class Accounts(object):
 					1000000,
 					'Labour'
 				);
-			''']
+			'''] # TODO Rename outputs to produces
 
 		cur = self.conn.cursor()
 		cur.execute(create_entities_query)
@@ -821,7 +821,7 @@ class Ledger(object):
 				qty = round(debits - credits, 2)
 				if v_qty: print('QTY: {}'.format(qty))
 				if single_item: # TODO Fix to handle multiple accounts
-					return qty
+					return qty # TODO Ensure is int
 				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
 				#if v_qty: print(inventory)
 		if not show_zeros:
