@@ -4,7 +4,7 @@ import sqlite3
 import argparse
 import datetime
 import logging
-import traceback
+#import traceback
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
@@ -224,7 +224,8 @@ class Accounts(object):
 				satisfies text,
 				satisfy_rate real,
 				lifespan integer,
-				metric text DEFAULT 'ticks'
+				metric text DEFAULT 'ticks',
+				producer text
 			);
 			''' # Metric can have values of 'ticks' or 'units' or 'spoilage'
 		default_item = ['''
@@ -239,7 +240,8 @@ class Accounts(object):
 				satisfies,
 				satisfy_rate,
 				lifespan,
-				metric
+				metric,
+				producer
 				) VALUES (
 					'credit_line_01',
 					0.0409,
@@ -251,7 +253,8 @@ class Accounts(object):
 					'Capital',
 					1,
 					3650,
-					'ticks'
+					'ticks',
+					'Bank'
 				);
 			''']
 
@@ -352,14 +355,15 @@ class Accounts(object):
 			satisfy_rate = input('Enter the rate the item satisfies the needs as a list: ')
 			metric = input('Enter either "ticks" or "units" for how the lifespan is measured: ')
 			lifespan = input('Enter how long the item lasts: ')
+			producer = input('Enter the producer of the item: ')
 
-			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,satisfies,satisfy_rate,lifespan,metric)
-			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,satisfies,satisfy_rate,lifespan,metric,producer)
+			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for item in item_data:
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
-				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, item)
 
 		self.conn.commit()
