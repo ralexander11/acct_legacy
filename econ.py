@@ -50,7 +50,7 @@ class World:
 
 		for person in range(1, self.population + 1):
 			print('Person: {}'.format(person))
-			self.farmer = factory.create(Individual, 'Farmer' + str(person))
+			self.farmer = factory.create(Individual, 'Person' + str(person))
 
 		print()
 		print(ledger.gl.columns.values.tolist()) # For verbosity
@@ -113,6 +113,7 @@ class World:
 
 		self.ticktock()
 		for individual in factory.get(Individual):
+			print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
 			individual.reset_hours()
 			for need in individual.needs:
 				corp = individual.corp_needed(need=need) # TODO Remove temp assignment
@@ -130,7 +131,7 @@ class World:
 			print('Entity Type: {}'.format(typ))
 			for entity in factory.get(typ):
 				#print('Entity: {}'.format(entity))
-				print('Entity Name: {}'.format(entity.name))
+				print('Entity Name: {} | {}'.format(entity.name, entity.entity_id))
 				entity.depreciation_check()
 				entity.wip_check()
 				entity.check_services()
@@ -138,13 +139,14 @@ class World:
 				entity.pay_wages()
 
 		for organization in factory.get(Organization):
-			#print('Company Name: {}'.format(organization.name))
+			print('Company Name: {} | {}'.format(organization.name, organization.entity_id))
 			organization.check_demand()
 		for organization in factory.get(Organization):
-			#print('Company Name: {}'.format(organization.name))
+			print('Company Name: {} | {}'.format(organization.name, organization.entity_id))
 			organization.check_optional()
 		
 		for individual in factory.get(Individual):
+			print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
 			for need in individual.needs:
 				individual.threshold_check(need)
 
@@ -423,7 +425,7 @@ class Entity:
 				if v: print('Service State for {}: {}'.format(requirement[0][0], service_state))
 				if not service_state:
 					print('{} service is not active. Will attempt to activate it.'.format(requirement[0][0]))
-					entries = self.order_service(item=requirement[0][0], counterparty=world.farmer, price=world.get_price(requirement[0][0]), qty=1, recur=True) # TODO Fix counterparty
+					entries = self.order_service(item=requirement[0][0], counterparty=self.service_counterparty(requirement[0][0]), price=world.get_price(requirement[0][0]), qty=1, recur=True) # TODO Fix counterparty
 					if entries is None:
 						return
 					produce_event += entries
@@ -458,7 +460,7 @@ class Entity:
 				if labour_done < (requirement[1] * modifier * qty):
 					required_hours = int(math.ceil((requirement[1] * modifier * qty) - labour_done))
 					print('Not enough {} labour done today for production. Will attempt to hire a worker for {} hours.'.format(requirement[0][0], required_hours))
-					entries = self.accru_wages(job=requirement[0][0], counterparty=world.farmer, wage=world.get_price(requirement[0][0]), labour_hours=required_hours, recur=True) # TODO Fix counterparty and price
+					entries = self.accru_wages(job=requirement[0][0], counterparty=self.wages_counterparty(requirement[0][0]), wage=world.get_price(requirement[0][0]), labour_hours=required_hours, recur=True) # TODO Fix counterparty and price
 					if entries is None:
 						return
 					produce_event += entries
@@ -759,6 +761,22 @@ class Entity:
 		if last_paid < TWO_PAY_PERIODS:
 			return True
 
+	def wages_counterparty(self, job):
+		workers = {}
+		# Get list of all individuals
+		world.entities = accts.get_entities()
+		# Check total wages receivable for that job for each individual
+		for individual in factory.get(Individual):
+			ledger.set_entity(individual.entity_id)
+			experience = ledger.balance_sheet(accounts=['Wages Receivable'], item=job)
+			ledger.reset()
+			workers[individual] = experience
+			#print('Workers: \n{}'.format(workers))
+		# Choose the worker with the most experience
+		worker_choosen = max(workers, key=lambda k: workers[k])
+		#print('Worker Choosen: {}'.format(worker_choosen.name))
+		return worker_choosen
+
 	def accru_wages(self, job, counterparty, wage, labour_hours, recur=False):
 		if counterparty.hours < labour_hours:
 			print('{} does not have enough time left to do {} job for {} hours.'.format(counterparty.name, job, labour_hours))
@@ -846,7 +864,18 @@ class Entity:
 			print('Not enough cash to pay for {} salary. Cash: {}'.format(job, cash))
 			# TODO Fire worker
 
+	def service_counterparty(self, service):
+		# Get entity that produces the service
+		#print('Service Requested: {}'.format(service))
+		for organization in factory.get(Organization):
+			#print('Produces: {}'.format(organization.produces[0]))
+			if organization.produces[0] == service:
+				return organization
+		print('No company exists that can provide the {} service currently.'.format(service))
+
 	def order_service(self, item, counterparty, price, qty=1, recur=False):
+		if counterparty is None:
+			return
 		ledger.set_entity(self.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
@@ -1022,8 +1051,10 @@ class Entity:
 class Individual(Entity):
 	def __init__(self, name):
 		super().__init__(name)
+		# TODO Make starting need levels random
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Fun','100,100,100','1,2,5','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','40','50',None,'Labour') ]
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','100,100','1,2','40,60','50,100',None,'Labour') ]
+		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','40','50',None,'Labour') ]
 		# TODO Add entity skills (Cultivator)
 		self.entity_id = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]

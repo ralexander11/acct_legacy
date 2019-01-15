@@ -21,5 +21,5 @@ Rock,None,None,None,Raw Material,Land,1,None,None,None,None,"Quarry, Mine"
 Ore,None,None,None,Raw Material,Mountain,1,None,None,None,None,Mine
 Metal,None,None,None,Raw Material,"Forge, Ore","1, 2",None,None,None,None,Smelter
 Forge,None,None,None,Equipment,"Rock, Wood","30, 5",Kiln,4,100,ticks,Blacksmith
-Water,None,None,None,Service,None,None,Thirst,1,None,None,Well
+Water,None,None,None,Service,Land,1,Thirst,1,None,None,Well
 Toy,None,None,None,Equipment,Wood,10,Fun,10,100,usage,Carpenter
