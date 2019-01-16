@@ -50,7 +50,7 @@ class World:
 
 		for person in range(1, self.population + 1):
 			print('Person: {}'.format(person))
-			self.farmer = factory.create(Individual, 'Person' + str(person))
+			self.farmer = factory.create(Individual, 'Person ' + str(person))
 
 		print()
 		print(ledger.gl.columns.values.tolist()) # For verbosity
@@ -113,7 +113,7 @@ class World:
 
 		self.ticktock()
 		for individual in factory.get(Individual):
-			print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
+			#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
 			individual.reset_hours()
 			for need in individual.needs:
 				corp = individual.corp_needed(need=need) # TODO Remove temp assignment
@@ -125,13 +125,13 @@ class World:
 			#print(world.demand)
 			for index, item in world.demand.iterrows():
 				#print('Corp Check Demand Item: {}'.format(item['item_id']))
-				individual.corp_needed(item=item['item_id'])
+				individual.corp_needed(item=item['item_id'], demand_index=index)
 
 		for typ in factory.registry.keys():
-			print('Entity Type: {}'.format(typ))
+			#print('Entity Type: {}'.format(typ))
 			for entity in factory.get(typ):
 				#print('Entity: {}'.format(entity))
-				print('Entity Name: {} | {}'.format(entity.name, entity.entity_id))
+				#print('Entity Name: {} | {}'.format(entity.name, entity.entity_id))
 				entity.depreciation_check()
 				entity.wip_check()
 				entity.check_services()
@@ -146,7 +146,7 @@ class World:
 			organization.check_optional()
 		
 		for individual in factory.get(Individual):
-			print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
+			#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
 			for need in individual.needs:
 				individual.threshold_check(need)
 
@@ -202,7 +202,7 @@ class Entity:
 		else:
 			print('Not enough cash to purchase {} units of {}.'.format(qty, item))
 
-	def purchase(self, item, qty, acct_buy, recur=False):
+	def purchase(self, item, qty, acct_buy='Inventory', recur=False):
 		#ledger.reset()
 		global_qty = ledger.get_qty(items=item, accounts=['Inventory'])
 		#print('Global QTY: {}'.format(global_qty))
@@ -223,9 +223,10 @@ class Entity:
 			producer = world.items.loc[item]['producer']
 			#print('Producer: {}'.format(producer))
 			if producer is not None:
-				world.demand = world.demand.append({'date': world.now, 'item_id': item, 'qty': qty}, ignore_index=True)
-				print('{} added to demand list for {} units.'.format(item, qty))
-				#print('Demand Table: \n{}'.format(world.demand))
+				if qty != 0:
+					world.demand = world.demand.append({'date': world.now, 'item_id': item, 'qty': qty}, ignore_index=True)
+					print('{} added to demand list for {} units.'.format(item, qty))
+					#print('Demand Table: \n{}'.format(world.demand))
 
 	# TODO Use historical price
 	# TODO Make qty wanting to be consumed smarter (this is to be done in the world)
@@ -551,7 +552,7 @@ class Entity:
 		self.buy_shares(ticker, price, qty, counterparty)
 		return corp
 
-	def corp_needed(self, item=None, need=None, ticker=None):
+	def corp_needed(self, item=None, need=None, ticker=None, demand_index=None):
 		# Choose item
 		#print('Need Demand: {}'.format(need))
 		if item is None:
@@ -563,11 +564,11 @@ class Entity:
 			item = items_info['item_id'].iloc[0]
 			#print('Item Choosen: {}'.format(item))
 		if ticker is None:
-			items_info = accts.get_items()
-			tickers = items_info.loc[item]['producer']
+			#items_info = accts.get_items()
+			tickers = world.items.loc[item]['producer']
 			if isinstance(tickers, str):
 				tickers = [x.strip() for x in tickers.split(',')]
-			tickers = list(filter(None, tickers))
+			tickers = list(set(filter(None, tickers))) # Use set to ensure no dupes
 			# TODO If ticker already exist, add number to this that increments
 			#print('Tickers: {}'.format(tickers))
 		# Check if item is produced or being produced
@@ -589,12 +590,15 @@ class Entity:
 					#print('Corp Shares After: \n{}'.format(corp_shares))
 				if corp_shares == 0:
 					corp = self.incorporate(item, ticker=ticker)
+					base_item = self.get_base_item(item)
+					if base_item == 'Service' and demand_index is not None:
+						world.demand = world.demand.drop([demand_index])
 					return corp
 
 	def qty_demand(self, item): # TODO Determine qty for number of individuals
-		items_info = accts.get_items()
+		#items_info = accts.get_items()
 		#print('Items Info: \n{}'.format(items_info))
-		item_info = items_info.loc[item]
+		item_info = world.items.loc[item]
 		#print('Item Info: \n{}'.format(item_info))
 		need = item_info['satisfies']
 		decay_rate = self.needs[need]['Decay Rate']
@@ -604,38 +608,57 @@ class Entity:
 
 	def item_demanded(self, item=None, need=None):
 		if item is None:
-			items_info = accts.get_items()
+			#items_info = world.items
 			#print('Items Info: \n{}'.format(items_info))
-			items_info = items_info[items_info['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
+			items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
 			items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
 			items_info.reset_index(inplace=True)
 			item = items_info['item_id'].iloc[0]
-		qty = self.qty_demand(item)
+		base_item = self.get_base_item(item)
+		if base_item == 'Service':
+			ticker = world.items.loc[item]['producer']
+			ledger.reset()
+			corp_shares = ledger.get_qty(ticker, ['Investments'])
+			if corp_shares != 0:
+				return
+			qty = 1
+		if base_item != 'Service':
+			qty = self.qty_demand(item)
 		#print('Demand QTY: {}'.format(qty))
-		world.demand = world.demand.append({'date': world.now, 'item_id': item, 'qty': qty}, ignore_index=True)
-		print('{} added to demand list for {} units.'.format(item, qty))
-		#print('Demand after addition: \n{}'.format(world.demand))
-		return item, qty
+		if qty != 0:
+			world.demand = world.demand.append({'date': world.now, 'item_id': item, 'qty': qty}, ignore_index=True)
+			print('{} added to demand list for {} units.'.format(item, qty))
+			#print('Demand after addition: \n{}'.format(world.demand))
+			return item, qty
 
 	def check_demand(self):
 		for item in self.produces:
+			base_item = self.get_base_item(item)
+			if base_item == 'Service':
+				return
 			#print('World Demand: \n{}'.format(world.demand))
+			dgb = world.demand.groupby('item_id').sum()
+			#print('Demand Groupby: \n{}'.format(dgb))
+			to_drop = []
+			qty = 0
+			# Filter for item and add up all qtys to support multiple entries
 			for index, demand_row in world.demand.iterrows():
 				#print('Index Loop: {}'.format(index))
-				#print('Demand Row: \n{}'.format(demand_row))
 				#print('Produces Item: {}'.format(item))
-				if demand_row['item_id'] == item: # TODO Filter for item and add up all qtys and support multiple outputs
-					qty = demand_row['qty']
-					print('{} attempting to produce {} {} from the demand table.'.format(self.name, qty, item))
-					outcome = self.produce(item=item, qty=qty, price=world.get_price(item))
-					if outcome:
-						#print('Demand Before Drop: \n{}'.format(world.demand))
-						#print('Index: {}'.format(index))
-						#world.demand = world.demand.drop(world.demand.index[index], axis=0)
-						#world.demand = world.demand.reset_index(drop=True)
-						world.demand = world.demand.drop([index])
-						print('{} removed from demand list for {} units.'.format(item, qty))
-						#print('Demand After Drop: \n{}'.format(world.demand))
+				#print('Demand Item: {}'.format(demand_row['item_id']))
+				if demand_row['item_id'] == item:
+					qty += demand_row['qty']
+					to_drop.append(index)
+			if qty == 0:
+				continue
+			print('{} attempting to produce {} {} from the demand table.'.format(self.name, qty, item))
+			outcome = self.produce(item=item, qty=qty, price=world.get_price(item))
+			if outcome:
+				#print('To Drop: \n{}'.format(to_drop))
+				#print('Demand Before Drop: \n{}'.format(world.demand))
+				world.demand = world.demand.drop(to_drop)#([index])
+				print('{} removed from demand list for {} units.'.format(item, qty))
+				#print('Demand After Drop: \n{}'.format(world.demand))
 
 	def check_optional(self):
 		# In organization loop, check for for items that satisfy requirements for items from the produces items list.
@@ -1135,10 +1158,10 @@ class Individual(Entity):
 		items_info.reset_index(inplace=True)
 		item_choosen = items_info['item_id'].iloc[0]
 		satisfy_rate = items_info['satisfy_rate'].iloc[0]
-		print('Item Choosen: {}'.format(item_choosen))
+		#print('Item Choosen: {}'.format(item_choosen))
 
 		item_type = self.get_base_item(item_choosen)
-		print('Item Type: {}'.format(item_type))
+		#print('Item Type: {}'.format(item_type))
 
 		if item_type == 'Service':
 			ledger.set_entity(self.entity_id)
@@ -1147,7 +1170,7 @@ class Individual(Entity):
 			if service_state:
 				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
 			else:
-				self.order_service(item_choosen, counterparty=world.farm, price=world.get_price(item_choosen)) # TODO Generalize this for other entities
+				self.order_service(item_choosen, counterparty=self.service_counterparty(item_choosen), price=world.get_price(item_choosen)) # TODO Generalize this for other entities
 		elif (item_type == 'Raw Material') or (item_type == 'Component'):
 			need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 			#print('Need Needed: {}'.format(need_needed))
@@ -1163,7 +1186,8 @@ class Individual(Entity):
 				qty_avail = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 				ledger.reset()
 				qty_purchase = min(qty_wanted, qty_avail)
-				self.transact(item_choosen, price=world.get_price(item_choosen), qty=qty_purchase, counterparty=world.farm) # TODO Generalize this for other entities
+				self.purchase(item_choosen, qty_purchase)
+				#self.transact(item_choosen, price=world.get_price(item_choosen), qty=qty_purchase, counterparty=world.farm) # TODO Generalize this for other entities
 				ledger.set_entity(self.entity_id)
 				qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 				ledger.reset()
