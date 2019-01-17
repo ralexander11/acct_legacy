@@ -25,7 +25,7 @@ def delete_db(db_name=None): # TODO Test and fix this for long term
 	db_path = 'db/'
 	if os.path.exists(db_path + db_name):
 		os.remove(db_path + db_name)
-		print(time_stamp() + 'Database file removed: {}'
+		print(time_stamp() + 'Database file reset: {}'
 			.format(db_path + db_name))
 	else:
 		print(time_stamp() + 'The database file does not exist at {}.'
@@ -202,28 +202,41 @@ class Entity:
 		else:
 			print('Not enough cash to purchase {} units of {}.'.format(qty, item))
 
-	def purchase(self, item, qty, acct_buy='Inventory', recur=False):
+	def purchase(self, item, qty, acct_buy='Inventory', acct_sell='Inventory', recur=False):
 		#ledger.reset()
+		base_item = self.get_base_item(item)
+		if base_item == 'Service':
+			# Check if producer exists and get their ID
+			# TODO Support multiple of the same producer
+			producer = world.items.loc[item]['producer']
+			counterparty = registry.get_by_name(producer)
+			if counterparty is None:
+				print('No {} to offer {} service.'.format(producer, item))
+				world.demand = world.demand.append({'date': world.now, 'item_id': item, 'qty': qty}, ignore_index=True)
+				return
+			acct_buy = 'Service Expense'
+			acct_sell = 'Service Revenue'
 		global_qty = ledger.get_qty(items=item, accounts=['Inventory'])
 		#print('Global QTY: {}'.format(global_qty))
-		if global_qty >= qty:
+		if global_qty >= qty or base_item == 'Service':
 			# Check which entity has the goods for the cheapest
-			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
-			txns = ledger.gl[( (ledger.gl['debit_acct'] == 'Inventory') & (ledger.gl['item_id'] == item) ) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-			#txns.sort_values(by='qty', ascending=False, inplace=True)
-			#print('Purchase TXNs: \n{}'.format(txns))
-			counterparty = self.get_counterparty(txns, rvsl_txns, item, 'Inventory')
+			if base_item != 'Service':
+				rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+				txns = ledger.gl[( (ledger.gl['debit_acct'] == 'Inventory') & (ledger.gl['item_id'] == item) ) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+				#txns.sort_values(by='qty', ascending=False, inplace=True)
+				#print('Purchase TXNs: \n{}'.format(txns))
+				counterparty = self.get_counterparty(txns, rvsl_txns, item, 'Inventory')
 			#print('Counterparty: {}'.format(counterparty))
 			#counterparty = world.farm # Temp
-			result = self.transact(item, price=world.get_price(item), qty=qty, counterparty=counterparty, acct_buy=acct_buy, recur=recur)
+			result = self.transact(item, price=world.get_price(item), qty=qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, recur=recur)
 			#print('Purchase: {} {}'.format(qty, item))
 			return result
 		else:
 			print('Not enough quantity of {} to purchase {} units.'.format(item, qty))
 			producer = world.items.loc[item]['producer']
 			#print('Producer: {}'.format(producer))
-			if producer is not None:
-				if qty != 0:
+			if producer is not None: # TODO Is this needed?
+				if qty != 0: # TODO Is this needed?
 					world.demand = world.demand.append({'date': world.now, 'item_id': item, 'qty': qty}, ignore_index=True)
 					print('{} added to demand list for {} units.'.format(item, qty))
 					#print('Demand Table: \n{}'.format(world.demand))
@@ -437,8 +450,8 @@ class Entity:
 				equip_list = ledger.get_qty(accounts=['Equipment'])#, v_qty=True)
 				if v: print('Equip List: \n{}'.format(equip_list))
 				
-				items_data = accts.get_items()
-				items_data = items_data[items_data['satisfies'].str.contains(requirement[0][0], na=False)] # Supports if item satisfies multiple needs
+				#items_data = accts.get_items()
+				items_data = world.items[world.items['satisfies'].str.contains(requirement[0][0], na=False)] # Supports if item satisfies multiple needs
 				items_data.reset_index(inplace=True)
 				if v: print('Items Table: \n{}'.format(items_data))
 
@@ -543,10 +556,14 @@ class Entity:
 			qty = 1000
 		auth_qty = 100000
 		if ticker is None:
-			items_info = accts.get_items()
-			ticker = items_info.loc[item]['producer']
+			#items_info = accts.get_items()
+			ticker = world.items.loc[item]['producer']
 			#print('Ticker: {}'.format(ticker))
-		corp = factory.create(Organization, ticker, item)
+		items_produced = world.items[world.items['producer'] == ticker].reset_index()
+		items_produced = items_produced['item_id'].tolist()
+		items_produced = ','.join(items_produced)
+		print('Items Produced: {}'.format(items_produced))
+		corp = factory.create(Organization, ticker, items_produced)
 		counterparty = corp
 		self.auth_shares(ticker, auth_qty, counterparty)
 		self.buy_shares(ticker, price, qty, counterparty)
@@ -556,9 +573,9 @@ class Entity:
 		# Choose item
 		#print('Need Demand: {}'.format(need))
 		if item is None:
-			items_info = accts.get_items()
+			#items_info = accts.get_items()
 			#print('Items Info: \n{}'.format(items_info))
-			items_info = items_info[items_info['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
+			items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
 			items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
 			items_info.reset_index(inplace=True)
 			item = items_info['item_id'].iloc[0]
@@ -579,6 +596,11 @@ class Entity:
 		# If not incorporate and produce item
 		if qty == 0:
 			for ticker in tickers:
+				if ticker == 'Individual':
+					#print('{} produced by individuals, no corporation needed.'.format(item))
+					#if demand_index:
+					continue
+					#return
 				ledger.reset()
 				corp_shares = ledger.get_qty(ticker, ['Investments'])
 				#print('Corp Shares: \n{}'.format(corp_shares))
@@ -602,7 +624,7 @@ class Entity:
 		#print('Item Info: \n{}'.format(item_info))
 		need = item_info['satisfies']
 		decay_rate = self.needs[need]['Decay Rate']
-		qty = decay_rate / item_info['satisfy_rate']
+		qty = math.ceil(decay_rate / item_info['satisfy_rate'])
 		#qty = qty * world.population
 		return qty
 
@@ -637,7 +659,7 @@ class Entity:
 			if base_item == 'Service':
 				return
 			#print('World Demand: \n{}'.format(world.demand))
-			dgb = world.demand.groupby('item_id').sum()
+			#dgb = world.demand.groupby('item_id').sum()
 			#print('Demand Groupby: \n{}'.format(dgb))
 			to_drop = []
 			qty = 0
@@ -892,8 +914,9 @@ class Entity:
 		#print('Service Requested: {}'.format(service))
 		for organization in factory.get(Organization):
 			#print('Produces: {}'.format(organization.produces[0]))
-			if organization.produces[0] == service:
-				return organization
+			for item in organization.produces:
+				if item == service:
+					return organization
 		print('No company exists that can provide the {} service currently.'.format(service))
 
 	def order_service(self, item, counterparty, price, qty=1, recur=False):
@@ -1019,8 +1042,7 @@ class Entity:
 			return depreciation_event, uses
 
 		if metric == 'service':
-			# TODO Implement for things like haircuts
-			pass
+			return
 
 		if (metric == 'spoilage') or (metric == 'obsolescence'):
 			#print('Spoilage: {} {} days {}'.format(item, lifespan, metric))
@@ -1076,7 +1098,8 @@ class Individual(Entity):
 		super().__init__(name)
 		# TODO Make starting need levels random
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Fun','100,100,100','1,2,5','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','100,100','1,2','40,60','50,100',None,'Labour') ]
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Hygiene','100,100,100','1,2,1','40,60,50','60,100,60',None,'Labour') ]
+		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','100,100','1,2','40,60','50,100',None,'Labour') ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','40','50',None,'Labour') ]
 		# TODO Add entity skills (Cultivator)
 		self.entity_id = accts.add_entity(entity_data)
@@ -1152,78 +1175,88 @@ class Individual(Entity):
 			self.address_need(need)
 
 	def address_need(self, need): # TODO This needs a demand system
-		items_info = accts.get_items()
-		items_info = items_info[items_info['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
+		#items_info = accts.get_items()
+		items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
 		items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
 		items_info.reset_index(inplace=True)
-		item_choosen = items_info['item_id'].iloc[0]
-		satisfy_rate = items_info['satisfy_rate'].iloc[0]
-		#print('Item Choosen: {}'.format(item_choosen))
+		# If first item is not available, try the next one
+		for index, item in items_info.iterrows():
+			item_choosen = items_info['item_id'].iloc[index]
+			satisfy_rate = items_info['satisfy_rate'].iloc[index]
+			#print('Item Choosen: {}'.format(item_choosen))
+			item_type = self.get_base_item(item_choosen)
+			#print('Item Type: {}'.format(item_type))
 
-		item_type = self.get_base_item(item_choosen)
-		#print('Item Type: {}'.format(item_type))
-
-		if item_type == 'Service':
-			ledger.set_entity(self.entity_id)
-			service_state = ledger.get_qty(items=item_choosen, accounts=['Service Info'])
-			ledger.reset()
-			if service_state:
-				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
-			else:
-				self.order_service(item_choosen, counterparty=self.service_counterparty(item_choosen), price=world.get_price(item_choosen)) # TODO Generalize this for other entities
-		elif (item_type == 'Raw Material') or (item_type == 'Component'):
-			need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
-			#print('Need Needed: {}'.format(need_needed))
-			qty_needed = math.ceil(need_needed / satisfy_rate)
-			#print('QTY Needed: {}'.format(qty_needed))
-			ledger.set_entity(self.entity_id)
-			qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
-			ledger.reset()
-			# TODO Attempt to use item before aquiring some
-			if qty_held < qty_needed:
-				qty_wanted = qty_needed - qty_held
-				ledger.set_entity(world.farm.entity_id)
-				qty_avail = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
+			if item_type == 'Service':
+				ledger.set_entity(self.entity_id)
+				service_state = ledger.get_qty(items=item_choosen, accounts=['Service Info'])
 				ledger.reset()
-				qty_purchase = min(qty_wanted, qty_avail)
-				self.purchase(item_choosen, qty_purchase)
-				#self.transact(item_choosen, price=world.get_price(item_choosen), qty=qty_purchase, counterparty=world.farm) # TODO Generalize this for other entities
+				if service_state:
+					self.needs[need]['Current Need'] = self.needs[need]['Max Need']
+				else:
+					self.order_service(item_choosen, counterparty=self.service_counterparty(item_choosen), price=world.get_price(item_choosen)) # TODO Generalize this for other entities
+
+			elif (item_type == 'Raw Material') or (item_type == 'Component'):
+				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
+				#print('Need Needed: {}'.format(need_needed))
+				qty_needed = math.ceil(need_needed / satisfy_rate)
+				#print('QTY Needed: {}'.format(qty_needed))
 				ledger.set_entity(self.entity_id)
 				qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 				ledger.reset()
-				#print('QTY Held: {}'.format(qty_held))
-			# TODO Have consume() return how much was consumed and need adjustment calculated here
-			if qty_held:
-				self.consume(item_choosen, qty_held, need)
+				# TODO Attempt to use item before aquiring some
+				if qty_held < qty_needed:
+					qty_wanted = qty_needed - qty_held
+					ledger.set_entity(world.farm.entity_id)
+					qty_avail = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
+					ledger.reset()
+					qty_purchase = min(qty_wanted, qty_avail)
+					self.purchase(item_choosen, qty_purchase)
+					#self.transact(item_choosen, price=world.get_price(item_choosen), qty=qty_purchase, counterparty=world.farm) # TODO Generalize this for other entities
+					ledger.set_entity(self.entity_id)
+					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
+					ledger.reset()
+					#print('QTY Held: {}'.format(qty_held))
+				# TODO Have consume() return how much was consumed and need adjustment calculated here
+				if qty_held:
+					self.consume(item_choosen, qty_held, need)
 
-		elif item_type == 'Equipment':
-			# TODO Decide how qty will work with time spent using item
-			ledger.set_entity(self.entity_id)
-			qty_held = ledger.get_qty(items=item_choosen, accounts=['Equipment'])
-			#print('QTY Held: {}'.format(qty_held))
-			if qty_held > 0:
+			elif item_type == 'Equipment':
+				# TODO Decide how qty will work with time spent using item
+				ledger.set_entity(self.entity_id)
+				qty_held = ledger.get_qty(items=item_choosen, accounts=['Equipment'])
+				ledger.reset()
+				#print('QTY Held: {}'.format(qty_held))
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				uses_needed = math.ceil(need_needed / satisfy_rate)
 				print('Uses Needed: {}'.format(uses_needed))
-				self.use_item(item_choosen, uses_needed)
+				if qty_held == 0:
+					qty_purchase = 1
+					metric = items_info['metric'].iloc[index]
+					if metric == 'usage':
+						lifespan = items_info['lifespan'].iloc[index]
+						qty_purchase = math.ceil(uses_needed / lifespan)
+					outcome = self.purchase(item_choosen, qty_purchase)
+				if qty_held > 0 or outcome:
+					self.use_item(item_choosen, uses_needed)
 
-	def adj_needs(self, item, qty=1):
-		indiv_needs = list(self.needs.keys())
-		#print('Indiv Needs: \n{}'.format(indiv_needs))
-		satisfies = world.items.loc[item, 'satisfies']
-		satisfies = [x.strip() for x in satisfies.split(',')]
-		#print('Satisfies: \n{}'.format(satisfies))
-		needs = list(set(indiv_needs) & set(satisfies))
-		#print('Adj. Needs: \n{}'.format(needs))
-		if needs is None:
-			return
-		for need in needs:
-			new_need = self.needs[need]['Current Need'] + (world.items.loc[item, 'satisfy_rate'] * qty)
-			if new_need < self.needs[need]['Max Need']:
-				self.needs[need]['Current Need'] = new_need
-			else:
-				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
-			print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need']))
+		def adj_needs(self, item, qty=1):
+			indiv_needs = list(self.needs.keys())
+			#print('Indiv Needs: \n{}'.format(indiv_needs))
+			satisfies = world.items.loc[item, 'satisfies']
+			satisfies = [x.strip() for x in satisfies.split(',')]
+			#print('Satisfies: \n{}'.format(satisfies))
+			needs = list(set(indiv_needs) & set(satisfies))
+			#print('Adj. Needs: \n{}'.format(needs))
+			if needs is None:
+				return
+			for need in needs:
+				new_need = self.needs[need]['Current Need'] + (world.items.loc[item, 'satisfy_rate'] * qty)
+				if new_need < self.needs[need]['Max Need']:
+					self.needs[need]['Current Need'] = new_need
+				else:
+					self.needs[need]['Current Need'] = self.needs[need]['Max Need']
+				print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need']))
 
 
 class Organization(Entity):

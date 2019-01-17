@@ -14,6 +14,7 @@ Forest,None,None,None,Land,None,None,None,None,None,None,None
 Rocky Land,None,None,None,Land,None,None,None,None,None,None,None
 Mountain,None,None,None,Rocky Land,None,None,None,None,None,None,None
 Cultivator,None,None,None,Labour,None,None,None,None,None,None,None
+Barber,None,None,None,Labour,None,None,None,None,None,None,None
 Food,None,None,None,Raw Material,"Time, Arable Land, Cultivator, Water","7, 400, 0.1, 1",Hunger,1,7,spoilage,Farm
 Plow,None,None,None,Equipment,"Rock, Wood","10, 20",Cultivator,2,10,usage,Blacksmith
 Wood,None,None,None,Raw Material,Land,1,None,None,None,None,Lumbermill
@@ -23,3 +24,4 @@ Metal,None,None,None,Raw Material,"Forge, Ore","1, 2",None,None,None,None,Smelte
 Forge,None,None,None,Equipment,"Rock, Wood","30, 5",Kiln,4,100,ticks,Blacksmith
 Water,None,None,None,Service,Land,1,Thirst,1,None,None,Well
 Toy,None,None,None,Equipment,Wood,10,Fun,10,100,usage,Carpenter
+Haircut,None,None,None,Equipment,Barber,8,Hygiene,100,None,service,Barber Shop
