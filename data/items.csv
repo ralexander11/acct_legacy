@@ -4,6 +4,7 @@ Labour,None,None,None,None,None,None,None,None,None,None,None
 Equipment,None,None,None,None,None,None,None,None,None,None,None
 Building,None,None,None,None,None,None,None,None,None,None,None
 Service,None,None,None,None,None,None,None,None,None,None,None
+Service Item,None,None,None,None,None,None,None,None,None,None,None
 Raw Material,None,None,None,None,None,None,None,None,None,None,None
 Components,None,None,None,None,None,None,None,None,None,None,None
 Time,None,None,None,None,None,None,None,None,None,None,None
@@ -24,4 +25,4 @@ Metal,None,None,None,Raw Material,"Forge, Ore","1, 2",None,None,None,None,Smelte
 Forge,None,None,None,Equipment,"Rock, Wood","30, 5",Kiln,4,100,ticks,Blacksmith
 Water,None,None,None,Service,Land,1,Thirst,1,None,None,Well
 Toy,None,None,None,Equipment,Wood,10,Fun,10,100,usage,Carpenter
-Haircut,None,None,None,Equipment,Barber,8,Hygiene,100,None,service,Barber Shop
+Haircut,None,None,None,Equipment,Barber,1,Hygiene,100,None,None,Barber Shop
