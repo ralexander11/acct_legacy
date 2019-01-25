@@ -28,3 +28,5 @@ Water,None,None,None,Subscription,Land,1,Thirst,1,None,None,Well
 Toy,None,None,None,Equipment,Wood,10,Fun,10,100,usage,Carpenter
 Haircut,None,None,None,Service,Barber,1,Hygiene,100,None,None,Barber Shop
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,Harvest Guild
+Berries,None,None,None,Commodity,Labour,1,Hunger,0.1,3,spoilage,Individual
+Relax,None,None,None,Service,Labour,1,Hygiene,0.1,None,None,Individual

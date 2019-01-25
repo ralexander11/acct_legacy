@@ -150,6 +150,9 @@ class World:
 			for need in individual.needs:
 				individual.threshold_check(need)
 
+		for individual in factory.get(Individual):
+			individual.finish_hours()
+
 		for typ in factory.registry.keys():
 			for entity in factory.get(typ):
 				ledger.set_entity(entity.entity_id)
@@ -167,8 +170,8 @@ class World:
 
 		print('World Demand End: \n{}'.format(world.demand))
 
-		# if str(self.now) == '1986-10-08': # For debugging
-		# 	world.end = True
+		if str(self.now) == '1986-10-08': # For debugging
+			world.end = True
 
 
 class Entity:
@@ -218,7 +221,8 @@ class Entity:
 			counterparty = factory.get_by_name(producer)
 			if counterparty is None:
 				print('No {} to offer {} service. Will add it to the demand table'.format(producer, item))
-				self.item_demanded(item, qty)
+				if producer is not None and producer != 'Individual':
+					self.item_demanded(item, qty)
 				return
 			acct_buy = 'Service Expense'
 			acct_sell = 'Service Revenue'
@@ -232,6 +236,12 @@ class Entity:
 				txns = ledger.gl[( (ledger.gl['debit_acct'] == 'Inventory') & (ledger.gl['item_id'] == item) ) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 				#print('Purchase TXNs: \n{}'.format(txns))
 				counterparty = self.get_counterparty(txns, rvsl_txns, item, 'Inventory')
+				if counterparty is None:
+					producer = world.items.loc[item, 'producer']
+					print('No {} to offer {} {}. Will add it to the demand table'.format(producer, item, item_type))
+					if producer is not None and producer != 'Individual':
+						self.item_demanded(item, qty)
+					return
 			if item_type == 'Service':
 				print('Try to purchase Service: {}'.format(item))
 				#if buffer:
@@ -255,9 +265,9 @@ class Entity:
 			return result
 		else:
 			print('Not enough quantity of {} to purchase {} units.'.format(item, qty))
-			producer = world.items.loc[item]['producer']
+			producer = world.items.loc[item, 'producer']
 			#print('Producer: {}'.format(producer))
-			if producer is not None: # TODO Is this needed? Need to support multiple producers? Is this for items produced by Individuals?
+			if producer is not None and producer != 'Individual': # TODO Is this needed? Need to support multiple producers? Is this for items produced by Individuals?
 				self.item_demanded(item, qty)
 
 	# TODO Use historical price
@@ -809,6 +819,8 @@ class Entity:
 			print('Not enough {} available to claim {} square meters.'.format(item, qty))
 
 	def get_counterparty(self, txns, rvsl_txns, item, account):
+		if txns.empty:
+			return
 		#print('Item: {}'.format(item))
 		txn = txns.loc[txns['item_id'] == item]
 		#print('TXN: \n{}'.format(txn))
@@ -1260,7 +1272,7 @@ class Individual(Entity):
 			print('{} Threshold met!'.format(need))
 			self.address_need(need)
 
-	def address_need(self, need): # TODO This needs a demand system
+	def address_need(self, need, item_given=None): # TODO This needs a demand system
 		outcome = None
 		items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
 		items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
@@ -1270,6 +1282,10 @@ class Individual(Entity):
 			item_choosen = items_info['item_id'].iloc[index]
 			satisfy_rate = items_info['satisfy_rate'].iloc[index]
 			#print('Item Choosen: {}'.format(item_choosen))
+			if item_given:
+				item_choosen = item_given
+				satisfy_rate = world.items.loc[item_choosen, 'satisfy_rate']
+				print('Item Choosen: {} {}'.format(item_choosen, satisfy_rate))
 			item_type = self.get_item_type(item_choosen)
 			#print('Item Type: {}'.format(item_type))
 
@@ -1289,6 +1305,8 @@ class Individual(Entity):
 				qty_purchase = math.ceil(need_needed / satisfy_rate)
 				#print('QTY Needed: {}'.format(qty_needed))
 				outcome = self.purchase(item_choosen, qty_purchase)
+				if not outcome:
+					outcome = self.produce(item_choosen, qty=qty_purchase, price=world.get_price(item_choosen))
 
 			elif (item_type == 'Commodity') or (item_type == 'Component'):
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
@@ -1305,9 +1323,14 @@ class Individual(Entity):
 					# TODO Assumes only one entity has all available qty
 					qty_avail = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 					#ledger.reset()
-					qty_purchase = min(qty_wanted, qty_avail)
+					if qty_wanted > qty_avail:
+						qty_purchase = qty_avail
+					else:
+						qty_purchase = qty_wanted
+					#qty_purchase = min(qty_wanted, qty_avail)
 					outcome = self.purchase(item_choosen, qty_purchase)
-					# TODO Generalize this for other entities
+					if not outcome:
+						outcome = self.produce(item_choosen, qty=qty_purchase, price=world.get_price(item_choosen))
 					ledger.set_entity(self.entity_id)
 					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 					ledger.reset()
@@ -1354,6 +1377,29 @@ class Individual(Entity):
 			else:
 				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
 			print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need']))
+
+	def finish_hours(self):
+		if self.hours > 0: #while
+			print('Hours Remaining for {}: {}'.format(self.name, self.hours))
+			needs_ordered = {}
+			for need in self.needs:
+				#print(need, self.needs[need]['Current Need'])
+				needs_ordered[need] = self.needs[need]['Current Need']
+			needs_ordered = sorted(needs_ordered.items(), key=lambda x: x[1], reverse=True)
+			#print('Needs Ordered: {}'.format(needs_ordered))
+			for need in needs_ordered:
+				#print('Need Value: {}'.format(need))
+				items_info = world.items[world.items['satisfies'].str.contains(need[0], na=False)]
+				items_info = items_info[items_info['producer'].str.contains('Individual', na=False)]
+				items_info = items_info.sort_values(by='satisfy_rate', ascending=False)
+				items_info.reset_index(inplace=True)
+				#print(items_info)
+				if not items_info.empty:
+					#for index, item in items_info.iterrows():
+					item_choosen = items_info['item_id'].iloc[0]#[index]
+					print('Item Choosen: {}'.format(item_choosen))
+					self.address_need(need[0], item_given=item_choosen)
+			exit()
 
 
 class Organization(Entity):
