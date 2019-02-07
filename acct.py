@@ -812,26 +812,52 @@ class Ledger(object):
 				if v_qty: print('All Items: {}'.format(items))
 			for item in items:
 				if v_qty: print('Item: {}'.format(item))
-				qty_txns = self.get_qty_txns(item, acct)
-				if v_qty: print('QTY TXNs: \n{}'.format(qty_txns))
-				try:
-					debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
-					#print('Debits: \n{}'.format(debits))
-				except KeyError as e:
-					#print('Error Debits: {} | {}'.format(e, repr(e)))
-					debits = 0
-				try:
-					credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
-					#print('Credits: \n{}'.format(credits))
-				except KeyError as e:
-					#print('Error Credits: {} | {}'.format(e, repr(e)))
-					credits = 0
-				qty = round(debits - credits, 2)
-				if v_qty: print('QTY: {}'.format(qty))
-				if single_item: # TODO Fix to handle multiple accounts
-					return qty # TODO Ensure is int
-				inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
-				#if v_qty: print(inventory)
+				if by_entity:
+					entities = pd.unique(self.gl[self.gl['item_id'] == item]['entity_id'])
+					if v_qty: print('Entities: \n{}'.format(entities))
+					for entity_id in entities:
+						if v_qty: print('Entity ID: \n{}'.format(entity_id))
+						self.set_entity(entity_id)
+						qty_txns = self.get_qty_txns(item, acct)
+						if v_qty: print('QTY TXNs: \n{}'.format(qty_txns))
+						try:
+							debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
+							#print('Debits: \n{}'.format(debits))
+						except KeyError as e:
+							#print('Error Debits: {} | {}'.format(e, repr(e)))
+							debits = 0
+						try:
+							credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
+							#print('Credits: \n{}'.format(credits))
+						except KeyError as e:
+							#print('Error Credits: {} | {}'.format(e, repr(e)))
+							credits = 0
+						qty = round(debits - credits, 0)
+						if v_qty: print('QTY: {}'.format(qty))
+						inventory = inventory.append({'entity_id':entity_id, 'item_id':item, 'qty':qty}, ignore_index=True)
+						#if v_qty: print(inventory)
+						self.reset()
+				else:
+					qty_txns = self.get_qty_txns(item, acct)
+					if v_qty: print('QTY TXNs: \n{}'.format(qty_txns))
+					try:
+						debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
+						#print('Debits: \n{}'.format(debits))
+					except KeyError as e:
+						#print('Error Debits: {} | {}'.format(e, repr(e)))
+						debits = 0
+					try:
+						credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
+						#print('Credits: \n{}'.format(credits))
+					except KeyError as e:
+						#print('Error Credits: {} | {}'.format(e, repr(e)))
+						credits = 0
+					qty = round(debits - credits, 0)
+					if v_qty: print('QTY: {}'.format(qty))
+					if single_item: # TODO Fix to handle multiple accounts
+						return qty # TODO Ensure is int
+					inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
+					#if v_qty: print(inventory)
 		if not show_zeros:
 			inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold
 		if all_accts:

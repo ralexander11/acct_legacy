@@ -17,7 +17,7 @@ Mountain,None,None,None,Rocky Land,None,None,None,None,None,None,None
 Cultivator,None,None,None,Labour,None,None,None,None,None,None,None
 Harvester,None,None,None,Labour,None,None,None,None,None,None,None
 Barber,None,None,None,Labour,None,None,None,None,None,None,None
-Food,None,None,None,Commodity,"Time, Arable Land, Cultivator, Water, Harvest","7, 400, 0.1, 1, 1",Hunger,1,7,spoilage,Farm
+Food,None,None,None,Commodity,"Time, Arable Land, Cultivator, Water, Harvest","7, 400, 0.1, 1, 0.05",Hunger,1,7,spoilage,Farm
 Plow,None,None,None,Equipment,"Rock, Wood","10, 20",Cultivator,2,10,usage,Blacksmith
 Wood,None,None,None,Commodity,Land,1,None,None,None,None,Lumbermill
 Rock,None,None,None,Commodity,Land,1,None,None,None,None,"Quarry, Mine"
