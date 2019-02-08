@@ -8,6 +8,7 @@ import random
 import time
 import math
 import os
+import re
 
 DISPLAY_WIDTH = 98#130#
 pd.set_option('display.width', DISPLAY_WIDTH)
@@ -124,7 +125,7 @@ class World:
 		if self.end:
 			return
 		for individual in factory.get(Individual):
-			print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
+			print('Individual: {} | {}'.format(individual.name, individual.entity_id))
 			individual.reset_hours()
 			for need in individual.needs:
 				individual.corp_needed(need=need)
@@ -137,7 +138,7 @@ class World:
 				#print('Corp Check Demand Item: {}'.format(item['item_id']))
 				individual.corp_needed(item=item['item_id'], demand_index=index)
 		print('World Demand Start: \n{}'.format(world.demand))
-		print(ledger.get_qty('Rock', 'Inventory', show_zeros=True, by_entity=True))
+		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True))
 
 		for typ in factory.registry.keys():
 			#print('Entity Type: {}'.format(typ))
@@ -181,7 +182,7 @@ class World:
 
 		print('World Demand End: \n{}'.format(world.demand))
 
-		# if str(self.now) == '1986-10-08': # For debugging
+		# if str(self.now) == '1986-10-04': # For debugging
 		# 	world.end = True
 
 
@@ -297,7 +298,7 @@ class Entity:
 			print('Not enough quantity of {} to purchase {} units for {}.'.format(item, qty, self.name))
 			producer = world.items.loc[item]['producer']
 			#print('Producer: {}'.format(producer))
-			if producer is not None: # TODO Is this needed? Need to support multiple producers? Is this for items produced by Individuals?
+			if producer is not None: # For items like land
 				self.item_demanded(item, qty)
 
 	# TODO Use historical price
@@ -644,6 +645,7 @@ class Entity:
 		if qty is None:
 			qty = 1000
 		auth_qty = 100000 # TODO Get from entity details
+		exists = False
 		if ticker is None and item is not None:
 			#items_info = accts.get_items()
 			tickers = world.items.loc[item, 'producer']
@@ -652,6 +654,20 @@ class Entity:
 			tickers = list(set(filter(None, tickers)))
 			ticker = tickers[0]
 			#print('Ticker: {}'.format(ticker))
+		# Check if ticker exists
+		# world.entities = accts.get_entities()
+		# corp_names = world.entities['name']
+		# print('Corp Names: \n{}'.format(corp_names))
+		# print('Ticker: {}'.format(ticker))
+		# if ticker in corp_names.values:
+		# 	print('Corp name exists.')
+		# 	exists = True
+		# 	if ticker + ' 1' not in corp_names.values:
+		# 		ticker = ticker + ' 1'
+		# 		print('Ticker Second: {}'.format(ticker))
+		# 	else:
+		# 		ticker = re.sub(r'(\d+)(?!.*\d)', lambda x: str(int(x.group(0)) + 1), ticker)
+		# 		print('Ticker Third: {}'.format(ticker))
 		ledger.set_entity(self.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
@@ -659,7 +675,12 @@ class Entity:
 		if price * qty > cash:
 			print('{} does not have enough cash to incorporate {}.'.format(ticker))
 			return
-		items_produced = world.items[world.items['producer'].str.contains(ticker, na=False)].reset_index()
+		if exists:
+			base_ticker = ticker.rsplit(' ', 1)[0]
+			print('Base Ticker: {}'.format(base_ticker))
+			items_produced = world.items[world.items['producer'].str.contains(base_ticker, na=False)].reset_index()
+		else:
+			items_produced = world.items[world.items['producer'].str.contains(ticker, na=False)].reset_index()
 		items_produced = items_produced['item_id'].tolist()
 		items_produced = ','.join(items_produced)
 		#print('Items Produced: {}'.format(items_produced))
@@ -1476,15 +1497,12 @@ class EntityFactory:
 					return entity
 
 	def get_by_id(self, entity_id):
-		world.entities = accts.get_entities()
-		#print('All Entities: \n{}'.format(world.entities))
-		entity_row = world.entities.loc[[entity_id]]
-		#print('Entity Row: \n{}'.format(entity_row))
-		entity_name = entity_row.iloc[0].loc['name']
-		#print('Entity Name: {}'.format(entity_name))
-		entity = self.get_by_name(entity_name)
-		#print('Entity: {}'.format(entity))
-		return entity
+		for typ in factory.registry.keys():
+			for entity in factory.get(typ):
+				if entity.entity_id == entity_id:
+					#print('Entity by ID: {} | {}'.format(entity, entity.entity_id))
+					#print('Entity Name by ID: {}'.format(entity.name))
+					return entity
 
 	def __str__(self):
 		counts = {typ.__name__: len(reg) for typ, reg in self.registry.items()}
