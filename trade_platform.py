@@ -135,8 +135,10 @@ class Trading(object):
 	def int_exp(self, loan_accts=None, date=None): # TODO Add commenting
 		if loan_accts is None:
 			loan_accts = ['Credit Line','Student Credit'] # TODO Maybe generate list from liability accounts
+		print(loan_accts)
 		loan_bal = 0
 		loan_bal = self.ledger.balance_sheet(loan_accts)
+		print('Loan Bal: {}'.format(loan_bal))
 		if loan_bal < 0:
 			logging.info('Loan exists!')
 			cur = self.ledger.conn.cursor()
@@ -158,12 +160,14 @@ class Trading(object):
 						int_rate_var = cur.execute('SELECT int_rate_var FROM items WHERE item_id = "' + str(loan) + '";').fetchone()[0]
 						logging.info('Int. Rate Var.: {}'.format(int_rate_var))
 						if int_rate_var is None:
-							url = 'http://www.rbcroyalbank.com/rates/prime.html'
-							rbc_prime_rate = pd.read_html(url)[5].iloc[1,1]
 							try:
+								url = 'https://www.rbcroyalbank.com/rates/prime.html'
+								#print('URL: {}'.format(url))
+								rbc_prime_rate = pd.read_html(url)[0].iloc[1,1]
 								int_rate_var = round(float(rbc_prime_rate) / 100, 4)
-							except:
-								logging.critical('RBC Rates Website structure has changed.')
+								#print('rbc_prime_rate: \n{}'.format(rbc_prime_rate))
+							except Exception as e:
+								logging.critical('RBC Rates Website structure has changed:\n{}'.format(repr(e)))
 								int_rate_var = 0
 						logging.info('RBC Prime Rate: {}'.format(rbc_prime_rate))
 

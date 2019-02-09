@@ -611,8 +611,7 @@ class Ledger(object):
 			account_elem = (acct, elem)
 			account_details.append(account_elem)
 
-		#print('Account Details:')
-		#print(account_details)
+		# print('Account Details: \n{}'.format(account_details))
 
 		# Group all the accounts together in lists based on their fundamental account element
 		accounts = None

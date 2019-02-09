@@ -217,10 +217,13 @@ class Entity:
 				print('{} does not have enough {} on hand to sell {} units of {}.'.format(self.name, item, qty, item))
 		else:
 			print('{} does not have enough cash to purchase {} units of {}.'.format(self.name, qty, item))
+			if not buffer:
+				return False
 
 	def purchase(self, item, qty, acct_buy='Inventory', acct_sell='Inventory', buffer=False):
 		if qty == 0:
 			return
+		qty = math.ceil(qty)
 		# TODO Add support for purchasing from multiple entities
 		outcome = None
 		item_type = self.get_item_type(item)
@@ -596,8 +599,11 @@ class Entity:
 		if not wip_txns.empty:
 			# Compare the gl dates to the WIP time from the items table
 			items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
+			equip_continuous = world.items[world.items['freq'].str.contains('continuous', na=False)]
 			for index, wip_lot in wip_txns.iterrows():
 				item = wip_lot.loc['item_id']
+				if item in equip_continuous.values:
+					self.use_item(item)
 				requirements = [x.strip() for x in items_time['requirements'][item].split(',')]
 				for i, requirement in enumerate(requirements):
 					if requirement == 'Time':
@@ -1228,6 +1234,7 @@ class Entity:
 							ledger.journal_entry(spoil_entry)
 
 	def derecognize(self, item, qty):
+		# TODO Check if item in use
 		asset_bal = ledger.balance_sheet(accounts=['Equipment'], item=item)# TODO Support other accounts
 		if asset_bal == 0:
 				return
