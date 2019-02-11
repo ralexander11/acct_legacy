@@ -89,7 +89,7 @@ class Accounts(object):
 				('Unrealized Loss','Expense'),
 				('Interest Expense','Expense'),
 				('Dividend Receivable','Asset'),
-				('Dividend Income','Revenue'),
+				#('Dividend Income','Revenue'),
 				('Interest Income','Revenue')
 			]
 
@@ -133,8 +133,12 @@ class Accounts(object):
 				('Service Info','Info'),
 				('Service Available','Info'),
 				('Service Expense','Expense'),
-				('Service Revenue','Revenue')
-			]
+				('Service Revenue','Revenue'),
+				('Dividend Receivable','Asset'),
+				('Dividend Income','Revenue'),
+				('Dividend Payable','Liability'),
+				('Dividend Expense','Expense')
+			] # TODO Remove div exp once retained earnings is setup
 
 		tmp_accts_fix = standard_accts + trade_accts + econ_accts
 		#print(tmp_accts_fix)

@@ -135,10 +135,9 @@ class Trading(object):
 	def int_exp(self, loan_accts=None, date=None): # TODO Add commenting
 		if loan_accts is None:
 			loan_accts = ['Credit Line','Student Credit'] # TODO Maybe generate list from liability accounts
-		print(loan_accts)
 		loan_bal = 0
 		loan_bal = self.ledger.balance_sheet(loan_accts)
-		print('Loan Bal: {}'.format(loan_bal))
+		#print('Loan Bal: {}'.format(loan_bal))
 		if loan_bal < 0:
 			logging.info('Loan exists!')
 			cur = self.ledger.conn.cursor()
@@ -163,13 +162,19 @@ class Trading(object):
 							try:
 								url = 'https://www.rbcroyalbank.com/rates/prime.html'
 								#print('URL: {}'.format(url))
-								rbc_prime_rate = pd.read_html(url)[0].iloc[1,1]
+								rbc_rates_table = pd.read_html(url)
+								rbc_prime_rate = rbc_rates_table[0].iloc[1,1]
 								int_rate_var = round(float(rbc_prime_rate) / 100, 4)
 								#print('rbc_prime_rate: \n{}'.format(rbc_prime_rate))
 							except Exception as e:
-								logging.critical('RBC Rates Website structure has changed:\n{}'.format(repr(e)))
-								int_rate_var = 0
-						logging.info('RBC Prime Rate: {}'.format(rbc_prime_rate))
+								logging.critical('RBC Rates Website structure has changed at:\n{}\n{}'.format(url, repr(e)))
+								try:
+									print('RBC Rates Table:\n{}'.format(rbc_rates_table))
+								except Exception as e:
+									logging.critical('RBC Rates Website structure has changed:\n{}'.format(repr(e)))
+								rbc_prime_rate = 0
+								int_rate_var = 0.0395#0
+						logging.info('Var. Int. Rate: {}'.format(int_rate_var))
 
 					rate = int_rate_fix + int_rate_var
 					period = 1 / 365 # TODO Add frequency logic
