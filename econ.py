@@ -52,7 +52,7 @@ class World:
 
 		for person in range(1, self.population + 1):
 			print('Person: {}'.format(person))
-			factory.create(Individual, 'Person ' + str(person))
+			factory.create(Individual, 'Person ' + str(person), self) #Experiment
 
 		print()
 		print(ledger.gl.columns.values.tolist()) # For verbosity
@@ -120,6 +120,7 @@ class World:
 		return price
 
 	def update_econ(self):
+		t1_start = time.perf_counter()
 		if str(self.now) == '1986-10-01':
 			# TODO Pull shares authorized from entities table
 			for individual in factory.get(Individual):
@@ -165,10 +166,10 @@ class World:
 			organization.check_optional()
 			organization.dividend()
 
-		for individual in factory.get(Individual):
-			print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
-			#individual.inheritance() # Temp for testing
-			for need in individual.needs:
+		for need in individual.needs:
+			for individual in factory.get(Individual):
+				#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
+				#individual.inheritance() # Temp for testing
 				individual.threshold_check(need)
 				individual.need_decay(need)
 				print('{} {} Need: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
@@ -182,14 +183,12 @@ class World:
 				# 	if individual.dead:
 				# 		break
 
-		for typ in factory.registry.keys():
+		for typ in factory.registry.keys(): # For display only
 			for entity in factory.get(typ):
 				ledger.set_entity(entity.entity_id)
 				if 'Farm' in entity.name:
 					entity.food = ledger.get_qty(items='Food', accounts=['Inventory'])
-					#ledger.reset()
 					print('{} Food: {}'.format(entity.name, entity.food))
-				#ledger.set_entity(entity.entity_id)
 				print('{} Cash: {}'.format(entity.name, ledger.balance_sheet(['Cash'])))
 				ledger.reset()
 
@@ -197,26 +196,30 @@ class World:
 			lst = factory.get(typ)
 			lst.append(lst.pop(0))
 
-		if args.random:
-			if random.randint(1, 20) == 20:# or (str(self.now) == '1986-10-06'):
+		if args.random: # Random miraculous births
+			if random.randint(1, 20) == 20:# or (str(self.now) == '1986-10-06'): # Temp for testing
 				print('Person randomly born!')
 				self.entities = accts.get_entities()
 				last_entity_id = self.entities.reset_index()['entity_id'].max()
 				print('Last Entity ID: {}'.format(last_entity_id))
 				factory.create(Individual, 'Person ' + str(last_entity_id + 1))
 				individual = factory.get_by_id(last_entity_id + 1)
-				individual.capitalize(amount=25000) # Hardcoded for now
+				individual.capitalize(amount=random.randint(1000, 5000)) # Hardcoded for now
 
 		print('World Demand End: \n{}'.format(world.demand))
 		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 
-		# if str(self.now) == '1986-10-08': # For debugging
-		# 	world.end = True
+		if str(self.now) == '1986-10-05': # For debugging
+			world.end = True
+
+		t1_end = time.perf_counter()
+		print(time_stamp() + 'End of Econ Update. It took {:,.2f} min.'.format((t1_end - t1_start) / 60))
 
 
 class Entity:
-	def __init__(self, name):
+	def __init__(self, name, world): #Experiment
 		self.name = name
+		self.world = world #Experiment
 		#print('Entity created: {}'.format(name))
 
 	def transact(self, item, price, qty, counterparty, acct_buy='Inventory', acct_sell='Inventory', item_type=None, buffer=False):
@@ -712,13 +715,13 @@ class Entity:
 		ledger.reset()
 		#print('Cash: {}'.format(cash))
 		if price * qty > cash:
-			print('{} does not have enough cash to incorporate {}.'.format(ticker))
+			print('{} does not have enough cash to incorporate {}.'.format(self.name, ticker))
 			return
 		items_produced = world.items[world.items['producer'].str.contains(ticker, na=False)].reset_index()
 		items_produced = items_produced['item_id'].tolist()
 		items_produced = ','.join(items_produced)
 		#print('Items Produced: {}'.format(items_produced))
-		corp = factory.create(Organization, ticker, items_produced)
+		corp = factory.create(Organization, ticker, items_produced, self.world) #Experiment
 		counterparty = corp
 		self.auth_shares(ticker, auth_qty, counterparty)
 		self.buy_shares(ticker, price, qty, counterparty)
@@ -755,21 +758,26 @@ class Entity:
 				if ticker == 'Individual':
 					#print('{} produced by individuals, no corporation needed.'.format(item))
 					continue
-				ledger.reset()
-				corp_shares = ledger.get_qty(ticker, ['Investments'])
-				#print('Corp Shares: \n{}'.format(corp_shares))
-				if isinstance(corp_shares, pd.DataFrame): # TODO This is messy
-					if corp_shares.empty:
-						corp_shares = 0
-					else:
-						corp_shares = corp_shares.loc[0, 'qty']
-					#print('Corp Shares After: \n{}'.format(corp_shares))
-				if corp_shares == 0:
-					corp = self.incorporate(item, ticker=ticker)
-					item_type = self.get_item_type(item)
-					if item_type == 'Subscription' and demand_index is not None:
-						world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
-					return corp
+				for corp in world.factory.get(Organization): #Experiment
+					if ticker == corp.name: #Experiment
+						print('{} corporation already exists.'.format(corp.name)) #Experiment
+						return #Experiment
+				# ledger.reset()
+				# corp_shares = ledger.get_qty(ticker, ['Investments'])
+				# #print('Corp Shares: \n{}'.format(corp_shares))
+				# if isinstance(corp_shares, pd.DataFrame): # TODO This is messy
+				# 	if corp_shares.empty:
+				# 		corp_shares = 0
+				# 	else:
+				# 		corp_shares = corp_shares.loc[0, 'qty']
+				# 	#print('Corp Shares After: \n{}'.format(corp_shares))
+				# if corp_shares == 0:
+				corp = self.incorporate(item, ticker=ticker)
+				# TODO Have the demand table item cleared when entity gets the subscription
+				item_type = self.get_item_type(item)
+				if item_type == 'Subscription' and demand_index is not None:
+					world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
+				return corp
 
 	def qty_demand(self, item): # TODO Determine qty for number of individuals
 		#items_info = accts.get_items()
@@ -1018,7 +1026,7 @@ class Entity:
 		#print('Workers Available: \n{}'.format(workers_avail))
 		# Choose the worker with the most experience
 		worker_choosen = max(workers_avail, key=lambda k: workers_avail[k])
-		#print('Worker Choosen: {}'.format(worker_choosen.name))
+		print('Worker Choosen: {}'.format(worker_choosen.name))
 		return worker_choosen
 
 	def accru_wages(self, job, counterparty, wage, labour_hours, buffer=False):
@@ -1301,19 +1309,20 @@ class Entity:
 
 
 class Individual(Entity):
-	def __init__(self, name):
-		super().__init__(name)
+	def __init__(self, name, world): #Experiment
+		super().__init__(name, world) #Experiment
 		hunger_start = 50
 		if args.random:
 			hunger_start = random.randint(30, 100)
 		# TODO Make starting need levels random
-		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Fun','100,100,100','1,2,5','40,60,40','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst, Hygiene','100,100,100','1,2,1','40,60,50', str(hunger_start) + ',100,80',None,'Labour') ]
+		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Fun, Thirst','100,100,100','1,5,2','40,40,60','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst','100,100,100','1,1,2','40,50,60', str(hunger_start) + ',80,100',None,'Labour') ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','100,100','1,2','40,60','50,100',None,'Labour') ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','40','50',None,'Labour') ]
 
 		self.entity_id = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]
+		self.world = world #Experiment
 		self.dead = False
 		#self.entity_id = 1 # TODO Have this read from the entities table
 		print('Create Individual: {} | entity_id: {}'.format(self.name, self.entity_id))
@@ -1469,7 +1478,7 @@ class Individual(Entity):
 					if qty_avail == 0:
 						qty_avail = qty_wanted # So purchase for 0 qty is not attempted
 					qty_purchase = min(qty_wanted, qty_avail)
-					print('QTY Purchase: {}'.format(qty_purchase))
+					print('Satisfy need by purchasing: {} {}'.format(qty_purchase, item_choosen))
 					outcome = self.purchase(item_choosen, qty_purchase)
 					# TODO Generalize this for other entities
 					ledger.set_entity(self.entity_id)
@@ -1521,12 +1530,13 @@ class Individual(Entity):
 
 
 class Organization(Entity):
-	def __init__(self, name, item):
-		super().__init__(name)
+	def __init__(self, name, item, world): #Experiment
+		super().__init__(name, world) #Experiment
 		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,None,1000000,item) ] # Note: The 2nd to 5th values are for another program
 		self.entity_id = accts.add_entity(entity_data)
-		self.name = entity_data[0][0] # TODO Change this to pull from entities table
+		self.name = entity_data[0][0]
 		self.produces = entity_data[0][13]
+		self.world = world #Experiment
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
 		self.produces = list(filter(None, self.produces))
@@ -1573,6 +1583,8 @@ class Organization(Entity):
 class EntityFactory:
 	def __init__(self):
 		self.registry = {}
+		self.registry[Individual] = [] #Experiment
+		self.registry[Organization] = [] #Experiment
 
 	def create(self, cls, *args, **kwargs):
 		entity = cls(*args, **kwargs)  # create the instance
