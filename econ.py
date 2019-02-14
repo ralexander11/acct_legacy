@@ -412,6 +412,7 @@ class Entity:
 		produce_event = []
 		time_required = False
 		item_type = self.get_item_type(item)
+		# TODO Pull in full items table
 		cur = ledger.conn.cursor()
 		requirements_info = cur.execute("SELECT requirements, amount FROM items WHERE item_id = '"+ item +"';").fetchone() # TODO Maybe get from items dataframe
 		cur.close()
@@ -590,10 +591,11 @@ class Entity:
 				if v: print('Items Data: \n{}'.format(items_data))
 
 				if not equip_list.empty and not items_data.empty:
+					# TODO Add support for multiple satisfys
 					equip_info = equip_list.merge(items_data)
-					equip_info.sort_values(by='satisfy_rate', ascending=False, inplace=True)
+					equip_info.sort_values(by='efficiency', ascending=False, inplace=True)
 					if v: print('Items Table Merged: \n{}'.format(equip_info))
-					modifier = equip_info['satisfy_rate'].iloc[0]
+					modifier = equip_info['efficiency'].iloc[0]
 					if v: print('Modifier: {}'.format(modifier))
 					# Book deprecition on use of item
 					print('{} used {} equipment to do {} task better.'.format(self.name, items_data['item_id'].iloc[0], req_item))
