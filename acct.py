@@ -229,7 +229,7 @@ class Accounts(object):
 				child_of text,
 				requirements text,
 				amount text,
-				capacity integer,
+				capacity text,
 				usage_req text,
 				use_amount text,
 				satisfies text,
