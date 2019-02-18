@@ -203,8 +203,8 @@ class World:
 		print('World Demand End: \n{}'.format(world.demand))
 		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 
-		# if str(self.now) == '1986-10-05': # For debugging
-		# 	world.end = True
+		if str(self.now) == '1986-10-10': # For debugging
+			world.end = True
 
 		t1_end = time.perf_counter()
 		print(time_stamp() + 'End of Econ Update. It took {:,.2f} min.'.format((t1_end - t1_start) / 60))
@@ -275,6 +275,11 @@ class Entity:
 		ledger.reset()
 		global_qty = ledger.get_qty(items=item, accounts=['Inventory'])
 		print('Global Qty of {} for purchase: {} Looking for: {}'.format(item, global_qty, qty))
+
+		# Always buy some that is available
+		if global_qty != 0:
+			qty = min(global_qty, qty)
+
 		if global_qty >= qty or item_type == 'Service':
 			# Check which entity has the goods for the cheapest
 			if item_type != 'Service':
@@ -405,41 +410,16 @@ class Entity:
 		produce_event = []
 		time_required = False
 		item_type = self.get_item_type(item)
-		# TODO Pull in full items table
-		# cur = ledger.conn.cursor()
-		# requirements_info = cur.execute("SELECT requirements, amount FROM items WHERE item_id = '"+ item +"';").fetchone() # TODO Maybe get from items dataframe
-		# cur.close()
 		item_info = world.items.loc[item]
 		if v: print('Item Info: \n{}'.format(item_info))
 		requirements = [x.strip() for x in item_info['requirements'].split(',')]
 		if v: print('Requirements: {}'.format(requirements))
-		# requirements_details = []
-		# requirement_types = []
-		# for requirement in requirements:
-		# 	if v: print('Requirement: {}'.format(requirement))
-		# 	requirement_type = self.get_item_type(requirement)
-		# 	requirement_types.append(requirement_type)
-			# item_details = [requirement, requirement_type]
-			# requirements_details.append(item_details)
-		# if v: print('Requirements Details: {}'.format(requirements_details))
 		requirement_types = [self.get_item_type(requirement) for requirement in requirements]
 		if v: print('Requirement Types: {}'.format(requirement_types))
 		amounts = [x.strip() for x in item_info['amount'].split(',')]
 		amounts = list(map(float, amounts))
 		if v: print('Amounts: {}'.format(amounts))
-		if item_info['capacity'] is not None:
-			capacities = [x.strip() for x in item_info['capacity'].split(',')]
-			capacities = list(map(float, capacities))
-		else:
-			capacities = []
-		if v: print('Capacities: {}'.format(capacities))
-		if item_info['efficiency'] is not None:
-			efficiencies = [x.strip() for x in item_info['efficiency'].split(',')]
-			efficiencies = list(map(float, efficiencies))
-		else:
-			efficiencies = []
-		if v: print('Efficiencies: {}'.format(efficiencies))
-		requirements_details = list(itertools.zip_longest(requirements, requirement_types, amounts, capacities, efficiencies))
+		requirements_details = list(itertools.zip_longest(requirements, requirement_types, amounts))#, capacities, efficiencies))
 		if v: print('Requirements Details: {}'.format(requirements_details))
 		# TODO Sort so requirements with a capacity are first after time
 		for requirement in requirements_details:
@@ -447,8 +427,8 @@ class Entity:
 			req_item = requirement[0]
 			req_item_type = requirement[1]
 			req_qty = requirement[2]
-			capacity = requirement[3]
-			efficiency = requirement[4]
+			if req_qty is None:
+				req_qty = 1
 			if v: print('Requirement: {}\n{}\n{} \n{}'.format(requirement, req_item, req_item_type, req_qty))
 			if req_item_type == 'Time':
 				time_required = True
@@ -469,7 +449,7 @@ class Entity:
 						qty_claim = min(needed_qty, land_avail)
 						entries = self.claim_land(qty_claim, price=world.get_price(req_item), item=req_item, buffer=True)
 						#print('Land Entries: \n{}'.format(entries))
-						if entries is None:
+						if not entries:
 							entries = []
 							incomplete = True
 							#return
@@ -477,7 +457,7 @@ class Entity:
 				if time_required: # TODO Handle land in use during one tick
 					entries = self.in_use(req_item, req_qty * qty, world.get_price(req_item), 'Land', buffer=True)
 					#print('Land In Use Entries: \n{}'.format(entries))
-					if entries is None:
+					if not entries:
 						entries = []
 						incomplete = True
 						#return
@@ -491,16 +471,17 @@ class Entity:
 					print('{} does not have enough capacity in {} building to produce in. Will attempt to aquire some.'.format(self.name, req_item))
 					# Attempt to purchase before producing self if makes sense
 					entries = self.purchase(req_item, req_qty * qty, 'Building', buffer=True)
+					# TODO Undecided if below should be in final
+					# if not entries:
+					# 	entries = self.produce_entries(req_item, qty=req_qty * qty, price=world.get_price(req_item))
 					if not entries:
-						entries = self.produce_entries(req_item, qty=req_qty * qty, price=world.get_price(req_item))
-						if entries is None:
-							entries = []
-							incomplete = True
-							#return
+						entries = []
+						incomplete = True
+						#return
 					produce_event += entries
 				if time_required: # TODO Handle land in use during one tick
 					entries = self.in_use(req_item, req_qty * qty, world.get_price(req_item), 'Buildings', buffer=True)
-					if entries is None:
+					if not entries:
 						entries = []
 						incomplete = True
 						#return
@@ -508,36 +489,55 @@ class Entity:
 
 			elif req_item_type == 'Equipment': # TODO Make generic for process
 				equip_qty = ledger.get_qty(items=req_item, accounts=['Equipment'])
-				if v: print('Equipment: {} {}'.format(equip_qty, req_item))
-				if ((equip_qty * capacity) / qty) < 1: # TODO Test turning requirement into capacity
+				# TODO Get capacity amount
+				capacity = world.items.loc[req_item, 'capacity']
+				if capacity is None:
+					capacity = 1
+				capacity = float(capacity)
+				print('Equipment: {} {} Capacity: {}'.format(equip_qty, req_item, capacity))
+				if ((equip_qty * capacity) / (qty * req_qty)) < 1: # TODO Test item with capacity
 					if equip_qty == 0:
-						print('{} does not have {} equipment to use. Will attempt to aquire some.'.format(self.name, req_item))
+						print('{} does not have {} equipment to use. Will attempt to acquire some.'.format(self.name, req_item))
 					else:
 						print('{} not have enough capacity on {} equipment. Will attempt to aquire some.'.format(self.name, req_item))
-					remaining_qty = qty - (equip_qty * capacity)
+					remaining_qty = (qty * req_qty) - (equip_qty * capacity)
 					required_qty = math.ceil(remaining_qty / capacity)
 					# Attempt to purchase before producing self if makes sense
-					entries = self.purchase(req_item, capacity * qty, 'Equipment', buffer=True)
+					entries = self.purchase(req_item, required_qty, 'Equipment', buffer=True)
+					# TODO Undecided if below should be in final
+					# if not entries:
+					# 	entries = self.produce_entries(req_item, required_qty, world.get_price(req_item))
 					if not entries:
-						entries = self.produce_entries(req_item, required_qty, world.get_price(req_item))
-						if entries is None:
-							entries = []
-							incomplete = True
-							#return
-					produce_event += entries
-				qty_in_use = math.ceil(qty / capacity)
-				if time_required: # TODO Handle land in use during one tick
-					entries = self.in_use(req_item, qty_in_use, world.get_price(req_item), 'Equipment', buffer=True)
-					if entries is None:
 						entries = []
 						incomplete = True
 						#return
 					produce_event += entries
-					for _ in range(qty_in_use):
-						produce_event += self.use_item(req_item, buffer=True)
+				equip_qty = ledger.get_qty(items=req_item, accounts=['Equipment'])
+				qty_to_use = 0
+				if equip_qty != 0:
+					qty_to_use = int(min(equip_qty, math.ceil((qty * req_qty) / (equip_qty * capacity))))
+				if time_required: # TODO Handle equipment in use during one tick
+					entries = self.in_use(req_item, qty_to_use, world.get_price(req_item), 'Equipment', buffer=True)
+					if not entries:
+						entries = []
+						incomplete = True
+						#return
+					produce_event += entries
+					for _ in range(qty_to_use):
+						entries = self.use_item(req_item, buffer=True)
+						if not entries:
+							entries = []
+							incomplete = True
+							#return
+						produce_event += entries
 				else:
-					for _ in range(qty_in_use):
-						produce_event += self.use_item(req_item, buffer=True)
+					for _ in range(qty_to_use):
+						entries = self.use_item(req_item, buffer=True)
+						if not entries:
+							entries = []
+							incomplete = True
+							#return
+						produce_event += entries
 
 			elif req_item_type == 'Components':
 				component_qty = ledger.get_qty(items=req_item, accounts=['Components'])
@@ -556,7 +556,7 @@ class Entity:
 						#return
 					produce_event += entries
 				entries += self.consume(req_item, qty=req_qty * qty)
-				if entries is None:
+				if not entries:
 					entries = []
 					incomplete = True
 					#return
@@ -579,7 +579,7 @@ class Entity:
 						#return
 					produce_event += entries
 				entries = self.consume(req_item, qty=req_qty * qty, buffer=True)
-				if entries is None:
+				if not entries:
 					entries = []
 					incomplete = True
 					#return
@@ -588,8 +588,7 @@ class Entity:
 			elif req_item_type == 'Service':
 				print('{} will attempt to purchase the {} service.'.format(self.name, req_item))
 				entries = self.purchase(req_item, req_qty * qty, buffer=True)
-				if entries is None:
-					entries = []
+				if not entries:
 					entries = []
 					incomplete = True
 					#return
@@ -601,7 +600,7 @@ class Entity:
 				if not subscription_state:
 					print('{} does not have {} subscription active. Will attempt to activate it.'.format(self.name, req_item))
 					entries = self.order_subscription(item=req_item, counterparty=self.subscription_counterparty(req_item), price=world.get_price(req_item), qty=1, buffer=True)
-					if entries is None:
+					if not entries:
 						entries = []
 						incomplete = True
 						#return
@@ -613,16 +612,16 @@ class Entity:
 				if not subscription_state:
 					print('{} does not have {} worker active. Will attempt to hire {}.'.format(self.name, req_item, req_qty))
 					entries = self.hire_worker(job=req_item, counterparty=self.worker_counterparty(req_item), price=world.get_price(req_item), qty=1, buffer=True) # TODO Support more than 1 qty
-					if entries is None:
+					if not entries:
 						entries = []
 						incomplete = True
 						#return
 					produce_event += entries
 
-			elif req_item_type == 'Labour': # TODO How to handle multiple workers
+			elif req_item_type == 'Labour':
 				modifier = 1
-				# TODO Get list of all equipment that covers the requirement
-				equip_list = ledger.get_qty(accounts=['Equipment'])#, v_qty=True)
+				# Get list of all equipment that covers the requirement
+				equip_list = ledger.get_qty(accounts=['Equipment'])
 				if v: print('Equip List: \n{}'.format(equip_list))
 				
 				items_info = world.items[world.items['satisfies'].str.contains(req_item, na=False)] # Supports if item satisfies multiple needs
@@ -642,14 +641,17 @@ class Entity:
 				if v: print('Items Data: \n{}'.format(items_info))
 
 				if not equip_list.empty and not items_info.empty:
-					# TODO Add support for multiple satisfys
 					equip_info = equip_list.merge(items_info)
 					equip_info.sort_values(by='req_efficiency', ascending=False, inplace=True)
 					if v: print('Items Table Merged: \n{}'.format(equip_info))
+					equip_qty = float(equip_info['qty'].iloc[0])
+					equip_capacity = float(equip_info['capacity'].iloc[0])
+					print('Equip Capacity: {}'.format(equip_capacity))
+
 					modifier = float(equip_info['req_efficiency'].iloc[0])
 					if v: print('Modifier: {}'.format(modifier))
 					# Book deprecition on use of item
-					print('{} used {} equipment to do {} task better.'.format(self.name, items_info['item_id'].iloc[0], req_item))
+					if v: print('{} used {} equipment to do {} task better by {}.'.format(self.name, items_info['item_id'].iloc[0], req_item, modifier))
 					produce_event += self.use_item(items_info['item_id'].iloc[0], buffer=True)
 
 				# TODO Factor in equipment capacity and WIP time
@@ -667,13 +669,14 @@ class Entity:
 					counterparty = self.worker_counterparty(req_item)
 					if v: print('Wages Counterparty: {}'.format(counterparty.name))
 					entries = self.accru_wages(job=req_item, counterparty=counterparty, wage=world.get_price(req_item), labour_hours=required_hours, buffer=True)
-					if entries is None:
+					if not entries:
 						entries = []
 						incomplete = True
 						#return
 					produce_event += entries
-					labour_done += entries[0][6] # Same as required_hours
-					counterparty.set_hours(required_hours)
+					if entries:
+						labour_done += entries[0][6] # Same as required_hours
+						counterparty.set_hours(required_hours)
 
 			ledger.reset()
 		#print('Item Type: {}'.format(item_type))
@@ -1324,7 +1327,7 @@ class Entity:
 
 	def depreciation(self, item, lifespan, metric, uses=1, buffer=False):
 		if (metric == 'ticks') or (metric == 'usage'):
-			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Furniture'], item=item) # TODO Support other accounts like Tools
+			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=item) # TODO Support other accounts like Tools
 			if asset_bal == 0:
 				return
 			#print('Asset Bal: {}'.format(asset_bal))
@@ -1401,8 +1404,8 @@ class Individual(Entity):
 			hunger_start = random.randint(30, 100)
 		# TODO Make starting need levels random
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Fun, Thirst','100,100,100','1,5,2','40,40,60','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst, Fun','100,100,100,100','1,1,2,5','40,50,60,40', str(hunger_start) + ',80,100,100',None,'Labour') ]
-		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst','100,100,100','1,1,2','40,50,60', str(hunger_start) + ',80,100',None,'Labour') ]
+		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst, Fun','100,100,100,100','1,1,2,5','40,50,60,40', str(hunger_start) + ',80,100,100',None,'Labour') ]
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst','100,100,100','1,1,2','40,50,60', str(hunger_start) + ',80,100',None,'Labour') ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','100,100','1,2','40,60','50,100',None,'Labour') ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','40','50',None,'Labour') ]
 

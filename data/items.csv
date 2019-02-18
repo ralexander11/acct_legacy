@@ -18,8 +18,8 @@ Mountain,None,None,None,Rocky Land,None,None,None,None,None,None,None,None,None,
 Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None
 Harvester,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None
 Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None
-Food,None,None,None,Commodity,"Time, Arable Land, Cultivator, Water, Harvest, Manager","7, 400, 0.1, 1, 0.05, 1",None,None,None,Hunger,1,None,7,spoilage,Farm
-Plow,None,None,start,Equipment,"Rock, Wood","10, 20",60,None,None,Cultivator,None,0.5,10,usage,Blacksmith
+Food,None,None,None,Commodity,"Time, Arable Land, Cultivator, Water, Harvest, Manager, Sprinkler","7, 400, 0.1, 1, 0.05, 1, 1",None,None,None,Hunger,1,None,7,spoilage,Farm
+Plow,None,None,start,Equipment,"Rock, Wood","10, 20",12,None,None,Cultivator,None,0.5,10,usage,Blacksmith
 Wood,None,None,None,Commodity,Land,1,None,None,None,None,None,None,None,None,Lumbermill
 Rock,None,None,None,Commodity,Land,1,None,None,None,None,None,None,None,None,"Quarry, Mine"
 Ore,None,None,None,Commodity,Mountain,1,None,None,None,None,None,None,None,None,Mine
@@ -30,4 +30,4 @@ Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,100,usage,
 Haircut,None,None,None,Service,Barber,1,None,None,None,Hygiene,100,None,None,None,Barber Shop
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,None,None,None,None,Harvest Guild
 Manager,None,None,None,Job,None,None,None,None,None,None,None,None,None,None,None
-Sprinkler,None,None,continuous,Equipment,Rock,5,None,None,None,None,None,None,50,ticks,Blacksmith
+Sprinkler,None,None,continuous,Equipment,Rock,5,2,None,None,None,None,None,50,ticks,Blacksmith
