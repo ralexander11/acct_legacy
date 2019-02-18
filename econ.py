@@ -393,6 +393,45 @@ class Entity:
 				return entries
 			return entries
 
+	def check_productivity(self, item):
+		v = False
+		# TODO Consider multiple modifiers simultaneously
+		equip_list = ledger.get_qty(accounts=['Equipment'])
+		if v: print('Equip List: \n{}'.format(equip_list))
+		
+		items_info = world.items[world.items['productivity'].str.contains(item, na=False)]
+		efficiencies = []
+		for index, item_row in items_info.iterrows():
+			productivity = [x.strip() for x in item_row['productivity'].split(',')]
+			for i, productivity_item in enumerate(productivity):
+				if productivity_item == item:
+					break
+			efficiencies_list = [x.strip() for x in item_row['efficiency'].split(',')]
+			efficiency = efficiencies_list[i]
+			efficiencies.append(efficiency)
+		efficiencies = pd.Series(efficiencies)
+		#print('Need Satisfy Rate: \n{}'.format(need_satisfy_rate))
+		items_info = items_info.assign(efficiencies=efficiencies.values)
+		items_info.reset_index(inplace=True)
+		if v: print('Items Info: \n{}'.format(items_info))
+
+		if not equip_list.empty and not items_info.empty:
+			equip_info = equip_list.merge(items_info)
+			equip_info.sort_values(by='efficiencies', ascending=False, inplace=True)
+			if v: print('Items Info Merged: \n{}'.format(equip_info))
+			# equip_qty = float(equip_info['qty'].iloc[0])
+			# equip_capacity = float(equip_info['capacity'].iloc[0])
+			# if v: print('Equip Capacity: {}'.format(equip_capacity))
+			# TODO Consider how to factor in equipment capacity and WIP time
+			modifier = float(equip_info['efficiencies'].iloc[0])
+			if v: print('Modifier: {}'.format(modifier))
+			# coverage = (req_qty * modifier * qty) // equip_capacity
+			# print('Charges: {}'.format(coverage))
+			# Book deprecition on use of item
+			print('{} used {} equipment to do {} task better by {}.'.format(self.name, items_info['item_id'].iloc[0], item, modifier))
+			return modifier, items_info
+		return None, None
+
 	def get_item_type(self, item):
 		if item in ['Land','Labour','Job','Equipment','Building','Subscription','Service','Commodity','Components','Technology','Education','Time','None']:
 			return item
@@ -563,9 +602,14 @@ class Entity:
 				produce_event += entries
 
 			elif req_item_type == 'Commodity':
+				modifier, items_info = self.check_productivity(req_item)
+				if modifier:
+					produce_event += self.use_item(items_info['item_id'].iloc[0], buffer=True)
+				else:
+					modifier = 1
 				material_qty = ledger.get_qty(items=req_item, accounts=['Inventory'])
 				if v: print('Land: {}'.format(material_qty))
-				if material_qty < (req_qty * qty):
+				if material_qty < (req_qty * modifier * qty):
 					print('{} does not have enough commodity: {}. Will attempt to aquire some.'.format(self.name, req_item))
 					# Attempt to purchase before producing self if makes sense
 					entries = self.purchase(req_item, req_qty * qty, 'Inventory', buffer=True)
@@ -619,43 +663,47 @@ class Entity:
 					produce_event += entries
 
 			elif req_item_type == 'Labour':
-				modifier = 1
-				# Get list of all equipment that covers the requirement
-				equip_list = ledger.get_qty(accounts=['Equipment'])
-				if v: print('Equip List: \n{}'.format(equip_list))
+				# TODO Consider multiple modifiers simultaneously
+				# modifier = 1
+				# # Get list of all equipment that covers the requirement
+				# equip_list = ledger.get_qty(accounts=['Equipment'])
+				# if v: print('Equip List: \n{}'.format(equip_list))
 				
-				items_info = world.items[world.items['satisfies'].str.contains(req_item, na=False)] # Supports if item satisfies multiple needs
-				req_efficiency = []
-				for index, item_row in items_info.iterrows():
-					satisfies = [x.strip() for x in item_row['satisfies'].split(',')]
-					for i, satisfy_item in enumerate(satisfies):
-						if satisfy_item == req_item:
-							break
-					efficiencies = [x.strip() for x in item_row['efficiency'].split(',')]
-					efficiency = efficiencies[i]
-					req_efficiency.append(efficiency)
-				req_efficiency = pd.Series(req_efficiency)
-				#print('Need Satisfy Rate: \n{}'.format(need_satisfy_rate))
-				items_info = items_info.assign(req_efficiency=req_efficiency.values)
-				items_info.reset_index(inplace=True)
-				if v: print('Items Data: \n{}'.format(items_info))
+				# items_info = world.items[world.items['productivity'].str.contains(req_item, na=False)]
+				# req_efficiency = []
+				# for index, item_row in items_info.iterrows():
+				# 	productivity = [x.strip() for x in item_row['productivity'].split(',')]
+				# 	for i, productivity_item in enumerate(productivity):
+				# 		if productivity_item == req_item:
+				# 			break
+				# 	efficiencies = [x.strip() for x in item_row['efficiency'].split(',')]
+				# 	efficiency = efficiencies[i]
+				# 	req_efficiency.append(efficiency)
+				# req_efficiency = pd.Series(req_efficiency)
+				# #print('Need Satisfy Rate: \n{}'.format(need_satisfy_rate))
+				# items_info = items_info.assign(req_efficiency=req_efficiency.values)
+				# items_info.reset_index(inplace=True)
+				# if v: print('Items Data: \n{}'.format(items_info))
 
-				if not equip_list.empty and not items_info.empty:
-					equip_info = equip_list.merge(items_info)
-					equip_info.sort_values(by='req_efficiency', ascending=False, inplace=True)
-					if v: print('Items Table Merged: \n{}'.format(equip_info))
-					equip_qty = float(equip_info['qty'].iloc[0])
-					equip_capacity = float(equip_info['capacity'].iloc[0])
-					print('Equip Capacity: {}'.format(equip_capacity))
-
-					modifier = float(equip_info['req_efficiency'].iloc[0])
-					if v: print('Modifier: {}'.format(modifier))
-					# Book deprecition on use of item
-					if v: print('{} used {} equipment to do {} task better by {}.'.format(self.name, items_info['item_id'].iloc[0], req_item, modifier))
+				# if not equip_list.empty and not items_info.empty:
+				# 	equip_info = equip_list.merge(items_info)
+				# 	equip_info.sort_values(by='req_efficiency', ascending=False, inplace=True)
+				# 	if v: print('Items Table Merged: \n{}'.format(equip_info))
+				# 	equip_qty = float(equip_info['qty'].iloc[0])
+				# 	equip_capacity = float(equip_info['capacity'].iloc[0])
+				# 	if v: print('Equip Capacity: {}'.format(equip_capacity))
+				# 	# TODO Consider how to factor in equipment capacity and WIP time
+				# 	modifier = float(equip_info['req_efficiency'].iloc[0])
+				# 	# coverage = (req_qty * modifier * qty) // equip_capacity
+				# 	# print('Charges: {}'.format(coverage))
+				# 	if v: print('Modifier: {}'.format(modifier))
+				# 	# Book deprecition on use of item
+				# 	print('{} used {} equipment to do {} task better by {}.'.format(self.name, items_info['item_id'].iloc[0], req_item, modifier))
+				modifier, items_info = self.check_productivity(req_item)
+				if modifier:
 					produce_event += self.use_item(items_info['item_id'].iloc[0], buffer=True)
-
-				# TODO Factor in equipment capacity and WIP time
-
+				else:
+					modifier = 1
 				ledger.set_start_date(str(world.now))
 				labour_done = ledger.get_qty(items=req_item, accounts=['Salary Expense'])
 				ledger.reset()
@@ -971,7 +1019,7 @@ class Entity:
 			requirements = list(filter(None, requirements))
 			#print('Requirements: \n{}'.format(requirements))
 			# Filter items list for last column not equal None
-			possible_items = items_list.loc[items_list['satisfies'].isin(requirements)].reset_index()
+			possible_items = items_list.loc[items_list['productivity'].isin(requirements)].reset_index()
 			#print('Possible Items: \n{}'.format(possible_items))
 			# If required item is on the filtered list, do below
 			for index, item in possible_items.iterrows():

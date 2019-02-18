@@ -229,11 +229,12 @@ class Accounts(object):
 				child_of text,
 				requirements text,
 				amount text,
-				capacity text,
+				capacity integer,
 				usage_req text,
 				use_amount text,
 				satisfies text,
 				satisfy_rate text,
+				productivity text,
 				efficiency text,
 				lifespan integer,
 				metric text DEFAULT 'ticks',
@@ -254,6 +255,7 @@ class Accounts(object):
 				use_amount,
 				satisfies,
 				satisfy_rate,
+				productivity,
 				efficiency,
 				lifespan,
 				metric,
@@ -271,6 +273,7 @@ class Accounts(object):
 					NULL,
 					'Capital',
 					1,
+					NULL,
 					NULL,
 					3650,
 					'ticks',
@@ -376,18 +379,19 @@ class Accounts(object):
 			use_amount = input('Enter a value for the amount of each requirement to use the item as list: ')
 			satisfies = input('Enter the needs the item satisfies as a list: ')
 			satisfy_rate = input('Enter the rate the item satisfies the needs as a list: ')
-			efficiency = input('Enter the ratio that the requirement is reduced by as a list, if relevant: ')
+			productivity = input('Enter the requirements the item makes more efficient as a list: ')
+			efficiency = input('Enter the ratio that the requirement is reduced by as a list: ')
 			metric = input('Enter either "ticks" or "units" for how the lifespan is measured: ')
 			lifespan = input('Enter how long the item lasts: ')
 			producer = input('Enter the producer of the item: ')
 
-			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,usage_req,use_amount,satisfies,satisfy_rate,efficiency,lifespan,metric,producer)
-			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,usage_req,use_amount,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,producer)
+			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for item in item_data:
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
-				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, item)
 
 		self.conn.commit()
