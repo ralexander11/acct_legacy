@@ -10,6 +10,8 @@ import time
 import math
 import os
 import re
+import pygame
+from pygame.locals import *
 
 DISPLAY_WIDTH = 98#130#
 pd.set_option('display.width', DISPLAY_WIDTH)
@@ -32,6 +34,40 @@ def delete_db(db_name=None): # TODO Test and fix this for long term
 	else:
 		print(time_stamp() + 'The database file does not exist at {}.'
 			.format(db_path + db_name))
+
+class Simulation:
+	def __init__(self):
+		pygame.init()
+
+	def handle_events(self):
+		paused = False
+		while True:
+			print('Paused - Start: {}'.format(paused))
+			events = pygame.event.get()
+			for event in events:
+				print('Event: {} | Tyep: {} | Key: {}'.format(event, event.type, event.key))
+				if (event.type == KEYDOWN):
+					#print('KEYDOWN: {}'.format(KEYDOWN))
+					if event.key == K_SPACE:
+						#print('K_SPACE: {}'.format(K_SPACE))
+						paused = not paused
+					elif event.key == K_ESCAPE:
+						exit()
+					# elif event.key == K_RETURN :
+					# 	self.sim_init()
+			print('Paused - After: {}'.format(paused))
+			if paused:
+				time.sleep(50)
+			else:
+				return
+
+	# def get_key(self):
+	# 	while True:
+	# 		event = pygame.event.poll()
+	# 		if event.type == KEYDOWN:
+	# 			return event.key
+	# 		else:
+	# 			pass
 
 class World:
 	def __init__(self, factory, population):
@@ -1936,10 +1972,12 @@ if __name__ == '__main__':
 	delete_db(args.database)
 	accts = Accounts(args.database)
 	ledger = Ledger(accts)
+	sim = Simulation()
 	factory = EntityFactory()
 	world = World(factory, args.population)
 
 	while True:
+		sim.handle_events()
 		world.update_econ()
 		if world.end:
 			break
