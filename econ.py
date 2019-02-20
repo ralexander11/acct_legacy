@@ -382,16 +382,20 @@ class Entity:
 			print('{} does not have enough {} available to use.'.format(self.name, item))
 
 	def use_item(self, item, uses=1, buffer=False):
+		incomplete, use_event, time_required = self.fulfill(item, qty=uses, reqs='usage_req', amts='use_amount')
+		if incomplete:
+			return
 		lifespan = world.items['lifespan'][item]
 		metric = world.items['metric'][item]
 		entries, uses = self.depreciation(item, lifespan, metric, uses, buffer)
 		if entries:
+			use_event += entries
 			try:
 				self.adj_needs(item, uses)
 			except AttributeError as e:
 				#print('Organizations do not have needs: {} | {}'.format(e, repr(e)))
-				return entries
-			return entries
+				return use_event
+			return use_event
 
 	def check_productivity(self, item):
 		v = False
@@ -440,25 +444,26 @@ class Entity:
 
 	# TODO Proper costing, not to use price parameter
 	# TODO Make each item take a certain amount of labour hours and have items able to reduce that
-	# TODO Add WIP accounting and COGS
-	def produce_entries(self, item, qty, price=None, debit_acct='Inventory', credit_acct='Goods Produced'):
+	# TODO Add WIP and COGS accounting
+	def fulfill(self, item, qty, reqs='requirements', amts='amount'): # TODO Maybe add buffer=True
 		v = False
 		incomplete = False
 		if qty == 0:
-			return
-		produce_event = []
+			return None, [], None
+		event = []
 		time_required = False
-		item_type = self.get_item_type(item)
 		item_info = world.items.loc[item]
 		if v: print('Item Info: \n{}'.format(item_info))
-		requirements = [x.strip() for x in item_info['requirements'].split(',')]
+		if item_info[reqs] is None or item_info[amts] is None:
+			return None, [], None
+		requirements = [x.strip() for x in item_info[reqs].split(',')]
 		if v: print('Requirements: {}'.format(requirements))
 		requirement_types = [self.get_item_type(requirement) for requirement in requirements]
 		if v: print('Requirement Types: {}'.format(requirement_types))
-		amounts = [x.strip() for x in item_info['amount'].split(',')]
+		amounts = [x.strip() for x in item_info[amts].split(',')]
 		amounts = list(map(float, amounts))
-		if v: print('Amounts: {}'.format(amounts))
-		requirements_details = list(itertools.zip_longest(requirements, requirement_types, amounts))#, capacities, efficiencies))
+		if v: print('Requirement Amounts: {}'.format(amounts))
+		requirements_details = list(itertools.zip_longest(requirements, requirement_types, amounts))
 		if v: print('Requirements Details: {}'.format(requirements_details))
 		# TODO Sort so requirements with a capacity are first after time
 		for requirement in requirements_details:
@@ -470,6 +475,7 @@ class Entity:
 				req_qty = 1
 			if v: print('Requirement: {}\n{}\n{} \n{}'.format(requirement, req_item, req_item_type, req_qty))
 			if req_item_type == 'Time':
+				# TODO Consider how Equipment can reduce time requirements
 				time_required = True
 				if v: print('Time Required: {}'.format(time_required))
 			elif req_item_type == 'Land':
@@ -492,7 +498,7 @@ class Entity:
 							entries = []
 							incomplete = True
 							#return
-					produce_event += entries
+					event += entries
 				if time_required: # TODO Handle land in use during one tick
 					entries = self.in_use(req_item, req_qty * qty, world.get_price(req_item), 'Land', buffer=True)
 					#print('Land In Use Entries: \n{}'.format(entries))
@@ -500,7 +506,7 @@ class Entity:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 			elif req_item_type == 'Building':
 				building = ledger.get_qty(items=req_item, accounts=['Buildings'])
 				if v: print('Building: {}'.format(land))
@@ -517,14 +523,14 @@ class Entity:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 				if time_required: # TODO Handle land in use during one tick
 					entries = self.in_use(req_item, req_qty * qty, world.get_price(req_item), 'Buildings', buffer=True)
 					if not entries:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 
 			elif req_item_type == 'Equipment': # TODO Make generic for process
 				equip_qty = ledger.get_qty(items=req_item, accounts=['Equipment'])
@@ -550,7 +556,7 @@ class Entity:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 				equip_qty = ledger.get_qty(items=req_item, accounts=['Equipment'])
 				qty_to_use = 0
 				if equip_qty != 0:
@@ -561,14 +567,14 @@ class Entity:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 					for _ in range(qty_to_use):
 						entries = self.use_item(req_item, buffer=True)
 						if not entries:
 							entries = []
 							incomplete = True
 							#return
-						produce_event += entries
+						event += entries
 				else:
 					for _ in range(qty_to_use):
 						entries = self.use_item(req_item, buffer=True)
@@ -576,7 +582,7 @@ class Entity:
 							entries = []
 							incomplete = True
 							#return
-						produce_event += entries
+						event += entries
 
 			elif req_item_type == 'Components':
 				component_qty = ledger.get_qty(items=req_item, accounts=['Components'])
@@ -593,18 +599,18 @@ class Entity:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 				entries += self.consume(req_item, qty=req_qty * qty)
 				if not entries:
 					entries = []
 					incomplete = True
 					#return
-				produce_event += entries
+				event += entries
 
 			elif req_item_type == 'Commodity':
 				modifier, items_info = self.check_productivity(req_item)
 				if modifier:
-					produce_event += self.use_item(items_info['item_id'].iloc[0], buffer=True)
+					event += self.use_item(items_info['item_id'].iloc[0], buffer=True)
 				else:
 					modifier = 1
 				material_qty = ledger.get_qty(items=req_item, accounts=['Inventory'])
@@ -621,13 +627,13 @@ class Entity:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 				entries = self.consume(req_item, qty=req_qty * qty, buffer=True)
 				if not entries:
 					entries = []
 					incomplete = True
 					#return
-				produce_event += entries
+				event += entries
 
 			elif req_item_type == 'Service':
 				print('{} will attempt to purchase the {} service.'.format(self.name, req_item))
@@ -636,7 +642,7 @@ class Entity:
 					entries = []
 					incomplete = True
 					#return
-				produce_event += entries
+				event += entries
 
 			elif req_item_type == 'Subscription': # TODO Add check to ensure payment has been made recently (maybe on day of)
 				subscription_state = ledger.get_qty(items=req_item, accounts=['Subscription Info'])
@@ -648,7 +654,7 @@ class Entity:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 
 			elif req_item_type == 'Job':
 				subscription_state = ledger.get_qty(items=req_item, accounts=['Worker Info'])
@@ -660,48 +666,12 @@ class Entity:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 
 			elif req_item_type == 'Labour':
-				# TODO Consider multiple modifiers simultaneously
-				# modifier = 1
-				# # Get list of all equipment that covers the requirement
-				# equip_list = ledger.get_qty(accounts=['Equipment'])
-				# if v: print('Equip List: \n{}'.format(equip_list))
-				
-				# items_info = world.items[world.items['productivity'].str.contains(req_item, na=False)]
-				# req_efficiency = []
-				# for index, item_row in items_info.iterrows():
-				# 	productivity = [x.strip() for x in item_row['productivity'].split(',')]
-				# 	for i, productivity_item in enumerate(productivity):
-				# 		if productivity_item == req_item:
-				# 			break
-				# 	efficiencies = [x.strip() for x in item_row['efficiency'].split(',')]
-				# 	efficiency = efficiencies[i]
-				# 	req_efficiency.append(efficiency)
-				# req_efficiency = pd.Series(req_efficiency)
-				# #print('Need Satisfy Rate: \n{}'.format(need_satisfy_rate))
-				# items_info = items_info.assign(req_efficiency=req_efficiency.values)
-				# items_info.reset_index(inplace=True)
-				# if v: print('Items Data: \n{}'.format(items_info))
-
-				# if not equip_list.empty and not items_info.empty:
-				# 	equip_info = equip_list.merge(items_info)
-				# 	equip_info.sort_values(by='req_efficiency', ascending=False, inplace=True)
-				# 	if v: print('Items Table Merged: \n{}'.format(equip_info))
-				# 	equip_qty = float(equip_info['qty'].iloc[0])
-				# 	equip_capacity = float(equip_info['capacity'].iloc[0])
-				# 	if v: print('Equip Capacity: {}'.format(equip_capacity))
-				# 	# TODO Consider how to factor in equipment capacity and WIP time
-				# 	modifier = float(equip_info['req_efficiency'].iloc[0])
-				# 	# coverage = (req_qty * modifier * qty) // equip_capacity
-				# 	# print('Charges: {}'.format(coverage))
-				# 	if v: print('Modifier: {}'.format(modifier))
-				# 	# Book deprecition on use of item
-				# 	print('{} used {} equipment to do {} task better by {}.'.format(self.name, items_info['item_id'].iloc[0], req_item, modifier))
 				modifier, items_info = self.check_productivity(req_item)
 				if modifier:
-					produce_event += self.use_item(items_info['item_id'].iloc[0], buffer=True)
+					event += self.use_item(items_info['item_id'].iloc[0], buffer=True)
 				else:
 					modifier = 1
 				ledger.set_start_date(str(world.now))
@@ -721,21 +691,25 @@ class Entity:
 						entries = []
 						incomplete = True
 						#return
-					produce_event += entries
+					event += entries
 					if entries:
 						labour_done += entries[0][6] # Same as required_hours
 						counterparty.set_hours(required_hours)
-
 			ledger.reset()
-		#print('Item Type: {}'.format(item_type))
+		return incomplete, event, time_required
+
+	def produce_entries(self, item, qty, price=None, debit_acct='Inventory', credit_acct='Goods Produced'):
+		incomplete, produce_event, time_required = self.fulfill(item, qty)
 		if incomplete:
 			return
 		produce_entry = []
+		item_type = self.get_item_type(item)
+		#print('Item Type: {}'.format(item_type))
 		if time_required and item_type != 'Service':
 			produce_entry = [ ledger.get_event(), self.entity_id, world.now, item + ' in process', item, price, qty, 'WIP Inventory', credit_acct, price * qty ]
 		elif item_type != 'Service':
 			produce_entry = [ ledger.get_event(), self.entity_id, world.now, item + ' produced', item, price, qty, debit_acct, credit_acct, price * qty ]
-		# Add all entries to same event during buffersion and commit at the end once
+		# Add all entries to same event and commit at the end once
 		if produce_entry:
 			produce_event += [produce_entry]
 		#print('Produce Event: \n{}'.format(produce_event))
