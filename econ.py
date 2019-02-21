@@ -203,8 +203,8 @@ class World:
 		print('World Demand End: \n{}'.format(world.demand))
 		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 
-		if str(self.now) == '1986-10-10': # For debugging
-			world.end = True
+		# if str(self.now) == '1986-10-05': # For debugging
+		# 	world.end = True
 
 		t1_end = time.perf_counter()
 		print(time_stamp() + 'End of Econ Update. It took {:,.2f} min.'.format((t1_end - t1_start) / 60))
@@ -473,7 +473,7 @@ class Entity:
 			req_qty = requirement[2]
 			if req_qty is None:
 				req_qty = 1
-			if v: print('Requirement: {}\n{}\n{} \n{}'.format(requirement, req_item, req_item_type, req_qty))
+			if v: print('Requirement: {} \n{} \n{} \n{}'.format(requirement, req_item, req_item_type, req_qty))
 			if req_item_type == 'Time':
 				# TODO Consider how Equipment can reduce time requirements
 				time_required = True
@@ -534,7 +534,7 @@ class Entity:
 
 			elif req_item_type == 'Equipment': # TODO Make generic for process
 				equip_qty = ledger.get_qty(items=req_item, accounts=['Equipment'])
-				# TODO Get capacity amount
+				# Get capacity amount
 				capacity = world.items.loc[req_item, 'capacity']
 				if capacity is None:
 					capacity = 1
@@ -561,7 +561,7 @@ class Entity:
 				qty_to_use = 0
 				if equip_qty != 0:
 					qty_to_use = int(min(equip_qty, math.ceil((qty * req_qty) / (equip_qty * capacity))))
-				if time_required: # TODO Handle equipment in use during one tick
+				if time_required: # TODO Handle equipment in use during only one tick
 					entries = self.in_use(req_item, qty_to_use, world.get_price(req_item), 'Equipment', buffer=True)
 					if not entries:
 						entries = []
@@ -657,16 +657,28 @@ class Entity:
 					event += entries
 
 			elif req_item_type == 'Job':
-				subscription_state = ledger.get_qty(items=req_item, accounts=['Worker Info'])
-				if v: print('Worker State for {}: {}'.format(req_item, subscription_state))
-				if not subscription_state:
-					print('{} does not have {} worker active. Will attempt to hire {}.'.format(self.name, req_item, req_qty))
-					entries = self.hire_worker(job=req_item, counterparty=self.worker_counterparty(req_item), price=world.get_price(req_item), qty=1, buffer=True) # TODO Support more than 1 qty
-					if not entries:
-						entries = []
-						incomplete = True
-						#return
-					event += entries
+				workers = ledger.get_qty(items=req_item, accounts=['Worker Info'])
+				if v: print('Workers as {}: {}'.format(req_item, worker_state))
+				# Get capacity amount
+				capacity = world.items.loc[req_item, 'capacity']
+				if capacity is None:
+					capacity = 1
+				capacity = float(capacity)
+				print('Job: {} {} Capacity: {}'.format(workers, req_item, capacity))
+				if ((workers * capacity) / (qty * req_qty)) < 1:
+					remaining_qty = (qty * req_qty) - (workers * capacity)
+					required_qty = math.ceil(remaining_qty / capacity)
+					if workers <= 0:
+						print('{} does not have a {} available to work. Will attempt to hire {}.'.format(self.name, req_item, required_qty))
+					else:
+						print('{} does not have enough capacity for {} jobs. Will attempt to hire {}.'.format(self.name, req_item, required_qty))
+					for _ in range(required_qty):
+						entries = self.hire_worker(job=req_item, counterparty=self.worker_counterparty(req_item), price=world.get_price(req_item), qty=1, buffer=True)
+						if not entries:
+							entries = []
+							incomplete = True
+							#return
+						event += entries
 
 			elif req_item_type == 'Labour':
 				modifier, items_info = self.check_productivity(req_item)
@@ -675,7 +687,7 @@ class Entity:
 				else:
 					modifier = 1
 				ledger.set_start_date(str(world.now))
-				labour_done = ledger.get_qty(items=req_item, accounts=['Salary Expense'])
+				labour_done = ledger.get_qty(items=req_item, accounts=['Wages Expense'])
 				ledger.reset()
 				ledger.set_entity(self.entity_id)
 				if v: print('Labour Done: {}'.format(labour_done))
@@ -696,6 +708,8 @@ class Entity:
 						labour_done += entries[0][6] # Same as required_hours
 						counterparty.set_hours(required_hours)
 			ledger.reset()
+		if incomplete:
+			print('{} cannot produce {} {} at this time.'.format(self.name, qty, item))
 		return incomplete, event, time_required
 
 	def produce_entries(self, item, qty, price=None, debit_acct='Inventory', credit_acct='Goods Produced'):
@@ -866,7 +880,7 @@ class Entity:
 				if corp_shares == 0:
 					corp = self.incorporate(item, ticker=ticker)
 					item_type = self.get_item_type(item)
-					if item_type == 'Subscription' and demand_index is not None:
+					if (item_type == 'Subscription' or item_type == 'Service') and demand_index is not None:
 						world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
 					return corp
 
@@ -1116,6 +1130,7 @@ class Entity:
 
 	def worker_counterparty(self, job):
 		print('Job: {}'.format(job))
+		item_type = self.get_item_type(job)
 		workers = {}
 		# Get list of all individuals
 		world.entities = accts.get_entities()
@@ -1125,15 +1140,17 @@ class Entity:
 			experience_wages = abs(ledger.get_qty(accounts=['Wages Revenue'], items=job))
 			experience_salary = abs(ledger.get_qty(accounts=['Salary Revenue'], items=job))
 			experience = experience_wages + experience_salary
-			print('Experience for {}: {}'.format(individual.name, experience))
+			print('Experience for {}: {:g} | Hours Left: {}'.format(individual.name, experience, individual.hours))
 			ledger.reset()
 			workers[individual] = experience
-		#print('Workers: \n{}'.format(workers))
-		# Filter for workers with hours in the day left
-		workers_avail = {worker: v for worker, v in workers.items() if worker.hours > 0}
+		# Filter for workers with enough hours in the day left
+		if item_type == 'Job':
+			base_hours = 4
+		else:
+			base_hours = 0
+		workers_avail = {worker: v for worker, v in workers.items() if worker.hours > base_hours}
 		if not workers_avail:
 			return
-		#print('Workers Available: \n{}'.format(workers_avail))
 		# Choose the worker with the most experience
 		worker_choosen = max(workers_avail, key=lambda k: workers_avail[k])
 		print('Worker Choosen: {}'.format(worker_choosen.name))
@@ -1165,6 +1182,12 @@ class Entity:
 		hire_worker_entry = [ ledger.get_event(), self.entity_id, world.now, 'Hired ' + job, job, price, qty, 'Worker Info', 'Hire Worker', 0 ]
 		start_job_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Started job as ' + job, job, price, qty, 'Start Job', 'Worker Info', 0 ]
 		hire_worker_event = [hire_worker_entry, start_job_entry]
+		first_pay = self.pay_salary(job, counterparty, buffer=buffer, first=True)
+		if not first_pay:
+			hire_worker_event = []
+			first_pay = []
+		else:
+			hire_worker_event += first_pay
 		if buffer:
 			return hire_worker_event
 		ledger.journal_entry(hire_worker_event)
@@ -1212,7 +1235,8 @@ class Entity:
 				for _ in range(worker_state):
 					self.pay_salary(job['item_id'], counterparty)
 
-	def pay_salary(self, job, counterparty, salary=None, labour_hours=None):
+	def pay_salary(self, job, counterparty, salary=None, labour_hours=None, buffer=False, first=False):
+		# TODO Add accru_salary()
 		if salary is None:
 			salary = world.get_price(job) # TODO Get price from hire entry
 		if labour_hours is None:
@@ -1228,12 +1252,16 @@ class Entity:
 			salary_exp_entry = [ ledger.get_event(), self.entity_id, world.now, job + ' salary paid', job, salary, labour_hours, 'Salary Expense', 'Cash', salary * labour_hours ]
 			salary_rev_entry = [ ledger.get_event(), counterparty.entity_id, world.now, job + ' salary received', job, salary, labour_hours, 'Cash', 'Salary Revenue', salary * labour_hours ]
 			pay_salary_event = [salary_exp_entry, salary_rev_entry]
-			ledger.journal_entry(pay_salary_event)
+			# TODO Don't set hours if production is not possible
 			counterparty.set_hours(labour_hours)
+			if buffer:
+				return pay_salary_event
+			ledger.journal_entry(pay_salary_event)
 			return True
 		else:
 			print('{} does not have enough cash to pay for {} salary. Cash: {}'.format(self.name, job, cash))
-			self.fire_worker(job, counterparty)
+			if not first:
+				self.fire_worker(job, counterparty)
 
 	def subscription_counterparty(self, subscription):
 		# Get entity that produces the subscription
