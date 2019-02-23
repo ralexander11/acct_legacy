@@ -157,14 +157,14 @@ class World:
 				entity.pay_wages()
 
 		print('Check Demand List:')
-		for organization in factory.get(Organization):
-			#print('Company Name: {} | {}'.format(organization.name, organization.entity_id))
-			organization.check_demand()
+		for corporation in factory.get(Corporation):
+			#print('Company Name: {} | {}'.format(corporation.name, corporation.entity_id))
+			corporation.check_demand()
 		print('Check Optional Items:')
-		for organization in factory.get(Organization):
-			#print('Company Name: {} | {}'.format(organization.name, organization.entity_id))
-			organization.check_optional()
-			organization.dividend()
+		for corporation in factory.get(Corporation):
+			#print('Company Name: {} | {}'.format(corporation.name, corporation.entity_id))
+			corporation.check_optional()
+			corporation.dividend()
 
 		for need in individual.needs:
 			for individual in factory.get(Individual):
@@ -203,8 +203,8 @@ class World:
 		print('World Demand End: \n{}'.format(world.demand))
 		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 
-		# if str(self.now) == '1986-10-05': # For debugging
-		# 	world.end = True
+		if str(self.now) == '1986-10-05': # For debugging
+			world.end = True
 
 		t1_end = time.perf_counter()
 		print(time_stamp() + 'End of Econ Update. It took {:,.2f} min.'.format((t1_end - t1_start) / 60))
@@ -712,7 +712,7 @@ class Entity:
 			print('{} cannot produce {} {} at this time.'.format(self.name, qty, item))
 		return incomplete, event, time_required
 
-	def produce_entries(self, item, qty, price=None, debit_acct='Inventory', credit_acct='Goods Produced'):
+	def produce(self, item, qty, price=None, debit_acct='Inventory', credit_acct='Goods Produced', buffer=False):
 		incomplete, produce_event, time_required = self.fulfill(item, qty)
 		if incomplete:
 			return
@@ -727,10 +727,6 @@ class Entity:
 		if produce_entry:
 			produce_event += [produce_entry]
 		#print('Produce Event: \n{}'.format(produce_event))
-		return produce_event
-
-	def produce(self, item, qty, price=None, debit_acct='Inventory', credit_acct='Goods Produced', buffer=False):
-		produce_event = self.produce_entries(item, qty, price, debit_acct, credit_acct)
 		if not produce_event:
 			return
 		if buffer:
@@ -791,40 +787,53 @@ class Entity:
 	def buy_shares(self, ticker, price, qty, counterparty):
 		self.transact(ticker, price, qty, counterparty, 'Investments', 'Shares')
 
-	# Logic to make individuals incorporate companies without human input
-	def incorporate(self, item=None, price=None, qty=None, ticker=None):
+	def org_type(self, name):
+		if name == 'Government':
+			return Government
+		elif name == 'Non-Profit':
+			return NonProfit
+		else:
+			try:
+				return self.org_type(world.items.loc[name, 'child_of'])
+			except KeyError:
+				return Corporation
+
+	# Allow individuals to incorporate organizations without human input
+	def incorporate(self, item=None, price=None, qty=None, name=None):
 		if price is None: # TODO Fix temp defaults
 			price = 5
 		if qty is None:
 			qty = 1000
 		auth_qty = 100000 # TODO Get from entity details
-		if ticker is None and item is not None:
+		if name is None and item is not None:
 			#items_info = accts.get_items()
-			tickers = world.items.loc[item, 'producer']
-			if isinstance(tickers, str):
-				tickers = [x.strip() for x in tickers.split(',')]
-			tickers = list(set(filter(None, tickers)))
-			ticker = tickers[0]
-			#print('Ticker: {}'.format(ticker))
+			names = world.items.loc[item, 'producer']
+			if isinstance(names, str):
+				names = [x.strip() for x in names.split(',')]
+			names = list(set(filter(None, names)))
+			name = names[0]
+			#print('Ticker: {}'.format(name))
 		ledger.set_entity(self.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
 		#print('Cash: {}'.format(cash))
 		if price * qty > cash:
-			print('{} does not have enough cash to incorporate {}.'.format(self.name, ticker))
+			print('{} does not have enough cash to incorporate {}.'.format(self.name, name))
 			return
-		items_produced = world.items[world.items['producer'].str.contains(ticker, na=False)].reset_index()
+		items_produced = world.items[world.items['producer'].str.contains(name, na=False)].reset_index()
 		items_produced = items_produced['item_id'].tolist()
 		items_produced = ','.join(items_produced)
 		#print('Items Produced: {}'.format(items_produced))
-		corp = factory.create(Organization, ticker, items_produced)
+		legal_form = self.org_type(name)
+		#print('Result: \n{}'.format(legal_form))
+		corp = factory.create(legal_form, name, items_produced)
 		counterparty = corp
-		self.auth_shares(ticker, auth_qty, counterparty)
-		self.buy_shares(ticker, price, qty, counterparty)
+		self.auth_shares(name, auth_qty, counterparty)
+		self.buy_shares(name, price, qty, counterparty)
 		return corp
 
-	def corp_needed(self, item=None, need=None, ticker=None,demand_index=None):
-		# Choose best item
+	def corp_needed(self, item=None, need=None, ticker=None, demand_index=None):
+		# Choose the best item
 		#print('Need Demand: {}'.format(need))
 		if item is None and need is not None:
 			#items_info = accts.get_items()
@@ -878,7 +887,7 @@ class Entity:
 						corp_shares = corp_shares.loc[0, 'qty']
 					#print('Corp Shares After: \n{}'.format(corp_shares))
 				if corp_shares == 0:
-					corp = self.incorporate(item, ticker=ticker)
+					corp = self.incorporate(item, name=ticker)
 					item_type = self.get_item_type(item)
 					if (item_type == 'Subscription' or item_type == 'Service') and demand_index is not None:
 						world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
@@ -995,7 +1004,7 @@ class Entity:
 				#print('Demand After Drop: \n{}'.format(world.demand))
 
 	def check_optional(self):
-		# In organization loop, check for for items that satisfy requirements for items from the produces items list.
+		# In corporation loop, check for for items that satisfy requirements for items from the produces items list.
 		items_list = world.items[world.items['producer'] != None]
 		#print('Items List: \n{}'.format(items_list))
 		for item in self.produces:
@@ -1266,11 +1275,11 @@ class Entity:
 	def subscription_counterparty(self, subscription):
 		# Get entity that produces the subscription
 		#print('Subscription Requested: {}'.format(subscription))
-		for organization in factory.get(Organization):
-			#print('Produces: {}'.format(organization.produces[0]))
-			for item in organization.produces:
+		for corporation in factory.get(Corporation):
+			#print('Produces: {}'.format(corporation.produces[0]))
+			for item in corporation.produces:
 				if item == subscription:
-					return organization
+					return corporation
 		print('No company exists that can provide the {} subscription for {}.'.format(subscription, self.name))
 
 	def order_subscription(self, item, counterparty, price, qty=1, buffer=False):
@@ -1679,9 +1688,14 @@ class Individual(Entity):
 
 
 class Organization(Entity):
-	def __init__(self, name, item):
+	def __init__(self, name):
 		super().__init__(name)
-		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,None,1000000,item) ] # Note: The 2nd to 5th values are for another program
+
+
+class Corporation(Organization):
+	def __init__(self, name, items):
+		super().__init__(name)
+		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,None,1000000,items) ] # Note: The 2nd to 5th values are for another program
 		self.entity_id = accts.add_entity(entity_data)
 		self.name = entity_data[0][0] # TODO Change this to pull from entities table
 		self.produces = entity_data[0][13]
@@ -1725,7 +1739,13 @@ class Organization(Entity):
 		if cash >= funding * 2:
 			self.declare_div(div_rate=1)
 
-	# TODO Add subclasses to Organization() for companies, non-profits, and government
+class Government(Organization):
+	def __init__(self, name, items):
+		super().__init__(name)
+
+class NonProfit(Organization):
+	def __init__(self, name, items):
+		super().__init__(name)
 
 
 class EntityFactory:
@@ -1748,8 +1768,11 @@ class EntityFactory:
 		index = self.get_pos(entity)
 		return self.registry[typ].pop(index)
 
-	def get(self, typ):
-		return self.registry[typ]
+	def get(self, *typ):
+		orgs = []
+		for el in typ:
+			orgs += self.registry[el]
+		return orgs
 
 	def get_pos(self, entity):
 		typ = type(entity)
