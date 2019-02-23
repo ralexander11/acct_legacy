@@ -975,7 +975,6 @@ class Ledger(object):
 				debit = str(je[7])
 				credit = str(je[8])
 				amount = str(je[9])
-				logging.debug(je)
 
 				if event == '':
 					event = str(self.get_event())
@@ -999,6 +998,7 @@ class Ledger(object):
 		self.refresh_ledger() # Ensures the gl is in sync with the db
 		self.balance_sheet() # Ensures the bs is in sync with the ledger
 		self.get_qty() # Ensures the inv is in sync with the ledger
+		#return values # TODO Add all entries to list before returning
 
 	def sanitize_ledger(self): # This is not implemented yet
 		self.gl = self.gl.drop_duplicates() # TODO Test this
