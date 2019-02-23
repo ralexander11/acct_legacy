@@ -27,11 +27,12 @@ Rock,None,None,None,Commodity,Land,1,None,None,None,None,None,None,None,None,Non
 Ore,None,None,None,Commodity,Mountain,1,None,None,None,None,None,None,None,None,None,Mine
 Metal,None,None,None,Commodity,"Forge, Ore","1, 2",None,None,None,None,None,None,None,None,None,Smelter
 Forge,None,None,continuous,Equipment,"Rock, Wood","30, 5",None,None,None,None,None,Kiln,0.25,100,ticks,Blacksmith
+Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,Lumbermill
 Water,None,None,None,Subscription,Land,1,None,None,None,Thirst,1,None,None,None,None,Well
 Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,100,usage,Carpenter
 Haircut,None,None,None,Service,Barber,1,None,None,None,Hygiene,100,None,None,None,None,Barber Shop
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,None,None,None,None,None,Harvest Guild
-Manager,None,None,None,Job,None,None,2000,None,None,None,None,None,None,None,None,None
+Manager,None,None,None,Job,None,None,2000,Paper,2,None,None,None,None,None,None,None
 Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,50,ticks,Blacksmith
 Town Hall,None,None,None,Government,None,None,None,None,None,None,None,None,None,None,None,None
 University,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None
