@@ -57,17 +57,19 @@ class Simulation:
 					# 	self.sim_init()
 			print('Paused - After: {}'.format(paused))
 			if paused:
+				#command = input('Enter a command: ')
+				self.get_key()
 				time.sleep(50)
 			else:
 				return
 
-	# def get_key(self):
-	# 	while True:
-	# 		event = pygame.event.poll()
-	# 		if event.type == KEYDOWN:
-	# 			return event.key
-	# 		else:
-	# 			pass
+	def get_key(self):
+		while True:
+			event = pygame.event.poll()
+			if event.type == KEYDOWN:
+				return event.key
+			else:
+				pass
 
 class World:
 	def __init__(self, factory, population):
