@@ -42,28 +42,21 @@ class Simulation:
 	def handle_events(self):
 		paused = False
 		while True:
-			print('Paused - Start: {}'.format(paused))
 			events = pygame.event.get()
 			for event in events:
-				print('Event: {} | Tyep: {} | Key: {}'.format(event, event.type, event.key))
+				print('Event: {} | Tyep: {}'.format(event, event.type))
 				if (event.type == KEYDOWN):
-					#print('KEYDOWN: {}'.format(KEYDOWN))
 					if event.key == K_SPACE:
-						#print('K_SPACE: {}'.format(K_SPACE))
 						paused = not paused
 					elif event.key == K_ESCAPE:
 						exit()
-					# elif event.key == K_RETURN :
-					# 	self.sim_init()
-			print('Paused - After: {}'.format(paused))
 			if paused:
 				#command = input('Enter a command: ')
-				self.get_key()
-				time.sleep(50)
+				time.sleep(0.1)
 			else:
 				return
 
-	def get_key(self):
+	def get_key(self): # Not needed curently
 		while True:
 			event = pygame.event.poll()
 			if event.type == KEYDOWN:
