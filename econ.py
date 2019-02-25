@@ -250,8 +250,8 @@ class World:
 		print()
 		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 
-		# if str(self.now) == '1986-10-08': # For debugging
-		# 	world.end = True
+		if str(self.now) == '1986-10-08': # For debugging
+			world.end = True
 
 		t1_end = time.perf_counter()
 		print(time_stamp() + 'End of Econ Update. It took {:,.2f} min.'.format((t1_end - t1_start) / 60))
