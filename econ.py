@@ -235,6 +235,15 @@ class World:
 		t7_end = time.perf_counter()
 		print(time_stamp() + '7: Cash check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
 
+		 # For testing to kill individuals
+		# for individual in factory.get(Individual):
+		# 	if str(self.now) == '1986-10-04':
+		# 		ledger.set_entity(individual.entity_id)
+		# 		current_sub = abs(ledger.get_qty(items=['Manager'], accounts=['Worker Info']))
+		# 		ledger.reset()
+		# 		if current_sub == 1:
+		# 			individual.set_need('Hunger', -100)
+
 		if args.random:
 			if random.randint(1, 20) == 20:# or (str(self.now) == '1986-10-06'):
 				print('Person randomly born!')
@@ -249,6 +258,7 @@ class World:
 		print('World Demand End: \n{}'.format(world.demand))
 		print()
 		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
+		print()
 
 		if str(self.now) == '1986-10-08': # For debugging
 			world.end = True
@@ -1284,9 +1294,13 @@ class Entity:
 			return hire_worker_event
 		ledger.journal_entry(hire_worker_event)
 
-	def fire_worker(self, job, counterparty, price=0, qty=-1, buffer=False):
-		fire_worker_entry = [ ledger.get_event(), self.entity_id, world.now, 'Fired ' + job, job, price, qty, 'Worker Info', 'Fire Worker', 0 ]
-		quit_job_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Quit job as ' + job, job, price, qty, 'Quit Job', 'Worker Info', 0 ]
+	def fire_worker(self, job, counterparty, price=0, qty=-1, quit=False, buffer=False):
+		ent_id = self.entity_id
+		cp_id = counterparty.entity_id
+		if quit:
+			ent_id, cp_id = cp_id, ent_id
+		fire_worker_entry = [ ledger.get_event(), ent_id, world.now, 'Fired ' + job, job, price, qty, 'Worker Info', 'Fire Worker', 0 ]
+		quit_job_entry = [ ledger.get_event(), cp_id, world.now, 'Quit job as ' + job, job, price, qty, 'Quit Job', 'Worker Info', 0 ]
 		fire_worker_event = [fire_worker_entry, quit_job_entry]
 		if buffer:
 			return fire_worker_event
@@ -1651,6 +1665,36 @@ class Individual(Entity):
 		return self.needs[need]['Current Need']
 
 	def inheritance(self):
+		# Quit any current jobs first
+		ledger.set_entity(self.entity_id)
+		current_jobs = ledger.get_qty(accounts=['Start Job'])
+		for index, job in current_jobs.iterrows():
+			item = job['item_id']
+			worker_state = job['qty']
+			if worker_state >= 1: # Should never be greater than 1 for the same counterparty
+				worker_state = int(worker_state)
+				rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+				hire_txns = ledger.gl[( (ledger.gl['debit_acct'] == 'Start Job') & (ledger.gl['credit_acct'] == 'Worker Info') ) & (ledger.gl['item_id'] == item) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+				ledger.reset()
+				counterparty = self.get_counterparty(hire_txns, rvsl_txns, item, 'Worker Info')
+				for _ in range(worker_state): # TODO This for loop shouldn't be necessary
+					self.fire_worker(item, counterparty, quit=True)
+
+		# Cancel any current subscriptions
+		ledger.set_entity(self.entity_id)
+		current_subs = ledger.get_qty(accounts=['Subscription Info'])
+		for index, sub in current_subs.iterrows():
+			item = sub['item_id']
+			sub_state = sub['qty']
+			if sub_state >= 1:
+				sub_state = int(sub_state)
+				rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+				sub_txns = ledger.gl[( (ledger.gl['debit_acct'] == 'Subscription Info') & (ledger.gl['credit_acct'] == 'Order Subscription') ) & (ledger.gl['item_id'] == item) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+				ledger.reset()
+				counterparty = self.get_counterparty(sub_txns, rvsl_txns, item, 'Sell Subscription')
+				for _ in range(sub_state):
+					self.cancel_subscription(item, counterparty)
+
 		individuals = itertools.cycle(factory.get(Individual))
 		nextindv = next(individuals) # Prime the pump
 		while True:
@@ -1660,8 +1704,11 @@ class Individual(Entity):
 			if individual.entity_id == self.entity_id:
 				counterparty = nextindv
 				break
-		print('Inheritance counterparty: {}'.format(counterparty.entity_id))
+		print('Inheritance bequeathed to {}'.format(counterparty.name))
 		ledger.set_entity(self.entity_id)
+		# Remove all job and subscription info entries
+		ledger.gl = ledger.gl.loc[ledger.gl['credit_acct'] != 'Worker Info']
+		ledger.gl = ledger.gl.loc[ledger.gl['debit_acct'] != 'Subscription Info']
 		consolidated_gl = ledger.gl.groupby(['item_id','debit_acct','credit_acct']).sum()
 		ledger.reset()
 		inherit_event = []
