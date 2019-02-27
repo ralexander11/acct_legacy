@@ -137,7 +137,10 @@ class Accounts(object):
 				('Dividend Receivable','Asset'),
 				('Dividend Income','Revenue'),
 				('Dividend Payable','Liability'),
-				('Dividend Expense','Expense')
+				('Dividend Expense','Expense'),
+				('Education Expense','Expense'),
+				('Education Revenue','Revenue'),
+				('Technology Research','Expense')
 			] # TODO Remove div exp once retained earnings is setup
 
 		tmp_accts_fix = standard_accts + trade_accts + econ_accts

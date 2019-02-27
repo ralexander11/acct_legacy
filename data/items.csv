@@ -32,8 +32,9 @@ Water,None,None,None,Subscription,Land,1,None,None,None,Thirst,1,None,None,None,
 Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,100,usage,Carpenter
 Haircut,None,None,None,Service,Barber,1,None,None,None,Hygiene,100,None,None,None,None,Barber Shop
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,None,None,None,None,None,Harvest Guild
-Manager,None,None,None,Job,None,None,2000,Paper,2,None,None,None,None,None,None,None
+Manager,None,None,None,Job,Reading,1,2000,Paper,1,None,None,None,None,None,None,None
 Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,50,ticks,Blacksmith
 Town Hall,None,None,None,Government,None,None,None,None,None,None,None,None,None,None,None,None
 University,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None
 Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None
+Reading,None,None,None,Education,Paper,1,None,None,None,None,None,None,None,None,None,Individual
