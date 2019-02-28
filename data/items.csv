@@ -21,7 +21,7 @@ Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,No
 Harvester,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None
 Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None
 Food,None,None,None,Commodity,"Time, Arable Land, Cultivator, Water, Harvest, Manager","7, 400, 0.1, 1, 0.05, 1, 1",None,None,None,Hunger,1,None,None,7,spoilage,Farm
-Plow,None,None,start,Equipment,"Rock, Wood","10, 20",12,None,None,None,None,Cultivator,0.5,10,usage,Blacksmith
+Plow,None,None,start,Equipment,"Metal Working, Rock, Wood","1, 10, 20",12,None,None,None,None,Cultivator,0.5,10,usage,Blacksmith
 Wood,None,None,None,Commodity,Land,1,None,None,None,None,None,None,None,None,None,Lumbermill
 Rock,None,None,None,Commodity,Land,1,None,None,None,None,None,None,None,None,None,"Quarry, Mine"
 Ore,None,None,None,Commodity,Mountain,1,None,None,None,None,None,None,None,None,None,Mine
@@ -38,3 +38,4 @@ Town Hall,None,None,None,Government,None,None,None,None,None,None,None,None,None
 University,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None
 Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None
 Reading,None,None,None,Education,Paper,1,None,None,None,None,None,None,None,None,None,Individual
+Metal Working,None,None,None,Technology,Time,2,None,None,None,None,None,None,None,None,None,Blacksmith
