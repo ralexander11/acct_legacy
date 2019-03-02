@@ -52,7 +52,7 @@ class World:
 
 		for person in range(1, self.population + 1):
 			print('Person: {}'.format(person))
-			factory.create(Individual, 'Person ' + str(person), self) #Experiment
+			factory.create(Individual, 'Person ' + str(person))
 
 		print()
 		print(ledger.gl.columns.values.tolist()) # For verbosity
@@ -217,9 +217,8 @@ class World:
 
 
 class Entity:
-	def __init__(self, name, world): #Experiment
+	def __init__(self, name):
 		self.name = name
-		self.world = world #Experiment
 		#print('Entity created: {}'.format(name))
 
 	def transact(self, item, price, qty, counterparty, acct_buy='Inventory', acct_sell='Inventory', item_type=None, buffer=False):
@@ -721,7 +720,7 @@ class Entity:
 		items_produced = items_produced['item_id'].tolist()
 		items_produced = ','.join(items_produced)
 		#print('Items Produced: {}'.format(items_produced))
-		corp = factory.create(Organization, ticker, items_produced, self.world) #Experiment
+		corp = factory.create(Organization, ticker, items_produced)
 		counterparty = corp
 		self.auth_shares(ticker, auth_qty, counterparty)
 		self.buy_shares(ticker, price, qty, counterparty)
@@ -758,7 +757,7 @@ class Entity:
 				if ticker == 'Individual':
 					#print('{} produced by individuals, no corporation needed.'.format(item))
 					continue
-				for corp in world.factory.get(Organization): #Experiment
+				for corp in factory.get(Organization): #Experiment
 					if ticker == corp.name: #Experiment
 						print('{} corporation already exists.'.format(corp.name)) #Experiment
 						return #Experiment
@@ -1309,8 +1308,8 @@ class Entity:
 
 
 class Individual(Entity):
-	def __init__(self, name, world): #Experiment
-		super().__init__(name, world) #Experiment
+	def __init__(self, name):
+		super().__init__(name)
 		hunger_start = 50
 		if args.random:
 			hunger_start = random.randint(30, 100)
@@ -1322,7 +1321,6 @@ class Individual(Entity):
 
 		self.entity_id = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]
-		self.world = world #Experiment
 		self.dead = False
 		#self.entity_id = 1 # TODO Have this read from the entities table
 		print('Create Individual: {} | entity_id: {}'.format(self.name, self.entity_id))
@@ -1530,13 +1528,12 @@ class Individual(Entity):
 
 
 class Organization(Entity):
-	def __init__(self, name, item, world): #Experiment
-		super().__init__(name, world) #Experiment
+	def __init__(self, name, item):
+		super().__init__(name)
 		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,None,1000000,item) ] # Note: The 2nd to 5th values are for another program
 		self.entity_id = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]
 		self.produces = entity_data[0][13]
-		self.world = world #Experiment
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
 		self.produces = list(filter(None, self.produces))
