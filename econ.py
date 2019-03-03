@@ -95,11 +95,8 @@ class World:
 	def check_end(self, v=False):
 		population = len(factory.registry[Individual])
 		if v: print('Population: {}'.format(population))
-		try:
-			industry = len(factory.registry[Corporation])
-			if v: print('Industry: {}'.format(industry))
-		except KeyError as e:
-			pass
+		industry = len(factory.registry[Corporation])
+		if v: print('Industry: {}'.format(industry))
 		if population <= 0:
 			print('Econ Sim ended due to human extinction.')
 			self.end = True
@@ -128,6 +125,13 @@ class World:
 		#print('Price Function: {}'.format(price))
 		return price
 
+	def get_needs(self):
+		global_needs = []
+		for individual in factory.get(Individual):
+			global_needs += list(individual.needs.keys())
+		global_needs = list(set(global_needs))
+		return global_needs
+
 	def update_econ(self):
 		t1_start = time.perf_counter()
 		if str(self.now) == '1986-10-01':
@@ -143,10 +147,12 @@ class World:
 		if self.end:
 			return
 		t2_start = time.perf_counter()
+		self.global_needs = self.get_needs()
 		for individual in factory.get(Individual):
 			print('Individual: {} | {}'.format(individual.name, individual.entity_id))
 			individual.reset_hours()
 			for need in individual.needs:
+				#print('Need: {}'.format(need))
 				individual.corp_needed(need=need)
 				individual.item_demanded(need=need)
 			for index, item in world.demand.iterrows():
@@ -231,27 +237,22 @@ class World:
 				ledger.set_entity(entity.entity_id)
 				if 'Farm' in entity.name:
 					entity.food = ledger.get_qty(items='Food', accounts=['Inventory'])
-					#ledger.reset()
 					print('{} Food: {}'.format(entity.name, entity.food))
-				#ledger.set_entity(entity.entity_id)
 				print('{} Cash: {}'.format(entity.name, ledger.balance_sheet(['Cash'])))
 				ledger.reset()
 
 			# Move first entity in list to the end, to switch things up
-			lst = factory.get(typ)
-			lst.append(lst.pop(0))
+			if len(factory.registry[typ]) != 0:
+				lst = factory.get(typ)
+				lst.append(lst.pop(0))
 
 		t7_end = time.perf_counter()
 		print(time_stamp() + '7: Cash check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
 
-		 # For testing to kill individuals
+		#  For testing to kill individuals
 		# for individual in factory.get(Individual):
-		# 	if str(self.now) == '1986-10-04':
-		# 		ledger.set_entity(individual.entity_id)
-		# 		current_sub = abs(ledger.get_qty(items=['Manager'], accounts=['Worker Info']))
-		# 		ledger.reset()
-		# 		if current_sub == 1:
-		# 			individual.set_need('Hunger', -100)
+		# 	if str(self.now) == '1986-10-04' and individual.entity_id == 3:
+		# 		individual.set_need('Hunger', -100)
 
 		# for individual in factory.get(Individual):
 		# 	if individual.entity_id == 3:
@@ -259,8 +260,8 @@ class World:
 		# 			individual.produce('Reading', 1, 'Education Expense', 'Cash')
 
 		if args.random:
-			if random.randint(1, 20) == 20:# or (str(self.now) == '1986-10-06'):
-				print('Person randomly dies!')
+			if random.randint(1, 30) == 30:# or (str(self.now) == '1986-10-06'):
+				print('{} randomly dies!'.format(individual.name))
 				individual.set_need('Hunger', -100)
 
 		if args.random:
@@ -279,8 +280,8 @@ class World:
 		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 		print()
 
-		# if str(self.now) == '1986-10-20': # For debugging
-		# 	world.end = True
+		if str(self.now) == '1986-10-15': # For debugging
+			world.end = True
 
 		t1_end = time.perf_counter()
 		print(time_stamp() + 'End of Econ Update. It took {:,.2f} min.'.format((t1_end - t1_start) / 60))
@@ -419,7 +420,9 @@ class Entity:
 			producer = world.items.loc[item]['producer']
 			#print('Producer: {}'.format(producer))
 			if producer is not None: # For items like land
-				self.item_demanded(item, qty)
+				directly_needed_items = world.items.loc[world.items['satisfies'].isin(world.global_needs)] # TODO Make able to support items that satisfy multiple needs
+				if item not in directly_needed_items.index:
+					self.item_demanded(item, qty)
 
 	# TODO Use historical price
 	# TODO Make qty wanting to be consumed smarter (this is to be done in the world)
@@ -847,22 +850,26 @@ class Entity:
 			print('{} cannot produce {} {} at this time.'.format(self.name, qty, item))
 		return incomplete, event, time_required
 
-	def produce(self, item, qty, debit_acct='Inventory', credit_acct='Goods Produced', price=None, buffer=False):
+	def produce(self, item, qty, debit_acct='Inventory', credit_acct='Goods Produced', debit_acct_wip='WIP Inventory', credit_acct_wip='Goods Produced', desc=None ,price=None, buffer=False):
 		# TODO Add description argument
 		if item not in self.produces: # TODO Should this be kept long term?
 			return
 		incomplete, produce_event, time_required = self.fulfill(item, qty)
 		if incomplete:
 			return
+		if desc is None:
+			 desc = item + ' produced'
+			 if time_required:
+			 	 desc = item + ' in process'
 		produce_entry = []
 		item_type = self.get_item_type(item)
 		#print('Item Type: {}'.format(item_type))
 		if price is None:
 			price = world.get_price(item)
 		if time_required and item_type != 'Service':
-			produce_entry = [ ledger.get_event(), self.entity_id, world.now, item + ' in process', item, price, qty, 'WIP Inventory', credit_acct, price * qty ]
+			produce_entry = [ ledger.get_event(), self.entity_id, world.now, desc, item, price, qty, debit_acct_wip, credit_acct_wip, price * qty ]
 		elif item_type != 'Service':
-			produce_entry = [ ledger.get_event(), self.entity_id, world.now, item + ' produced', item, price, qty, debit_acct, credit_acct, price * qty ]
+			produce_entry = [ ledger.get_event(), self.entity_id, world.now, desc, item, price, qty, debit_acct, credit_acct, price * qty ]
 		# Add all entries to same event and commit at the end once
 		if produce_entry:
 			produce_event += [produce_entry]
@@ -877,7 +884,7 @@ class Entity:
 	def wip_check(self):
 		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of WIP Inventory txns
-		wip_txns = ledger.gl[(ledger.gl['debit_acct'] == 'WIP Inventory') & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+		wip_txns = ledger.gl[(ledger.gl['debit_acct'].str.contains('WIP ')) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 		if not wip_txns.empty:
 			# Compare the gl dates to the WIP time from the items table
 			items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
@@ -1013,24 +1020,25 @@ class Entity:
 		# If not being produced incorporate and produce item
 		if qty == 0: # TODO Fix this for when Food stops being produced
 			for ticker in tickers:
+				count = 0
+				MAX_CORPS = 1
+				#print('Ticker: {}'.format(ticker))
 				if ticker == 'Individual':
 					#print('{} produced by individuals, no corporation needed.'.format(item))
 					continue
-				ledger.reset()
-				corp_shares = ledger.get_qty(ticker, ['Investments'])
-				#print('Corp Shares: \n{}'.format(corp_shares))
-				if isinstance(corp_shares, pd.DataFrame): # TODO This is messy
-					if corp_shares.empty:
-						corp_shares = 0
-					else:
-						corp_shares = corp_shares.loc[0, 'qty']
-					#print('Corp Shares After: \n{}'.format(corp_shares))
-				if corp_shares == 0:
-					corp = self.incorporate(item, name=ticker)
-					item_type = self.get_item_type(item)
-					if (item_type == 'Subscription' or item_type == 'Service') and demand_index is not None:
-						world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
-					return corp
+				for corp in factory.get(Corporation):
+					#print('Corp: {}'.format(corp))
+					if ticker == corp.name:
+						count += 1
+						if count >= MAX_CORPS:
+							#print('{} {} corporation already exists.'.format(count, corp.name))
+							return
+				corp = self.incorporate(item, name=ticker)
+				# TODO Have the demand table item cleared when entity gets the subscription
+				item_type = self.get_item_type(item)
+				if item_type == 'Subscription' and demand_index is not None:
+					world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
+				return corp
 
 	def qty_demand(self, item, need=None):
 		item_info = world.items.loc[item]
@@ -1048,6 +1056,9 @@ class Entity:
 					break
 			satisfy_rates = [x.strip() for x in item_info['satisfy_rate'].split(',')]
 			qty = math.ceil(decay_rate / float(satisfy_rates[i]))
+			if args.random:
+				rand = random.randint(1, 3)
+				qty = qty * rand
 			#qty = qty * world.population
 			return qty
 
@@ -1680,12 +1691,12 @@ class Individual(Entity):
 		hunger_start = 100
 		if args.random:
 			hunger_start = random.randint(30, 100)
-			#hunger_start = 100
+			hunger_start = 100
 		# TODO Make other starting need levels random
 
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Fun, Thirst','100,100,100','1,5,2','40,40,60','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst, Fun','100,100,100,100','1,1,2,5','40,50,60,40', str(hunger_start) + ',80,100,100',None,'Labour') ]
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst','100,100,100','1,1,2','40,50,60', str(hunger_start) + ',80,100',None,items) ]
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst','100,100,100','1,1,2','40,50,60', str(hunger_start) + ',100,100',None,items) ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','100,100','1,2','40,60','50,100',None,'Labour') ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','40','50',None,'Labour') ]
 
@@ -1701,6 +1712,12 @@ class Individual(Entity):
 		self.setup_needs(entity_data)
 		for need in self.needs:
 			print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need']))
+
+	def __str__(self):
+			return 'indv: {} | {}'.format(self.name, self.entity_id)
+
+	def __repr__(self):
+		return 'indv: {} | {}'.format(self.name, self.entity_id)
 
 	def set_hours(self, hours_delta=0):
 		self.hours -= hours_delta
@@ -1759,7 +1776,7 @@ class Individual(Entity):
 		return self.needs[need]['Current Need']
 
 	def inheritance(self):
-		# Quit any current jobs first
+		# Quit any current jobs
 		ledger.set_entity(self.entity_id)
 		current_jobs = ledger.get_qty(accounts=['Start Job'])
 		for index, job in current_jobs.iterrows():
@@ -1798,15 +1815,18 @@ class Individual(Entity):
 			if individual.entity_id == self.entity_id:
 				counterparty = nextindv
 				break
-		print('Inheritance bequeathed to {}'.format(counterparty.name))
+		print('Inheritance bequeathed to {} from {}'.format(counterparty.name, self.name))
 		ledger.set_entity(self.entity_id)
 		# Remove all job and subscription info entries
 		ledger.gl = ledger.gl.loc[ledger.gl['credit_acct'] != 'Worker Info']
 		ledger.gl = ledger.gl.loc[ledger.gl['debit_acct'] != 'Subscription Info']
+		ledger.gl.fillna(0, inplace=True)
 		consolidated_gl = ledger.gl.groupby(['item_id','debit_acct','credit_acct']).sum()
 		ledger.reset()
 		inherit_event = []
 		for index, entry in consolidated_gl.iterrows():
+			#print('Index: \n{}'.format(index))
+			#print('Entry: \n{}'.format(entry))
 			bequeath_entry = [ ledger.get_event(), self.entity_id, world.now, 'Bequeath to ' + counterparty.name, index[0], entry[2], entry[3], index[2], index[1], entry[4] ]
 			inherit_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Inheritance from ' + self.name, index[0], entry[2], entry[3], index[1], index[2], entry[4] ]
 			inherit_event += [bequeath_entry, inherit_entry]
@@ -1954,12 +1974,18 @@ class Corporation(Organization):
 		super().__init__(name)
 		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,None,1000000,items) ] # Note: The 2nd to 5th values are for another program
 		self.entity_id = accts.add_entity(entity_data)
-		self.name = entity_data[0][0] # TODO Change this to pull from entities table
+		self.name = entity_data[0][0]
 		self.produces = entity_data[0][13]
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
 		self.produces = list(filter(None, self.produces))
 		print('Create Organization: {} | Produces: {} | entity_id: {}'.format(self.name, self.produces, self.entity_id))
+
+	def __str__(self):
+		return 'corp: {} | {}'.format(self.name, self.entity_id)
+
+	def __repr__(self):
+		return 'corp: {} | {}'.format(self.name, self.entity_id)
 
 	def declare_div(self, div_rate): # TODO Move this to corporation subclass
 		item = self.name
@@ -2000,14 +2026,31 @@ class Government(Organization):
 	def __init__(self, name, items):
 		super().__init__(name)
 
+	def __str__(self):
+		return 'gov: {} | {}'.format(self.name, self.entity_id)
+
+	def __repr__(self):
+		return 'gov: {} | {}'.format(self.name, self.entity_id)
+
 class NonProfit(Organization):
 	def __init__(self, name, items):
 		super().__init__(name)
+
+	def __str__(self):
+		return 'non-profit: {} | {}'.format(self.name, self.entity_id)
+
+	def __repr__(self):
+		return 'non-profit: {} | {}'.format(self.name, self.entity_id)
 
 
 class EntityFactory:
 	def __init__(self):
 		self.registry = {}
+		self.registry[Individual] = []
+		self.registry[Organization] = []
+		self.registry[Corporation] = []
+		self.registry[Government] = []
+		self.registry[NonProfit] = []
 
 	def create(self, cls, *args, **kwargs):
 		entity = cls(*args, **kwargs)  # create the instance
@@ -2055,7 +2098,7 @@ class EntityFactory:
 
 	def __str__(self):
 		counts = {typ.__name__: len(reg) for typ, reg in self.registry.items()}
-		return 'RegistryFactory: ' + str(counts)
+		return 'EntityFactory: ' + str(counts)
 
 
 if __name__ == '__main__':
