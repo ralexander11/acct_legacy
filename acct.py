@@ -4,14 +4,13 @@ import sqlite3
 import argparse
 import datetime
 import logging
-#import traceback
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
-class Accounts(object):
+class Accounts:
 	def __init__(self, conn=None):
 		if conn is None:
 			try:
@@ -508,7 +507,7 @@ class Accounts(object):
 		return self.items
 
 
-class Ledger(object):
+class Ledger:
 	def __init__(self, accts, ledger_name=None, entity=None, date=None, start_date=None, txn=None):
 		self.conn = accts.conn
 		self.coa = accts.coa
@@ -920,6 +919,8 @@ class Ledger(object):
 			of datapoints. This means an event with a single transaction
 			would be encapsulated in as a single list within a list.
 		'''
+		if journal_data is not None and not isinstance(journal_data[0], (list, tuple)):
+			journal_data = [journal_data]
 		cur = self.conn.cursor()
 		if journal_data is None: # Manually enter a journal entry
 			event = input('Enter an optional event_id: ')
@@ -940,11 +941,7 @@ class Ledger(object):
 				return
 			while True:
 				amount = input('Enter the amount: ')
-				# if amount.isdigit():
-				# 	break
-				# else:
-				# 	continue
-				try: # TODO Maybe change to regular expressions to prevent negatives
+				try: # TODO Maybe change to regular expression to prevent negatives
 					x = float(amount)
 					break
 				except ValueError:
@@ -964,6 +961,7 @@ class Ledger(object):
 				price = np.nan
 
 			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
+			print(values)
 			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		else: # Create journal entries by passing data to the function
@@ -1241,8 +1239,7 @@ class Ledger(object):
 		cur.close()
 		print('Prices converted.')
 
-
-if __name__ == '__main__':
+def main(command=None, external=False):
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
@@ -1252,10 +1249,11 @@ if __name__ == '__main__':
 
 	accts = Accounts(conn=args.database)
 	ledger = Ledger(accts, ledger_name=args.ledger, entity=args.entity)
-	command = args.command
+	if command is None:
+		command = args.command
 
 	while True: # TODO Make this a function that has the command passed in as an argument
-		if args.command is None:
+		if args.command is None and not external:
 			command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, Accts, addAcct, loadAccts, exit\n')
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'gl':
@@ -1347,3 +1345,8 @@ if __name__ == '__main__':
 			exit()
 		else:
 			print('Not a valid command. Type exit to close.')
+		if external:
+			break
+
+if __name__ == '__main__':
+	main()

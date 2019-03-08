@@ -1,5 +1,6 @@
-from acct import Accounts
-from acct import Ledger
+import acct
+# from acct import Accounts
+# from acct import Ledger
 import pandas as pd
 import argparse
 import logging
@@ -74,7 +75,7 @@ class Trading(object):
 
 		if price * qty > capital_bal or price == 0:
 			logging.info('Buying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(round(price * qty, 2)) + '.')
-			logging.info('You currently have $' + str(round(capital_bal, 2)) + ' available.\n')
+			print('You currently have $' + str(round(capital_bal, 2)) + ' available.\n')
 			return capital_bal
 
 		# Journal entries for a buy transaction
@@ -367,8 +368,7 @@ class Trading(object):
 				print(split_event)
 				self.ledger.journal_entry(split_event)
 
-
-if __name__ == '__main__':
+def main(command=None, external=False):
 	# TODO Add argparse to make trades
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
@@ -378,13 +378,14 @@ if __name__ == '__main__':
 	parser.add_argument('-sim', '--simulation', action='store_true', help='Run on historical data.')
 	args = parser.parse_args()
 
-	accts = Accounts(conn=args.database)
-	ledger = Ledger(accts, ledger_name=args.ledger, entity=args.entity)
+	accts = acct.Accounts(conn=args.database)
+	ledger = acct.Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
-	command = args.command
+	if command is None:
+		command = args.command
 
 	while True:
-		if args.command is None:
+		if args.command is None and not external:
 			command = input('\nType one of the following commands:\nbuy, sell, exit\n')
 		# TODO Allow command to be a single line in any order (i.e. buy tsla 10)
 		if command.lower() == 'buy':
@@ -401,7 +402,12 @@ if __name__ == '__main__':
 		elif command.lower() == 'trueup':
 			trade.unrealized()
 			if args.command is not None: exit()
-		elif command.lower() == 'exit' or args.command is not None:
+		elif command.lower() == 'exit':
 			exit()
 		else:
-			print('Not a valid command. Type exit to close.')
+			acct.main(command, external=True)
+		if external:
+			break
+
+if __name__ == '__main__':
+	main()
