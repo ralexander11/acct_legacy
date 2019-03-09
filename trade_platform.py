@@ -9,6 +9,27 @@ import urllib.request
 
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
+trade_accts = [
+		('Cash','Asset'),
+		('Chequing','Asset'),
+		('Savings','Asset'),
+		('Investments','Asset'),
+		('Visa','Liability'),
+		('Student Credit','Liability'),
+		('Credit Line','Liability'),
+		('Uncategorized','Admin'),
+		('Info','Admin'),
+		('Commission Expense','Expense'),
+		('Investment Gain','Revenue'),
+		('Investment Loss','Expense'),
+		('Unrealized Gain','Revenue'),
+		('Unrealized Loss','Expense'),
+		('Interest Expense','Expense'),
+		('Dividend Receivable','Asset'),
+		('Dividend Income','Revenue'),
+		('Interest Income','Revenue')
+	]
+
 class Trading(object):
 	def __init__(self, ledger, comm=0.0, sim=False, date=None):
 		self.ledger = ledger
@@ -378,7 +399,7 @@ def main(command=None, external=False):
 	parser.add_argument('-sim', '--simulation', action='store_true', help='Run on historical data.')
 	args = parser.parse_args()
 
-	accts = acct.Accounts(conn=args.database)
+	accts = acct.Accounts(conn=args.database, standard_accts=trade_accts)
 	ledger = acct.Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
 	if command is None:

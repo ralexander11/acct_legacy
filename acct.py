@@ -11,7 +11,7 @@ pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
 class Accounts:
-	def __init__(self, conn=None):
+	def __init__(self, conn=None, standard_accts=None):
 		if conn is None:
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
@@ -46,19 +46,21 @@ class Accounts:
 			self.refresh_accts()
 		except:
 			self.coa = None
-			self.create_accts()
-			self.refresh_accts()
+			self.create_accts(standard_accts)
+			# self.refresh_accts()
 			self.create_entities()
 			self.create_items()
 
-	def create_accts(self):
+	def create_accts(self, standard_accts=None):
+		if standard_accts is None:
+			standard_accts = []
 		create_accts_query = '''
 			CREATE TABLE IF NOT EXISTS accounts (
 				accounts text,
 				child_of text
 			);
 			'''
-		standard_accts = [
+		base_accts = [
 			('Account','None'),
 			('Admin','Account'),
 			('Asset','Account'),
@@ -70,91 +72,13 @@ class Accounts:
 			('Transfer','Wealth')
 		]
 
-		# TODO Fix this so these accounts aren't needed here
-		trade_accts = [
-				#('Cash','Asset'),
-				('Chequing','Asset'),
-				('Savings','Asset'),
-				('Investments','Asset'),
-				('Visa','Liability'),
-				('Student Credit','Liability'),
-				('Credit Line','Liability'),
-				('Uncategorized','Admin'),
-				('Info','Admin'),
-				('Commission Expense','Expense'),
-				('Investment Gain','Revenue'),
-				('Investment Loss','Expense'),
-				('Unrealized Gain','Revenue'),
-				('Unrealized Loss','Expense'),
-				('Interest Expense','Expense'),
-				('Dividend Receivable','Asset'),
-				#('Dividend Income','Revenue'),
-				('Interest Income','Revenue')
-			]
-
-		econ_accts = [
-				('Cash','Asset'),
-				('Natural Wealth','Wealth'),
-				('Shares','Wealth'),
-				('Land','Asset'),
-				('Buildings','Asset'),
-				('Equipment','Asset'),
-				('Machine','Equipment'),
-				('Tools','Equipment'),
-				('Furniture','Equipment'),
-				('Inventory','Asset'),
-				('WIP Inventory','Asset'),
-				('In Use','Asset'),
-				('Commodities','Inventory'),
-				('Goods Produced','Revenue'),
-				('Goods Consumed','Expense'),
-				('Salary Expense','Expense'),
-				('Salary Revenue','Revenue'),
-				('Wages Payable','Liability'),
-				('Wages Expense','Expense'),
-				('Wages Receivable','Asset'),
-				('Wages Revenue','Revenue'),
-				('Depreciation Expense','Expense'),
-				('Accumulated Depreciation','Asset'),
-				('Spoilage Expense','Expense'),
-				('Worker Info','Info'),
-				('Hire Worker','Info'),
-				('Fire Worker','Info'),
-				('Start Job','Info'),
-				('Quit Job','Info'),
-				('Subscription Info','Info'),
-				('Order Subscription','Info'),
-				('Sell Subscription','Info'),
-				('End Subscription','Info'),
-				('Cancel Subscription','Info'),
-				('Subscription Expense','Expense'),
-				('Subscription Revenue','Revenue'),
-				('Service Info','Info'),
-				('Service Available','Info'),
-				('Service Expense','Expense'),
-				('Service Revenue','Revenue'),
-				('Dividend Receivable','Asset'),
-				('Dividend Income','Revenue'),
-				('Dividend Payable','Liability'),
-				('Dividend Expense','Expense'),
-				('Education Expense','Expense'),
-				('Education Revenue','Revenue'),
-				('Technology Research','Expense')
-			] # TODO Remove div exp once retained earnings is setup
-
-		tmp_accts_fix = standard_accts + trade_accts + econ_accts
-		#print(tmp_accts_fix)
+		base_accts = base_accts + standard_accts
 
 		cur = self.conn.cursor()
 		cur.execute(create_accts_query)
-		for acct in tmp_accts_fix:#standard_accts:
-				account = str(acct[0])
-				child_of = str(acct[1])
-				#print(acct)
-				details = (account, child_of)
-				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 		self.conn.commit()
 		cur.close()
+		self.add_acct(base_accts)
 
 	# TODO Maybe make entities a class
 	def create_entities(self): # TODO Add command to book more entities
@@ -306,7 +230,7 @@ class Accounts:
 		self.coa.to_sql('accounts', self.conn, if_exists='replace')
 		self.refresh_accts()
 
-	def add_acct(self, acct_data=None):
+	def add_acct(self, acct_data=None, v=False):
 		cur = self.conn.cursor()
 		if acct_data is None:
 			account = input('Enter the account name: ')
@@ -314,18 +238,15 @@ class Accounts:
 			if child_of not in self.coa.index:
 				print('\n' + child_of + ' is not a valid account.')
 				return
-
 			details = (account, child_of)
 			cur.execute('INSERT INTO accounts VALUES (?,?)', details)
-			
 		else:
 			for acct in acct_data: # TODO Turn this into a list comprehension
 				account = str(acct[0])
 				child_of = str(acct[1])
-				print(acct)
+				if v: print(acct)
 				details = (account,child_of)
 				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
-
 		self.conn.commit()
 		cur.close()
 		self.refresh_accts()
@@ -402,37 +323,6 @@ class Accounts:
 	def load_csv(self, infile=None):
 		if infile is None:
 			infile = input('Enter a filename: ')
-		if infile == 'trading': # Workaround due to an app limitation
-			trade_accts = [
-				('Cash','Asset'),
-				('Chequing','Asset'),
-				('Savings','Asset'),
-				('Investments','Asset'),
-				('Visa','Liability'),
-				('Student Credit','Liability'),
-				('Credit Line','Liability'),
-				('Uncategorized','Admin'),
-				('Info','Admin'),
-				('Commission Expense','Expense'),
-				('Investment Gain','Revenue'),
-				('Investment Loss','Expense'),
-				('Unrealized Gain','Revenue'),
-				('Unrealized Loss','Expense'),
-				('Interest Expense','Expense'),
-				('Dividend Receivable','Asset'),
-				('Dividend Income','Revenue'),
-				('Interest Income','Revenue')
-			]
-			return trade_accts
-		elif infile == 'econ': # TODO Out of date
-			econ_accts = [
-				('Cash','Asset'),
-				('Inventory','Asset'),
-				('Food','Inventory'),
-				('Food Produced','Revenue'),
-				('Food Consumed','Expense')
-			]
-			return econ_accts
 		try:
 			with open(infile, 'r') as f:
 				load_csv = pd.read_csv(f, keep_default_na=False)
@@ -444,7 +334,7 @@ class Accounts:
 		return lol
 
 	def load_accts(self, infile=None):
-		self.add_acct(self.load_csv(infile))
+		self.add_acct(self.load_csv(infile), v=True)
 
 	def load_entities(self, infile=None):
 		if infile is None:
