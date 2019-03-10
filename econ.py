@@ -299,6 +299,8 @@ class World:
 		t7_start = time.perf_counter()
 		for typ in factory.registry.keys():
 			for entity in factory.get(typ):
+				if typ == Corporation: # TODO Temp fix for negative balances
+					entity.negative_bal()
 				ledger.set_entity(entity.entity_id)
 				if 'Farm' in entity.name:
 					entity.food = ledger.get_qty(items='Food', accounts=['Inventory'])
@@ -314,10 +316,19 @@ class World:
 		t7_end = time.perf_counter()
 		print(time_stamp() + '7: Cash check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
 
-		#  For testing to kill individuals
+		# For testing to kill individuals
 		# for individual in factory.get(Individual):
 		# 	if str(self.now) == '1986-10-04' and individual.entity_id == 3:
 		# 		individual.set_need('Hunger', -100)
+
+		# For testing to create individuals
+		# if str(self.now) == '1986-10-03':
+		# 	self.entities = accts.get_entities()
+		# 	last_entity_id = self.entities.reset_index()['entity_id'].max()
+		# 	print('Last Entity ID: {}'.format(last_entity_id))
+		# 	factory.create(Individual, 'Person ' + str(last_entity_id + 1), self.indiv_items_produced)
+		# 	individual = factory.get_by_id(last_entity_id + 1)
+		# 	individual.capitalize(amount=25000) # Hardcoded for now
 
 		if args.random:
 			if random.randint(1, 30) == 30:# or (str(self.now) == '1986-10-06'):
@@ -340,7 +351,7 @@ class World:
 		print(ledger.get_qty(['Rock','Wood','Paper'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 		print()
 
-		# if str(self.now) == '1986-10-06': # For debugging
+		# if str(self.now) == '1986-10-07': # For debugging
 		# 	world.end = True
 
 		t1_end = time.perf_counter()
@@ -366,7 +377,7 @@ class Entity:
 		if cash >= (qty * price):
 			#print('Transact Item Type: {}'.format(item_type))
 			if qty <= qty_avail or item_type == 'Service':
-				print('Transaction for: {} {}'.format(qty, item))
+				print('{} transaction for {} {} with {}'.format(self.name, qty, item, counterparty.name))
 				purchase_entry = [ ledger.get_event(), self.entity_id, world.now, item + ' purchased', item, price, qty, acct_buy, 'Cash', price * qty ]
 				sell_entry = [ ledger.get_event(), counterparty.entity_id, world.now, item + ' sold', item, price, qty, 'Cash', acct_sell, price * qty ]
 				purchase_event += [purchase_entry, sell_entry]
@@ -1061,6 +1072,14 @@ class Entity:
 		self.wip_check(check=True)
 		print('{} finished inventory check.'.format(self.name))
 
+	def negative_bal(self):
+		for item in self.produces:
+			qty_inv = ledger.get_qty(item, ['Inventory'])
+			if qty_inv < 0:
+				print('{} has a negative item balance of {} {}. Will attempt to produce {} units'.format(self.name, qty_inv, item, abs(qty_inv)))
+				outcome, time_required = self.produce(item, abs(qty_inv))
+
+
 	def capitalize(self, amount):
 		capital_entry = [ ledger.get_event(), self.entity_id, world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', amount ]
 		capital_event = [capital_entry]
@@ -1611,7 +1630,7 @@ class Entity:
 		else:
 			incomplete, pay_salary_event, time_required = self.fulfill(job, qty=1, reqs='usage_req', amts='use_amount', check=check)
 		if check:
-			if not incomplete:
+			if pay_salary_event and not incomplete:
 				ledger.journal_entry(pay_salary_event)
 				return True
 			return
@@ -1730,7 +1749,7 @@ class Entity:
 				ledger.journal_entry(pay_subscription_event)
 			else:
 				if not incomplete:
-					print('{} does not have enough cash to pay for {} subscription. Cash: {}'.format(self.name, job, cash))
+					print('{} does not have enough cash to pay for {} subscription. Cash: {}'.format(self.name, item, cash))
 				else:
 					print('{} cannot fulfill the requirements to keep {} subscription.'.format(self.name, item))
 				if not first:

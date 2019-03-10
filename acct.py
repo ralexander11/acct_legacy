@@ -824,8 +824,9 @@ class Ledger:
 			of datapoints. This means an event with a single transaction
 			would be encapsulated in as a single list within a list.
 		'''
-		if journal_data is not None and not isinstance(journal_data[0], (list, tuple)):
-			journal_data = [journal_data]
+		if journal_data:
+			if not isinstance(journal_data[0], (list, tuple)):
+				journal_data = [journal_data]
 		cur = self.conn.cursor()
 		if journal_data is None: # Manually enter a journal entry
 			event = input('Enter an optional event_id: ')
