@@ -983,11 +983,12 @@ class Ledger:
 			leg_txn['amount'] = abs(load_gl['Amount'])
 			lol = leg_txn.values.tolist()
 			self.journal_entry(lol)
+			self.sanitize_ledger()
 		else:
 			if 'txn_id' in load_gl.columns.values:
 				load_gl.set_index('txn_id', inplace=True)
 			lol = load_gl.values.tolist()
-			self.journal_entry(lol)		
+			self.journal_entry(lol)	
 
 	def export_gl(self):
 		self.reset()
