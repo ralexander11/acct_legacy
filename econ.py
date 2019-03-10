@@ -226,7 +226,7 @@ class World:
 		print()
 		print('World Demand Start: \n{}'.format(world.demand))
 		print()
-		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
+		print(ledger.get_qty(['Rock','Wood','Paper'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 		print()
 
 		t3_start = time.perf_counter()
@@ -337,7 +337,7 @@ class World:
 		print()
 		print('World Demand End: \n{}'.format(world.demand))
 		print()
-		print(ledger.get_qty(['Rock','Wood'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
+		print(ledger.get_qty(['Rock','Wood','Paper'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 		print()
 
 		# if str(self.now) == '1986-10-05': # For debugging
