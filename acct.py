@@ -686,7 +686,8 @@ class Ledger:
 
 	def print_bs(self):
 		self.balance_sheet() # Refresh Balance Sheet
-		print(self.bs)
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			print(self.bs)
 		print('-' * DISPLAY_WIDTH)
 		return self.bs
 
@@ -881,9 +882,9 @@ class Ledger:
 				credit = str(je[8])
 				amount = str(je[9])
 
-				if event == '' or np.isnan:
+				if event == '' or event == 'nan':
 					event = str(self.get_event())
-				if entity == '' or np.isnan:
+				if entity == '' or entity == 'nan':
 					entity = str(self.get_entity())
 				if date == 'NaT':
 					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
@@ -1013,8 +1014,37 @@ class Ledger:
 		if date is None: # rvsl[7] or np.nan
 			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6], rvsl[7] or '', rvsl[9], rvsl[8], rvsl[10] ]]
+		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6] or '', rvsl[7] or '', rvsl[9], rvsl[8], rvsl[10] ]]
 		self.journal_entry(rvsl_entry)
+
+	def split(self, txn=None, debit_acct=None, credit_acct=None, amount=None, date=None):
+		if txn is None:
+			txn = input('Which txn_id to split? ')
+		self.reversal_entry(txn)
+		split_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
+		cur = self.conn.cursor()
+		cur.execute(split_query)
+		split = cur.fetchone()
+		cur.close()
+		if amount is None:
+			split_amt = float(input('How much to split by? '))
+			while split_amt > split[10]:
+				split_amt = float(input('That is too much. How much to split by? '))
+		if debit_acct is None:
+			debit_acct = input('Which debit account to split with? ')
+			if debit_acct == '':
+				debit_acct = split[8]
+		if credit_acct is None:
+			credit_acct = input('Which credit account to split with? ')
+			if credit_acct == '':
+				credit_acct = split[9]
+		if date is None:
+			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
+			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+		orig_split_entry = [ split[1], split[2], date, split[4], split[5], split[6] or '', split[7] or '', split[8], split[9], split[10] - split_amt ]
+		new_split_entry = [ split[1], split[2], date, split[4], split[5], split[6] or '', split[7] or '', debit_acct, credit_acct, split_amt ]
+		split_event = [orig_split_entry, new_split_entry]
+		self.journal_entry(split_event)
 
 	def hist_cost(self, qty, item=None, acct=None, remain_txn=False):
 		v = False
@@ -1257,6 +1287,8 @@ def main(command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'rvsl':
 			ledger.reversal_entry()
+		elif command.lower() == 'split':
+			ledger.split()
 			if args.command is not None: exit()
 		elif command.lower() == 'bs':
 			ledger.print_bs()
