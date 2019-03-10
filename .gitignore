@@ -93,13 +93,14 @@ ENV/
 *.DS_Store
 
 # Project files
+db/*.db
+data/
 *config*.py
 run.py
 app/
 
 # Other
 old/
-data/
 .bash_profile
 *config*.json
 *.txt

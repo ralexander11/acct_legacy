@@ -72,7 +72,20 @@ class Accounts:
 			('Transfer','Wealth')
 		]
 
-		base_accts = base_accts + standard_accts
+		personal = [
+			('Cash','Asset'),
+			('Chequing','Asset'),
+			('Savings','Asset'),
+			('Investments','Asset'),
+			('Visa','Liability'),
+			('Student Credit','Liability'),
+			('Credit Line','Liability'),
+			('Uncategorized','Admin'),
+			('Info','Admin'),
+			('Royal Credit Line','Liability')
+		]
+
+		base_accts = base_accts + standard_accts + personal
 
 		cur = self.conn.cursor()
 		cur.execute(create_accts_query)
@@ -495,10 +508,11 @@ class Ledger:
 
 	def print_gl(self):
 		self.refresh_ledger() # Refresh Ledger
-		self.gl['qty'].replace(np.nan, '', inplace=True)
-		self.gl['price'].replace(np.nan, '', inplace=True)
+		display_gl = self.gl
+		display_gl['qty'].replace(np.nan, '', inplace=True)
+		display_gl['price'].replace(np.nan, '', inplace=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
-			print(self.gl)
+			print(display_gl)
 		print('-' * DISPLAY_WIDTH)
 		return self.gl
 
@@ -867,9 +881,9 @@ class Ledger:
 				credit = str(je[8])
 				amount = str(je[9])
 
-				if event == '':
+				if event == '' or np.isnan:
 					event = str(self.get_event())
-				if entity == '':
+				if entity == '' or np.isnan:
 					entity = str(self.get_entity())
 				if date == 'NaT':
 					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
@@ -892,22 +906,87 @@ class Ledger:
 		#return values # TODO Add all entries to list before returning
 
 	def sanitize_ledger(self): # This is not implemented yet
-		self.gl = self.gl.drop_duplicates() # TODO Test this
+		dupes = self.gl[self.gl.duplicated(['entity_id','date','description','item_id','price','qty','debit_acct','credit_acct','amount'])]
+		dupes_to_drop = dupes.index.tolist()
+		dupes_to_drop = ', '.join(str(x) for x in dupes_to_drop)
+		# Delete dupes from db
+		if not dupes.empty:
+			cur = self.conn.cursor()
+			cur.execute('DELETE FROM ' + self.ledger_name + ' WHERE txn_id IN (' + dupes_to_drop + ')')
+			self.conn.commit()
+			cur.close()
+		self.refresh_ledger()
 
-	def load_gl(self, infile=None):
+	def load_gl(self, infile=None, flag=None):
 		if infile is None:
 			infile = input('Enter a filename: ')
+			#infile = 'data/rbc_sample_2019-01-27.csv' # For testing
+			#infile = 'data/legacy_ledger_2019-01-25.csv' # For testing
+		if flag is None:
+			flag = input('Enter a flag: ')
+			#flag = 'rbc' # For testing
+			#flag = 'legacy' # For testing
 		try:
 			with open(infile, 'r') as f:
-				load_gl = pd.read_csv(f, keep_default_na=False)
-			load_gl.set_index('txn_id', inplace=True)
-			lol = load_gl.values.tolist()
+				if flag == 'legacy':
+					load_gl = pd.read_csv(f, header=1, keep_default_na=False)
+				else:
+					load_gl = pd.read_csv(f, keep_default_na=False)
 		except Exception as e:
-			print('Error: {}'.format(e))
+			print('Error: {} | {}'.format(e, repr(e)))
+			load_gl = pd.DataFrame()
 		print(load_gl)
 		print('-' * DISPLAY_WIDTH)
-		self.journal_entry(lol)
-		#self.sanitize_ledger() #TODO Not sure if I need this anymore
+		if flag == 'rbc':
+			load_gl['dupe'] = load_gl.duplicated(keep=False)
+			for index, row in load_gl.iterrows():
+				if row['dupe']:
+					unique_desc = row['Description 2'] + ' - ' + str(index)
+					load_gl.at[index, 'Description 2'] = unique_desc
+			load_gl.drop('dupe', axis=1, inplace=True)
+			rbc_txn = pd.DataFrame()
+			rbc_txn['event_id'] = ''
+			rbc_txn['entity_id'] = ''
+			rbc_txn['date'] = load_gl['Transaction Date']
+			rbc_txn['desc'] = load_gl['Description 1'] + ' | ' + load_gl['Description 2']
+			rbc_txn['item_id'] = ''
+			rbc_txn['price'] = ''
+			rbc_txn['qty'] = ''
+			rbc_txn['debit_acct'] = np.where(load_gl['CAD$'] > 0, load_gl['Account Type'], 'Uncategorized')
+			rbc_txn['credit_acct'] = np.where(load_gl['CAD$'] < 0, load_gl['Account Type'], 'Uncategorized')
+			rbc_txn['amount'] = abs(load_gl['CAD$'])
+			lol = rbc_txn.values.tolist()
+			self.journal_entry(lol)
+			self.sanitize_ledger()
+		elif flag == 'legacy':
+			load_gl = load_gl[:-3]
+			load_gl['Category 3'] = load_gl['Category 3'].replace(r'^\s*$', np.nan, regex=True)
+			load_gl['Category 3'].fillna('Uncategorized', inplace=True)
+			load_gl['dupe'] = load_gl.duplicated(keep=False)
+			for index, row in load_gl.iterrows():
+				if row['dupe']:
+					unique_desc = row['Description 2'] + ' - ' + str(index)
+					load_gl.at[index, 'Description 2'] = unique_desc
+			load_gl.drop('dupe', axis=1, inplace=True)
+			load_gl['Amount'] = [float(x.replace('$','').replace(',','').replace(')','').replace('(','-')) if x else 0 for x in load_gl['Amount']]
+			leg_txn = pd.DataFrame()
+			leg_txn['event_id'] = ''
+			leg_txn['entity_id'] = ''
+			leg_txn['date'] = load_gl['Transaction Date']
+			leg_txn['desc'] = load_gl['Description 1'] + ' | ' + load_gl['Description 2']
+			leg_txn['item_id'] = ''
+			leg_txn['price'] = ''
+			leg_txn['qty'] = ''
+			leg_txn['debit_acct'] = np.where(load_gl['Amount'] > 0, load_gl['Account Type'], load_gl['Category 3'])
+			leg_txn['credit_acct'] = np.where(load_gl['Amount'] < 0, load_gl['Account Type'], load_gl['Category 3'])
+			leg_txn['amount'] = abs(load_gl['Amount'])
+			lol = leg_txn.values.tolist()
+			self.journal_entry(lol)
+		else:
+			if 'txn_id' in load_gl.columns.values:
+				load_gl.set_index('txn_id', inplace=True)
+			lol = load_gl.values.tolist()
+			self.journal_entry(lol)		
 
 	def export_gl(self):
 		self.reset()
