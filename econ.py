@@ -226,7 +226,7 @@ class World:
 		print()
 		print('World Demand Start: \n{}'.format(world.demand))
 		print()
-		print(ledger.get_qty(['Rock','Wood','Paper'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
+		print(ledger.get_qty(['Rock','Wood','Paper','Food'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 		print()
 
 		t3_start = time.perf_counter()
@@ -333,7 +333,7 @@ class World:
 		if args.random:
 			if random.randint(1, 30) == 30:# or (str(self.now) == '1986-10-06'):
 				print('{} randomly dies!'.format(individual.name))
-				individual.set_need('Hunger', -100)
+				individual.set_need('Hunger', -100, forced=True)
 
 		if args.random:
 			if random.randint(1, 20) == 20:# or (str(self.now) == '1986-10-06'):
@@ -348,7 +348,7 @@ class World:
 		print()
 		print('World Demand End: \n{}'.format(world.demand))
 		print()
-		print(ledger.get_qty(['Rock','Wood','Paper'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
+		print(ledger.get_qty(['Rock','Wood','Paper','Food'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 		print()
 
 		# if str(self.now) == '1986-10-07': # For debugging
@@ -402,6 +402,7 @@ class Entity:
 		if qty == 0:
 			return
 		qty = math.ceil(qty)
+		qty_wanted = qty
 		# TODO Add support for purchasing from multiple entities
 		outcome = None
 		item_type = self.get_item_type(item)
@@ -428,7 +429,7 @@ class Entity:
 		if global_qty != 0:
 			qty = min(global_qty, qty)
 
-		if global_qty >= qty or item_type == 'Service':
+		if global_qty >= qty or item_type == 'Service': # TODO Is this needed?
 			# Check which entity has the goods for the cheapest
 			if item_type != 'Service':
 				rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
@@ -443,6 +444,7 @@ class Entity:
 				#print('Global Inv: \n{}'.format(global_inv))
 				i = 0
 				result = False
+				purchased_qty = 0
 				if buffer:
 					result = []
 				while qty > 0:
@@ -451,6 +453,9 @@ class Entity:
 					#print('Counterparty ID: {}'.format(counterparty_id))
 					counterparty = factory.get_by_id(counterparty_id)
 					#print('Purchase Counterparty: {}'.format(counterparty.name))
+					if counterparty.entity_id == self.entity_id:
+						print('{} unable to transact with themselves.'.format(self.name))
+						return
 					try:
 						purchase_qty = global_inv.iloc[i].loc['qty']
 					except IndexError as e:
@@ -462,9 +467,12 @@ class Entity:
 					result += self.transact(item, price=world.get_price(item), qty=purchase_qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, buffer=buffer)
 					if not result:
 						break
+					purchased_qty += purchase_qty
 					qty -= purchase_qty
 					i += 1
-			if item_type == 'Service':
+				if qty_wanted > purchased_qty:
+					self.item_demanded(item, qty_wanted - purchased_qty)
+			elif item_type == 'Service':
 				print('{} trying to purchase Service: {}'.format(self.name, item))
 				#if buffer:
 					#outcome = counterparty.produce_entries(item=item, qty=qty, price=world.get_price(item))
@@ -1371,30 +1379,34 @@ class Entity:
 		else:
 			print('{} cannot claim {} square meters of {} because there is only {} square meters available.'.format(self.name, qty, item, unused_land))
 
-	def get_counterparty(self, txns, rvsl_txns, item, account):
-		#print('Item: {}'.format(item))
+	def get_counterparty(self, txns, rvsl_txns, item, account, allowed=None, v=False):
+		if v: print('{} | Item: {}'.format(self.name, item))
+		if allowed is None:
+			allowed = factory.registry.keys()
+		if v: print('Allowed: {}'.format(allowed))
 		txn = txns.loc[txns['item_id'] == item]
-		#print('TXN: \n{}'.format(txn))
+		if v: print('TXN: \n{}'.format(txn))
 		if txn.empty:
 			print('No counterparty exists for {}.'.format(item))
 			return
 		event_id = txn.iloc[0].loc['event_id']
-		#print('Event ID: {}'.format(event_id))
+		if v: print('Event ID: {}'.format(event_id))
 		event_txns = ledger.gl[(ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-		#print('Event TXNs: \n{}'.format(event_txns))
-		item_txn = event_txns.loc[event_txns['item_id'] == item] # If there are multiple items
-		#print('Item TXN: \n{}'.format(item_txn))
+		if v: print('Event TXNs: \n{}'.format(event_txns))
+		item_txn = event_txns.loc[event_txns['item_id'] == item] # If there are multiple items in same event
+		if v: print('Item TXN: \n{}'.format(item_txn))
 		counterparty_txn = item_txn.loc[item_txn['debit_acct'] == account]
-		#print('Counterparty TXN: \n{}'.format(counterparty_txn))
+		if v: print('Counterparty TXN: {} \n{}'.format(account, counterparty_txn))
 		counterparty_id = counterparty_txn.iloc[0].loc['entity_id']
-		#print('Counterparty ID: {}'.format(counterparty_id))
 		counterparty = factory.get_by_id(counterparty_id)
+		if v: print('Counterparty Type: {}'.format(type(counterparty)))
 		while True:
 			if counterparty is not None:
 				break
-			counterparty_id += 1
-			counterparty = factory.get_by_id(counterparty_id)
-		#print('Counterparty: {}'.format(counterparty))
+			if type(counterparty) not in allowed:
+				counterparty_id += 1
+				counterparty = factory.get_by_id(counterparty_id)
+		if v: print('Counterparty - {}'.format(counterparty))
 		return counterparty
 
 	def pay_wages(self, jobs=None, counterparty=None):
@@ -1427,7 +1439,7 @@ class Entity:
 				rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 				wages_pay_txns = ledger.gl[( (ledger.gl['debit_acct'] == 'Wages Expense') & (ledger.gl['credit_acct'] == 'Wages Payable') ) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 				#wages_pay_txns = ledger.gl[( (ledger.gl['debit_acct'] == 'Wages Receivable') & (ledger.gl['credit_acct'] == 'Wages Revenue') ) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-				counterparty = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable')
+				counterparty = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', allowed=Individual)
 				wages_pay_entry = [ ledger.get_event(), self.entity_id, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
 				wages_chg_entry = [ ledger.get_event(), counterparty.entity_id, world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
 				pay_wages_event = [wages_pay_entry, wages_chg_entry]
@@ -1488,6 +1500,7 @@ class Entity:
 					print('{} cannot fulfill the requirements to allow {} to work.'.format(self.name, job))
 				return
 			if buffer:
+				print('{} hired {} as a {} for {} hours.'.format(self.name, counterparty.name, job, hours_worked))
 				return accru_wages_event
 			ledger.journal_entry(accru_wages_event)
 			counterparty.set_hours(hours_worked)
@@ -1568,6 +1581,7 @@ class Entity:
 		else:
 			hire_worker_event += first_pay
 		if buffer:
+			print('{} hired {} as a {} fulltime.'.format(self.name, counterparty.name, job))
 			return hire_worker_event
 		ledger.journal_entry(hire_worker_event)
 
@@ -1614,7 +1628,7 @@ class Entity:
 				#print('Worker State: {}'.format(worker_state))
 				if not worker_state: # If worker_state is zero
 					return
-				counterparty = self.get_counterparty(salary_txns, rvsl_txns, item, 'Start Job')
+				counterparty = self.get_counterparty(salary_txns, rvsl_txns, item, 'Start Job', allowed=Individual)
 				for _ in range(worker_state):
 					self.pay_salary(item, counterparty, check=check)
 
@@ -1676,6 +1690,7 @@ class Entity:
 
 	def order_subscription(self, item, counterparty, price, qty=1, buffer=False):
 		if counterparty is None:
+			self.item_demanded(item, qty)
 			return
 		ledger.set_entity(self.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
@@ -1690,6 +1705,7 @@ class Entity:
 				first_payment = []
 			elif buffer:
 				order_subscription_event += first_payment
+				print('{} ordered {} subscription service from {}.'.format(self.name, item, counterparty.name))
 				return order_subscription_event
 			ledger.journal_entry(order_subscription_event)
 			return True
@@ -1884,11 +1900,11 @@ class Individual(Entity):
 			hunger_start = 100
 		# TODO Make other starting need levels random
 
-		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Fun, Thirst','100,100,100','1,5,2','40,40,60','50,100,100',None,'Labour') ] # Note: The 2nd to 5th values are for another program
-		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst, Fun','100,100,100,100','1,1,2,5','40,50,60,40', str(hunger_start) + ',80,100,100',None,'Labour') ]
+		# Note: The 2nd to 5th values are for another program
+		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst, Fun','100,100,100,100','1,1,2,5','85,50,60,40', str(hunger_start) + ',100,100,100',None,'Labour') ]
 		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst','100,100,100','1,1,2','85,50,60', str(hunger_start) + ',100,100',None,items) ]
-		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','100,100','1,2','40,60','50,100',None,'Labour') ]
-		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','40','50',None,'Labour') ]
+		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','100,100','1,2','85,60', str(hunger_start) + ',100',None,items) ]
+		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','85', str(hunger_start),None,items) ]
 
 		self.entity_id = accts.add_entity(entity_data)
 		self.name = entity_data[0][0]
@@ -1904,10 +1920,10 @@ class Individual(Entity):
 			print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need']))
 
 	def __str__(self):
-			return 'indv: {} | {}'.format(self.name, self.entity_id)
+		return 'Indv: {} | {}'.format(self.name, self.entity_id)
 
 	def __repr__(self):
-		return 'indv: {} | {}'.format(self.name, self.entity_id)
+		return 'Indv: {} | {}'.format(self.name, self.entity_id)
 
 	def set_hours(self, hours_delta=0):
 		self.hours -= hours_delta
@@ -1945,7 +1961,7 @@ class Individual(Entity):
 		#print(self.needs)
 		return self.needs
 
-	def set_need(self, need, need_delta):
+	def set_need(self, need, need_delta, forced=False):
 		self.needs[need]['Current Need'] += need_delta
 		cur = ledger.conn.cursor()
 		set_need_query = '''
@@ -1960,7 +1976,10 @@ class Individual(Entity):
 		if self.needs[need]['Current Need'] <= 0:
 			self.inheritance()
 			factory.destroy(self)
-			print('{} died due to {}.'.format(self.name, need))
+			if forced:
+				print('{} died due to natural causes.'.format(self.name))
+			else:
+				print('{} died due to {}.'.format(self.name, need))
 			#world.end = True
 			self.dead = True
 		return self.needs[need]['Current Need']
@@ -2092,19 +2111,22 @@ class Individual(Entity):
 				# TODO Attempt to use item before aquiring some
 				if qty_held < qty_needed:
 					qty_wanted = qty_needed - qty_held
-					#ledger.set_entity(world.farm.entity_id)
-					# TODO Assumes only one entity has all available qty
 					qty_avail = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 					if qty_avail == 0:
-						qty_avail = qty_wanted # So purchase for 0 qty is not attempted
+						qty_avail = qty_wanted # Prevent purchase for 0 qty
 					qty_purchase = min(qty_wanted, qty_avail)
 					print('Satisfy need by purchasing: {} {}'.format(qty_purchase, item_choosen))
 					outcome = self.purchase(item_choosen, qty_purchase)
-					# TODO Generalize this for other entities
 					ledger.set_entity(self.entity_id)
 					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 					ledger.reset()
 					#print('QTY Held: {}'.format(qty_held))
+					if qty_held < qty_wanted:
+						outcome, time_required = self.produce(item_choosen, qty_wanted - qty_held)
+						ledger.set_entity(self.entity_id)
+						qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
+						ledger.reset()
+						#print('QTY Held: {}'.format(qty_held))
 				if qty_held:
 					self.consume(item_choosen, qty_held, need)
 
@@ -2172,10 +2194,10 @@ class Corporation(Organization):
 		print('Create Organization: {} | Produces: {} | entity_id: {}'.format(self.name, self.produces, self.entity_id))
 
 	def __str__(self):
-		return 'corp: {} | {}'.format(self.name, self.entity_id)
+		return 'Corp: {} | {}'.format(self.name, self.entity_id)
 
 	def __repr__(self):
-		return 'corp: {} | {}'.format(self.name, self.entity_id)
+		return 'Corp: {} | {}'.format(self.name, self.entity_id)
 
 	def declare_div(self, div_rate): # TODO Move this to corporation subclass
 		item = self.name
@@ -2217,20 +2239,20 @@ class Government(Organization):
 		super().__init__(name)
 
 	def __str__(self):
-		return 'gov: {} | {}'.format(self.name, self.entity_id)
+		return 'Gov: {} | {}'.format(self.name, self.entity_id)
 
 	def __repr__(self):
-		return 'gov: {} | {}'.format(self.name, self.entity_id)
+		return 'Gov: {} | {}'.format(self.name, self.entity_id)
 
 class NonProfit(Organization):
 	def __init__(self, name, items):
 		super().__init__(name)
 
 	def __str__(self):
-		return 'non-profit: {} | {}'.format(self.name, self.entity_id)
+		return 'Non-Profit: {} | {}'.format(self.name, self.entity_id)
 
 	def __repr__(self):
-		return 'non-profit: {} | {}'.format(self.name, self.entity_id)
+		return 'Non-Profit: {} | {}'.format(self.name, self.entity_id)
 
 
 class EntityFactory:
