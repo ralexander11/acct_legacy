@@ -5,7 +5,7 @@ import argparse
 import datetime
 import logging
 
-DISPLAY_WIDTH = 98
+DISPLAY_WIDTH = 98#134#
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'

@@ -11,11 +11,10 @@ import math
 import os
 import re
 
-DISPLAY_WIDTH = 98#130#
+DISPLAY_WIDTH = 98#134#
 pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 
-random.seed(11)
 MAX_HOURS = 12
 
 def time_stamp():
@@ -99,7 +98,9 @@ class World:
 		self.clear_ledger()
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Create World ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 		self.factory = factory
-		self.items = accts.load_items('data/items.csv') # TODO Change config file to JSON and/or make this an argument
+		if args.items is None:
+			items_file = 'data/items.csv'
+		self.items = accts.load_items(items_file) # TODO Change config file to JSON
 		self.now = datetime.datetime(1986,10,1).date()
 		self.end = False
 		print(self.now)
@@ -269,6 +270,7 @@ class World:
 		print('Check Demand List:')
 		for entity in factory.get_all():#(Corporation):
 			#print('Entity Name: {} | {}'.format(entity.name, entity.entity_id))
+			entity.tech_motivation()
 			entity.check_demand()
 			entity.check_inv()
 		t4_end = time.perf_counter()
@@ -1339,6 +1341,23 @@ class Entity:
 					world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
 				return corp
 
+	def tech_motivation(self):
+		tech_info = world.items[world.items['child_of'] == 'Technology']
+		tech_info.reset_index(inplace=True)
+		#print('Tech Info: \n{}'.format(tech_info))
+		# ledger.reset()
+		for index, tech_row in tech_info.iterrows():
+			tech = tech_row['item_id']
+			#print('Tech Check: {}'.format(tech))
+			tech_done_status = ledger.get_qty(items=tech, accounts=['Technology'])
+			tech_research_status = ledger.get_qty(items=tech, accounts=['Researching Technology'])
+			tech_status = tech_done_status + tech_research_status
+			if tech_status == 0:
+				#print('Tech Needed: {}'.format(tech))
+				outcome = self.item_demanded(tech, qty=1)
+				if outcome:
+					return tech
+
 	def check_eligible(self, item):
 		#print('Check Eligible Item: {}'.format(item))
 		item_info = world.items.loc[item]
@@ -1424,12 +1443,12 @@ class Entity:
 				check_tech = demand_item['item_id']
 				check_item_type = self.get_item_type(check_tech)
 				if check_item_type == 'Technology':
-					print('Cannot add {} technology to demand list because {} technology is already on it.'.format(item, check_item))
+					#print('Cannot add {} technology to demand list because {} technology is already on it.'.format(item, check_tech))
 					tech_on_list = True
 					return
 		if tech_on_list:
 			if not self.check_eligible(item):
-				print('Technology required to create {} is not known; therefore it cannot be added to the demand list.'.format(item))
+				print('Technology required to create {} is not known; therefore it cannot be added to the demand list at this time.'.format(item))
 				return
 		# Check if entity already has item on demand list
 		if not world.demand.empty: # TODO Commodity replaces existing commodity if qty is bigger
@@ -1467,16 +1486,20 @@ class Entity:
 		#print('Demand QTY: {}'.format(qty))
 		if qty != 0:
 			world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty}, ignore_index=True)
-			print('{} added to demand list for {} units for {}.'.format(item, qty, self.name))
+			if qty == 1:
+				print('{} added to demand list for {} unit by {}.'.format(item, qty, self.name))
+			else:
+				print('{} added to demand list for {} units by {}.'.format(item, qty, self.name))
 			#print('Demand after addition: \n{}'.format(world.demand))
 			return item, qty
 
-	def check_demand(self):
+	def check_demand(self, v=False):
+		if v: print('{} demand check for items: \n{}'.format(self.name, self.produces))
 		for item in self.produces:
-			#print('Check Demand Item: {}'.format(item))
+			if v: print('Check Demand Item for {}: {}'.format(self.name, item))
 			item_type = self.get_item_type(item)
 			if item_type == 'Subscription':
-				return
+				continue
 			#print('World Demand: \n{}'.format(world.demand))
 			to_drop = []
 			qty = 0
@@ -1501,15 +1524,16 @@ class Entity:
 				rand = random.randint(0, 10) / 10
 				qty = math.ceil(qty * (1 + rand))
 			outcome, time_required = self.produce(item, qty)
+			if v: print('Outcome: {} \n{}'.format(time_required, outcome))
 			if outcome:
 				if item_type == 'Education':
 					edu_hours = qty - MAX_HOURS
-					print('Edu Hours: {} | {}'.format(edu_hours, index))
+					#print('Edu Hours: {} | {}'.format(edu_hours, index))
 					if edu_hours <= 0:
 						world.demand = world.demand.drop(index).reset_index(drop=True)
 					else:
 						world.demand.at[index, 'qty'] = edu_hours
-					print('Demand After: \n{}'.format(world.demand))
+					#print('Demand After: \n{}'.format(world.demand))
 				else:
 					world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 					if orig_qty:
@@ -2541,7 +2565,9 @@ if __name__ == '__main__':
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
 	parser.add_argument('-p', '--population', type=int, default=1, help='The number of people in the econ sim.')
-	parser.add_argument('-r', '--random', action="store_true", help='Add some randomness to the sim!')
+	parser.add_argument('-r', '--random', action="store_false", help='Add some randomness to the sim!')
+	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
+	parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
 	args = parser.parse_args()
 	if args.database is None:
 		args.database = 'econ01.db'
@@ -2550,7 +2576,12 @@ if __name__ == '__main__':
 	if (args.delay is not None) and (args.delay is not 0):
 		print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))	
 	if args.random:
-		print(time_stamp() + 'Randomness turned on.')
+		if args.seed:
+			print(time_stamp() + 'Randomness turned on with a seed of {}.'.format(args.seed))
+			random.seed(args.seed)
+		else:
+			print(time_stamp() + 'Randomness turned on with no seed provided.')
+			random.seed()
 	delete_db(args.database)
 	accts = Accounts(args.database, econ_accts)
 	ledger = Ledger(accts)
