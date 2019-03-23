@@ -1048,6 +1048,35 @@ class Ledger:
 		split_event = [orig_split_entry, new_split_entry]
 		self.journal_entry(split_event)
 
+	def uncategorize(self, txn=None, debit_acct=None, credit_acct=None):
+		if txn is None:
+			txn = input('Enter the transaction number: ')
+		uncat_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
+		cur = self.conn.cursor()
+		cur.execute(uncat_query)
+		entry = cur.fetchone()
+		#print('Entry: \n{}'.format(entry))
+		debit_acct = entry[8]
+		if entry[8] == 'Uncategorized':
+			if debit_acct is None:
+				debit_acct = input('Enter the account to debit: ')
+			if debit_acct not in self.coa.index:
+				print('\n' + debit + ' is not a valid account.')
+		credit_acct = entry[9]
+		if entry[9] == 'Uncategorized':
+			if credit_acct is None:
+				credit_acct = input('Enter the account to credit: ')
+			if credit_acct not in self.coa.index:
+				print('\n' + credit + ' is not a valid account.')
+		new_entry = [ entry[1], entry[2], entry[3], entry[4], entry[5], entry[6] or '', entry[7] or '', debit_acct, credit_acct, entry[10] ]
+		#print('New Entry: \n{}'.format(new_entry))
+		new_cat_query = 'UPDATE '+ self.ledger_name +' SET debit_acct = \'' + debit_acct + '\', credit_acct = \'' + credit_acct + '\' WHERE txn_id = '+ txn + ';'
+		#print('New Cat Query: \n{}'.format(new_cat_query))
+		cur.execute(new_cat_query)
+		cur.close()
+		self.refresh_ledger()
+		return new_entry
+
 	def hist_cost(self, qty, item=None, acct=None, remain_txn=False):
 		v = False
 		if acct is None:
@@ -1291,6 +1320,8 @@ def main(command=None, external=False):
 			ledger.reversal_entry()
 		elif command.lower() == 'split':
 			ledger.split()
+		elif command.lower() == 'uncategorize':
+			ledger.uncategorize()
 			if args.command is not None: exit()
 		elif command.lower() == 'bs':
 			ledger.print_bs()

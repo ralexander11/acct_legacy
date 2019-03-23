@@ -360,7 +360,7 @@ class World:
 		# print(ledger.get_qty(['Rock','Wood','Paper','Food'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
 		# print()
 
-		# if str(self.now) == '1986-10-07': # For debugging
+		# if str(self.now) == '1986-10-12': # For debugging
 		# 	world.end = True
 
 		t1_end = time.perf_counter()
