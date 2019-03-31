@@ -62,6 +62,8 @@ econ_accts = [
 	('Wages Revenue','Revenue'),
 	('Depreciation Expense','Expense'),
 	('Accumulated Depreciation','Asset'),
+	('Loss on Impairment','Expense'),
+	('Accumulated Impairment Losses','Asset'),
 	('Spoilage Expense','Expense'),
 	('Worker Info','Info'),
 	('Hire Worker','Info'),
@@ -118,7 +120,7 @@ class World:
 
 		for person in range(1, self.population + 1):
 			print('Person: {}'.format(person))
-			factory.create(Individual, 'Person ' + str(person), self.indiv_items_produced)
+			factory.create(Individual, 'Person-' + str(person), self.indiv_items_produced)
 
 		print()
 		print(ledger.gl.columns.values.tolist()) # For verbosity
@@ -339,26 +341,23 @@ class World:
 		# 	individual = factory.get_by_id(last_entity_id + 1)
 		# 	individual.capitalize(amount=25000) # Hardcoded for now
 
-		if args.random:
-			if random.randint(1, 40) == 40:# or (str(self.now) == '1986-10-06'):
-				print('{} randomly dies!'.format(individual.name))
-				individual.set_need('Hunger', -100, forced=True)
+		if str(self.now) == '1986-10-10':
+			individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm'), target='Plow')
 
 		if args.random:
-			if random.randint(1, 20) == 20:# or (str(self.now) == '1986-10-06'):
-				print('Person randomly born!')
-				self.entities = accts.get_entities()
-				last_entity_id = self.entities.reset_index()['entity_id'].max()
-				print('Last Entity ID: {}'.format(last_entity_id))
-				factory.create(Individual, 'Person ' + str(last_entity_id + 1), self.indiv_items_produced)
-				individual = factory.get_by_id(last_entity_id + 1)
-				individual.capitalize(amount=2000) # Hardcoded for now
+			if random.randint(1, 20) == 20:# or (str(self.now) == '1986-10-02'):
+				individual.birth()
+
+		if args.random:
+			if random.randint(1, 40) == 40:# or (str(self.now) == '1986-10-03'):
+				print('{} randomly dies!'.format(individual.name))
+				individual.set_need('Hunger', -100, forced=True)
 
 		print()
 		print('World Demand End: \n{}'.format(world.demand))
 		print()
-		# print(ledger.get_qty(['Rock','Wood','Paper','Food'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
-		# print()
+		print(ledger.get_qty(['Wood Chips'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing #['Rock','Wood','Paper','Food']
+		print()
 
 		# if str(self.now) == '1986-10-12': # For debugging
 		# 	world.end = True
@@ -552,7 +551,47 @@ class Entity:
 		else:
 			print('{} does not have enough {} available to use.'.format(self.name, item))
 
-	def use_item(self, item, uses=1, buffer=False, check=False):
+	def use_item(self, item, uses=1, counterparty=None, target=None, buffer=False, check=False):
+		if counterparty is not None and target is not None:
+			dmg_type = world.items['dmg_type'][item] # Does not support more than one dmg_type on the attack
+			dmg = world.items['dmg'][item]
+			if dmg is None:
+				dmg = 0
+			dmg = float(dmg)
+			if dmg_type is not None:
+				res_types = [x.strip() for x in world.items['res_type'][item].split(',')]
+				for i, res_type in enumerate(res_types):
+					if res_type == dmg_type:
+						break
+				res = [x.strip() for x in world.items['res'][item].split(',')]
+				res = list(map(float, res))
+				resilience = res[i]
+			else:
+				resilience = world.items['res'][target]
+			if resilience is None:
+				resilience = 0
+			resilience = float(resilience)
+			print('Attack Dmg: {} | Target Resilience: {}'.format(dmg, resilience))
+			reduction = dmg / resilience
+			if reduction > 1:
+				reduction = 1
+			for n in range(uses):
+				#target_type = self.get_item_type(target)
+				ledger.set_entity(counterparty.entity_id)
+				target_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Accumulated Depreciation','Accumulated Impairment Losses'], item=target)
+				asset_cost = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=target)
+				# accum_dep_bal = ledger.balance_sheet(accounts=['Accumulated Depreciation'], item=item)
+				# accum_imp_bal = ledger.balance_sheet(accounts=['Accumulated Impairment Losses'], item=item)
+				# accrum_reduction = abs(accum_dep_bal) + abs(accum_imp_bal)
+				# target_bal = asset_cost - accrum_reduction
+				print('Target Balance: {}'.format(target_bal))
+				ledger.reset()
+				impairment_amt = asset_cost * reduction
+				if target_bal < impairment_amt:
+					impairment_amt = target_bal
+				counterparty.impairment(target, impairment_amt)
+
+		# In both cases using the item still uses existing logic
 		incomplete, use_event, time_required = self.fulfill(item, qty=uses, reqs='usage_req', amts='use_amount', check=check)
 		# TODO Book journal entries within function and add buffer argument
 		if incomplete or check:
@@ -623,7 +662,7 @@ class Entity:
 		return None, None
 
 	def get_item_type(self, item):
-		if item in ['Land','Labour','Job','Equipment','Building','Subscription','Service','Commodity','Components','Technology','Education','Time','None']:
+		if item in ['Land','Labour','Job','Equipment','Buildings','Subscription','Service','Commodity','Components','Technology','Education','Time','None']:
 			return item
 		else:
 			return self.get_item_type(world.items.loc[item, 'child_of'])
@@ -698,7 +737,7 @@ class Entity:
 						#return
 					event += entries
 
-			elif req_item_type == 'Building':
+			elif req_item_type == 'Buildings':
 				building = ledger.get_qty(items=req_item, accounts=['Buildings'])
 				if v: print('Building: {}'.format(building))
 				# Get capacity amount
@@ -1067,7 +1106,7 @@ class Entity:
 				debit_acct = 'Education'
 			elif item_type == 'Equipment':
 				debit_acct = 'Inventory'
-			elif item_type == 'Building':
+			elif item_type == 'Buildings':
 				debit_acct = 'Buildings'
 			else:
 				debit_acct = 'Inventory'
@@ -1078,7 +1117,7 @@ class Entity:
 					debit_acct='Studying Education'
 				elif item_type == 'Equipment':
 					debit_acct = 'WIP Equipment'
-				elif item_type == 'Building':
+				elif item_type == 'Buildings':
 					debit_acct = 'Building Under Construction'
 				else:
 					debit_acct = 'WIP Inventory'
@@ -1089,7 +1128,7 @@ class Entity:
 				credit_acct = 'Education Produced'
 			elif item_type == 'Equipment':
 				credit_acct = 'Goods Produced'
-			elif item_type == 'Building':
+			elif item_type == 'Buildings':
 				credit_acct = 'Building Produced'
 			else:
 				credit_acct = 'Goods Produced'
@@ -1108,7 +1147,7 @@ class Entity:
 				desc = item + ' manufactured'
 				if time_required:
 					desc = 'Manufacturing ' + item
-			elif item_type == 'Building':
+			elif item_type == 'Buildings':
 				desc = item + ' constructed'
 				if time_required:
 					desc = 'Constructing ' + item
@@ -1126,6 +1165,26 @@ class Entity:
 			produce_entry = [ ledger.get_event(), self.entity_id, world.now, desc, item, price, qty, debit_acct, credit_acct, price * qty ]
 		if produce_entry:
 			produce_event += [produce_entry]
+
+		byproducts = world.items['byproduct'][item]
+		byproduct_amts = world.items['byproduct_amt'][item]
+		if byproducts is not None and byproduct_amts is not None:
+			if isinstance(byproducts, str):
+				byproducts = [x.strip() for x in byproducts.split(',')]
+			byproducts = list(set(filter(None, byproducts)))
+			if isinstance(byproduct_amts, str):
+				byproduct_amts = [x.strip() for x in byproduct_amts.split(',')]
+			byproduct_amts = list(set(filter(None, byproduct_amts)))
+			for byproduct, byproduct_amt in zip(byproducts, byproduct_amts):
+				item_type = self.get_item_type(byproduct)
+				desc = item + ' byproduct produced'
+				# TODO Support other account types, such as for pollution
+				byproduct_price = world.get_price(byproduct)
+				byproduct_amt = float(byproduct_amt)
+				byproduct_entry = [ ledger.get_event(), self.entity_id, world.now, desc, byproduct, price, byproduct_amt * qty, debit_acct, credit_acct, price * byproduct_amt * qty ]
+				if byproduct_entry:
+					produce_event += [byproduct_entry]
+
 		if buffer:
 			return produce_event, time_required
 		ledger.journal_entry(produce_event)
@@ -1190,7 +1249,7 @@ class Entity:
 					elif item_type == 'Equipment':
 						debit_acct = 'Inventory'#'Equipment'
 						desc = wip_lot[4] + ' manufactured'
-					elif item_type == 'Building':
+					elif item_type == 'Buildings':
 						debit_acct = 'Inventory'#'Buildings' # TODO Update purchase() to handle non-inventory purchases
 						desc = wip_lot[4] + ' constructed'
 					else:
@@ -1217,10 +1276,13 @@ class Entity:
 				outcome, time_required = self.produce(item, abs(qty_inv))
 
 
-	def capitalize(self, amount):
+	def capitalize(self, amount, buffer=False):
 		capital_entry = [ ledger.get_event(), self.entity_id, world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', amount ]
 		capital_event = [capital_entry]
+		if buffer:
+			return capital_event
 		ledger.journal_entry(capital_event)
+		#return capital_event
 
 	def auth_shares(self, ticker, qty=None, counterparty=None):
 		if counterparty is None:
@@ -1367,7 +1429,7 @@ class Entity:
 		for requirement in requirements:
 			item_type = self.get_item_type(requirement)
 			#print('Check Eligible Requirement: {} | '.format(requirement, item_type))
-			if item_type in ['Land','Labour','Job','Equipment','Building','Subscription','Service','Commodity','Components','Education','Time','None']:
+			if item_type in ['Land','Labour','Job','Equipment','Buildings','Subscription','Service','Commodity','Components','Education','Time','None']:
 				continue
 			elif item_type == 'Technology':
 				tech_status = ledger.get_qty(items=requirement, accounts=['Technology'])
@@ -1859,7 +1921,7 @@ class Entity:
 
 	def pay_salary(self, job, counterparty, salary=None, labour_hours=None, buffer=False, first=False, check=False):
 		# TODO Add accru_salary()
-		if type(counterparty) != Individual: # TODO Cleanup, this is due to error from inheritance going to a Corporation
+		if type(counterparty) != Individual: # TODO Shouldn't be needed now, this was due to error from inheritance going to a Corporation
 			print('Counterparty is not an Individual, it is {} | {}'.format(counterparty.name, counterparty.entity_id))
 			return
 		if first: # TODO Required due to not using db rollback in fulfill
@@ -2038,7 +2100,8 @@ class Entity:
 
 	def depreciation(self, item, lifespan, metric, uses=1, buffer=False):
 		if (metric == 'ticks') or (metric == 'usage'):
-			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=item) # TODO Support other accounts like Tools
+			#item_type = self.get_item_type(item)
+			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=item) # TODO Maybe support other accounts
 			if asset_bal == 0:
 				return
 			depreciation_event = []
@@ -2104,20 +2167,33 @@ class Entity:
 								spoil_entry = [[ inv_lot[0], inv_lot[1], world.now, inv_lot[4] + ' spoilage', inv_lot[4], inv_lot[5], inv_lot[6] or '', 'Spoilage Expense', 'Inventory', inv_lot[9] ]]
 							ledger.journal_entry(spoil_entry)
 
+	def impairment(self, item, amount):
+		# TODO Maybe make amount default to None and have optional impact or reduction parameter
+		# item_type = self.get_item_type(item)
+		# asset_bal = ledger.balance_sheet(accounts=[item_type], item=item)
+
+		impairment_entry = [ ledger.get_event(), self.entity_id, world.now, 'Impairment of ' + item, item, '', '', 'Loss on Impairment', 'Accumulated Impairment Losses', amount ]
+		impairment_event = [impairment_entry]
+		ledger.journal_entry(impairment_event)
+		return impairment_event
+
 	def derecognize(self, item, qty):
 		# TODO Check if item in use
-		asset_bal = ledger.balance_sheet(accounts=['Equipment'], item=item)# TODO Support other accounts
+		#item_type = self.get_item_type(item)
+		asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=item)# TODO Maybe support other accounts
 		if asset_bal == 0:
 				return
 		accum_dep_bal = ledger.balance_sheet(accounts=['Accumulated Depreciation'], item=item)
-		if asset_bal == abs(accum_dep_bal):
+		accum_imp_bal = ledger.balance_sheet(accounts=['Accumulated Impairment Losses'], item=item)
+		accrum_reduction = abs(accum_dep_bal) + abs(accum_imp_bal)
+		if asset_bal == accrum_reduction:
 			derecognition_entry = [ ledger.get_event(), self.entity_id, world.now, 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accumulated Depreciation', 'Equipment', asset_bal ]
 			derecognition_event = [derecognition_entry]
 			ledger.journal_entry(derecognition_event)
 
 
 class Individual(Entity):
-	def __init__(self, name, items):
+	def __init__(self, name, items, parents=(None, None)):
 		super().__init__(name)
 		hunger_start = 100
 		if args.random:
@@ -2138,6 +2214,8 @@ class Individual(Entity):
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
 		self.produces = list(filter(None, self.produces))
+		self.parents = parents
+		print('Parents: {}'.format(self.parents))
 		print('Create Individual: {} | entity_id: {}'.format(self.name, self.entity_id))
 		self.hours = entity_data[0][6]
 		self.setup_needs(entity_data)
@@ -2209,7 +2287,56 @@ class Individual(Entity):
 			self.dead = True
 		return self.needs[need]['Current Need']
 
-	def inheritance(self):
+	def birth(self, counterparty=None):
+		print('\nPerson to be born!')
+		self.entities = accts.get_entities()
+		if counterparty is None:
+			individuals = factory.registry[Individual]
+			#print('Individuals: {}'.format(individuals))
+			self.entity_ids = [individual.entity_id for individual in individuals]
+			self.entity_ids.remove(self.entity_id)
+			print('Entity IDs Before: {}'.format(self.entity_ids))
+			random.shuffle(self.entity_ids)
+			print('Entity IDs: {}'.format(self.entity_ids))
+			# Choose random partner is none is provided
+			counterparty = factory.get_by_id(random.choice(self.entity_ids))
+		gift_event = []
+		ledger.set_entity(self.entity_id)
+		cash1 = ledger.balance_sheet(['Cash'])
+		ledger.reset()
+		if cash1 >= 1000:
+			gift_entry1 = [ ledger.get_event(), self.entity_id, world.now, 'Gift cash to child', '', '', '', 'Wealth', 'Cash', 1000 ]
+		else:
+			print('{} does not have $1,000 in cash to give birth with {}.'.format(self.name, counterparty.name))
+			return
+		ledger.set_entity(counterparty.entity_id)
+		cash2 = ledger.balance_sheet(['Cash'])
+		ledger.reset()
+		if cash2 >= 1000:
+			gift_entry2 = [ ledger.get_event(), counterparty.entity_id, world.now, 'Gift cash to child', '', '', '', 'Wealth', 'Cash', 1000 ]
+		else:
+			print('{} does not have $1,000 in cash to have child with {}.'.format(counterparty.name, self.name))
+			return
+			# TODO Support looping through counterparties if first does not have enough cash
+			# self.entity_ids.remove(counterparty.entity_id)
+			# for entity in self.entity_ids:
+			# 	counterparty = factory.get_by_id(entity)
+
+		gift_event += [gift_entry1, gift_entry2]
+
+		self.indiv_items_produced = list(world.items[world.items['producer'].str.contains('Individual', na=False)].index.values)
+		self.indiv_items_produced = ','.join(self.indiv_items_produced)
+		#print('Individual Production: {}'.format(self.indiv_items_produced))
+		last_entity_id = self.entities.reset_index()['entity_id'].max() # TODO Maybe a better way of doing this
+		#print('Last Entity ID: {}'.format(last_entity_id))
+		factory.create(Individual, 'Person-' + str(last_entity_id + 1), self.indiv_items_produced, (self, counterparty))
+		individual = factory.get_by_id(last_entity_id + 1)
+
+		gift_event += individual.capitalize(amount=2000, buffer=True) # Hardcoded amount for now
+
+		ledger.journal_entry(gift_event)
+
+	def inheritance(self, counterparty=None):
 		# Remove any items that exist on the demand table for this entity
 		demand_items = world.demand[world.demand['entity_id'] == self.entity_id]
 		if not demand_items.empty:
@@ -2247,16 +2374,22 @@ class Individual(Entity):
 				for _ in range(sub_state):
 					self.cancel_subscription(item, counterparty)
 
-		individuals = itertools.cycle(factory.get(Individual))
-		nextindv = next(individuals) # Prime the pump
-		while True:
-			individual, nextindv = nextindv, next(individuals)
-			# print('Individual: {}'.format(individual.name))
-			# print('Next Individual: {}'.format(nextindv.name))
-			if individual.entity_id == self.entity_id:
-				counterparty = nextindv
-				break
+		# Get the counterparty to inherit to
+		if counterparty is None:
+			counterparty = self.parents[0]
+			#print('First Parent: {}'.format(counterparty))
+			if counterparty is None:
+				individuals = itertools.cycle(factory.get(Individual))
+				nextindv = next(individuals) # Prime the pump
+				while True:
+					individual, nextindv = nextindv, next(individuals)
+					# print('Individual: {}'.format(individual.name))
+					# print('Next Individual: {}'.format(nextindv.name))
+					if individual.entity_id == self.entity_id:
+						counterparty = nextindv
+						break
 		print('Inheritance bequeathed from {} to {}'.format(self.name, counterparty.name))
+
 		ledger.set_entity(self.entity_id)
 		# Remove all job and subscription info entries
 		ledger.gl = ledger.gl.loc[ledger.gl['credit_acct'] != 'Worker Info']

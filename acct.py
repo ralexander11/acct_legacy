@@ -177,6 +177,12 @@ class Accounts:
 				efficiency text,
 				lifespan integer,
 				metric text DEFAULT 'ticks',
+				dmg_type text,
+				dmg text,
+				res_type text,
+				res text,
+				byproduct text,
+				byproduct_amt text,
 				producer text
 			);
 			''' # Metric can have values of 'ticks' or 'units' or 'spoilage'
@@ -198,6 +204,12 @@ class Accounts:
 				efficiency,
 				lifespan,
 				metric,
+				dmg_type,
+				dmg,
+				res_type,
+				res,
+				byproduct,
+				byproduct_amt,
 				producer
 				) VALUES (
 					'credit_line_01',
@@ -216,6 +228,12 @@ class Accounts:
 					NULL,
 					3650,
 					'ticks',
+					NULL,
+					NULL,
+					NULL,
+					NULL,
+					NULL,
+					NULL,
 					'Bank'
 				);
 			''']
@@ -319,15 +337,21 @@ class Accounts:
 			efficiency = input('Enter the ratio that the requirement is reduced by as a list: ')
 			metric = input('Enter either "ticks" or "units" for how the lifespan is measured: ')
 			lifespan = input('Enter how long the item lasts: ')
+			dmg_types = input('Enter the types of damage (if any) the item can inflict as a list: ')
+			dmg = input('Enter the amounts of damage (if any) the item can inflict as a list: ')
+			res_types = input('Enter the types of damage resilience (if any) the item has as a list: ')
+			res = input('Enter the amounts of damage resilience (if any) the item has as a list: ')
+			byproduct = input('Enter the byproducts created (if any) when this item is produced as a list: ')
+			byproduct_amt = input('Enter the amount of byproducts created (if any) when this item is produced as a list: ')
 			producer = input('Enter the producer of the item: ')
 
-			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,usage_req,use_amount,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,producer)
-			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,usage_req,use_amount,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer)
+			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for item in item_data:
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
-				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, item)
 
 		self.conn.commit()
