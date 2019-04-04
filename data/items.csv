@@ -28,7 +28,8 @@ Ore,None,None,None,Commodity,Mountain,1,None,None,None,None,None,None,None,None,
 Metal,None,None,None,Commodity,"Forge, Ore","1, 2",None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,Smelter
 Forge,None,None,continuous,Equipment,"Rock, Wood","30, 5",None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,Blacksmith
 Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
-Water,None,None,None,Subscription,Land,1,None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Well
+Water Well,None,None,continuous,Equipment,"Rock, Wood","100, 20",4,None,None,None,None,None,None,30,ticks,None,None,None,100,None,None,Well
+Water,None,None,None,Subscription,"Land, Water Well","1, 1",None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Well
 Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,100,usage,None,None,None,20,None,None,Carpenter
 Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Haircut,None,None,None,Service,Barber,1,None,None,None,Hygiene,100,None,None,None,None,None,None,None,None,None,None,Barber Shop
@@ -46,7 +47,7 @@ Blacksmither,None,None,None,Labour,Strength,1,2000,None,None,None,None,None,None
 Strength,None,None,None,Education,"Time, Rock","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Wire,None,None,None,Commodity,"Metal Working, Rock","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Blacksmith
 Electricity,None,None,None,Technology,"Time, Wire","2, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Blacksmith
-Robot Plow,None,None,start,Equipment,"Electricity, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 20, 40",12,None,None,None,None,Cultivator,1,20,usage,None,None,None,10000,None,None,Blacksmith
+Robot Plow,None,None,start,Equipment,"Electricity, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 12, 20, 40",12,None,None,None,None,Cultivator,1,20,usage,None,None,None,10000,None,None,Blacksmith
 Super Food,None,None,None,Commodity,"Time, Super Tech, Arable Land, Cultivator, Water","7, 1, 400, 0.1, 1",None,None,None,Hunger,10,None,None,21,spoilage,None,None,None,1,None,None,Farm
 Super Tech,None,None,None,Technology,"Time, Wire","2, 20",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Well
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill

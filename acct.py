@@ -546,9 +546,12 @@ class Ledger:
 		else:
 			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
 
-	def balance_sheet(self, accounts=None, item=None): # TODO Needs to be optimized
+	def balance_sheet(self, accounts=None, item=None, v=False): # TODO Needs to be optimized with:
+		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		all_accts = False
-		#print(self.gl)
+		if v: 
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				if v: print(self.gl)
 		if item is not None: # TODO Add support for multiple items maybe
 			self.gl = self.gl[self.gl['item_id'] == item]
 
@@ -594,22 +597,23 @@ class Ledger:
 		# TODO The below repeated sections can probably be handled more elegantly
 
 		asset_bal = 0
+		if v: print('Asset Accounts: {}'.format(assets))
 		for acct in assets:
 			#print(self.gl)
-			#print('Account: {}'.format(acct))
+			if v: print('Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				#print('Asset Debit Error: {}'.format(e))
+				if v: print('Asset Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				#print('Asset Credit Error: {}'.format(e))
+				if v: print('Asset Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = debits - credits
 			asset_bal += bal
-			#print('Bal: {}'.format(bal))
+			if v: print('Balance for {}: {}'.format(acct, bal))
 			#if bal != 0: # TODO Not sure if should display empty accounts
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 		self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
@@ -620,12 +624,12 @@ class Ledger:
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				logging.debug('Liabilities Debit Error')
+				if v: print('Liabilities Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				logging.debug('Liabilities Crebit Error')
+				if v: print('Liabilities Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			liab_bal += bal
@@ -638,12 +642,12 @@ class Ledger:
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				logging.debug('Wealth Debit Error')
+				if v: print('Wealth Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				logging.debug('Wealth Crebit Error')
+				if v: print('Wealth Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			wealth_bal += bal
@@ -656,12 +660,12 @@ class Ledger:
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				logging.debug('Revenues Debit Error')
+				if v: print('Revenues Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				logging.debug('Revenues Crebit Error')
+				if v: print('Revenues Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			rev_bal += bal
@@ -674,12 +678,12 @@ class Ledger:
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				logging.debug('Expenses Debit Error')
+				if v: print('Expenses Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 			except KeyError as e:
-				logging.debug('Expenses Crebit Error')
+				if v: print('Expenses Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = debits - credits
 			exp_bal += bal
