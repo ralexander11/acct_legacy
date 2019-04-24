@@ -7,8 +7,9 @@ import logging
 import warnings
 
 
-DISPLAY_WIDTH = 98#197#
+DISPLAY_WIDTH = 98#196#
 pd.set_option('display.width', DISPLAY_WIDTH)
+pd.set_option('display.max_colwidth', 30)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
@@ -177,7 +178,7 @@ class Accounts:
 				satisfy_rate text,
 				productivity text,
 				efficiency text,
-				lifespan integer,
+				lifespan text,
 				metric text DEFAULT 'ticks',
 				dmg_type text,
 				dmg text,
@@ -1183,7 +1184,7 @@ class Ledger:
 		if qty <= avail_qty: # Case when first available lot covers the need
 			if v: print('Hist Qty: {}'.format(qty))
 			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[qty]})
-			if v: print('Historical Cost Price Chart: \n{}'.format(price_chart))
+			print('Historical Cost Price Chart: \n{}'.format(price_chart))
 			amount = price_chart.price.dot(price_chart.qty)
 			print('Historical Cost Case | One: {}'.format(amount))
 			return amount
@@ -1218,7 +1219,7 @@ class Ledger:
 			qty = qty - self.gl.loc[current_index]['qty']
 			count += 1
 
-		if v: print('Historical Cost Price Chart: \n{}'.format(price_chart))
+		print('Historical Cost Price Chart: \n{}'.format(price_chart))
 		amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
 		print('Historical Cost Case | Three: {}'.format(amount))
 		return amount

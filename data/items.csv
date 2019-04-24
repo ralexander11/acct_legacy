@@ -17,13 +17,15 @@ Arable Land,None,None,None,Land,None,None,None,None,None,None,None,None,None,Non
 Forest,None,None,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Rocky Land,None,None,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Mountain,None,None,None,Rocky Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Lumberjack,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Miner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Harvester,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Berries,None,None,None,Commodity,"Time, Land","1, 10",None,None,None,Hunger,0.25,None,None,7,spoilage,None,None,None,1,None,None,Individual
 Food,None,None,None,Commodity,"Time, Arable Land, Cultivator, Water, Harvest, Manager","7, 400, 0.1, 1, 0.05, 1",None,None,None,Hunger,1,None,None,7,spoilage,None,None,None,1,None,None,Farm
-Plow,None,None,start,Equipment,"Metal Working, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 10, 20",12,None,None,None,None,Cultivator,0.5,10,usage,None,None,None,100,None,None,Blacksmith
-Wood,None,None,None,Commodity,Land,1,None,None,None,None,None,None,None,None,None,None,None,None,10,Wood Chips,10,Lumbermill
-Rock,None,None,None,Commodity,Land,1,None,None,None,None,None,None,None,None,None,None,10,None,10,None,None,"Quarry, Mine"
+Plow,None,None,start,Equipment,"Metal Working, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 10, 20",12,None,None,None,None,Cultivator,0.5,"10,1000","usage, ticks",None,None,None,100,None,None,Blacksmith
+Wood,None,None,None,Commodity,"Land, Lumberjack","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,10,Wood Chips,10,Lumbermill
+Rock,None,None,None,Commodity,"Land, Miner","1, 0.2",None,None,None,None,None,None,None,None,None,None,10,None,10,None,None,"Quarry, Mine"
 Ore,None,None,None,Commodity,Mountain,1,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
 Metal,None,None,None,Commodity,"Forge, Ore","1, 2",None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,Smelter
 Forge,None,None,continuous,Equipment,"Rock, Wood","30, 5",None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,Blacksmith
