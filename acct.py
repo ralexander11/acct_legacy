@@ -109,6 +109,8 @@ class Accounts:
 				ticker_source text DEFAULT 'iex',
 				hours INTEGER,
 				needs text,
+				impact INTEGER,
+				amplify real,
 				need_max INTEGER DEFAULT 100,
 				decay_rate INTEGER DEFAULT 1,
 				need_threshold INTEGER DEFAULT 40,
@@ -127,6 +129,8 @@ class Accounts:
 				ticker_source,
 				hours,
 				needs,
+				impact,
+				amplify,
 				need_max,
 				decay_rate,
 				need_threshold,
@@ -143,6 +147,8 @@ class Accounts:
 					'iex',
 					24,
 					'Hunger',
+					1,
+					0,
 					100,
 					1,
 					40,
@@ -297,6 +303,8 @@ class Accounts:
 			ticker_source = input('Enter the source for tickers: ')
 			hours = input('Enter the number of hours in a work day: ')
 			needs = input('Enter the needs of the entity as a list: ')
+			impact = input('Enter the amounts of impact each need has on health.')
+			impact = input('Enter the amounts each need amplifies health impact.')
 			need_max = input('Enter the maximum need value as a list: ')
 			decay_rate = input('Enter the rates of decay per day for each need.') # TODO Add int validation
 			need_threshold = input('Enter the threshold for the needs as a list: ')
@@ -304,13 +312,13 @@ class Accounts:
 			auth_shares = input('Enter the number of shares authorized: ')
 			outputs = input('Enter the output names as a list: ') # For corporations
 
-			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,hours,needs,need_max,decay_rate,need_threshold,current_need,auth_shares,outputs)
-			cur.execute('INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,hours,needs,impact,amplify,need_max,decay_rate,need_threshold,current_need,auth_shares,outputs)
+			cur.execute('INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()
@@ -418,7 +426,7 @@ class Accounts:
 
 	def print_entities(self, save=True): # TODO Add error checking if no entities exist
 		#self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col=['entity_id'])
-		self.entities = get_entities()
+		self.entities = self.get_entities()
 		if save:
 			self.entities.to_csv('data/entities.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):

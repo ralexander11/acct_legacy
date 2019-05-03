@@ -20,7 +20,7 @@ MAX_CORPS = 2
 MAX_HOURS = 12
 INIT_PRICE = 10.0
 INIT_CAPITAL = 2000
-# END_DATE = '1986-10-05'
+END_DATE = '1986-10-05'
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -1573,6 +1573,8 @@ class Entity:
 		#print('Need Demand: {}'.format(need))
 		if item is None and need is not None:
 			items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
+			if items_info.empty:
+				return
 
 			need_satisfy_rate = []
 			for index, item_row in items_info.iterrows():
@@ -1699,6 +1701,8 @@ class Entity:
 		if item is None and need is not None:
 			items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
 			#print('Items Info Before: \n{}'.format(items_info))
+			if items_info.empty:
+				return
 			need_satisfy_rate = []
 			for index, item_row in items_info.iterrows():
 				needs = [x.strip() for x in item_row['satisfies'].split(',')]
@@ -2507,7 +2511,7 @@ class Individual(Entity):
 		# Note: The 2nd to 5th values are for another program
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst, Fun','100,100,100,100','1,1,2,5','85,50,60,40', str(hunger_start)+',100,100,100',None,'Labour') ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst','100,100,100','1,1,2','85,50,60', str(hunger_start)+',100,100',None,items) ]
-		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','100,100','1,2','85,60', str(hunger_start)+',100',None,items) ]
+		entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Thirst','1,10','0,0','100,100','1,2','85,60', str(hunger_start)+',100',None,items) ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','85', str(hunger_start),None,items) ]
 
 		self.entity_id = accts.add_entity(entity_data)
@@ -2554,18 +2558,24 @@ class Individual(Entity):
 		return self.hours
 
 	def setup_needs(self, entity_data):
+		# TODO Have health info saved in entity table
 		self.needs = collections.defaultdict(dict)
 		needs_names = [x.strip() for x in entity_data[0][7].split(',')]
+		needs_names.insert(0, 'Health')
 		needs_max = [x.strip() for x in str(entity_data[0][8]).split(',')]
+		needs_max.insert(0, 100)
 		decay_rate = [x.strip() for x in str(entity_data[0][9]).split(',')]
+		decay_rate.insert(0, 0)
 		threshold = [x.strip() for x in str(entity_data[0][10]).split(',')]
+		threshold.insert(0, 0)
 		current_need = [x.strip() for x in str(entity_data[0][11]).split(',')]
+		current_need.insert(0, 100)
 		for i, name in enumerate(needs_names):
 			self.needs[name]['Max Need'] = int(needs_max[i])
 			self.needs[name]['Decay Rate'] = int(decay_rate[i])
 			self.needs[name]['Threshold'] = int(threshold[i])
 			self.needs[name]['Current Need'] = int(current_need[i])
-		#print(self.needs)
+		print(self.needs)
 		return self.needs
 
 	def set_need(self, need, need_delta, forced=False):
@@ -2583,16 +2593,27 @@ class Individual(Entity):
 		cur.execute(set_need_query, values)
 		ledger.conn.commit()
 		cur.close()
-		if self.needs[need]['Current Need'] <= 0:
-			self.inheritance()
-			factory.destroy(self)
-			if forced:
-				print('{} died due to natural causes.'.format(self.name))
-			else:
-				print('{} died due to {}.'.format(self.name, need))
-			#world.end = True
-			self.dead = True
+		if need == 'Health':
+			if self.needs[need]['Current Need'] <= 0:
+				self.inheritance()
+				factory.destroy(self)
+				if forced:
+					print('{} died due to natural causes.'.format(self.name))
+				else:
+					print('{} died due to {}.'.format(self.name, need))
+				#world.end = True
+				self.dead = True
+		else:
+			if self.needs[need]['Current Need'] <= 0:
+				self.set_decay_rate(self.needs[need]['Impact'])
 		return self.needs[need]['Current Need']
+
+	def set_decay_rate(self, amount=0, need='Health'):
+		if self not in factory.registry[Individual]:
+			print('{} is already deceased.'.format(self.name))
+			return
+		self.needs[need]['Decay Rate'] += decay_delta
+		return self.needs[need]['Decay Rate']
 
 	def birth(self, counterparty=None, amount=None):
 		print('\nPerson to be born!')
@@ -2724,10 +2745,11 @@ class Individual(Entity):
 		ledger.journal_entry(inherit_event)
 
 	def need_decay(self, need):
+		amplify = 1
 		rand = 1
-		if args.random:
+		if args.random and need != 'Health':
 			rand = random.randint(1, 3)
-		decay_rate = self.needs[need]['Decay Rate'] * -1 * rand
+		decay_rate = self.needs[need]['Decay Rate'] * -1 * amplify * rand
 		#print('{} Decay Rate: {}'.format(need, decay_rate))
 		self.set_need(need, decay_rate)
 		return decay_rate

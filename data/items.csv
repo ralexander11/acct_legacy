@@ -43,7 +43,7 @@ University,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,Non
 Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Study,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Metal Working,None,None,None,Technology,Time,2,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Blacksmith
+Metal Working,None,None,None,Technology,"Time, Anvil","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Blacksmith
 Blacksmith Shop,None,None,continuous,Buildings,"Time, Wood, Rock","2, 100, 60",10,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
 Blacksmither,None,None,None,Labour,Strength,1,2000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Strength,None,None,None,Education,"Time, Rock","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
@@ -53,3 +53,4 @@ Robot Plow,None,None,start,Equipment,"Electricity, Blacksmith Shop, Blacksmither
 Super Food,None,None,None,Commodity,"Time, Super Tech, Arable Land, Cultivator, Water","7, 1, 400, 0.1, 1",None,None,None,Hunger,10,None,None,21,spoilage,None,None,None,1,None,None,Farm
 Super Tech,None,None,None,Technology,"Time, Wire","2, 20",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Well
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
+Anvil,None,None,continuous,Equipment,Rock,50,1,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,Blacksmith
