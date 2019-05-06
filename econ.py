@@ -446,8 +446,8 @@ class Entity:
 			print('{}-{} sets price for {} from {} to {}.'.format(self.name, self.entity_id, item, price, 0))
 			return
 		# print('{} price before adjustment: {}'.format(item, price))
-		#qty = math.ceil(qty / 10) # To reduce the number of times the loop runs
-		#for _ in range(math.ceil(qty)):
+		#qty = int(math.ceil(qty / 10)) # To reduce the number of times the loop runs
+		#for _ in range(int(math.ceil(qty))):
 		price = price * rate
 		if price < 0.01:
 			price = 0.01
@@ -590,7 +590,7 @@ class Entity:
 		# TODO Clean up
 		if qty == 0:
 			return
-		qty = math.ceil(qty)
+		qty = int(math.ceil(qty))
 		qty_wanted = qty
 		# TODO Add support for purchasing from multiple entities
 		outcome = None
@@ -943,7 +943,7 @@ class Entity:
 					print('{} building under construction: {}'.format(req_item, building_wip))
 					building += building_wip
 					remaining_qty = max((qty * req_qty) - (building * capacity), 0)
-					required_qty = math.ceil(remaining_qty / capacity)
+					required_qty = int(math.ceil(remaining_qty / capacity))
 					if building == 0:
 						print('{}-{} does not have any {} building and requires {}.'.format(self.name, self.entity_id, req_item, required_qty))
 					else:
@@ -962,7 +962,7 @@ class Entity:
 				building = ledger.get_qty(items=req_item, accounts=['Buildings'])
 				qty_to_use = 0
 				if building != 0:
-					qty_to_use = int(min(building, math.ceil((qty * req_qty) / (building * capacity))))
+					qty_to_use = int(min(building, int(math.ceil((qty * req_qty) / (building * capacity)))))
 					print('{}-{} needs to use {} {} times to produce {}.'.format(self.name, self.entity_id, req_item, qty_to_use, item))
 				if time_required: # TODO Handle building in use during one tick and handle building capacity
 					entries = self.in_use(req_item, qty_to_use, world.get_price(req_item, self.entity_id), 'Buildings', buffer=True)
@@ -996,7 +996,7 @@ class Entity:
 					print('{} equipment being manufactured: {}'.format(req_item, equip_qty_wip))
 					equip_qty += equip_qty_wip
 					remaining_qty = max((qty * req_qty) - (equip_qty * capacity), 0)
-					required_qty = math.ceil(remaining_qty / capacity)
+					required_qty = int(math.ceil(remaining_qty / capacity))
 					if equip_qty == 0:
 						print('{}-{} does not have any {} equipment and requires {}.'.format(self.name, self.entity_id, req_item, required_qty))
 					else:
@@ -1015,7 +1015,7 @@ class Entity:
 				equip_qty = ledger.get_qty(items=req_item, accounts=['Equipment'])
 				qty_to_use = 0
 				if equip_qty != 0:
-					qty_to_use = int(min(equip_qty, math.ceil((qty * req_qty) / (equip_qty * capacity))))
+					qty_to_use = int(min(equip_qty, int(math.ceil((qty * req_qty) / (equip_qty * capacity)))))
 				if time_required: # TODO Handle equipment in use during only one tick
 					entries = self.in_use(req_item, qty_to_use, world.get_price(req_item, self.entity_id), 'Equipment', buffer=True)
 					if not entries:
@@ -1160,7 +1160,7 @@ class Entity:
 					print('{}-{} has {} {} available with {} capacity each.'.format(self.name, self.entity_id, workers, req_item, capacity))
 					if ((workers * capacity) / (qty * req_qty)) < 1:
 						remaining_qty = (qty * req_qty) - (workers * capacity)
-						required_qty = math.ceil(remaining_qty / capacity)
+						required_qty = int(math.ceil(remaining_qty / capacity))
 						if workers <= 0:
 							print('{}-{} does not have a {} available to work. Will attempt to hire {}.'.format(self.name, self.entity_id, req_item, required_qty))
 						else:
@@ -1220,6 +1220,10 @@ class Entity:
 						if not entries:
 							entries = []
 							incomplete = True
+							if item_type != 'Education':
+								qty_possible = int(math.floor(labour_done / (req_qty * (1-modifier))))
+								#print('Qty Possible: {}'.format(qty_possible))
+								world.demand.loc[world.demand['item_id'] == item, 'qty'] = qty_possible
 							break
 							#return
 						event += entries
@@ -1431,7 +1435,7 @@ class Entity:
 			byproducts = list(set(filter(None, byproducts)))
 			if isinstance(byproduct_amts, str):
 				byproduct_amts = [x.strip() for x in byproduct_amts.split(',')]
-			byproduct_amts = list(set(filter(None, byproduct_amts)))
+			byproduct_amts = list(filter(None, byproduct_amts))
 			for byproduct, byproduct_amt in zip(byproducts, byproduct_amts):
 				byproduct_item_type = world.get_item_type(byproduct)
 				desc = item + ' byproduct produced'
@@ -1481,7 +1485,7 @@ class Entity:
 				requirements = world.items.loc[item, 'requirements']
 				if isinstance(requirements, str):
 					requirements = [x.strip() for x in requirements.split(',')]
-				requirements = list(set(filter(None, requirements)))
+				requirements = list(filter(None, requirements))
 				if v: print('WIP Requirements for {}: {}'.format(item, requirements))
 				for requirement in requirements:
 					if v: print('Requirement: {}'.format(requirement))
@@ -1744,8 +1748,7 @@ class Entity:
 		decay_rate = self.needs[need]['Decay Rate']
 		if need is None: # This should never happen
 			need = item_info['satisfies']
-			qty = math.ceil(decay_rate / float(item_info['satisfy_rate']))
-			qty = int(qty)
+			qty = int(math.ceil(decay_rate / float(item_info['satisfy_rate'])))
 			return qty
 		# Support items with multiple satisfies
 		else:
@@ -1754,12 +1757,11 @@ class Entity:
 				if need_item == need:
 					break
 			satisfy_rates = [x.strip() for x in item_info['satisfy_rate'].split(',')]
-			qty = math.ceil(decay_rate / float(satisfy_rates[i]))
+			qty = int(math.ceil(decay_rate / float(satisfy_rates[i])))
 			# if args.random and item_type != 'Commodity':
 			# 	rand = random.randint(1, 3)
 			# 	qty = qty * rand
 			#qty = qty * world.population
-			qty = int(qty)
 			return qty
 
 	def item_demanded(self, item=None, qty=None, need=None, cost=False):
@@ -1887,7 +1889,7 @@ class Entity:
 			# if args.random and item_type == 'Commodity': # TODO Maybe add Components
 				# orig_qty = qty
 				# rand = random.randint(0, 10) / 10
-				# qty = math.ceil(qty * (1 + rand))
+				# qty = int(math.ceil(qty * (1 + rand)))
 			self.adj_price(item, qty_existance, rate=1.01)
 			outcome, time_required = self.produce(item, qty)
 			if v: print('Outcome: {} \n{}'.format(time_required, outcome))
@@ -2500,7 +2502,7 @@ class Entity:
 			if dep_amount > remaining_amount:
 				uses = remaining_amount / (asset_bal / lifespan)
 				dep_amount = remaining_amount
-				new_qty = math.ceil(uses / lifespan)
+				new_qty = int(math.ceil(uses / lifespan))
 				print('The {} breaks for the {}-{}. Another {} are required to use.'.format(item, self.name, self.entity_id, new_qty))
 				# Try to purchase a new item if current one breaks
 				outcome = self.purchase(item, new_qty)
@@ -2889,14 +2891,14 @@ class Individual(Entity):
 			if item_type == 'Service':
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				#print('Need Needed: {}'.format(need_needed))
-				qty_purchase = math.ceil(need_needed / satisfy_rate)
+				qty_purchase = int(math.ceil(need_needed / satisfy_rate))
 				#print('QTY Needed: {}'.format(qty_needed))
 				outcome = self.purchase(item_choosen, qty_purchase)
 
 			elif (item_type == 'Commodity') or (item_type == 'Component'):
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				#print('Need Needed: {}'.format(need_needed))
-				qty_needed = math.ceil(need_needed / satisfy_rate)
+				qty_needed = int(math.ceil(need_needed / satisfy_rate))
 				#print('QTY Needed: {}'.format(qty_needed))
 				ledger.set_entity(self.entity_id)
 				qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
@@ -2930,7 +2932,7 @@ class Individual(Entity):
 				ledger.reset()
 				#print('QTY Held: {}'.format(qty_held))
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
-				uses_needed = math.ceil(need_needed / satisfy_rate)
+				uses_needed = int(math.ceil(need_needed / satisfy_rate))
 				print('Uses Needed: {}'.format(uses_needed))
 				event = []
 				if qty_held == 0:
@@ -2951,7 +2953,7 @@ class Individual(Entity):
 						lifespan = int(lifespans[i])
 						#print('{} Metric: {} | Lifespan: {}'.format(item, metric, lifespan))
 						if metric == 'usage':
-							qty_purchase = math.ceil(uses_needed / lifespan)
+							qty_purchase = int(math.ceil(uses_needed / lifespan))
 							break
 					outcome = self.purchase(item_choosen, qty_purchase)
 				if qty_held > 0 or outcome:
