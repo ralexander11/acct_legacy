@@ -552,12 +552,11 @@ class Ledger:
 	def balance_sheet(self, accounts=None, item=None, v=False): # TODO Needs to be optimized with:
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		all_accts = False
+		if item is not None: # TODO Add support for multiple items maybe
+			self.gl = self.gl[self.gl['item_id'] == item]
 		if v: 
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				if v: print(self.gl)
-		if item is not None: # TODO Add support for multiple items maybe
-			self.gl = self.gl[self.gl['item_id'] == item]
-
 		if accounts is None: # Create a list of all the accounts
 			all_accts = True
 			debit_accts = pd.unique(self.gl['debit_acct'])
@@ -730,57 +729,63 @@ class Ledger:
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, v_qty=False):
+	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, v=False):
 		# if items == 'Food':
-		# 	v_qty = True
+		# 	v = True
 		all_accts = False
 		single_item = False
 		no_item = False
-		if (accounts is None) or (accounts == ''):
-			if v_qty: print('No account given.')
-			all_accts = True
-			accounts = pd.unique(self.gl['debit_acct'])
-			#credit_accts = pd.unique(self.gl['credit_acct']) # Not needed
-			#accounts = list( set(accounts) | set(credit_accts) ) # Not needed
-		if v_qty: print('Accounts: {}'.format(accounts))
-		if isinstance(accounts, str):
-			accounts = [x.strip() for x in accounts.split(',')]
-		accounts = list(filter(None, accounts))
-		if v_qty: print('Items Given: {}'.format(items))
+		if v: print('Items Given: {}'.format(items))
 		if (items is None) or (items == '') or (not items):
 			items = None
 			no_item = True
 		if isinstance(items, str):
 			items = [x.strip() for x in items.split(',')]
 			items = list(filter(None, items))
-			if v_qty: print('Select Items: {}'.format(items))
+			if v: print('Select Items: {}'.format(items))
 		if items is not None and len(items) == 1:
 			single_item = True
-			if v_qty: print('Single Item: {}'.format(single_item))
+			if v: print('Single Item: {}'.format(single_item))
+		if (accounts is None) or (accounts == ''):
+			if v: print('No account given.')
+			all_accts = True
+			if no_item:
+				accounts = pd.unique(self.gl['debit_acct'])
+			else:
+				item_txns = self.gl.loc[self.gl['item_id'].isin(items)]
+				accounts = pd.unique(item_txns['debit_acct'])
+			#credit_accts = pd.unique(self.gl['credit_acct']) # Not needed
+			#accounts = list( set(accounts) | set(credit_accts) ) # Not needed
+		if v: print('Accounts: {}'.format(accounts))
+		if isinstance(accounts, str):
+			accounts = [x.strip() for x in accounts.split(',')]
+		accounts = list(filter(None, accounts))
 		if by_entity:
 			inventory = pd.DataFrame(columns=['entity_id','item_id','qty'])
 		else:
 			inventory = pd.DataFrame(columns=['item_id','qty'])
+		if single_item:
+			total_qty = 0
 		for acct in accounts:
-			#if v_qty: print('GL: \n{}'.format(self.gl))
-			if v_qty: print('Acct: {}'.format(acct))
+			#if v: print('GL: \n{}'.format(self.gl))
+			if v: print('Acct: {}'.format(acct))
 			if no_item: # Get qty for all items
-				if v_qty: print('No item given.')
+				if v: print('No item given.')
 				items = pd.unique(self.gl[self.gl['debit_acct'] == acct]['item_id'].dropna()).tolist() # Assuming you can't have a negative inventory
 				#credit_items = pd.unique(self.gl[self.gl['credit_acct'] == acct]['item_id'].dropna()).tolist() # Causes issues
 				#items = list( set(items) | set(credit_items) ) # Causes issues
 				items = list(filter(None, items))
-				if v_qty: print('All Items: {}'.format(items))
+				if v: print('All Items: {}'.format(items))
 			for item in items:
-				if v_qty: print('Item: {}'.format(item))
+				if v: print('Item: {}'.format(item))
 				if by_entity:
 					entities = pd.unique(self.gl[self.gl['item_id'] == item]['entity_id'])
-					if v_qty: print('Entities: \n{}'.format(entities))
+					if v: print('Entities: \n{}'.format(entities))
 					for entity_id in entities:
-						if v_qty: print('Entity ID: \n{}'.format(entity_id))
+						if v: print('Entity ID: \n{}'.format(entity_id))
 						self.set_entity(entity_id)
 						qty_txns = self.get_qty_txns(item, acct)
-						if v_qty: print('QTY TXNs: \n{}'.format(qty_txns))
+						if v: print('QTY TXNs by entity: \n{}'.format(qty_txns))
 						try:
 							debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
 							#print('Debits: \n{}'.format(debits))
@@ -794,14 +799,14 @@ class Ledger:
 							#print('Error Credits: {} | {}'.format(e, repr(e)))
 							credits = 0
 						qty = round(debits - credits, 0)
-						if v_qty: print('QTY: {}'.format(qty))
+						if v: print('QTY: {}'.format(qty))
 						inventory = inventory.append({'entity_id':entity_id, 'item_id':item, 'qty':qty}, ignore_index=True)
-						#if v_qty: print(inventory)
+						#if v: print(inventory)
 						self.reset()
 					inventory['entity_id'] = pd.to_numeric(inventory['entity_id'])
 				else:
 					qty_txns = self.get_qty_txns(item, acct)
-					if v_qty: print('QTY TXNs: \n{}'.format(qty_txns))
+					if v: print('QTY TXNs: \n{}'.format(qty_txns))
 					try:
 						debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
 						#print('Debits: \n{}'.format(debits))
@@ -815,11 +820,15 @@ class Ledger:
 						#print('Error Credits: {} | {}'.format(e, repr(e)))
 						credits = 0
 					qty = round(debits - credits, 0)
-					if v_qty: print('QTY: {}'.format(qty))
-					if single_item: # TODO Fix to handle multiple accounts
-						return qty # TODO Ensure is int
-					inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
-					#if v_qty: print(inventory)
+					if v: print('QTY: {}'.format(qty))
+					if single_item:
+						total_qty += int(qty)
+					else:
+						inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
+						#if v: print(inventory)
+		if single_item and not by_entity:
+			if v: print('Return Total Qty: ', total_qty)
+			return total_qty
 		if not show_zeros:
 			inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold
 		if all_accts:
@@ -1184,7 +1193,8 @@ class Ledger:
 		if qty <= avail_qty: # Case when first available lot covers the need
 			if v: print('Hist Qty: {}'.format(qty))
 			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[qty]})
-			print('Historical Cost Price Chart: \n{}'.format(price_chart))
+			if price_chart.shape[0] >= 2:
+				print('Historical Cost Price Chart: \n{}'.format(price_chart))
 			amount = price_chart.price.dot(price_chart.qty)
 			print('Historical Cost Case | One: {}'.format(amount))
 			return amount
@@ -1210,7 +1220,8 @@ class Ledger:
 			if v: print('Current TXN QTY: {}'.format(qty_txns_gl.loc[current_index]['qty']))
 			if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
 				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
-				print('Historical Cost Price Chart: \n{}'.format(price_chart))
+				if price_chart.shape[0] >= 2:
+					print('Historical Cost Price Chart: \n{}'.format(price_chart))
 				amount = price_chart.price.dot(price_chart.qty) # Take dot product
 				print('Historical Cost Case | Two: {}'.format(amount))
 				return amount
@@ -1219,7 +1230,8 @@ class Ledger:
 			qty = qty - self.gl.loc[current_index]['qty']
 			count += 1
 
-		print('Historical Cost Price Chart: \n{}'.format(price_chart))
+		if price_chart.shape[0] >= 2:
+			print('Historical Cost Price Chart: \n{}'.format(price_chart))
 		amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
 		print('Historical Cost Case | Three: {}'.format(amount))
 		return amount
