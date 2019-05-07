@@ -23,8 +23,9 @@ Lumberjack,None,None,None,Labour,None,None,None,None,None,None,None,None,None,No
 Miner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Harvester,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Berries,None,None,None,Commodity,"Time, Land","1, 10",None,None,None,Hunger,0.25,None,None,7,spoilage,None,None,None,1,None,None,Individual
-Food,None,None,None,Commodity,"Time, Arable Land, Cultivator, Water, Harvest, Manager","7, 400, 0.1, 1, 0.05, 1",None,None,None,Hunger,1,None,None,7,spoilage,None,None,None,1,None,None,Farm
+Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Berries,None,None,None,Commodity,"Time, Land","1, 10",None,None,None,Hunger,0.25,None,None,8,spoilage,None,None,None,1,None,None,Individual
+Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Farm
 Plow,None,None,start,Equipment,"Metal Working, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 10, 20",12,None,None,None,None,Cultivator,0.5,"10,1000","usage, ticks",None,None,None,100,None,None,Blacksmith
 Wood,None,None,None,Commodity,"Land, Lumberjack","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,10,Wood Chips,10,Lumbermill
 Rock,None,None,None,Commodity,"Land, Miner","1, 0.1",None,None,None,None,None,None,None,None,None,None,10,None,10,None,None,"Quarry, Mine"
@@ -34,7 +35,7 @@ Forge,None,None,continuous,Equipment,"Rock, Wood","30, 5",None,None,None,None,No
 Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Water Well,None,None,continuous,Equipment,"Rock, Wood","100, 20",4,None,None,None,None,None,None,30,ticks,None,None,None,100,None,None,Well
 Water,None,None,None,Subscription,"Land, Water Well","1, 1",None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Well
-Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,100,usage,None,None,None,20,None,None,Carpenter
+Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,"100, 200","usage, ticks",None,None,None,20,None,None,Carpenter
 Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Haircut,None,None,None,Service,Barber,1,None,None,None,Hygiene,100,None,None,None,None,None,None,None,None,None,None,Barber Shop
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Harvest Guild
@@ -55,3 +56,4 @@ Super Food,None,None,None,Commodity,"Time, Super Tech, Arable Land, Cultivator, 
 Super Tech,None,None,None,Technology,"Time, Wire, Wood","200, 200, 400",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Well
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Anvil,None,None,continuous,Equipment,Rock,50,1,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,Blacksmith
+Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,Growing,0.25,"1000","ticks",None,None,None,100,None,None,Blacksmith

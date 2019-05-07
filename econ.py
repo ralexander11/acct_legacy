@@ -20,7 +20,7 @@ MAX_CORPS = 2
 MAX_HOURS = 12
 INIT_PRICE = 10.0
 INIT_CAPITAL = 2000
-# END_DATE = '1986-10-04'
+END_DATE = '1986-10-08'
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -398,7 +398,7 @@ class World:
 		print(time_stamp() + '7: Cash check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
 
 		t8_start = time.perf_counter()
-		if str(self.now) == '1986-10-10': # For testing impairment
+		if str(self.now) == '1986-10-31': # For testing impairment
 			individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm'), target='Plow')
 
 		if args.random:
@@ -1221,9 +1221,24 @@ class Entity:
 							entries = []
 							incomplete = True
 							if item_type != 'Education':
-								qty_possible = int(math.floor(labour_done / (req_qty * (1-modifier))))
-								#print('Qty Possible: {}'.format(qty_possible))
-								world.demand.loc[world.demand['item_id'] == item, 'qty'] = qty_possible
+								#print('World Demand Before: \n{}'.format(world.demand))
+								demand_count = world.demand.loc[world.demand['item_id'] == item].shape[0]
+								print('Demand Count Buckets: {}'.format(demand_count))
+								if demand_count:
+									qty_possible = max(int(math.floor(labour_done / (req_qty * (1-modifier)))), 1)
+									qty_poss_bucket = max(int(math.ceil(qty_possible // demand_count)), 1)
+									# TODO Better handle zero remaining when qty_poss_bucket is also 1
+									qty_poss_remain = qty_possible % qty_poss_bucket
+									print('Labour Done: {} | Qty Possible: {} | '.format(labour_done, qty_possible))
+									print('Qty Poss. per Bucket: {} | Qty Poss. Remain: {}'.format(qty_poss_bucket, qty_poss_remain))
+									world.demand.loc[world.demand['item_id'] == item, 'qty'] = qty_poss_bucket
+									for i, row in world.demand.iterrows():
+										if row['item_id'] == item:
+											break
+									world.demand.at[i, 'qty'] = qty_poss_bucket + qty_poss_remain
+									world.demand.loc[world.demand['item_id'] == item, 'reason'] = 'labour'
+									print('{}-{} adjusted {} on demand list due to labour constraint.'.format(self.name, self.entity_id, item))
+									#print(time_stamp() + 'World Demand After: \n{}'.format(world.demand))
 							break
 							#return
 						event += entries
@@ -1440,9 +1455,9 @@ class Entity:
 				byproduct_item_type = world.get_item_type(byproduct)
 				desc = item + ' byproduct produced'
 				# TODO Support other account types, such as for pollution
-				byproduct_price = world.get_price(byproduct, self.entity_id)
+				by_price = 0 #world.get_price(byproduct, self.entity_id)
 				byproduct_amt = float(byproduct_amt)
-				byproduct_entry = [ ledger.get_event(), self.entity_id, world.now, desc, byproduct, price, byproduct_amt * qty, debit_acct, credit_acct, price * byproduct_amt * qty ]
+				byproduct_entry = [ ledger.get_event(), self.entity_id, world.now, desc, byproduct, by_price, byproduct_amt * qty, debit_acct, credit_acct, by_price * byproduct_amt * qty ]
 				if byproduct_entry:
 					produce_event += [byproduct_entry]
 
@@ -1453,7 +1468,7 @@ class Entity:
 		if not current_demand.empty:
 			to_drop = current_demand.index.tolist()
 			world.demand = world.demand.drop(to_drop).reset_index(drop=True)
-			print('{} exists on the demand table will drop {}: \n{}'.format(item, to_drop, current_demand))
+			print('{} exists on the demand table will drop index items {}.'.format(item, to_drop))
 		if buffer:
 			return produce_event, time_required
 		ledger.journal_entry(produce_event)
@@ -1472,7 +1487,7 @@ class Entity:
 		if not wip_txns.empty:
 			#print('WIP Transactions: \n{}'.format(wip_txns))
 			# Compare the gl dates to the WIP time from the items table
-			items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
+			#items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
 			items_continuous = world.items[world.items['freq'].str.contains('continuous', na=False)]
 			for index, wip_lot in wip_txns.iterrows():
 				wip_event = []
@@ -1490,22 +1505,52 @@ class Entity:
 				for requirement in requirements:
 					if v: print('Requirement: {}'.format(requirement))
 					if requirement in items_continuous.index.values:
-						entries = self.use_item(requirement, check=check)
+						result = self.use_item(requirement, check=check)
+						if not result:
+							print('{}-{} WIP Progress for {} was not successfull.'.format(self.name, self.entity_id, item))
+							return
 				if check:
 					continue
-				# requirements = [x.strip() for x in items_time['requirements'][item].split(',')] # TODO Clean up with above
 				# if v: print('WIP Requirements for {}: {}'.format(item, requirements))
 				for i, requirement in enumerate(requirements):
+					requirement_type = world.get_item_type(requirement)
 					if v: print('Requirement Timespan: {} | {}'.format(requirement, i))
-					if requirement == 'Time':
+					if requirement_type == 'Time':
 						break
-				amounts = [x.strip() for x in items_time['amount'][item].split(',')]
+				if v: print('Time Requirement: {}'.format(requirement))
+				#amounts = [x.strip() for x in items_time['amount'][item].split(',')]
+				amounts = world.items.loc[item, 'amount']
+				if isinstance(amounts, str):
+					amounts = [x.strip() for x in amounts.split(',')]
 				amounts = list(map(float, amounts))
 				if v: print('Amounts: {}'.format(amounts))
 				timespan = amounts[i]
-				if v: print('WIP Lifespan for {}: {}'.format(item, timespan))
+
+				start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d')
+				if v: print('Start Date: {}'.format(start_date))
+				ledger.set_date(str(start_date))
+				modifier, items_info = self.check_productivity(requirement)
+				ledger.reset()
+				ledger.set_entity(self.entity_id)
+				if modifier:
+					entries = self.use_item(items_info['item_id'].iloc[0])
+					if not entries:
+						entries = []
+						modifier = 0
+					if entries is True:
+						entries = []
+					wip_event += entries
+				else:
+					modifier = 0
+				ledger.reset()
+				if v: print('Modifier: {}'.format(modifier))
+				timespan = timespan * (1 - modifier)
+				
+				if v: print('WIP lifespan for {}: {}'.format(item, timespan))
 				date_done = (datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=timespan)).date()
 				if v: print('WIP date done for {}: {} Today is: {}'.format(item, date_done, world.now))
+				days_left = abs(date_done - world.now).days
+				print('{}-{} has {} WIP days left for {}.'.format(self.name, self.entity_id, days_left, item))
 				# If the time elapsed has passed
 				if date_done == world.now:
 					if v: print('WIP date is done for {}: {} Today is: {}'.format(item, date_done, world.now))
@@ -1673,9 +1718,7 @@ class Entity:
 			# TODO Recursively check required items and add their producers to the ticker list
 		# Check if item is produced or being produced
 		# TODO How to handle service qty check
-		qty_inv = ledger.get_qty(item, ['Inventory'])
-		qty_wip = ledger.get_qty(item, ['WIP Inventory'])
-		qty = qty_inv + qty_wip
+		qty = ledger.get_qty(item, ['Inventory','WIP Inventory'])
 		#print('QTY of {} existing: {}'.format(item, qty))
 		# If not being produced incorporate and produce item
 		if qty == 0: # TODO Fix this for when Food stops being produced
@@ -1764,6 +1807,13 @@ class Entity:
 			#qty = qty * world.population
 			return qty
 
+	def check_constraint(self, item, constraint='labour'):
+		demand_constrained = world.demand.loc[(world.demand['item_id'] == item) & (world.demand['reason'] == constraint)]
+		#print('Demand Constrained: \n{}'.format(demand_constrained))
+		if not demand_constrained.empty:
+			print('{}-{} cannot add {} to demand list as it is constrained by {}.'.format(self.name, self.entity_id, item, constraint))
+			return True
+
 	def item_demanded(self, item=None, qty=None, need=None, cost=False):
 		if item is None and need is not None:
 			items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
@@ -1791,7 +1841,8 @@ class Entity:
 				requirements = items_info_row['requirements']
 				requirements = [x.strip() for x in requirements.split(',')]
 				#print('Requirements: \n{}'.format(requirements))
-				if 'Time' not in requirements:
+				requirement_types = [world.get_item_type(x) for x in requirements]
+				if 'Time' not in requirement_types:
 					return
 				if self.check_eligible(item):
 					break
@@ -1841,7 +1892,7 @@ class Entity:
 		if qty is None:
 			qty = self.qty_demand(item, need, item_type)
 		#print('Demand QTY: {}'.format(qty))
-		if qty != 0:
+		if qty != 0 and not self.check_constraint(item):
 			if cost:
 				world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, ignore_index=True)
 			else:
