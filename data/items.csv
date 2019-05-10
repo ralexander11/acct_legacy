@@ -53,7 +53,7 @@ Wire,None,None,None,Commodity,"Metal Working, Rock","1, 1",None,None,None,None,N
 Electricity,None,None,None,Technology,"Time, Wire","40, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Blacksmith
 Robot Plow,None,None,start,Equipment,"Electricity, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 12, 20, 40",12,None,None,None,None,Cultivator,1,20,usage,None,None,None,10000,None,None,Blacksmith
 Super Food,None,None,None,Commodity,"Time, Super Tech, Arable land, Cultivator, Water","7, 1, 400, 0.1, 1",None,None,None,Hunger,10,None,None,21,spoilage,None,None,None,1,None,None,Farm
-Super Tech,None,None,None,Technology,"Time, Wire, Wood","200, 200, 400",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Well
+Super Tech,None,None,None,Technology,"Time, Wire, Wood","100, 200, 400",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Well
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Anvil,None,None,continuous,Equipment,"Time, Rock","2, 50",1,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,Blacksmith
 Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","1000","ticks",None,None,None,100,None,None,Blacksmith
