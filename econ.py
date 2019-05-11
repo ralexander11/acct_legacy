@@ -23,7 +23,7 @@ MAX_HOURS = 12
 WORK_DAY = 8
 INIT_PRICE = 10.0
 INIT_CAPITAL = 2000
-# END_DATE = '1986-10-04'
+# END_DATE = '1986-10-10'
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -339,7 +339,7 @@ class World:
 		for entity in factory.get_all():#(Corporation):
 			#print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
 			entity.check_optional()
-			entity.check_inv()
+			entity.check_inv(adj=True)
 			if type(entity) == Corporation:
 				entity.dividend()
 		t5_end = time.perf_counter()
@@ -700,7 +700,8 @@ class Entity:
 				qty_wanted = qty_wanted - wip_global_qty
 				if qty_wanted > 0:
 					if cost:
-						self.item_demanded(item, qty_wanted - purchased_qty, cost=cost)
+						#self.item_demanded(item, qty_wanted - purchased_qty, cost=cost)
+						pass
 					else:
 						self.item_demanded(item, qty_wanted - purchased_qty)
 		elif item_type == 'Service':
@@ -1414,7 +1415,7 @@ class Entity:
 			print('{}-{} cannot produce {} {} at this time.\n'.format(self.name, self.entity_id, qty, item))
 		return incomplete, event, time_required
 
-	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None ,price=None, buffer=False):
+	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, buffer=False):
 		if item not in self.produces: # TODO Should this be kept long term?
 			return [], False
 		incomplete, produce_event, time_required = self.fulfill(item, qty)
@@ -1711,19 +1712,34 @@ class Entity:
 					if v: print('WIP Event: \n{}'.format(wip_event))
 					ledger.journal_entry(wip_event)
 
-	def check_inv(self, v=False):
+	def check_inv(self, adj=False, v=False):
 		if type(self) == Corporation:
 			v = False
 		if v: print('{}-{} running inventory check.'.format(self.name, self.entity_id))
 		self.check_salary(check=True)
 		self.check_subscriptions(check=True)
 		self.wip_check(check=True)
-		ledger.set_entity(self.entity_id)
-		for item in self.produces:
-			qty_inv = ledger.get_qty(item, ['Inventory'])
-			if qty_inv > 0:
-				self.adj_price(item, qty_inv, direction='down')
-		ledger.reset()
+		if adj:
+			ledger.set_entity(self.entity_id)
+			for item in self.produces:
+				if world.get_item_type(item) in ('Subscription','Service'):
+					ledger.set_date(str(world.now - datetime.timedelta(days=1)))
+					hist_bal = ledger.balance_sheet(['Subscription Revenue','Service Revenue'], item)
+					ledger.reset()
+					print('Hist Bal for {} by {}-{}: {}'.format(item, self.name, self.entity_id, hist_bal))
+					if hist_bal:
+						ledger.set_start_date(str(world.now - datetime.timedelta(days=1)))
+						ledger.set_date(str(world.now - datetime.timedelta(days=1)))
+						cur_bal = ledger.balance_sheet(['Subscription Revenue','Service Revenue'], item)
+						ledger.reset()
+						print('Cur Bal for {} by {}-{}: {}'.format(item, self.name, self.entity_id, cur_bal))
+						if not cur_bal:
+							self.adj_price(item, qty_inv, direction='down')
+				else:
+					qty_inv = ledger.get_qty(item, ['Inventory'])
+					if qty_inv > 0:
+						self.adj_price(item, qty_inv, direction='down')
+			ledger.reset()
 		if v: print('{}-{} finished inventory check.\n'.format(self.name, self.entity_id))
 
 	def negative_bal(self):
