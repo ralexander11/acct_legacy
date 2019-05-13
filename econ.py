@@ -370,31 +370,34 @@ class World:
 				if typ == Corporation: # TODO Temp fix for negative balances
 					entity.negative_bal()
 				ledger.set_entity(entity.entity_id)
-				cash = ledger.balance_sheet(['Cash'])
+				entity.cash = ledger.balance_sheet(['Cash'])
 				if isinstance(entity, Individual):
-					print('{} Cash: {}'.format(entity.name, cash))
+					print('{} Cash: {}'.format(entity.name, entity.cash))
 				else:
-					print('{}-{} Cash: {}'.format(entity.name, entity.entity_id, cash))
+					print('{}-{} Cash: {}'.format(entity.name, entity.entity_id, entity.cash))
 				ledger.reset()
 			print()
 			for entity in factory.get(typ):
 				ledger.set_entity(entity.entity_id)
-				nav = ledger.balance_sheet()
+				entity.nav = ledger.balance_sheet()
 				if isinstance(entity, Individual):
-					print('{} NAV: {}'.format(entity.name, nav))
+					print('{} NAV: {}'.format(entity.name, entity.nav))
 				else:
-					print('{}-{} NAV: {}'.format(entity.name, entity.entity_id, nav))
+					print('{}-{} NAV: {}'.format(entity.name, entity.entity_id, entity.nav))
 				ledger.reset()
 
 			# To switch things up
 			if len(factory.registry[typ]) != 0:
-				if args.random:
-					print('\nPre Entity Shuffle: {} \n{}'.format(typ, factory.registry[typ]))
-					random.shuffle(factory.registry[typ])
-					print('Post Entity Shuffle: {} \n{}\n'.format(typ, factory.registry[typ]))
-				else:
-					lst = factory.get(typ)
-					lst.append(lst.pop(0))
+				print('\nPre Entity Sort by NAV: {} \n{}'.format(typ, factory.registry[typ]))
+				factory.registry[typ].sort(key=lambda x: x.nav)
+				print('Post Entity Sort by NAV: {} \n{}\n'.format(typ, factory.registry[typ]))
+				# if args.random:
+				# 	print('\nPre Entity Shuffle: {} \n{}'.format(typ, factory.registry[typ]))
+				# 	random.shuffle(factory.registry[typ])
+				# 	print('Post Entity Shuffle: {} \n{}\n'.format(typ, factory.registry[typ]))
+				# else:
+				# 	lst = factory.get(typ)
+				# 	lst.append(lst.pop(0))
 
 		t7_end = time.perf_counter()
 		print(time_stamp() + '7: Cash check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
@@ -1734,11 +1737,11 @@ class Entity:
 						ledger.reset()
 						print('Cur Bal for {} by {}-{}: {}'.format(item, self.name, self.entity_id, cur_bal))
 						if not cur_bal:
-							self.adj_price(item, qty_inv, direction='down')
+							self.adj_price(item, direction='down')
 				else:
 					qty_inv = ledger.get_qty(item, ['Inventory'])
 					if qty_inv > 0:
-						self.adj_price(item, qty_inv, direction='down')
+						self.adj_price(item, direction='down')
 			ledger.reset()
 		if v: print('{}-{} finished inventory check.\n'.format(self.name, self.entity_id))
 
@@ -2239,7 +2242,8 @@ class Entity:
 				ledger.journal_entry(pay_wages_event)
 			else:
 				print('{}-{} does not have enough cash to pay wages for {} work. Cash: {}'.format(self.name, self.entity_id, job, cash))
-				counterparty.adj_price(job, labour_hours, direction='down')
+				# TODO Fix counterparty
+				#counterparty.adj_price(job, labour_hours, direction='down')
 				return
 
 	def check_wages(self, job):
@@ -2319,7 +2323,8 @@ class Entity:
 	def worker_counterparty(self, job, only_avail=True):
 		print('{}-{} looking for worker for job: {}'.format(self.name, self.entity_id, job))
 		item_type = world.get_item_type(job)
-		workers = {}
+		workers_exp = {}
+		workers_price = {}
 		# Get list of all individuals
 		#world.entities = accts.get_entities()
 		# Get list of eligible individuals
@@ -2341,23 +2346,31 @@ class Entity:
 			experience_wages = abs(ledger.get_qty(accounts=['Wages Income'], items=job))
 			experience_salary = abs(ledger.get_qty(accounts=['Salary Income'], items=job))
 			experience = experience_wages + experience_salary
-			print('Experience for {}: {:g} | Hours Left: {}'.format(individual.name, experience, individual.hours))
+			#print('Experience for {}: {:g} | Hours Left: {}'.format(individual.name, experience, individual.hours))
 			ledger.reset()
-			workers[individual] = experience
+			workers_exp[individual] = experience
+		for individual in individuals:
+			price = world.get_price(job, individual.entity_id)
+			workers_price[individual] = price
+			print('Price for {}: {} | Hours Left: {}'.format(individual.name, price, individual.hours))
 		# Filter for workers with enough hours in the day left
 		if item_type == 'Job':
 			base_hours = WORK_DAY #4
 		else:
 			base_hours = 0
 		if only_avail:
-			workers_avail = {worker: v for worker, v in workers.items() if worker.hours > base_hours}
+			workers_avail_exp = {worker: v for worker, v in workers_exp.items() if worker.hours > base_hours}
+			workers_avail_price = {worker: v for worker, v in workers_price.items() if worker.hours > base_hours}
 		else:
-			workers_avail = workers
-		if not workers_avail:
-				return None, []
+			workers_avail_exp = workers_exp
+			workers_avail_price = workers_price
+		if not workers_avail_price:
+			return None, []
 		# Choose the worker with the most experience
-		worker_choosen = max(workers_avail, key=lambda k: workers_avail[k])
-		print('Worker Choosen: {}'.format(worker_choosen.name))
+		worker_choosen_exp = max(workers_avail_exp, key=lambda k: workers_avail_exp[k])
+		# Choose the worker for the lowest price
+		worker_choosen = min(workers_avail_price, key=lambda k: workers_avail_price[k])
+		print('Worker Choosen for {}: {}'.format(job, worker_choosen.name))
 		if worker_event:
 			return worker_choosen, worker_event
 		return worker_choosen
