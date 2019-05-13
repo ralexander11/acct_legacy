@@ -23,7 +23,7 @@ MAX_HOURS = 12
 WORK_DAY = 8
 INIT_PRICE = 10.0
 INIT_CAPITAL = 2000
-# END_DATE = '1986-10-10'
+# END_DATE = '1986-10-12'
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -52,6 +52,7 @@ econ_accts = [
 	('Land','Asset'),
 	('Buildings','Asset'),
 	('Building Produced','Revenue'),
+	('Equipment Produced','Revenue'),
 	('Equipment','Asset'),
 	('Machine','Equipment'),
 	('Tools','Equipment'),
@@ -339,7 +340,7 @@ class World:
 		for entity in factory.get_all():#(Corporation):
 			#print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
 			entity.check_optional()
-			entity.check_inv(adj=True)
+			entity.check_inv()
 			if type(entity) == Corporation:
 				entity.dividend()
 		t5_end = time.perf_counter()
@@ -348,6 +349,16 @@ class World:
 
 		print('Current Date: {}'.format(self.now))
 		t6_start = time.perf_counter()
+		print('Check Prices:')
+		for entity in factory.get_all():
+			print('\nPrices check for: {} | {}'.format(entity.name, entity.entity_id))
+			entity.check_prices()
+		t6_end = time.perf_counter()
+		print(time_stamp() + '6: Prices check took {:,.2f} min.'.format((t6_end - t6_start) / 60))
+		print()
+
+		print('Current Date: {}'.format(self.now))
+		t7_start = time.perf_counter()
 		 # TODO Fix assuming all individuals have the same needs
 		for need in self.global_needs:#individual.needs:
 			for individual in factory.get(Individual):
@@ -357,14 +368,14 @@ class World:
 				print('{} {} Need: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
 				if individual.dead:
 					break
-		t6_end = time.perf_counter()
-		print(time_stamp() + '6: Needs check took {:,.2f} min.'.format((t6_end - t6_start) / 60))
+		t7_end = time.perf_counter()
+		print(time_stamp() + '7: Needs check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
 		print()
 
 		print('Current Date: {}'.format(self.now))
 		if self.check_end():
 			return
-		t7_start = time.perf_counter()
+		t8_start = time.perf_counter()
 		for typ in factory.registry.keys():
 			for entity in factory.get(typ):
 				if typ == Corporation: # TODO Temp fix for negative balances
@@ -399,10 +410,10 @@ class World:
 				# 	lst = factory.get(typ)
 				# 	lst.append(lst.pop(0))
 
-		t7_end = time.perf_counter()
-		print(time_stamp() + '7: Cash check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
+		t8_end = time.perf_counter()
+		print(time_stamp() + '8: Cash check took {:,.2f} min.'.format((t8_end - t8_start) / 60))
 
-		t8_start = time.perf_counter()
+		t9_start = time.perf_counter()
 		if str(self.now) == '1986-10-31': # For testing impairment
 			individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm'), target='Plow')
 
@@ -424,8 +435,8 @@ class World:
 		self.inventory = self.entities[['entity_id','name']].merge(self.inventory, on=['entity_id'])
 		print('Global Items: \n{}'.format(self.inventory))
 		print()
-		t8_end = time.perf_counter()
-		print(time_stamp() + '8: Birth and misc checks took {:,.2f} min.'.format((t8_end - t8_start) / 60))
+		t9_end = time.perf_counter()
+		print(time_stamp() + '9: Birth and misc checks took {:,.2f} min.'.format((t9_end - t9_start) / 60))
 
 		if END_DATE is not None:
 			if str(self.now) == END_DATE: # For debugging
@@ -1466,7 +1477,7 @@ class Entity:
 			elif item_type == 'Education':
 				credit_acct = 'Education Produced'
 			elif item_type == 'Equipment':
-				credit_acct = 'Goods Produced'
+				credit_acct = 'Equipment Produced'
 			elif item_type == 'Buildings':
 				credit_acct = 'Building Produced'
 			else:
@@ -1715,35 +1726,50 @@ class Entity:
 					if v: print('WIP Event: \n{}'.format(wip_event))
 					ledger.journal_entry(wip_event)
 
-	def check_inv(self, adj=False, v=False):
+	def check_inv(self, v=False):
 		if type(self) == Corporation:
 			v = False
 		if v: print('{}-{} running inventory check.'.format(self.name, self.entity_id))
 		self.check_salary(check=True)
 		self.check_subscriptions(check=True)
 		self.wip_check(check=True)
-		if adj:
-			ledger.set_entity(self.entity_id)
-			for item in self.produces:
-				if world.get_item_type(item) in ('Subscription','Service'):
+		if v: print('{}-{} finished inventory check.\n'.format(self.name, self.entity_id))
+
+	def check_prices(self):
+		ledger.set_entity(self.entity_id)
+		for item in self.produces:
+			if world.get_item_type(item) in ('Subscription','Service'):
+				ledger.set_date(str(world.now - datetime.timedelta(days=1)))
+				hist_bal = ledger.balance_sheet(['Subscription Revenue','Service Revenue'], item)
+				ledger.reset()
+				ledger.set_entity(self.entity_id)
+				print('Serv and Sub Hist Bal of {} for {}-{}: {}'.format(item, self.name, self.entity_id, hist_bal))
+				if hist_bal:
+					ledger.set_start_date(str(world.now - datetime.timedelta(days=1)))
 					ledger.set_date(str(world.now - datetime.timedelta(days=1)))
-					hist_bal = ledger.balance_sheet(['Subscription Revenue','Service Revenue'], item)
+					cur_bal = ledger.balance_sheet(['Subscription Revenue','Service Revenue'], item)
 					ledger.reset()
-					print('Hist Bal for {} by {}-{}: {}'.format(item, self.name, self.entity_id, hist_bal))
-					if hist_bal:
-						ledger.set_start_date(str(world.now - datetime.timedelta(days=1)))
-						ledger.set_date(str(world.now - datetime.timedelta(days=1)))
-						cur_bal = ledger.balance_sheet(['Subscription Revenue','Service Revenue'], item)
-						ledger.reset()
-						print('Cur Bal for {} by {}-{}: {}'.format(item, self.name, self.entity_id, cur_bal))
-						if not cur_bal:
-							self.adj_price(item, direction='down')
+					ledger.set_entity(self.entity_id)
+					print('Cur Bal of {} for {}-{}: {}'.format(item, self.name, self.entity_id, cur_bal))
+					if not cur_bal:
+						self.adj_price(item, direction='down')
+			else:
+				qty_inv = ledger.get_qty(item, ['Inventory'])
+				print('Qty of {} for {}-{}: {}'.format(item, self.name, self.entity_id, qty_inv))
+				if qty_inv > 0:
+					self.adj_price(item, direction='down')
 				else:
-					qty_inv = ledger.get_qty(item, ['Inventory'])
-					if qty_inv > 0:
+					# If the entity has made the item in the past, and someone else has or is making the item, and they dont have and are not making the item
+					wip_qty_inv = ledger.get_qty(item, ['WIP Inventory']) # Must be zero, qty in inv already known to be zero
+					ledger.set_date(str(world.now - datetime.timedelta(days=1)))
+					hist_bal = ledger.balance_sheet(['Sales','Goods Produced','Building Produced','Equipment Produced','Spoilage Expense'], item) # Must not be zero
+					ledger.reset()
+					global_qty_inv = ledger.get_qty(item, ['Inventory','WIP Inventory']) # Must be greater than zero
+					ledger.set_entity(self.entity_id)
+					print('Inv Hist Bal of {} for {}-{}: {} | WIP Inv: {} | Global qty: {}'.format(item, self.name, self.entity_id, hist_bal, wip_qty_inv, global_qty_inv))
+					if hist_bal != 0 and global_qty_inv > 0 and wip_qty_inv == 0:
 						self.adj_price(item, direction='down')
 			ledger.reset()
-		if v: print('{}-{} finished inventory check.\n'.format(self.name, self.entity_id))
 
 	def negative_bal(self):
 		for item in self.produces:
@@ -2346,7 +2372,7 @@ class Entity:
 			experience_wages = abs(ledger.get_qty(accounts=['Wages Income'], items=job))
 			experience_salary = abs(ledger.get_qty(accounts=['Salary Income'], items=job))
 			experience = experience_wages + experience_salary
-			#print('Experience for {}: {:g} | Hours Left: {}'.format(individual.name, experience, individual.hours))
+			print('Experience for {}: {:g} | Hours Left: {}'.format(individual.name, experience, individual.hours))
 			ledger.reset()
 			workers_exp[individual] = experience
 		for individual in individuals:
