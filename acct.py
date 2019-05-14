@@ -418,7 +418,7 @@ class Accounts:
 
 	def print_entities(self, save=True): # TODO Add error checking if no entities exist
 		#self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col=['entity_id'])
-		self.entities = get_entities()
+		self.entities = self.get_entities()
 		if save:
 			self.entities.to_csv('data/entities.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -438,7 +438,7 @@ class Accounts:
 
 
 class Ledger:
-	def __init__(self, accts, ledger_name=None, entity=None, date=None, start_date=None, txn=None):
+	def __init__(self, accts, ledger_name=None, entity=None, date=None, start_date=None, txn=None, start_txn=None):
 		self.conn = accts.conn
 		self.coa = accts.coa
 		if ledger_name is None:
@@ -449,6 +449,7 @@ class Ledger:
 		self.date = date
 		self.start_date = start_date
 		self.txn = txn
+		self.start_txn = start_txn
 		self.create_ledger()
 		self.refresh_ledger() # TODO Maybe make this self.gl = self.refresh_ledger()
 		self.balance_sheet()
@@ -495,7 +496,7 @@ class Ledger:
 
 	def set_start_date(self, start_date=None):
 		if start_date is None:
-			self.start_date = input('Enter a date in format YYYY-MM-DD: ')
+			self.start_date = input('Enter a start date in format YYYY-MM-DD: ')
 		else:
 			self.start_date = start_date
 		self.refresh_ledger()
@@ -511,13 +512,21 @@ class Ledger:
 		self.balance_sheet()
 		return self.txn
 
-	# TODO Add set_start_txn() function
+	def set_start_txn(self, start_txn=None):
+		if start_txn is None:
+			self.start_txn = int(input('Enter a start TXN ID: '))
+		else:
+			self.start_txn = start_txn
+		self.refresh_ledger()
+		self.balance_sheet()
+		return self.start_txn
 
 	def reset(self):
 		self.entity = None
 		self.date = None
 		self.start_date = None
 		self.txn = None
+		self.start_txn = None
 		self.refresh_ledger()
 		self.balance_sheet()
 
@@ -530,7 +539,9 @@ class Ledger:
 		if self.start_date is not None:
 			self.gl = self.gl[(self.gl.date >= self.start_date)]
 		if self.txn is not None:
-			self.gl = self.gl[(self.gl.index <= self.txn)] # TODO Add start txn and event range
+			self.gl = self.gl[(self.gl.index <= self.txn)]
+		if self.start_txn is not None:
+			self.gl = self.gl[(self.gl.index >= self.start_txn)] # TODO Add event range
 		return self.gl
 
 	def print_gl(self):
@@ -1400,6 +1411,9 @@ def main(command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'txn':
 			ledger.set_txn()
+			if args.command is not None: exit()
+		elif command.lower() == 'starttxn':
+			ledger.set_start_txn()
 			if args.command is not None: exit()
 		elif command.lower() == 'reset':
 			ledger.reset()

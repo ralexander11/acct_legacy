@@ -297,6 +297,8 @@ class World:
 			for entity in factory.get(typ):
 				#print('Entity: {}'.format(entity))
 				#print('Entity Name: {} | {}'.format(entity.name, entity.entity_id))
+				# if entity.name == 'Farm' and str(self.now) == '1986-10-03': # For testing
+				# 	entity.find_item('Hydroponics', qty=1, price=1000)
 				t3_1_start = time.perf_counter()
 				entity.depreciation_check()
 				t3_1_end = time.perf_counter()
@@ -412,20 +414,28 @@ class World:
 
 		t8_end = time.perf_counter()
 		print(time_stamp() + '8: Cash check took {:,.2f} min.'.format((t8_end - t8_start) / 60))
+		print()
 
 		t9_start = time.perf_counter()
+		individual = factory.registry[Individual][-1]
+		print('First Individual: {}'.format(individual))
 		if str(self.now) == '1986-10-31': # For testing impairment
 			individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm'), target='Plow')
 
 		if args.random:
-			if random.randint(1, 20) == 20:# or (str(self.now) == '1986-10-02'):
+			birth_roll = random.randint(1, 20)
+			print('Birth Roll: {}'.format(birth_roll))
+			if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
 				individual.birth()
 
 		if args.random:
-			if random.randint(1, 40) == 40:# or (str(self.now) == '1986-10-03'):
+			death_roll = random.randint(1, 40)
+			print('Death Roll: {}'.format(death_roll))
+			if death_roll == 40:# or (str(self.now) == '1986-10-03'):
 				print('{} randomly dies!'.format(individual.name))
 				individual.set_need('Hunger', -100, forced=True)
 
+		print()
 		print('Current Date: {}'.format(self.now))
 		print()
 		print('World Demand End: \n{}'.format(world.demand))
@@ -787,6 +797,8 @@ class Entity:
 			print('{}-{} does not have enough {} available to use.'.format(self.name, self.entity_id, item))
 
 	def use_item(self, item, uses=1, counterparty=None, target=None, buffer=False, check=False):
+		# TODO Add check to ensure entity has item they are using
+		# TODO Add check to ensure counterparty has item being attacked
 		if counterparty is not None and target is not None:
 			dmg_type = world.items['dmg_type'][item] # Does not support more than one dmg_type on the attack
 			dmg = world.items['dmg'][item]
@@ -806,7 +818,7 @@ class Entity:
 			if resilience is None:
 				resilience = 0
 			resilience = float(resilience)
-			print('Attack Dmg: {} | Target Resilience: {}'.format(dmg, resilience))
+			print('{}-{} attacks with {} for {} damage against {} with resilience of {}.'.format(self.name, self.entity_id, item, dmg, target, resilience))
 			reduction = dmg / resilience
 			if reduction > 1:
 				reduction = 1
@@ -1429,7 +1441,7 @@ class Entity:
 			print('{}-{} cannot produce {} {} at this time.\n'.format(self.name, self.entity_id, qty, item))
 		return incomplete, event, time_required
 
-	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, buffer=False):
+	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, buffer=False, v=False):
 		if item not in self.produces: # TODO Should this be kept long term?
 			return [], False
 		incomplete, produce_event, time_required = self.fulfill(item, qty)
@@ -1509,30 +1521,84 @@ class Entity:
 		# 	rand = random.randint(1, 3)
 		# 	qty = qty * rand
 		cost_entries = [[]]
+		indirect_cost_entries = [[]]
 		produce_entry = []
 		if price is None:
 			# Add ticks based depreciation to cost
 			# TODO Factor in how much capacity is used
 			cost = 0
-			requirements = []
-			item_info = world.items.loc[item]
-			all_requirements = [x.strip() for x in item_info['requirements'].split(',')]
-			for requirement in all_requirements:
-				metric = world.items['metric'][item]
-				if metric == 'ticks' or metric == 'depreciation':
-					requirements.append(requirement)
-			if requirements:
-				ledger.set_entity(self.entity_id)
-				item_gls = ledger.gl.loc[ledger.gl['item_id'].isin(requirements)]
-				item_gls = ledger.gl.loc[ledger.gl['debit_acct'].isin(['Depreciation Expense'])]
-				ledger.reset()
-				if not item_gls.empty:
-					cost += item_gls['amount'].sum()
+			# requirements = []
+			# item_info = world.items.loc[item]
+			# all_requirements = [x.strip() for x in item_info['requirements'].split(',')]
+			# print('All Requirements: {}'.format(requirements))
+			# for requirement in all_requirements:
+			# 	metric = world.items['metric'][requirement]
+			# 	if metric is not None:
+			# 		if 'ticks' in metric or 'depreciation' in metric:
+			# 			requirements.append(requirement)
+			# if requirements:
+			# 	print('Requirements: {}'.format(requirements))
+			# 	ledger.set_entity(self.entity_id)
+			# 	item_gls = ledger.gl.loc[ledger.gl['item_id'].isin(requirements)]
+			# 	with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 		print('Item GLs 1: \n{}'.format(item_gls))
+			# 	item_gls = ledger.gl.loc[ledger.gl['debit_acct'].isin(['Depreciation Expense'])]
+			# 	with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 		print('Item GLs 2: \n{}'.format(item_gls))
+			# 	ledger.reset()
+			# 	if not item_gls.empty:
+			# 		cost_old = 0
+			# 		cost_old += item_gls['amount'].sum()
+			# 		print('Cost Old: {}'.format(cost_old))
+
+			# Filter GL for entity
+			ledger.set_entity(self.entity_id)
+			# Find last Cost Pool entry
+			cost_pool_gls = ledger.gl.loc[ledger.gl['debit_acct'] == 'Cost Pool']
+			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 	if v: print('Cost Pool TXNs: \n{}'.format(cost_pool_gls))
+			if not cost_pool_gls.empty and type(self) != Individual:
+				last_txn = cost_pool_gls.index.values[-1]
+				# if v: print('Last Cost Pool TXN: {}'.format(last_txn))
+				# Filter for all entries since then
+				ledger.set_start_txn(last_txn)
+				recent_gls = ledger.gl
+				recent_gls['debit_acct_type'] = recent_gls.apply(lambda x: ledger.get_acct_elem(x['debit_acct']), axis=1)
+				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				# 	if v: print('Recent GLs Acct Type: \n{}'.format(recent_gls))
+				# Filter for expense entries
+				indirect_costs = recent_gls.loc[recent_gls['debit_acct_type'] == 'Expense']
+				indirect_costs = indirect_costs.loc[indirect_costs['debit_acct'] != 'Cost of Goods Sold']
+				indirect_costs = indirect_costs.loc[indirect_costs['debit_acct'] != 'Dividend Expense'] # TODO Divs should not be an expense
+				# Do logic like below
+				cost += indirect_costs['amount'].sum()
+				indirect_costs.drop('debit_acct_type', axis=1, inplace=True)
+				#print('Cost DF: \n{}'.format(indirect_costs))
+				# if v: print('Indirect Cost: {}'.format(cost))
+				indirect_costs = indirect_costs[['event_id', 'entity_id', 'date', 'description', 'item_id', 'price', 'qty', 'credit_acct', 'debit_acct', 'amount']]
+				#print('Cost DF After Swap: \n{}'.format(indirect_costs))
+				indirect_costs.rename({'debit_acct': 'credit_acct', 'credit_acct': 'debit_acct'}, axis='columns', inplace=True)
+				#print('Cost DF After Rename: \n{}'.format(indirect_costs))
+				indirect_costs.debit_acct = 'Cost Pool'
+				indirect_costs['qty'] = indirect_costs['qty'].fillna('')
+				indirect_costs['price'] = indirect_costs['price'].fillna('')
+				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				# 	if v: print('Indirect Cost DF End: \n{}'.format(indirect_costs))
+				indirect_cost_entries = indirect_costs.values.tolist()
+				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				# 	if v: print('Indirect Cost Entries: \n{}'.format(indirect_cost_entries))
+				if item_type != 'Service':
+					produce_event += indirect_cost_entries
+			ledger.reset()
 
 			cost_df = pd.DataFrame(produce_event, columns=world.cols)
 			cost_df = cost_df.loc[cost_df['entity_id'] == self.entity_id]
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				if v: print('Cost DF Start: \n{}'.format(cost_df))
 			if not cost_df.empty:
 				cost_df['debit_acct_type'] = cost_df.apply(lambda x: ledger.get_acct_elem(x['debit_acct']), axis=1)
+				with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+					if v: print('Cost DF Acct Type: \n{}'.format(cost_df))
 				cost_df = cost_df.loc[cost_df['debit_acct_type'] == 'Expense']
 				if not cost_df.empty:
 					cost += cost_df['amount'].sum()
@@ -1544,10 +1610,14 @@ class Entity:
 					cost_df.rename({'debit_acct': 'credit_acct', 'credit_acct': 'debit_acct'}, axis='columns', inplace=True)
 					#print('Cost DF After Rename: \n{}'.format(cost_df))
 					cost_df.debit_acct = 'Cost Pool'
+					with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+						if v: print('Cost DF End: \n{}'.format(cost_df))
 					cost_entries = cost_df.values.tolist()
-					#print('Cost Entries: \n{}'.format(cost_entries))
+					with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+						if v: print('Cost Entries: \n{}'.format(cost_entries))
 					if item_type != 'Service':
 						produce_event += cost_entries
+					if v: print('Cost 1: {}'.format(cost))
 			price = cost / qty
 			if price == 0: # No cost
 				price = world.get_price(item, self.entity_id)
@@ -1612,7 +1682,7 @@ class Entity:
 				wip_event = []
 				item = wip_lot.loc['item_id']
 				# item_type = world.get_item_type(item)
-				# if item_type == 'Technology':
+				# if item == 'Food':
 				# 	v = True
 				if v: print('WIP Item Check: {}'.format(item))
 				#if v: print('Continuous Items: \n{}'.format(items_continuous))
@@ -1639,10 +1709,10 @@ class Entity:
 				days_left = (date_done - world.now).days
 				if days_left < 0:
 					continue
-				for requirement in requirements:
-					if v: print('Requirement: {}'.format(requirement))
-					if requirement in items_continuous.index.values:
-						result = self.use_item(requirement, check=check)
+				for equip_requirement in requirements:
+					if v: print('Requirement: {}'.format(equip_requirement))
+					if equip_requirement in items_continuous.index.values:
+						result = self.use_item(equip_requirement, check=check)
 						if not result and not check:
 							print('{}-{} WIP Progress for {} was not successfull.'.format(self.name, self.entity_id, item))
 							if world.delay.empty:
@@ -1656,9 +1726,11 @@ class Entity:
 				if v: print('Start Date: {}'.format(start_date))
 				ledger.set_date(str(start_date))
 				modifier, items_info = self.check_productivity(requirement)
+				if v: print('Modifier: {}'.format(modifier))
 				ledger.reset()
 				ledger.set_entity(self.entity_id)
 				if modifier:
+					if v: print('Time Modifier Item: {}'.format(items_info['item_id'].iloc[0]))
 					entries = self.use_item(items_info['item_id'].iloc[0], check=check)
 					if not entries:
 						entries = []
@@ -1669,7 +1741,7 @@ class Entity:
 				else:
 					modifier = 0
 				ledger.reset()
-				if v: print('Modifier: {}'.format(modifier))
+				if v: print('Modifier End: {}'.format(modifier))
 				timespan = timespan * (1 - modifier)
 				if check:
 					continue
@@ -2601,7 +2673,7 @@ class Entity:
 			return True
 		else:
 			print('{}-{} does not have enough cash to pay for {} subscription. Cash: {}'.format(self.name, self.entity_id, item, cash))
-			self.item_demanded(item, qty, cost=True)
+			#self.item_demanded(item, qty, cost=True) # TODO Decide how to handle
 			counterparty.adj_price(item, qty=1, direction='down')
 
 	def cancel_subscription(self, item, counterparty, price=0, qty=-1):
@@ -2823,7 +2895,7 @@ class Entity:
 							else:
 								spoil_entry = [[ inv_lot[0], inv_lot[1], world.now, inv_lot[4] + ' spoilage', inv_lot[4], inv_lot[5], inv_lot[6] or '', 'Spoilage Expense', 'Inventory', inv_lot[9] ]]
 							ledger.journal_entry(spoil_entry)
-							counterparty.adj_price(item, qty, direction='down_high')
+							self.adj_price(item, qty, direction='down_high')
 
 	def impairment(self, item, amount):
 		# TODO Maybe make amount default to None and have optional impact or reduction parameter
@@ -2958,7 +3030,8 @@ class Individual(Entity):
 			individuals = factory.registry[Individual]
 			#print('Individuals: {}'.format(individuals))
 			self.entity_ids = [individual.entity_id for individual in individuals]
-			self.entity_ids.remove(self.entity_id)
+			if self.entity_id in self.entity_ids:
+				self.entity_ids.remove(self.entity_id)
 			print('Entity IDs Before: {}'.format(self.entity_ids))
 			if not self.entity_ids:
 				print('No one else is left to have a child with {}.'.format(self.name))
@@ -3049,17 +3122,19 @@ class Individual(Entity):
 		# Get the counterparty to inherit to
 		if counterparty is None:
 			counterparty = self.parents[0]
+			if counterparty not in factory.registry[Individual]:
+				counterparty = None
 			#print('First Parent: {}'.format(counterparty))
-			if counterparty is None:
-				individuals = itertools.cycle(factory.get(Individual))
-				nextindv = next(individuals) # Prime the pump
-				while True:
-					individual, nextindv = nextindv, next(individuals)
-					# print('Individual: {}'.format(individual.name))
-					# print('Next Individual: {}'.format(nextindv.name))
-					if individual.entity_id == self.entity_id:
-						counterparty = nextindv
-						break
+		if counterparty is None:
+			individuals = itertools.cycle(factory.get(Individual))
+			nextindv = next(individuals) # Prime the pump
+			while True:
+				individual, nextindv = nextindv, next(individuals)
+				# print('Individual: {}'.format(individual.name))
+				# print('Next Individual: {}'.format(nextindv.name))
+				if individual.entity_id == self.entity_id:
+					counterparty = nextindv
+					break
 		print('Inheritance bequeathed from {} to {}'.format(self.name, counterparty.name))
 
 		ledger.set_entity(self.entity_id)

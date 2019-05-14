@@ -36,9 +36,10 @@ class Trading(object):
 		self.gl = ledger.gl
 		self.ledger_name = ledger.ledger_name
 		self.entity = ledger.entity
-		self.date = ledger.date
-		self.start_date = ledger.start_date
-		self.txn = ledger.txn
+		self.date = ledger.date # TODO May not be needed
+		self.start_date = ledger.start_date # TODO May not be needed
+		self.txn = ledger.txn # TODO May not be needed
+		self.start_txn = ledger.start_txn # TODO May not be needed
 
 		self.comm = comm
 		if self.entity is not None:
