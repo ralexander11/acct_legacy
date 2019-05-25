@@ -418,7 +418,7 @@ class World:
 
 		t9_start = time.perf_counter()
 		individual = factory.registry[Individual][-1]
-		print('First Individual: {}'.format(individual))
+		print('Last Individual: {}'.format(individual))
 		if str(self.now) == '1986-10-31': # For testing impairment
 			individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm'), target='Plow')
 
@@ -428,12 +428,12 @@ class World:
 			if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
 				individual.birth()
 
-		if args.random:
-			death_roll = random.randint(1, 40)
-			print('Death Roll: {}'.format(death_roll))
-			if death_roll == 40:# or (str(self.now) == '1986-10-03'):
-				print('{} randomly dies!'.format(individual.name))
-				individual.set_need('Hunger', -100, forced=True)
+		# if args.random:
+		# 	death_roll = random.randint(1, 40)
+		# 	print('Death Roll: {}'.format(death_roll))
+		# 	if death_roll == 40:# or (str(self.now) == '1986-10-03'):
+		# 		print('{} randomly dies!'.format(individual.name))
+		# 		individual.set_need('Hunger', -100, forced=True)
 
 		print()
 		print('Current Date: {}'.format(self.now))
@@ -3036,10 +3036,12 @@ class Individual(Entity):
 			if not self.entity_ids:
 				print('No one else is left to have a child with {}.'.format(self.name))
 				return
-			random.shuffle(self.entity_ids)
+			# random.shuffle(self.entity_ids)
 			print('Entity IDs: {}'.format(self.entity_ids))
 			# Choose random partner if none is provided
-			counterparty = factory.get_by_id(random.choice(self.entity_ids))
+			# counterparty = factory.get_by_id(random.choice(self.entity_ids))
+			# Choose wealthiest individual besides self for partner
+			counterparty = factory.get_by_id(self.entity_ids[-1])
 		gift_event = []
 		ledger.set_entity(self.entity_id)
 		cash1 = ledger.balance_sheet(['Cash'])
