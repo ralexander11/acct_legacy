@@ -365,7 +365,7 @@ class Accounts:
 			infile = input('Enter a filename: ')
 		try:
 			with open(infile, 'r') as f:
-				load_csv = pd.read_csv(f, keep_default_na=False)
+				load_csv = pd.read_csv(f, keep_default_na=False, comment='#')
 			lol = load_csv.values.tolist()
 		except Exception as e:
 			print('Error: {}'.format(e))

@@ -68,6 +68,8 @@ econ_accts = [
 	('Sales','Revenue'),
 	('Goods Produced','Revenue'),
 	('Goods Consumed','Expense'),
+	('Accounts Receivable','Asset'),
+	('Accounts Payable','Liability'),
 	('Salary Expense','Expense'),
 	('Salary Income','Revenue'),
 	('Wages Payable','Liability'),
@@ -106,7 +108,8 @@ econ_accts = [
 	('Technology','Asset'),
 	('Researching Technology','Asset'),
 	('Technology Expense','Expense'),
-	('Technology Produced','Revenue')
+	('Technology Produced','Revenue'),
+	('Deposits','Liability')
 ] # TODO Remove div exp once retained earnings is implemented
 
 class World:
