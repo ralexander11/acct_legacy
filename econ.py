@@ -265,12 +265,13 @@ class World:
 		self.ticktock()
 		self.entities = accts.get_entities().reset_index()
 		#prices_disp = self.entities[['entity_id','name']].merge(self.prices.reset_index(), on=['entity_id']).set_index('item_id')
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print('\nPrices: \n{}\n'.format(self.prices))
 		print('Current Date: {}'.format(self.now))
 		self.check_end(v=True)
 		if self.end:
 			return
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			print('\nPrices: \n{}\n'.format(self.prices))
+
 		t2_start = time.perf_counter()
 		self.global_needs = self.get_needs() # TODO Iterate through global needs instead of the needs for each individual when checking if a corp is needed
 		demand_items = world.demand.drop_duplicates(['item_id'])
@@ -3038,13 +3039,16 @@ class Individual(Entity):
 			print('Entity IDs Before: {}'.format(self.entity_ids))
 			if not self.entity_ids:
 				print('No one else is left to have a child with {}.'.format(self.name))
-				return
+				# return
+				print('{} clones themselves.'.format(self.name))
+				counterparty = self
+			else:
 			# random.shuffle(self.entity_ids)
-			print('Entity IDs: {}'.format(self.entity_ids))
+			# print('Entity IDs: {}'.format(self.entity_ids))
 			# Choose random partner if none is provided
 			# counterparty = factory.get_by_id(random.choice(self.entity_ids))
 			# Choose wealthiest individual besides self for partner
-			counterparty = factory.get_by_id(self.entity_ids[-1])
+				counterparty = factory.get_by_id(self.entity_ids[-1])
 		gift_event = []
 		ledger.set_entity(self.entity_id)
 		cash1 = ledger.balance_sheet(['Cash'])
@@ -3123,6 +3127,9 @@ class Individual(Entity):
 				cp_sub, event_id = self.get_counterparty(sub_txns, rvsl_txns, item, 'Sell Subscription')
 				for _ in range(sub_state):
 					self.cancel_subscription(item, cp_sub)
+		
+		world.prices = world.prices.loc[world.prices['entity_id'] != self.entity_id]
+		print('{} removed their prices for items from the price list.\n'.format(self.name))
 
 		# Get the counterparty to inherit to
 		if counterparty is None:
@@ -3158,7 +3165,7 @@ class Individual(Entity):
 			inherit_event += [bequeath_entry, inherit_entry]
 		ledger.journal_entry(inherit_event)
 
-	def need_decay(self, need):
+	def need_decay(self, need, decay_rate=1):
 		rand = 1
 		if args.random:
 			rand = random.randint(1, 3)
@@ -3167,8 +3174,9 @@ class Individual(Entity):
 		self.set_need(need, decay_rate)
 		return decay_rate
 
-	def threshold_check(self, need):
-		if self.needs[need]['Current Need'] <= self.needs[need]['Threshold']:
+	def threshold_check(self, need, threshold=100):
+		threshold = self.needs[need]['Threshold']
+		if self.needs[need]['Current Need'] < threshold:
 			print('{} {} Need: {}'.format(self.name, need, self.needs[need]['Current Need']))
 			print('{} threshold met for {}!'.format(need, self.name))
 			self.address_need(need)
