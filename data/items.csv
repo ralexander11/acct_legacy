@@ -26,7 +26,7 @@ Harvester,None,None,None,Labour,None,None,None,None,None,None,None,None,None,Non
 Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 #Berries,None,None,None,Commodity,"Time, Land","1, 10",None,None,None,Hunger,0.25,None,None,8,spoilage,None,None,None,1,None,None,Individual
 Food,None,None,None,Commodity,"Growing, Arable land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Farm
-Plow,None,None,start,Equipment,"Metal Working, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 10, 20",12,None,None,None,None,Cultivator,0.5,"10,1000","usage, ticks",None,None,None,100,None,None,Blacksmith
+Plow,None,None,start,Equipment,"Metal Working, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 10, 20",12,None,None,None,None,Cultivator,0.5,"10,100","usage, ticks",None,None,None,100,None,None,Blacksmith
 Wood,None,None,None,Commodity,"Land, Lumberjack","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,10,Wood Chips,10,Lumbermill
 Rock,None,None,None,Commodity,"Land, Miner","1, 0.1",None,None,None,None,None,None,None,None,None,None,10,None,10,None,None,"Quarry, Mine"
 Ore,None,None,None,Commodity,Mountain,1,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
@@ -56,4 +56,4 @@ Super Food,None,None,None,Commodity,"Time, Super Tech, Arable land, Cultivator, 
 Super Tech,None,None,None,Technology,"Time, Wire, Wood","20, 200, 400",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Well
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Anvil,None,None,continuous,Equipment,"Time, Rock","2, 50",1,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,Blacksmith
-Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","1000","ticks",None,None,None,100,None,None,Blacksmith
+Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","100","ticks",None,None,None,100,None,None,Blacksmith

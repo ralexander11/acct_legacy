@@ -113,6 +113,7 @@ class Accounts:
 				decay_rate INTEGER DEFAULT 1,
 				need_threshold INTEGER DEFAULT 40,
 				current_need INTEGER DEFAULT 50,
+				parents text,
 				auth_shares INTEGER,
 				outputs text
 			);
@@ -131,6 +132,7 @@ class Accounts:
 				decay_rate,
 				need_threshold,
 				current_need,
+				parents,
 				auth_shares,
 				outputs
 				)
@@ -147,6 +149,7 @@ class Accounts:
 					1,
 					40,
 					50,
+					'(None,None)',
 					1000000,
 					'Labour'
 				);
@@ -301,16 +304,17 @@ class Accounts:
 			decay_rate = input('Enter the rates of decay per day for each need.') # TODO Add int validation
 			need_threshold = input('Enter the threshold for the needs as a list: ')
 			current_need = input('Enter the starting level for the needs as a list: ')
+			parents = input('Enter two IDs for parents as a tuple: ')
 			auth_shares = input('Enter the number of shares authorized: ')
 			outputs = input('Enter the output names as a list: ') # For corporations
 
-			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,hours,needs,need_max,decay_rate,need_threshold,current_need,auth_shares,outputs)
-			cur.execute('INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,auth_shares,outputs)
+			cur.execute('INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()
@@ -560,14 +564,26 @@ class Ledger:
 		else:
 			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
 
+	def balance_sheet_new(self, accounts=None, item=None, v=True):
+		self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
+		self.gl['credit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
+		all_accts = False
+		if item is not None: # TODO Add support for multiple items maybe
+			self.gl = self.gl[self.gl['item_id'] == item]
+
+		self.bs = pd.DataFrame(columns=['line_item','balance'])
+
+		debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+		credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+
+
 	def balance_sheet(self, accounts=None, item=None, v=False): # TODO Needs to be optimized with:
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		all_accts = False
 		if item is not None: # TODO Add support for multiple items maybe
 			self.gl = self.gl[self.gl['item_id'] == item]
-		if v: 
-			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				if v: print(self.gl)
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			if v: print(self.gl)
 		if accounts is None: # Create a list of all the accounts
 			all_accts = True
 			debit_accts = pd.unique(self.gl['debit_acct'])
@@ -1130,8 +1146,7 @@ class Ledger:
 		return new_entry
 
 	def hist_cost(self, qty, item=None, acct=None, remaining_txn=False, v=False):
-		v_v = False
-		#print('Getting historical cost of {} for {} qty.'.format(item, qty))
+		if v: print('Getting historical cost of {} for {} qty.'.format(item, qty))
 		if acct is None:
 			acct = 'Investments' #input('Which account? ') # TODO Remove this maybe
 		if qty == 0:
@@ -1143,7 +1158,7 @@ class Ledger:
 		credit_qtys = -qty_txns['qty']
 		debit_qtys = qty_txns['qty']
 		qty_txns = np.select([m1, m2], [credit_qtys, debit_qtys])
-		if v_v: print('Qty TXNs: \n{}'.format(qty_txns))
+		if v: print('Qty TXNs: {} \n{}'.format(len(qty_txns), qty_txns))
 
 		# Find the first lot of unsold items
 		count = 0
@@ -1169,8 +1184,8 @@ class Ledger:
 		if v: print('Start QTY: {}'.format(start_qty))
 
 		qty_txns_gl = self.get_qty_txns(item, acct)
-		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-		# 	print('QTY TXNs GL Before: \n{}'.format(qty_txns_gl))
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			if v: print('QTY TXNs GL Before: {} \n{}'.format(len(qty_txns_gl), qty_txns_gl))
 		qty_txns_gl_check = qty_txns_gl.loc[qty_txns_gl['credit_acct'] == acct]
 		if not qty_txns_gl_check.empty:
 			mask = qty_txns_gl.credit_acct == acct
@@ -1184,9 +1199,8 @@ class Ledger:
 			#qty_txns_gl.loc[mask, 'qty'] = qty_txns_gl['qty'] * -1 # Old
 			qty_txns_gl.loc[mask, 'qty'] *= -1
 
-		# if v:
-		# 	with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-		# 		print('QTY TXNs GL: \n{}'.format(qty_txns_gl))
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			if v: print('QTY TXNs GL: \n{}'.format(qty_txns_gl))
 		if v: print('Hist Count: {}'.format(count))
 		start_index = qty_txns_gl.index[count]
 		if v: print('Start Index: {} | Len: {}'.format(start_index, len(qty_txns_gl)))
