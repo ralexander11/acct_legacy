@@ -565,6 +565,7 @@ class Ledger:
 			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
 
 	def balance_sheet_new(self, accounts=None, item=None, v=True):
+		# TODO WIP
 		self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		self.gl['credit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
 		all_accts = False
@@ -1340,16 +1341,6 @@ class Ledger:
 		cur.close()
 		print('QTYs converted.')
 
-	def fix_price(self): # Temp price fix function
-		cur = self.conn.cursor()
-		price = np.nan
-		#print('QTY: {}'.format(qty))
-		value = (price,)
-		#print('Value: {}'.format(value))
-		cur.execute('UPDATE ' + self.ledger_name + ' SET price = (?) WHERE price = amount', value)
-		self.conn.commit()
-		cur.close()
-		print('Prices converted.')
 
 def main(command=None, external=False):
 	parser = argparse.ArgumentParser()
@@ -1453,12 +1444,6 @@ def main(command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'width': # TODO Try and make this work
 			DISPLAY_WIDTH = int(input('Enter number for display width: '))
-			if args.command is not None: exit()
-		elif command.lower() == 'fixqty': # Temp qty fix function
-			ledger.fix_qty()
-			if args.command is not None: exit()
-		elif command.lower() == 'fixprice': # Temp price fix function
-			ledger.fix_price()
 			if args.command is not None: exit()
 		elif command.lower() == 'exit' or args.command is not None:
 			exit()

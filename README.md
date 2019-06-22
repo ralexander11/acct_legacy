@@ -10,11 +10,11 @@ The below instructions apply when not using the acct.db file included in the rep
 
 ### Part I - Setup the accounts and capital
 
-0. Rename acct.db to acct_orig.db
+0. Rename acct.db to acct_orig.db if it exists
 1. Run acct.py
-2. You should see 9 standard accounts get loaded
-3. Type "loadAccts" command
-4. Type "trading" and hit enter
+2. Type "gl" command
+3. Type "bs" command
+4. Type "accts" command
 5. Type "JE" command
 6. Press enter 3 times until it asks you for a description
 7. Type "Deposit capital" for the description and hit enter
@@ -26,6 +26,7 @@ The below instructions apply when not using the acct.db file included in the rep
 13. Type "bs" command
 
 ### Part II - Make trades
+Unfortunately, IEX changed their policies and the below will not work currently.
 
 1. Run trade_platform.py
 2. Type "buy" command

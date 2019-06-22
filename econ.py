@@ -14,7 +14,7 @@ import re
 import cProfile
 
 END_DATE = None
-END_DATE = '1986-10-03'
+# END_DATE = '1986-10-03'
 
 DISPLAY_WIDTH = 98
 if END_DATE is None or False:
