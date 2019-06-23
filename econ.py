@@ -133,6 +133,19 @@ class World:
 			self.delay = pd.DataFrame(columns=['txn_id','delay']) # TODO Create table in db and save df to it after each edit
 			self.set_table(self.delay, 'delay')
 			self.population = population
+			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 	print('Items Config: \n{}'.format(self.items))
+			self.setup_prices()
+			self.end = False
+			self.create_world()
+			self.indiv_items_produced = self.items[self.items['producer'].str.contains('Individual', na=False)].reset_index()
+			self.indiv_items_produced = self.indiv_items_produced['item_id'].tolist()
+			self.indiv_items_produced = ', '.join(self.indiv_items_produced)
+			for person in range(1, self.population + 1):
+				print('Person: {}'.format(person))
+				factory.create(Individual, 'Person-' + str(person), self.indiv_items_produced)
+				entity = factory.get_by_id(person)
+				self.prices = pd.concat([self.prices, entity.prices])
 		else:
 			continue_date = self.get_table('date').values[0][0]
 			self.now = datetime.datetime.strptime(continue_date[:10], '%Y-%m-%d').date()
@@ -151,23 +164,10 @@ class World:
 				if not any(n <= 0 for n in current_need_all):
 					alive_individuals.append(row)
 			self.population = len(alive_individuals)
-
-		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-		# 	print('Items Config: \n{}'.format(self.items))
-		self.setup_prices()
-		self.end = False
-
-		if not os.path.exists('db/' + args.database) or args.reset:
-			self.create_world()
-			self.indiv_items_produced = self.items[self.items['producer'].str.contains('Individual', na=False)].reset_index()
-			self.indiv_items_produced = self.indiv_items_produced['item_id'].tolist()
-			self.indiv_items_produced = ', '.join(self.indiv_items_produced)
-			for person in range(1, self.population + 1):
-				print('Person: {}'.format(person))
-				factory.create(Individual, 'Person-' + str(person), self.indiv_items_produced)
-				entity = factory.get_by_id(person)
-				self.prices = pd.concat([self.prices, entity.prices])
-		else:
+			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 	print('Items Config: \n{}'.format(self.items))
+			self.setup_prices()
+			self.end = False
 			self.entities = accts.get_entities().reset_index()
 			individuals = self.entities.loc[self.entities['auth_shares'].isna()]
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -182,7 +182,6 @@ class World:
 			for index, corp in corps.iterrows():
 				legal_form = self.org_type(corp['name'])
 				factory.create(legal_form, corp['name'], corp['outputs'], corp['auth_shares'], corp['entity_id'])
-
 		print()
 		self.cols = ledger.gl.columns.values.tolist()
 		print(self.cols) # For verbosity
@@ -3031,7 +3030,7 @@ class Individual(Entity):
 		# Note: The 2nd to 5th values are for another program
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst, Fun','100,100,100,100','1,1,2,5','85,50,60,40', str(hunger_start)+',100,100,100',None,'Labour') ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst','100,100,100','1,1,2','85,50,60', str(hunger_start)+',100,100',None,items) ]
-		entity_data = [ (name,0.0,1,100,0.5,'iex',hours,'Thirst, Hunger','100, 100','1, 1','60, 85',current_need,str(parents),None,items) ] # TODO Maybe add active bool field
+		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', hours, 'Thirst, Hunger', '100, 100', '1, 1', '60, 85', current_need, str(parents), None, items) ] # TODO Maybe add active bool field
 		# print('Entity Data: {}'.format(entity_data))
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','85', str(hunger_start),None,items) ]
 		if entity_id is None:
@@ -3440,7 +3439,7 @@ class Organization(Entity):
 class Corporation(Organization):
 	def __init__(self, name, items, auth_shares=1000000, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name,0.0,1,100,0.5,'iex',None,None,None,None,None,None,None,auth_shares,items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', None, None, None, None, None, None, None, auth_shares, items) ] # Note: The 2nd to 5th values are for another program
 		if entity_id is None:
 			self.entity_id = accts.add_entity(entity_data)
 		else:
