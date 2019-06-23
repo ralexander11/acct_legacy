@@ -496,6 +496,10 @@ class Ledger:
 			self.date = input('Enter a date in format YYYY-MM-DD: ')
 		else:
 			self.date = date
+		try:
+			datetime.datetime.strptime(self.date, '%Y-%m-%d')
+		except ValueError:
+			raise ValueError('Incorrect data format, should be YYYY-MM-DD.')
 		self.refresh_ledger()
 		self.balance_sheet()
 		return self.date
@@ -505,6 +509,10 @@ class Ledger:
 			self.start_date = input('Enter a start date in format YYYY-MM-DD: ')
 		else:
 			self.start_date = start_date
+		try:
+			datetime.datetime.strptime(self.date, '%Y-%m-%d')
+		except ValueError:
+			raise ValueError('Incorrect data format, should be YYYY-MM-DD.')
 		self.refresh_ledger()
 		self.balance_sheet()
 		return self.start_date
@@ -913,19 +921,29 @@ class Ledger:
 		if journal_data is None: # Manually enter a journal entry
 			event = input('Enter an optional event_id: ')
 			entity = input('Enter the entity_id: ')
-			date_raw = input('Enter a date as format yyyy-mm-dd: ')
-			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+			while True:
+				try:
+					date_raw = input('Enter a date as format yyyy-mm-dd: ')
+					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+					if date == 'NaT':
+						date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
+						date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+					datetime.datetime.strptime(date, '%Y-%m-%d')
+					break
+				except ValueError:
+					print('Incorrect data format, should be YYYY-MM-DD.')
+					continue
 			desc = input('Enter a description: ') + ' [M]'
 			item = input('Enter an optional item_id: ')
 			price = input('Enter an optional price: ')
 			qty = input('Enter an optional quantity: ')
 			debit = input('Enter the account to debit: ')
 			if debit not in self.coa.index:
-				print('\n' + debit + ' is not a valid account.')
+				print('\n' + debit + ' is not a valid account. Type "accts" command to view valid accounts.')
 				return # TODO Make accounts foreign key constraint
 			credit = input('Enter the account to credit: ')
 			if credit not in self.coa.index:
-				print('\n' + credit + ' is not a valid account.')
+				print('\n' + credit + ' is not a valid account. Type "accts" command to view valid accounts.')
 				return
 			while True:
 				amount = input('Enter the amount: ')
@@ -933,15 +951,14 @@ class Ledger:
 					x = float(amount)
 					break
 				except ValueError:
+					print('Enter a number.')
 					continue
 			
 			if event == '':
 				event = str(self.get_event())
 			if entity == '':
 				entity = str(self.get_entity())
-			if date == 'NaT':
-				date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
-				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+			
 
 			if qty == '': # TODO No qty and price default needed now
 				qty = np.nan
@@ -972,6 +989,10 @@ class Ledger:
 				if date == 'NaT':
 					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+				try:
+					datetime.datetime.strptime(date, '%Y-%m-%d')
+				except ValueError:
+					raise ValueError('Incorrect data format, should be YYYY-MM-DD.')
 
 				if qty == '': # TODO No qty and price default needed now
 					qty = np.nan
