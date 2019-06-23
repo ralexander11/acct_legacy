@@ -17,10 +17,8 @@ END_DATE = None
 # END_DATE = '1986-10-03'
 
 DISPLAY_WIDTH = 98
-if END_DATE is None or False:
-	DISPLAY_WIDTH *= 2
-	DISPLAY_WIDTH += 20
-pd.set_option('display.width', DISPLAY_WIDTH)
+if END_DATE is not None:
+	pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 warnings.filterwarnings('ignore')
 
@@ -2547,8 +2545,10 @@ class Entity:
 		else:
 			base_hours = 0
 		if only_avail:
-			workers_avail_exp = {worker: v for worker, v in workers_exp.items() if worker.hours > base_hours}
-			workers_avail_price = {worker: v for worker, v in workers_price.items() if worker.hours > base_hours}
+			# workers_avail_exp = {worker: v for worker, v in workers_exp.items() if worker.hours > base_hours}
+			workers_avail_exp = collections.OrderedDict((worker, v) for worker, v in workers_exp.items() if worker.hours > base_hours)
+			# workers_avail_price = {worker: v for worker, v in workers_price.items() if worker.hours > base_hours}
+			workers_avail_price = collections.OrderedDict((worker, v) for worker, v in workers_price.items() if worker.hours > base_hours)
 		else:
 			workers_avail_exp = workers_exp
 			workers_avail_price = workers_price
@@ -3593,7 +3593,9 @@ if __name__ == '__main__':
 	parser.add_argument('-rand', '--random', action="store_false", help='Remove randomness from the sim!')
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
+	parser.add_argument('-t', '--time', type=int, help='The number of days the sim will run for.')
 	args = parser.parse_args()
+
 	if args.database is None:
 		args.database = 'econ01.db'
 
@@ -3607,6 +3609,8 @@ if __name__ == '__main__':
 		else:
 			print(time_stamp() + 'Randomness turned on with no seed provided.')
 			random.seed()
+	if args.time is not None:
+		END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
 	if END_DATE is None:
 		print(time_stamp() + 'Econ Sim has no end date and will end if everyone dies.')
 	else:

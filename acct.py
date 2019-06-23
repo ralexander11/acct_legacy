@@ -568,15 +568,26 @@ class Ledger:
 		# TODO WIP
 		self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		self.gl['credit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
+		self.gl['debit_amount'] = self.gl.apply(lambda x: x['amount'] if (x['debit_acct_type'] == 'Asset') | (x['debit_acct_type'] == 'Expense') else x['amount'] * -1, axis=1)
+		self.gl['credit_amount'] = self.gl.apply(lambda x: x['amount'] * -1 if (x['debit_acct_type'] == 'Asset') | (x['debit_acct_type'] == 'Expense') else x['amount'], axis=1)
 		all_accts = False
 		if item is not None: # TODO Add support for multiple items maybe
 			self.gl = self.gl[self.gl['item_id'] == item]
+		if accounts is None: # Create a list of all the accounts
+			all_accts = True
+			debit_accts = pd.unique(self.gl['debit_acct'])
+			credit_accts = pd.unique(self.gl['credit_acct'])
+			accounts = list( set(debit_accts) | set(credit_accts) )
 
 		self.bs = pd.DataFrame(columns=['line_item','balance'])
 
-		debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-		credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-
+		debits = self.gl.groupby('debit_acct').sum()['debit_amount']#[acct]
+		# print('New Debits: \n{}'.format(debits))
+		credits = self.gl.groupby('credit_acct').sum()['credit_amount']#[acct]
+		# print('New Credits: \n{}'.format(credits))
+		print(debits + credits)
+		result = debits.add(credits, fill_value=0)
+		print(result)
 
 	def balance_sheet(self, accounts=None, item=None, v=False): # TODO Needs to be optimized with:
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
@@ -1441,6 +1452,8 @@ def main(command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'loaditems':
 			accts.load_items()
+		elif command.lower() == 'bsn':
+			ledger.balance_sheet_new()
 			if args.command is not None: exit()
 		elif command.lower() == 'width': # TODO Try and make this work
 			DISPLAY_WIDTH = int(input('Enter number for display width: '))
