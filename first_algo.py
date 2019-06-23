@@ -1,6 +1,6 @@
 from acct import Accounts
 from acct import Ledger
-from trade_platform import Trading
+from trade import Trading
 from market_data.market_data import MarketData
 from market_data.combine_data import CombineData
 import pandas as pd

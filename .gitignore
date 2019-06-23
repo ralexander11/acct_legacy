@@ -101,6 +101,7 @@ app/
 
 # Other
 old/
+misc/
 .bash_profile
 *config*.json
 *.txt
