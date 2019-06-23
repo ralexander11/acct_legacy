@@ -8,7 +8,7 @@ import warnings
 
 
 DISPLAY_WIDTH = 98#196#
-pd.set_option('display.width', DISPLAY_WIDTH)
+# pd.set_option('display.width', DISPLAY_WIDTH)
 pd.set_option('display.max_colwidth', 30)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
@@ -25,12 +25,14 @@ class Accounts:
 				website = False
 				logging.debug('Website: {}'.format(website))
 		elif isinstance(conn, str):
+			if '/' not in conn:
+				conn = 'db/' + conn
 			try:
-				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/' + conn)
+				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/' + conn)
 				website = True
 				logging.debug('Website: {}'.format(website))
 			except:
-				conn = sqlite3.connect('db/' + conn)
+				conn = sqlite3.connect(conn)
 				website = False
 				logging.debug('Website: {}'.format(website))
 		else:
