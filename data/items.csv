@@ -29,18 +29,18 @@ Food,None,None,None,Commodity,"Growing, Arable land, Cultivator, Water, Harvest,
 Plow,None,None,start,Equipment,"Metal Working, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 10, 20",12,None,None,None,None,Cultivator,0.5,"10,100","usage, ticks",None,None,None,100,None,None,Blacksmith
 Wood,None,None,None,Commodity,"Land, Lumberjack","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,10,Wood Chips,10,Lumbermill
 Rock,None,None,None,Commodity,"Land, Miner","1, 0.1",None,None,None,None,None,None,None,None,None,None,10,None,10,None,None,"Quarry, Mine"
-Ore,None,None,None,Commodity,Mountain,1,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
-Metal,None,None,None,Commodity,"Forge, Ore","1, 2",None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,Smelter
-Forge,None,None,continuous,Equipment,"Rock, Wood","30, 5",None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,Blacksmith
+#Ore,None,None,None,Commodity,Mountain,1,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
+#Metal,None,None,None,Commodity,"Forge, Ore","1, 2",None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,Smelter
+#Forge,None,None,continuous,Equipment,"Rock, Wood","30, 5",None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,Blacksmith
 Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Water Well,None,None,continuous,Equipment,"Rock, Wood","100, 20",4,None,None,None,None,None,None,30,ticks,None,None,None,100,None,None,Well
 Water,None,None,None,Subscription,"Land, Water Well","1, 1",None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Well
-Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,"100, 200","usage, ticks",None,None,None,20,None,None,Carpenter
-Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Haircut,None,None,None,Service,Barber,1,None,None,None,Hygiene,100,None,None,None,None,None,None,None,None,None,None,Barber Shop
+#Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,"100, 200","usage, ticks",None,None,None,20,None,None,Carpenter
+#Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+#Haircut,None,None,None,Service,Barber,1,None,None,None,Hygiene,100,None,None,None,None,None,None,None,None,None,None,Barber Shop
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Harvest Guild
 Manager,None,None,None,Job,Reading,1,2000,"Paper","1",None,None,None,None,None,None,None,None,None,None,None,None,None
-Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,50,ticks,None,None,None,50,None,None,Blacksmith
+#Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,50,ticks,None,None,None,50,None,None,Blacksmith
 Town Hall,None,None,None,Government,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 University,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None

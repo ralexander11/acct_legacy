@@ -1395,8 +1395,8 @@ class Entity:
 					while labour_done < labour_required:
 						required_hours = int(math.ceil((req_qty * (1-modifier) * qty) - labour_done))
 						if item_type == 'Education':
-							print('{}-{} has not studied enough {} today. Will attempt to study for {} hours.'.format(self.name, self.entity_id, req_item, required_hours))
-							#MAX_HOURS = 12
+							print('{}-{} has not studied enough {} today. Will attempt to study for {} hours.'.format(self.name, self.entity_id, req_item, required_hours)
+)							#MAX_HOURS = 12
 							required_hours = min(required_hours, MAX_HOURS)
 							counterparty = self
 							entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, wage=0, buffer=True)
@@ -1413,22 +1413,21 @@ class Entity:
 							if item_type != 'Education':
 								#print('World Demand Before: \n{}'.format(world.demand))
 								demand_count = world.demand.loc[world.demand['item_id'] == item].shape[0]
-								world.set_table(world.demand, 'demand')
-								print('Demand Count Buckets: {}'.format(demand_count))
+								print('Demand Count Buckets for {}: {}'.format(item, demand_count))
 								if demand_count:
 									qty_possible = max(int(math.floor(labour_done / (req_qty * (1-modifier)))), 1)
 									qty_poss_bucket = max(int(math.ceil(qty_possible // demand_count)), 1)
 									# TODO Better handle zero remaining when qty_poss_bucket is also 1
 									qty_poss_remain = qty_possible % qty_poss_bucket
-									print('Labour Done: {} | Qty Possible: {} | '.format(labour_done, qty_possible))
+									print('Labour Done for {}: {} | Qty Possible for {}: {} | '.format(req_item, labour_done, item, qty_possible))
 									print('Qty Poss. per Bucket: {} | Qty Poss. Remain: {}'.format(qty_poss_bucket, qty_poss_remain))
 									world.demand.loc[world.demand['item_id'] == item, 'qty'] = qty_poss_bucket
 									for i, row in world.demand.iterrows():
 										if row['item_id'] == item:
 											break
 									world.demand.at[i, 'qty'] = qty_poss_bucket + qty_poss_remain
-									world.set_table(world.demand, 'demand')
 									world.demand.loc[world.demand['item_id'] == item, 'reason'] = 'labour'
+									world.set_table(world.demand, 'demand')
 									print('{}-{} adjusted {} on demand list due to labour constraint.'.format(self.name, self.entity_id, item))
 									#print(time_stamp() + 'World Demand After: \n{}'.format(world.demand))
 							break

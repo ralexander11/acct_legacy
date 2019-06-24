@@ -256,6 +256,7 @@ class Accounts:
 
 	def refresh_accts(self):
 		self.coa = pd.read_sql_query('SELECT * FROM accounts;', self.conn, index_col='accounts')
+		return self.coa
 
 	def print_accts(self):
 		self.refresh_accts()
@@ -1028,7 +1029,7 @@ class Ledger:
 			#infile = 'data/rbc_sample_2019-01-27.csv' # For testing
 			#infile = 'data/legacy_ledger_2019-01-25.csv' # For testing
 		if flag is None:
-			flag = input('Enter a flag: ')
+			flag = input('Enter a flag (rbc, legacy, or none): ')
 			#flag = 'rbc' # For testing
 			#flag = 'legacy' # For testing
 		try:
@@ -1180,10 +1181,14 @@ class Ledger:
 		self.refresh_ledger()
 		return new_entry
 
-	def hist_cost(self, qty, item=None, acct=None, remaining_txn=False, v=False):
+	def hist_cost(self, qty=None, item=None, acct=None, remaining_txn=False, v=False):
+		if qty is None:
+			qty = int(input('Enter quantity: '))
+		if item is None:
+			item = int(input('Enter item: '))
 		if v: print('Getting historical cost of {} for {} qty.'.format(item, qty))
 		if acct is None:
-			acct = 'Investments' #input('Which account? ') # TODO Remove this maybe
+			acct = 'Inventory' #input('Enter account: ') # TODO Remove this maybe
 		if qty == 0:
 			return 0
 
@@ -1203,7 +1208,8 @@ class Ledger:
 		qty_change.append(qty_back)
 		for txn in qty_txns[::-1]:
 			if v: print('Hist TXN Item: {}'.format(txn))
-			count -= 1
+			if txn > 0:
+				count -= 1
 			if v: print('Hist Count: {}'.format(count))
 			qty_back -= txn
 			qty_change.append(qty_back)
@@ -1219,8 +1225,8 @@ class Ledger:
 		if v: print('Start QTY: {}'.format(start_qty))
 
 		qty_txns_gl = self.get_qty_txns(item, acct)
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			if v: print('QTY TXNs GL Before: {} \n{}'.format(len(qty_txns_gl), qty_txns_gl))
+		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+		# 	if v: print('QTY TXNs GL Before: {} \n{}'.format(len(qty_txns_gl), qty_txns_gl))
 		qty_txns_gl_check = qty_txns_gl.loc[qty_txns_gl['credit_acct'] == acct]
 		if not qty_txns_gl_check.empty:
 			mask = qty_txns_gl.credit_acct == acct
@@ -1272,12 +1278,12 @@ class Ledger:
 			if v: print('QTY Check: {}'.format(qty_txns_gl.loc[current_index]['qty']))
 			while qty_txns_gl.loc[current_index]['qty'] < 0:
 				count += 1
-				if v: print('Count Check: {}'.format(count))
+				if v: print('Count When Neg: {}'.format(count))
 				current_index = qty_txns_gl.index[count]
 			current_index = qty_txns_gl.index[count]
 			if v: print('Current Index: {}'.format(current_index))
-			if v: print('Qty Left to be Sold: {}'.format(qty))
-			if v: print('Current TXN QTY: {}'.format(qty_txns_gl.loc[current_index]['qty']))
+			if v: print('Qty Left to be Sold 1: {}'.format(qty))
+			if v: print('Current TXN QTY: {} | {}'.format(qty_txns_gl.loc[current_index]['qty'], self.gl.loc[current_index]['qty']))
 			if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
 				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
 				if price_chart.shape[0] >= 2:
@@ -1288,7 +1294,9 @@ class Ledger:
 			
 			price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':self.gl.loc[current_index]['qty']}, ignore_index=True)
 			qty = qty - self.gl.loc[current_index]['qty']
+			if v: print('Qty Left to be Sold 2: {}'.format(qty))
 			count += 1
+			if v: print('Count: {}'.format(count))
 
 		if price_chart.shape[0] >= 2:
 			print('Historical Cost Price Chart: \n{}'.format(price_chart))
@@ -1477,6 +1485,9 @@ def main(command=None, external=False):
 			accts.load_items()
 		elif command.lower() == 'bsn':
 			ledger.balance_sheet_new()
+		elif command.lower() == 'histcost':
+			result = ledger.hist_cost(400, 'Rock', 'Inventory', v=True)
+			print('Historical cost of {} {}: {}'.format(400, 'Rock', result))
 			if args.command is not None: exit()
 		elif command.lower() == 'width': # TODO Try and make this work
 			DISPLAY_WIDTH = int(input('Enter number for display width: '))
