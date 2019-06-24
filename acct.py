@@ -511,7 +511,7 @@ class Ledger:
 		else:
 			self.start_date = start_date
 		try:
-			datetime.datetime.strptime(self.date, '%Y-%m-%d')
+			datetime.datetime.strptime(self.start_date, '%Y-%m-%d')
 		except ValueError:
 			raise ValueError('Incorrect data format, should be YYYY-MM-DD.')
 		self.refresh_ledger()
@@ -609,9 +609,10 @@ class Ledger:
 			if v: print(self.gl)
 		if accounts is None: # Create a list of all the accounts
 			all_accts = True
-			debit_accts = pd.unique(self.gl['debit_acct'])
-			credit_accts = pd.unique(self.gl['credit_acct'])
-			accounts = list( set(debit_accts) | set(credit_accts) )
+			# debit_accts = pd.unique(self.gl['debit_acct'])
+			# credit_accts = pd.unique(self.gl['credit_acct'])
+			# accounts = sorted(list(set(debit_accts) | set(credit_accts)))
+			accounts = np.unique(self.gl[['debit_acct','credit_acct']].values)
 		account_details = []
 
 		# Create a list of tuples for all the accounts with their fundamental accounting element (asset,liab,eq,rev,exp)
