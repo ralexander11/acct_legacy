@@ -17,8 +17,8 @@ END_DATE = None
 # END_DATE = '1986-10-03'
 
 DISPLAY_WIDTH = 98
-if END_DATE is not None:
-	pd.set_option('display.width', DISPLAY_WIDTH)
+# if END_DATE is not None:
+# 	pd.set_option('display.width', DISPLAY_WIDTH)
 pd.options.display.float_format = '${:,.2f}'.format
 warnings.filterwarnings('ignore')
 
@@ -666,7 +666,7 @@ class Entity:
 					print('{}-{} transacted with {} for {} {}'.format(self.name, self.entity_id, counterparty.name, qty, item))
 					ledger.set_entity(counterparty.entity_id)
 					print('{} getting historical cost of {} for {} qty.'.format(counterparty.name, item, qty))
-					cost_amt = ledger.hist_cost(qty, item, 'Inventory')#, v=True)
+					cost_amt = ledger.hist_cost(qty, item, 'Inventory', v=True)
 					ledger.reset()
 					#print('Cost: {}'.format(cost_amt))
 					avg_price = cost_amt / qty
@@ -1803,7 +1803,7 @@ class Entity:
 								world.delay = world.delay.append({'txn_id':index, 'delay': 1}, ignore_index=True)
 								world.set_table(world.delay, 'delay')
 							return
-				start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d')
+				start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d').date()
 				if v: print('Start Date: {}'.format(start_date))
 				ledger.set_date(str(start_date))
 				modifier, items_info = self.check_productivity(requirement)

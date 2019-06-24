@@ -609,7 +609,10 @@ class Ledger:
 			if v: print(self.gl)
 		if accounts is None: # Create a list of all the accounts
 			all_accts = True
-			accounts = np.unique(self.gl[['debit_acct', 'credit_acct']].values).tolist()
+			#debit_accts = pd.unique(self.gl['debit_acct'])
+			#credit_accts = pd.unique(self.gl['credit_acct'])
+			#accounts = sorted(list(set(debit_accts) | set(credit_accts)))
+      accounts = np.unique(self.gl[['debit_acct', 'credit_acct']].values).tolist()
 		account_details = []
 
 		# Create a list of tuples for all the accounts with their fundamental accounting element (asset,liab,eq,rev,exp)
