@@ -8,7 +8,7 @@ import warnings
 
 
 DISPLAY_WIDTH = 98#196#
-# pd.set_option('display.width', DISPLAY_WIDTH)
+pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', 30)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
@@ -612,7 +612,7 @@ class Ledger:
 			# debit_accts = pd.unique(self.gl['debit_acct'])
 			# credit_accts = pd.unique(self.gl['credit_acct'])
 			# accounts = sorted(list(set(debit_accts) | set(credit_accts)))
-			accounts = np.unique(self.gl[['debit_acct','credit_acct']].values).tolist()
+			accounts = np.unique(self.gl[['debit_acct', 'credit_acct']].values).tolist()
 		account_details = []
 
 		# Create a list of tuples for all the accounts with their fundamental accounting element (asset,liab,eq,rev,exp)
@@ -1186,7 +1186,7 @@ class Ledger:
 		if qty is None:
 			qty = int(input('Enter quantity: '))
 		if item is None:
-			item = int(input('Enter item: '))
+			item = input('Enter item: ')
 		if v: print('Getting historical cost of {} for {} qty.'.format(item, qty))
 		if acct is None:
 			acct = 'Inventory' #input('Enter account: ') # TODO Remove this maybe

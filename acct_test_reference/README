@@ -1,0 +1,3 @@
+Reference databases here mirrors the tests/ layout
+
+econ/full_iteration/reference.db (econ.py -s 11 -p 4 -r -t 1 -db econ01.db)

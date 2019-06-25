@@ -17,8 +17,7 @@ END_DATE = None
 # END_DATE = '1986-10-03'
 
 DISPLAY_WIDTH = 98
-# if END_DATE is not None:
-# 	pd.set_option('display.width', DISPLAY_WIDTH)
+pd.set_option('display.width', None)
 pd.options.display.float_format = '${:,.2f}'.format
 warnings.filterwarnings('ignore')
 
