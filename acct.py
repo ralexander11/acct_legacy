@@ -612,7 +612,7 @@ class Ledger:
 			# debit_accts = pd.unique(self.gl['debit_acct'])
 			# credit_accts = pd.unique(self.gl['credit_acct'])
 			# accounts = sorted(list(set(debit_accts) | set(credit_accts)))
-			accounts = np.unique(self.gl[['debit_acct','credit_acct']].values)
+			accounts = np.unique(self.gl[['debit_acct','credit_acct']].values).tolist()
 		account_details = []
 
 		# Create a list of tuples for all the accounts with their fundamental accounting element (asset,liab,eq,rev,exp)
@@ -1207,10 +1207,12 @@ class Ledger:
 		if v: print('Qty to go back: {}'.format(qty_back))
 		qty_change = []
 		qty_change.append(qty_back)
+		neg = False
 		for txn in qty_txns[::-1]:
 			if v: print('Hist TXN Item: {}'.format(txn))
 			if txn > 0:
-				count -= 1
+				neg = True
+			count -= 1
 			if v: print('Hist Count: {}'.format(count))
 			qty_back -= txn
 			qty_change.append(qty_back)
@@ -1220,6 +1222,9 @@ class Ledger:
 			# 	break
 			if qty_back <= 0:
 				break
+			elif qty_back > 0 and neg:
+				count += 1
+				neg = False
 
 		if v: print('Qty Back End: {}'.format(qty_back))
 		start_qty = qty_txns[count]
