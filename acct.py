@@ -1220,7 +1220,7 @@ class Ledger:
 			# if qty_back == 0:
 			# 	del qty_change[-1]
 			# 	break
-			if qty_back <= 0:
+			if qty_back == 0:
 				break
 			elif qty_back > 0 and neg:
 				count += 1
@@ -1271,7 +1271,7 @@ class Ledger:
 			print('Historical Cost Case | One: {}'.format(amount))
 			return amount
 
-		price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[avail_qty]}) # Create a list of lots with associated price
+		price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[max(avail_qty, 0)]}) # Create a list of lots with associated price
 		qty = qty - avail_qty # Sell the remainder of first lot of unsold items
 		if v: print('Historical Cost Price Chart Start: \n{}'.format(price_chart))
 		if v: print('Qty First: {}'.format(qty))
@@ -1291,14 +1291,14 @@ class Ledger:
 			if v: print('Qty Left to be Sold 1: {}'.format(qty))
 			if v: print('Current TXN QTY: {} | {}'.format(qty_txns_gl.loc[current_index]['qty'], self.gl.loc[current_index]['qty']))
 			if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
-				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':qty}, ignore_index=True)
+				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(qty, 0)}, ignore_index=True)
 				if price_chart.shape[0] >= 2:
 					print('Historical Cost Price Chart: \n{}'.format(price_chart))
 				amount = price_chart.price.dot(price_chart.qty) # Take dot product
 				print('Historical Cost Case | Two: {}'.format(amount))
 				return amount
 			
-			price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':self.gl.loc[current_index]['qty']}, ignore_index=True)
+			price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0)}, ignore_index=True)
 			qty = qty - self.gl.loc[current_index]['qty']
 			if v: print('Qty Left to be Sold 2: {}'.format(qty))
 			count += 1
