@@ -546,6 +546,7 @@ class Ledger:
 		self.balance_sheet()
 
 	def refresh_ledger(self):
+		print('Refreshing Ledger.')
 		self.gl = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', self.conn, index_col='txn_id')
 		if self.entity is not None: # TODO make able to select multiple entities
 			self.gl = self.gl[(self.gl.entity_id == self.entity)]
@@ -839,15 +840,15 @@ class Ledger:
 						if v: print('QTY TXNs by entity: \n{}'.format(qty_txns))
 						try:
 							debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
-							#print('Debits: \n{}'.format(debits))
+							if v: print('Debits: \n{}'.format(debits))
 						except KeyError as e:
-							#print('Error Debits: {} | {}'.format(e, repr(e)))
+							if v: print('Error Debits: {} | {}'.format(e, repr(e)))
 							debits = 0
 						try:
 							credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
-							#print('Credits: \n{}'.format(credits))
+							if v: print('Credits: \n{}'.format(credits))
 						except KeyError as e:
-							#print('Error Credits: {} | {}'.format(e, repr(e)))
+							if v: print('Error Credits: {} | {}'.format(e, repr(e)))
 							credits = 0
 						qty = round(debits - credits, 0)
 						if v: print('QTY: {}'.format(qty))
@@ -860,15 +861,15 @@ class Ledger:
 					if v: print('QTY TXNs: \n{}'.format(qty_txns))
 					try:
 						debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
-						#print('Debits: \n{}'.format(debits))
+						if v: print('Debits: \n{}'.format(debits))
 					except KeyError as e:
-						#print('Error Debits: {} | {}'.format(e, repr(e)))
+						if v: print('Error Debits: {} | {}'.format(e, repr(e)))
 						debits = 0
 					try:
 						credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
-						#print('Credits: \n{}'.format(credits))
+						if v: print('Credits: \n{}'.format(credits))
 					except KeyError as e:
-						#print('Error Credits: {} | {}'.format(e, repr(e)))
+						if v: print('Error Credits: {} | {}'.format(e, repr(e)))
 						credits = 0
 					qty = round(debits - credits, 0)
 					if v: print('QTY: {}'.format(qty))
@@ -917,7 +918,11 @@ class Ledger:
 			would be encapsulated in as a single list within a list.
 		'''
 		if journal_data:
-			if not isinstance(journal_data[0], (list, tuple)):
+			if isinstance(journal_data, pd.DataFrame):
+				journal_data = journal_data.values.tolist()
+			elif isinstance(journal_data, pd.Series):
+				journal_data = [journal_data.tolist()]
+			elif not isinstance(journal_data[0], (list, tuple)):
 				journal_data = [journal_data]
 		cur = self.conn.cursor()
 		if journal_data is None: # Manually enter a journal entry
@@ -1006,6 +1011,7 @@ class Ledger:
 				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
 
 		self.conn.commit()
+		txn_id = cur.lastrowid
 		cur.close()
 		self.refresh_ledger() # Ensures the gl is in sync with the db
 		self.balance_sheet() # Ensures the bs is in sync with the ledger
