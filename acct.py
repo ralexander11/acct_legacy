@@ -546,7 +546,7 @@ class Ledger:
 		self.balance_sheet()
 
 	def refresh_ledger(self):
-		print('Refreshing Ledger.')
+		# print('Refreshing Ledger.')
 		self.gl = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', self.conn, index_col='txn_id')
 		if self.entity is not None: # TODO make able to select multiple entities
 			self.gl = self.gl[(self.gl.entity_id == self.entity)]
@@ -1495,6 +1495,7 @@ def main(command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'loaditems':
 			accts.load_items()
+
 		elif command.lower() == 'bsn':
 			ledger.balance_sheet_new()
 		elif command.lower() == 'histcost':
@@ -1504,6 +1505,42 @@ def main(command=None, external=False):
 		elif command.lower() == 'width': # TODO Try and make this work
 			DISPLAY_WIDTH = int(input('Enter number for display width: '))
 			if args.command is not None: exit()
+
+		elif command.lower() == 'help':
+			commands = {
+				'accts': 'View the Chart of Accounts with their types.',
+				'gl': 'View the General Ledger.',
+				'bs': 'View the Balance Sheet and Income Statement.',
+				'entity': 'View only data related to the entity set.',
+				'date': 'Set the date to view the Balance Sheet up to.',
+				'startdate': 'Set the start date to view the Income Statement from.',
+				'reset': 'Resets both the entity and dates, to view for all entities and for all dates.',
+				'je': 'Book a journal entry to the General Ledger.',
+				'addacct': 'Add an account to the Chart of Accounts.',
+				'rvsl': 'Reverse a journal entry on the General Ledger.',
+				'removeacct': 'Remove an account on the Chart of Accounts.',
+				'qty': 'Get the quantity of a particular item or all items if none is specified.',
+				'more': 'List more commands... (WIP)',
+				'exit': 'Exit out of the program.'
+			}
+			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
+			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
+				print(cmd_table)
+		elif command.lower() == 'more':
+			commands = {
+				'split': 'Split a journal entry into more granular entries.',
+				'uncategorize': 'For journal entries that are uncategorized, assign them to a new account.',
+				'txn': 'Set the date to view the Balance Sheet up to.',
+				'starttxn': 'Set the start date to view the Income Statement from.',
+				'exportgl': 'Export the General Ledger to csv.',
+				'importgl': 'Import the General Ledger from csv.',#'Also supports loading trasnactions from RBC online banking and a legacy account system.',
+				'exportaccts': 'Export the Chart of Accounts to csv.',
+				'importaccts': 'Import the Chart of Accounts from csv.',
+				'exit': 'Exit out of the program.'
+			}
+			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
+			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
+				print(cmd_table)
 		elif command.lower() == 'exit' or args.command is not None:
 			exit()
 		else:

@@ -26,6 +26,7 @@ MAX_HOURS = 12
 WORK_DAY = 8
 INIT_PRICE = 10.0
 INIT_CAPITAL = 2000
+EXPLORE_TIME = 400
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -134,6 +135,7 @@ class World:
 			self.population = population
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Items Config: \n{}'.format(self.items))
+			self.valid_item('Land', 'Land')
 			self.setup_prices()
 			self.end = False
 			self.create_world()
@@ -145,6 +147,7 @@ class World:
 				factory.create(Individual, 'Person-' + str(person), self.indiv_items_produced)
 				entity = factory.get_by_id(person)
 				self.prices = pd.concat([self.prices, entity.prices])
+			self.selection = None
 			# self.ticktock() # TODO User
 		else:
 			continue_date = self.get_table('date').values[0][0]
@@ -182,6 +185,7 @@ class World:
 			for index, corp in corps.iterrows():
 				legal_form = self.org_type(corp['name'])
 				factory.create(legal_form, corp['name'], corp['outputs'], corp['auth_shares'], corp['entity_id'])
+			self.selection = None
 		print()
 		self.cols = ledger.gl.columns.values.tolist()
 		print(self.cols) # For verbosity
@@ -235,13 +239,14 @@ class World:
 		return self.prices
 
 	def create_world(self, lands=None):
+		print(time_stamp() + 'Creating world.')
 		if lands is None:
 			lands = [
 				['Land', 100000],
 				['Arable land', 150000],
-				['Forest', 100],
-				['Rocky Land', 100],
-				['Mountain', 100]
+				['Forest', 10000],
+				['Rocky Land', 1000],
+				['Mountain', 10]
 			]
 		for land in lands:
 			self.create_land(land[0], land[1])
@@ -273,6 +278,36 @@ class World:
 			print('Econ Sim ended due to human extinction.')
 			self.end = True
 		return self.end
+
+	def valid_corp(self, ticker):
+		tickers = []
+		for index, producers in self.items['producer'].iteritems():
+			if producers is not None:
+				if isinstance(producers, str):
+					producers = [x.strip() for x in producers.split(',')]
+				producers = list(collections.OrderedDict.fromkeys(filter(None, producers)))
+				tickers += producers
+		tickers = list(collections.OrderedDict.fromkeys(filter(None, tickers)))
+		if ticker in tickers:
+			return True
+		else:
+			return False
+
+	def valid_item(self, item, typ=None):
+		if typ is None:
+			if item in self.items.index:
+				return True
+			else:
+				return False
+		else:
+			items_typ = self.items.reset_index()
+			items_typ['item_type'] = items_typ.apply(lambda x: x['item_id'] if x['child_of'] is None else self.get_item_type(x['item_id']), axis=1)
+			items_typ = items_typ.loc[items_typ['item_type'] == typ]
+			# print('Items Typ: {} | {} \n{}'.format(item, typ, items_typ))
+			if item in items_typ['item_id'].values:
+				return True
+			else:
+				return False
 
 	def get_item_type(self, item):
 		if item in ['Land','Labour','Job','Equipment','Buildings','Subscription','Service','Commodity','Components','Technology','Education','Government','Non-Profit','Time','None']:
@@ -321,9 +356,6 @@ class World:
 
 	def update_econ(self):
 		t1_start = time.perf_counter()
-		# if END_DATE is not None: # For debugging
-		# 	if self.now >= datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
-		# 		world.end = True # TODO User
 		if str(self.now) == '1986-10-01':
 			# TODO Pull shares authorized from entities table
 			for individual in factory.get(Individual):
@@ -332,98 +364,111 @@ class World:
 		# TODO Maybe an update_world() method to adjust the needs and time
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Econ Updated ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 
-		self.ticktock()
+		# self.ticktock()
 		self.entities = accts.get_entities().reset_index()
 		#prices_disp = self.entities[['entity_id','name']].merge(self.prices.reset_index(), on=['entity_id']).set_index('item_id')
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
+		if END_DATE is not None: # For debugging
+			if self.now >= datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
+				world.end = True # TODO User
 		self.check_end(v=True)
 		if self.end:
 			return
+		for individual in factory.get(Individual):
+				individual.reset_hours()
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			print('\nPrices: \n{}\n'.format(self.prices))
 
-		t2_start = time.perf_counter()
 		self.global_needs = self.get_needs() # TODO Iterate through global needs instead of the needs for each individual when checking if a corp is needed
 		# print('Global Needs: {}'.format(self.global_needs))
 		demand_items = self.demand.drop_duplicates(['item_id'])
 		self.set_table(self.demand, 'demand')
 		#print('Demand Items: \n{}'.format(demand_items))
-		for individual in factory.get(Individual):
-			print('Individual: {} | {}'.format(individual.name, individual.entity_id))
-			individual.reset_hours()
-			for need in individual.needs:
-				#print('Need: {}'.format(need))
-				individual.corp_needed(need=need)
-				individual.item_demanded(need=need)
-			for index, item in demand_items.iterrows():
-				#print('Corp Check Demand Item: {}'.format(item['item_id']))
-				individual.corp_needed(item=item['item_id'], demand_index=index)
-		t2_end = time.perf_counter()
-		print(time_stamp() + '2: Individual check took {:,.2f} min.'.format((t2_end - t2_start) / 60))
-		print()
-		print('World Demand Start: \n{}'.format(world.demand))
-		print()
-		# print(ledger.get_qty(['Rock','Wood','Paper','Food','Wood Chips'], ['Inventory'], show_zeros=True, by_entity=True)) # Temp for testing
-		# print()
 
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		t3_start = time.perf_counter()
-		for typ in factory.registry.keys():
-			#print('Entity Type: {}'.format(typ))
-			for entity in factory.get(typ):
-				#print('Entity: {}'.format(entity))
-				#print('Entity Name: {} | {}'.format(entity.name, entity.entity_id))
-				# if entity.name == 'Farm' and str(self.now) == '1986-10-03': # For testing
-				# 	entity.find_item('Hydroponics', qty=1, price=1000)
-				t3_1_start = time.perf_counter()
-				entity.depreciation_check()
-				t3_1_end = time.perf_counter()
-				print(time_stamp() + '3.1: Dep check took {:,.2f} sec for {}-{}.'.format((t3_1_end - t3_1_start), entity.name, entity.entity_id))
-				t3_2_start = time.perf_counter()
-				entity.wip_check()
-				t3_2_end = time.perf_counter()
-				print(time_stamp() + '3.2: WIP check took {:,.2f} sec for {}-{}.'.format((t3_2_end - t3_2_start), entity.name, entity.entity_id))
-				t3_3_start = time.perf_counter()
-				entity.check_subscriptions()
-				t3_3_end = time.perf_counter()
-				print(time_stamp() + '3.3: Sub check took {:,.2f} sec for {}-{}.'.format((t3_3_end - t3_3_start), entity.name, entity.entity_id))
-				t3_4_start = time.perf_counter()
-				entity.check_salary()
-				t3_4_end = time.perf_counter()
-				print(time_stamp() + '3.4: Sal check took {:,.2f} sec for {}-{}.'.format((t3_4_end - t3_4_start), entity.name, entity.entity_id))
-				t3_5_start = time.perf_counter()
-				entity.pay_wages()
-				t3_5_end = time.perf_counter()
-				print(time_stamp() + '3.5: Wag check took {:,.2f} sec for {}-{}.'.format((t3_5_end - t3_5_start), entity.name, entity.entity_id))
+		for entity in factory.get_all():
+			#print('Entity: {}'.format(entity))
+			t3_1_start = time.perf_counter()
+			entity.depreciation_check()
+			t3_1_end = time.perf_counter()
+			print(time_stamp() + '3.1: Dep check took {:,.2f} sec for {}-{}.'.format((t3_1_end - t3_1_start), entity.name, entity.entity_id))
+			t3_2_start = time.perf_counter()
+			entity.wip_check()
+			t3_2_end = time.perf_counter()
+			print(time_stamp() + '3.2: WIP check took {:,.2f} sec for {}-{}.'.format((t3_2_end - t3_2_start), entity.name, entity.entity_id))
+			t3_3_start = time.perf_counter()
+			entity.check_subscriptions()
+			t3_3_end = time.perf_counter()
+			print(time_stamp() + '3.3: Sub check took {:,.2f} sec for {}-{}.'.format((t3_3_end - t3_3_start), entity.name, entity.entity_id))
+			t3_4_start = time.perf_counter()
+			entity.check_salary()
+			t3_4_end = time.perf_counter()
+			print(time_stamp() + '3.4: Sal check took {:,.2f} sec for {}-{}.'.format((t3_4_end - t3_4_start), entity.name, entity.entity_id))
+			t3_5_start = time.perf_counter()
+			entity.pay_wages()
+			t3_5_end = time.perf_counter()
+			print(time_stamp() + '3.5: Wag check took {:,.2f} sec for {}-{}.'.format((t3_5_end - t3_5_start), entity.name, entity.entity_id))
 		t3_end = time.perf_counter()
 		print(time_stamp() + '3: Entity check took {:,.2f} min.'.format((t3_end - t3_start) / 60))
 		print()
 
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
-		t4_start = time.perf_counter()
-		print('Check Demand List:')
-		for entity in factory.get_all():#(Corporation):
-			#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
-			entity.tech_motivation()
-			entity.set_price()
-			entity.check_demand()
-			entity.check_inv()
-		t4_end = time.perf_counter()
-		print(time_stamp() + '4: Demand list check took {:,.2f} min.'.format((t4_end - t4_start) / 60))
-		print()
+		# User mode
+		if args.user:
+			while sum(self.get_hours().values()) > 0:
+				if self.selection is None:
+					self.selection = factory.registry[Individual][0]
+				if isinstance(self.selection, Individual):
+					print('\nEntity Selected: {} | Hours: {}'.format(self.selection.name, self.selection.hours))
+				else:
+					print('\nEntity Selected: {}'.format(self.selection))
+				result = self.selection.action()
+				if result == 'end':
+					break
+		else:
+			print(time_stamp() + 'Current Date: {}'.format(self.now))
+			t2_start = time.perf_counter()
+			for individual in factory.get(Individual):
+				print('Individual: {} | {}'.format(individual.name, individual.entity_id))
+				for need in individual.needs:
+					#print('Need: {}'.format(need))
+					individual.corp_needed(need=need)
+					individual.item_demanded(need=need)
+				for index, item in demand_items.iterrows():
+					#print('Corp Check Demand Item: {}'.format(item['item_id']))
+					individual.corp_needed(item=item['item_id'], demand_index=index)
+			t2_end = time.perf_counter()
+			print(time_stamp() + '2: Individual check took {:,.2f} min.'.format((t2_end - t2_start) / 60))
+			print()
+			print('World Demand Start: \n{}'.format(world.demand))
+			print()
 
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
-		t5_start = time.perf_counter()
-		print('Check Optional Items:')
-		for entity in factory.get_all():#(Corporation):
-			#print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
-			entity.check_optional()
-			entity.check_inv()
-			if type(entity) == Corporation:
-				entity.dividend()
-		t5_end = time.perf_counter()
-		print(time_stamp() + '5: Optional check took {:,.2f} min.'.format((t5_end - t5_start) / 60))
-		print()
+			print(time_stamp() + 'Current Date: {}'.format(self.now))
+			t4_start = time.perf_counter()
+			print('Check Demand List:')
+			for entity in factory.get_all():#(Corporation):
+				#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
+				entity.tech_motivation()
+				entity.set_price()
+				entity.check_demand()
+				entity.check_inv()
+			t4_end = time.perf_counter()
+			print(time_stamp() + '4: Demand list check took {:,.2f} min.'.format((t4_end - t4_start) / 60))
+			print()
+
+			print(time_stamp() + 'Current Date: {}'.format(self.now))
+			t5_start = time.perf_counter()
+			print('Check Optional Items:')
+			for entity in factory.get_all():#(Corporation):
+				#print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
+				entity.check_optional()
+				entity.check_inv()
+				if type(entity) == Corporation:
+					# entity.list_shareholders(largest=True)
+					entity.dividend()
+			t5_end = time.perf_counter()
+			print(time_stamp() + '5: Optional check took {:,.2f} min.'.format((t5_end - t5_start) / 60))
+			print()
 
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		t6_start = time.perf_counter()
@@ -441,7 +486,8 @@ class World:
 		for need in self.global_needs:#individual.needs:
 			for individual in factory.get(Individual):
 				#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
-				individual.threshold_check(need)
+				if not args.user:
+					individual.threshold_check(need)
 				individual.need_decay(need)
 				print('{} {} Need: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
 				if individual.dead:
@@ -524,13 +570,13 @@ class World:
 		t9_end = time.perf_counter()
 		print(time_stamp() + '9: Birth and misc checks took {:,.2f} min.'.format((t9_end - t9_start) / 60))
 
-		if END_DATE is not None: # For debugging
-			if self.now >= datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
-				world.end = True # TODO User remove
+		# if END_DATE is not None: # For debugging
+		# 	if self.now >= datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
+		# 		world.end = True # TODO User remove
 
 		t1_end = time.perf_counter()
 		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
-		# self.ticktock() # TODO User
+		self.ticktock() # TODO User
 
 class Entity:
 	def __init__(self, name):
@@ -670,7 +716,7 @@ class Entity:
 					print('{}-{} transacted with {} for {} {}'.format(self.name, self.entity_id, counterparty.name, qty, item))
 					ledger.set_entity(counterparty.entity_id)
 					print('{} getting historical cost of {} for {} qty.'.format(counterparty.name, item, qty))
-					cost_amt = ledger.hist_cost(qty, item, 'Inventory', v=True)
+					cost_amt = ledger.hist_cost(qty, item, 'Inventory')#, v=True)
 					ledger.reset()
 					#print('Cost: {}'.format(cost_amt))
 					avg_price = cost_amt / qty
@@ -828,7 +874,7 @@ class Entity:
 		if qty == 0:
 			return
 		ledger.set_entity(self.entity_id)
-		qty_held = ledger.get_qty(items=item, accounts=['Inventory'], v=True)
+		qty_held = ledger.get_qty(items=item, accounts=['Inventory'])#, v=True)
 		ledger.reset()
 		print('{}-{} holds {} qty of {} and is looking to consume {} units.'.format(self.name, self.entity_id, qty_held, item, qty))
 		# qty_held_orig = qty_held
@@ -842,7 +888,7 @@ class Entity:
 			# else: # TODO Remove
 			ledger.set_entity(self.entity_id)
 			print('{}-{} getting historical cost of {} for {} qty.'.format(self.name, self.entity_id, item, qty))
-			cost = ledger.hist_cost(qty, item, 'Inventory', v=True)
+			cost = ledger.hist_cost(qty, item, 'Inventory')#, v=True)
 			ledger.reset()
 			#print('Cost: {}'.format(cost))
 			price = cost / qty
@@ -878,39 +924,62 @@ class Entity:
 		# TODO Add check to ensure entity has item they are using
 		# TODO Add check to ensure counterparty has item being attacked
 		if counterparty is not None and target is not None:
-			dmg_type = world.items['dmg_type'][item] # Does not support more than one dmg_type on the attack
+			if self.hours < MAX_HOURS:
+				print('{} cannot attack this turn. Attacking requires {} full hours time.'.format(self.name, MAX_HOURS))
+				return
 			dmg = world.items['dmg'][item]
 			if dmg is None:
 				dmg = 0
 			dmg = float(dmg)
-			if dmg_type is not None:
-				res_types = [x.strip() for x in world.items['res_type'][item].split(',')]
-				for i, res_type in enumerate(res_types):
-					if res_type == dmg_type:
-						break
-				res = [x.strip() for x in world.items['res'][item].split(',')]
-				res = list(map(float, res))
-				resilience = res[i]
+			try:
+				target = int(target)
+			except ValueError:
+				print('{} attempting to attack {} item held by {}'.format(self.name, target, counterparty.name))
+			if isinstance(target, int):
+				print('{} attempting to attack Entity ID: {}'.format(self.name, target))
+				target = factory.get_by_id(target)
+			if world.valid_item(target):
+				dmg_type = world.items['dmg_type'][item] # Does not support more than one dmg_type on the attack
+				if dmg_type is not None:
+					res_types = [x.strip() for x in world.items['res_type'][target].split(',')]
+					for i, res_type in enumerate(res_types):
+						if res_type == dmg_type:
+							break
+					res = [x.strip() for x in world.items['res'][target].split(',')]
+					res = list(map(float, res))
+					resilience = res[i]
+				else:
+					resilience = world.items['res'][target]
+				if resilience is None:
+					resilience = 0
+				resilience = float(resilience)
+				print('{}-{} attacks with {} for {} damage against {} with resilience of {}.'.format(self.name, self.entity_id, item, dmg, target, resilience))
+				reduction = dmg / resilience
+				if reduction > 1:
+					reduction = 1
+				for n in range(uses):
+					#target_type = world.get_item_type(target)
+					ledger.set_entity(counterparty.entity_id)
+					target_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Accumulated Depreciation','Accumulated Impairment Losses'], item=target)
+					asset_cost = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=target)
+					print('Target Balance: {}'.format(target_bal))
+					ledger.reset()
+					impairment_amt = asset_cost * reduction
+					if target_bal < impairment_amt:
+						impairment_amt = target_bal
+					counterparty.impairment(target, impairment_amt) # TODO Damage shouldn't be booked until fulfillment and depreciation is passed
+				self.set_hours(MAX_HOURS)
+			elif isinstance(target, Individual):
+				resilience = 1
+				need_delta = dmg / resilience
+				for need in world.global_needs:
+					target.set_need(need, need_delta, attacked=True, v=True)
+				print('{}-{} attacks with {} for {} damage against {}.'.format(self.name, self.entity_id, item, dmg, target))
+
+
 			else:
-				resilience = world.items['res'][target]
-			if resilience is None:
-				resilience = 0
-			resilience = float(resilience)
-			print('{}-{} attacks with {} for {} damage against {} with resilience of {}.'.format(self.name, self.entity_id, item, dmg, target, resilience))
-			reduction = dmg / resilience
-			if reduction > 1:
-				reduction = 1
-			for n in range(uses):
-				#target_type = world.get_item_type(target)
-				ledger.set_entity(counterparty.entity_id)
-				target_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Accumulated Depreciation','Accumulated Impairment Losses'], item=target)
-				asset_cost = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=target)
-				print('Target Balance: {}'.format(target_bal))
-				ledger.reset()
-				impairment_amt = asset_cost * reduction
-				if target_bal < impairment_amt:
-					impairment_amt = target_bal
-				counterparty.impairment(target, impairment_amt)
+				print('Cannot attack a {}.'.format(target))
+				return
 
 		# In both cases using the item still uses existing logic
 		incomplete, use_event, time_required = self.fulfill(item, qty=uses, reqs='usage_req', amts='use_amount', check=check)
@@ -1001,10 +1070,11 @@ class Entity:
 		v = False
 		try:
 			if not self.gl_tmp.empty:
-				print('Tmp GL: \n{}'.format(self.gl_tmp.tail()))
+				# print('Tmp GL: \n{}'.format(self.gl_tmp.tail()))
 				ledger.gl = self.gl_tmp
 		except AttributeError as e:
-			print('No Tmp GL Error: {}'.format(repr(e)))
+			# print('No Tmp GL Error: {}'.format(repr(e)))
+			pass
 		incomplete = False
 		if qty == 0:
 			return None, [], None
@@ -1058,15 +1128,16 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl.loc[ledger.gl['entity_id'] == self.entity_id]
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 				else:
 					modifier = 0
 				try:
 					if not self.gl_tmp.empty:
-						print('Tmp GL land: \n{}'.format(self.gl_tmp.tail()))
+						# print('Tmp GL land: \n{}'.format(self.gl_tmp.tail()))
 						ledger.gl.loc[ledger.gl['entity_id'] == self.entity_id]
 				except AttributeError as e:
-					print('No Tmp GL Error land: {}'.format(repr(e)))
+					# print('No Tmp GL Error land: {}'.format(repr(e)))
+					pass
 				land = ledger.get_qty(items=req_item, accounts=['Land'])
 				if v: print('Land: {}'.format(land))
 				if land < (req_qty* (1-modifier) * qty):
@@ -1079,10 +1150,11 @@ class Entity:
 						ledger.set_entity(0) # Only try to claim land that is remaining
 						try:
 							if not self.gl_tmp.empty:
-								print('Tmp GL land claim: \n{}'.format(self.gl_tmp.tail()))
+								# print('Tmp GL land claim: \n{}'.format(self.gl_tmp.tail()))
 								ledger.gl.loc[ledger.gl['entity_id'] == self.entity_id]
 						except AttributeError as e:
-							print('No Tmp GL Error land claim: {}'.format(repr(e)))
+							# print('No Tmp GL Error land claim: {}'.format(repr(e)))
+							pass
 						land_avail = ledger.get_qty(items=req_item, accounts=['Land'])
 						ledger.reset()
 						ledger.set_entity(self.entity_id)
@@ -1094,8 +1166,8 @@ class Entity:
 							incomplete = True
 							#return
 					#event += entries
-				if time_required: # TODO Handle land in use during one tick
-					entries = self.in_use(req_item, req_qty* (1-modifier) * qty, world.get_price(req_item, self.entity_id), 'Land', buffer=True)
+				if time_required or item_type == 'Buildings' or item_type == 'Equipment': # TODO Handle land in use during one tick
+					entries = self.in_use(req_item, req_qty * (1-modifier) * qty, world.get_price(req_item, self.entity_id), 'Land', buffer=True)
 					#print('Land In Use Entries: \n{}'.format(entries))
 					if not entries:
 						entries = []
@@ -1107,7 +1179,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
 			elif req_item_type == 'Buildings':
 				modifier, items_info = self.check_productivity(req_item)
@@ -1126,7 +1198,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 				else:
 					modifier = 0
 				building = ledger.get_qty(items=req_item, accounts=['Buildings'])
@@ -1183,7 +1255,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 				for _ in range(qty_to_use):
 					entries = self.use_item(req_item, buffer=True)
 					if not entries:
@@ -1198,7 +1270,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
 			elif req_item_type == 'Equipment': # TODO Make generic for process
 				modifier, items_info = self.check_productivity(req_item)
@@ -1217,7 +1289,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 				else:
 					modifier = 0
 				equip_qty = ledger.get_qty(items=req_item, accounts=['Equipment'])
@@ -1273,7 +1345,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 				for _ in range(qty_to_use):
 					entries = self.use_item(req_item, buffer=True)
 					if not entries:
@@ -1288,7 +1360,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
 			elif req_item_type == 'Components':
 				modifier, items_info = self.check_productivity(req_item)
@@ -1307,15 +1379,16 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 				else:
 					modifier = 0
 				try:
 					if not self.gl_tmp.empty:
-						print('Tmp GL components: \n{}'.format(self.gl_tmp.tail()))
+						# print('Tmp GL components: \n{}'.format(self.gl_tmp.tail()))
 						ledger.gl.loc[ledger.gl['entity_id'] == self.entity_id]
 				except AttributeError as e:
-					print('No Tmp GL Error components: {}'.format(repr(e)))
+					# print('No Tmp GL Error components: {}'.format(repr(e)))
+					pass
 				component_qty = ledger.get_qty(items=req_item, accounts=['Components'])
 				if v: print('Land: {}'.format(component_qty))
 				if component_qty < (req_qty * (1-modifier) * qty):
@@ -1345,7 +1418,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
 			elif req_item_type == 'Commodity':
 				modifier, items_info = self.check_productivity(req_item)
@@ -1364,16 +1437,17 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 				else:
 					modifier = 0
 				try:
 					if not self.gl_tmp.empty:
-						print('Tmp GL commodity: \n{}'.format(self.gl_tmp.tail()))
+						# print('Tmp GL commodity: \n{}'.format(self.gl_tmp.tail()))
 						ledger.gl.loc[ledger.gl['entity_id'] == self.entity_id]
 				except AttributeError as e:
-					print('No Tmp GL Error commodity: {}'.format(repr(e)))
-				material_qty_held = ledger.get_qty(items=req_item, accounts=['Inventory'], v=True)
+					# print('No Tmp GL Error commodity: {}'.format(repr(e)))
+					pass
+				material_qty_held = ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=True)
 				print('{}-{} has {} qty of {} commodity.'.format(self.name, self.entity_id, material_qty_held, req_item))
 				qty_needed = max((req_qty * (1 - modifier) * qty) - material_qty_held, 0)
 				if qty_needed > 0:
@@ -1415,7 +1489,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
 			elif req_item_type == 'Service':
 				print('{}-{} will attempt to purchase the {} service.'.format(self.name, self.entity_id, req_item))
@@ -1433,7 +1507,7 @@ class Entity:
 						entries_df = pd.DataFrame([entry], columns=world.cols)
 						ledger.gl = ledger.gl.append(entries_df)
 					self.gl_tmp = ledger.gl
-					print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+					# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
 			elif req_item_type == 'Subscription': # TODO Add check to ensure payment has been made recently (maybe on day of)
 				subscription_state = ledger.get_qty(items=req_item, accounts=['Subscription Info'])
@@ -1452,7 +1526,7 @@ class Entity:
 							entries_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entries_df)
 						self.gl_tmp = ledger.gl
-						print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
 			elif req_item_type == 'Job':
 				if item_type == 'Job' or item_type == 'Labour':
@@ -1490,7 +1564,7 @@ class Entity:
 									entries_df = pd.DataFrame([entry], columns=world.cols)
 									ledger.gl = ledger.gl.append(entries_df)
 									self.gl_tmp = ledger.gl
-								print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+								# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
 			elif req_item_type == 'Labour':
 				if item_type == 'Job' or item_type == 'Labour':
@@ -1517,7 +1591,7 @@ class Entity:
 								entries_df = pd.DataFrame([entry], columns=world.cols)
 								ledger.gl = ledger.gl.append(entries_df)
 							self.gl_tmp = ledger.gl
-							print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+							# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 					else:
 						modifier = 0
 					ledger.set_start_date(str(world.now))
@@ -1545,7 +1619,7 @@ class Entity:
 										entries_df = pd.DataFrame([entry], columns=world.cols)
 										ledger.gl = ledger.gl.append(entries_df)
 									self.gl_tmp = ledger.gl
-									print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+									# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 							entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True)
 						if not entries:
 							entries = []
@@ -1578,7 +1652,7 @@ class Entity:
 								entries_df = pd.DataFrame([entry], columns=world.cols)
 								ledger.gl = ledger.gl.append(entries_df)
 							self.gl_tmp = ledger.gl
-							print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+							# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 						if entries:
 							labour_done += entries[0][6] # Same as required_hours
 							counterparty.set_hours(required_hours)
@@ -2106,11 +2180,16 @@ class Entity:
 
 	# Allow individuals to incorporate organizations without human input
 	def incorporate(self, item=None, price=None, qty=None, name=None, auth_qty=None):
+		if self.hours < MAX_HOURS:
+			print('Not enough time to incorporate. Requires a full day of {} hours time.'.format(MAX_HOURS))
+			return
+		# if item is None:
+		# 	item = input('Enter a corp: ')
 		if price is None: # TODO Fix temp defaults
 			price = 5
 		if qty is None:
 			qty = 1000
-		if qty is None:
+		if auth_qty is None:
 			auth_qty = 100000 # TODO Determine dynamically
 		if name is None and item is not None:
 			names = world.items.loc[item, 'producer']
@@ -2138,6 +2217,7 @@ class Entity:
 		counterparty = corp
 		self.auth_shares(name, auth_qty, counterparty)
 		self.buy_shares(name, price, qty, counterparty)
+		self.set_hours(MAX_HOURS)
 		return corp
 
 	def corp_needed(self, item=None, need=None, ticker=None, demand_index=None):
@@ -2461,20 +2541,47 @@ class Entity:
 							if result:
 								break
 
-	def claim_land(self, qty, price, item='Land', buffer=False): # QTY in square meters
+	def claim_land(self, qty, price, item='Land', counterparty=0, buffer=False): # QTY in square meters
+		if qty <= 0:
+			return
+		if args.user: # TODO Add support for non-user claim time requirement
+			time_required = qty / EXPLORE_TIME
+			if isinstance(self, Corporation):
+				largest_shareholder = self.list_shareholders(largest=True)
+				if largest_shareholder is None:
+					return
+				largest_shareholder = factory.get_by_id(largest_shareholder)
+				if largest_shareholder.hours < time_required:
+					print('{} does not have enough time to claim {} units of {}.'.format(largest_shareholder.name, qty, item))
+					return
+				else:
+					largest_shareholder.set_hours(time_required)
+			else:
+				if self.hours < time_required:
+					print('{} does not have enough time to claim {} units of {}.'.format(self.name, qty, item))
+					return
+				else:
+					self.set_hours(time_required)
+		# TODO Decide if fulfill() is required when claiming land from other entity
 		incomplete, claim_land_event, time_required = self.fulfill(item, qty)
 		if incomplete:
 			return
 		claim_land_entry = []
 		yield_land_entry = []
 		# TODO Add WIP Time component
-		ledger.set_entity(0)
+		if counterparty == 0 or counterparty is None:
+			ledger.set_entity(0)
+		else:
+			ledger.set_entity(counterparty.entity_id) # TODO Support claiming land from other Individuals
 		unused_land = ledger.get_qty(items=item, accounts=['Land'])
 		ledger.reset()
-		print('{} available to claim: {}'.format(item, unused_land))
+		print('{} available to claim by {}-{}: {}'.format(item, self.name, self.entity_id, unused_land))
 		if unused_land >= qty:
 			claim_land_entry = [ ledger.get_event(), self.entity_id, world.now, 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
-			yield_land_entry = [ ledger.get_event(), 0, world.now, 'Bestow land', item, price, qty, 'Natural Wealth', 'Land', qty * price ]
+			if counterparty == 0:
+				yield_land_entry = [ ledger.get_event(), 0, world.now, 'Bestow land', item, price, qty, 'Natural Wealth', 'Land', qty * price ]
+			else:
+				yield_land_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Lose land', item, price, qty, 'Natural Wealth', 'Land', qty * price ]
 			# claim_land_event = [yield_land_entry, claim_land_entry]
 			if claim_land_entry and yield_land_entry:
 				claim_land_event += [yield_land_entry, claim_land_entry]
@@ -2486,7 +2593,11 @@ class Entity:
 			ledger.journal_entry(claim_land_event)
 			return True
 		else:
-			print('{}-{} cannot claim {} square meters of {} because there is only {} square meters available.'.format(self.name, self.entity_id, qty, item, unused_land))
+			unused_land = ledger.get_qty(items=item, accounts=['Land'])
+			if unused_land < qty:
+				print('{}-{} cannot claim {} square meters of {} because there is only {} square meters available.'.format(self.name, self.entity_id, qty, item, unused_land))
+			unused_land = ledger.get_qty(items=item, accounts=['Land'], by_entity=True)
+			print('Unused Land claimed by the following entities: \n{}'.format(unused_land))
 
 	def get_counterparty(self, txns, rvsl_txns, item, account, n=0, allowed=None, v=False):
 		if v: print('Get Counterparty for {}-{} | Item: {}'.format(self.name, self.entity_id, item))
@@ -2697,15 +2808,27 @@ class Entity:
 			workers_avail_price = collections.OrderedDict((worker, v) for worker, v in workers_price.items() if worker.hours > base_hours)
 			# TODO Combine dicts to one structure
 			if qualified:
-				worker_choosen = int(input('Enter the Person\'s entity ID as number: '))
-				worker_choosen = factory.get_by_id(worker_choosen)
+				while True:
+					worker_choosen = input('Enter the Person\'s entity ID as number: ')
+					if int(worker_choosen) not in factory.get_all_ids():
+						print('{} is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(selection, factory.get_all_ids()))
+						continue
+					else:
+						break
+				worker_choosen = factory.get_by_id(int(worker_choosen))
 				return worker_choosen
 		else:
 			workers_avail_exp = workers_exp
 			workers_avail_price = workers_price
 			if qualified:
-				worker_choosen = int(input('Enter the Person\'s entity ID as number: '))
-				worker_choosen = factory.get_by_id(worker_choosen)
+				while True:
+					worker_choosen = input('Enter the Person\'s entity ID as number: ')
+					if int(worker_choosen) not in factory.get_all_ids():
+						print('{} is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(selection, factory.get_all_ids()))
+						continue
+					else:
+						break
+				worker_choosen = factory.get_by_id(int(worker_choosen))
 				return worker_choosen
 		if not workers_avail_price:
 			return None, []
@@ -2719,8 +2842,8 @@ class Entity:
 		return worker_choosen
 
 	def hire_worker(self, job, counterparty=None, price=0, qty=1, buffer=False):
-		if counterparty is None:
-			entries = []
+		entries = []
+		if counterparty is None:	
 			counterparty = self.worker_counterparty(job, only_avail=False)
 			if isinstance(counterparty, tuple):
 				counterparty, entries = counterparty
@@ -3155,6 +3278,7 @@ class Entity:
 
 	def derecognize(self, item, qty):
 		# TODO Check if item in use
+		# TODO Check if item uses land and release that land
 		#item_type = world.get_item_type(item)
 		asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=item)# TODO Maybe support other accounts
 		if asset_bal == 0:
@@ -3163,10 +3287,325 @@ class Entity:
 		accum_imp_bal = ledger.balance_sheet(accounts=['Accumulated Impairment Losses'], item=item)
 		accrum_reduction = abs(accum_dep_bal) + abs(accum_imp_bal)
 		if asset_bal == accrum_reduction:
+			derecognition_event = []
+			item_info = world.items.loc[item]
+			if item_info[reqs] is None or item_info[amts] is None:
+				return None, [], None
+			requirements = [x.strip() for x in item_info[reqs].split(',')]
+			amounts = [x.strip() for x in item_info[amts].split(',')]
+			amounts = list(map(float, amounts))
+			#requirements_details = list(itertools.zip_longest(requirements, requirement_types, amounts))
+			for i, requirement in enumerate(requirements):
+				requirement_type = world.get_item_type(requirement)
+				if requirement_type == 'Land':
+					req_qty = amounts[i] # TODO Support modifiers
+					req_price = world.get_price(requirement, self.entity_id)
+					release_entry = [ ledger.get_event(), self.entity_id, world.now, 'Release ' + requirement + ' used by ' + item, requirement, req_price, req_qty, 'Land', 'In Use', req_price * req_qty ]
+					derecognition_event += [release_entry]
+
 			derecognition_entry = [ ledger.get_event(), self.entity_id, world.now, 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accumulated Depreciation', 'Equipment', asset_bal ]
-			derecognition_event = [derecognition_entry]
+			derecognition_event += [derecognition_entry]
 			ledger.journal_entry(derecognition_event)
 
+	def action(self, command=None):
+		if command is None:
+			command = input('\nChoose an action or exit: ')
+		# TODO Add help command to list full list of commands
+		if command.lower() == 'select':
+			# factory.list_entities(Individual)
+			for entity in factory.get(Individual):
+				print('{} Hours: {}'.format(entity, entity.hours))
+			print()
+			for entity in factory.get(Corporation):
+				print('{}'.format(entity))
+			while True:
+				try:
+					selection = int(input('Enter an entity ID number: '))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				if selection not in factory.get_all_ids():
+					print('{} is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(selection, factory.get_all_ids()))
+					continue
+				world.selection = factory.get_by_id(selection)
+				break
+			return world.selection
+		elif command.lower() == 'incorp':
+			while True:
+				corp = input('Enter a corp: ')
+				if world.valid_corp(corp):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			self.incorporate(name=corp)
+		elif command.lower() == 'claimland':
+			while True:
+				item = input('Enter type of land to claim: ')
+				if world.valid_item(item, 'Land'):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			qty = 0
+			while True:
+				try:
+					qty = int(input('Enter quantity of {} to claim: '.format(item)))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if qty <= 0:
+						continue
+					break
+			counterparty = 0
+			while True:
+				try:
+					counterparty = int(input('Enter an entity ID number to claim from (0 for nature): '))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				if counterparty not in factory.get_all_ids() and counterparty != 0:
+					print('{} is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(counterparty, factory.get_all_ids()))
+					continue
+				if counterparty != 0: # TODO Fix when Environments are supported
+					counterparty = factory.get_by_id(counterparty)
+				break
+			price = 0
+			self.claim_land(qty, price, item, counterparty)
+		elif command.lower() == 'hire':
+			while True:
+				item = input('Enter type of job to hire for: ')
+				if world.valid_item(item, 'Labour') or world.valid_item(item, 'Job'):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			worker = self.worker_counterparty(item, only_avail=True, qualified=True)
+			item_type = world.get_item_type(item)
+			if item_type == 'Job':
+				self.hire_worker(item, worker)
+			else:
+				hours = 0
+				while True:
+					try:
+						hours = int(input('Enter number of hours for {}: '.format(item)))
+					except ValueError:
+						print('Not a valid entry. Must be a positive whole number.')
+						continue
+					else:
+						if hours <= 0:
+							continue
+						break
+				self.accru_wages(item, worker, hours)
+		elif command.lower() == 'study':
+			while True:
+				item = input('Enter item to study: ')
+				if world.valid_item(item, 'Education'):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			hours = 0
+			while True:
+				try:
+					hours = int(input('Enter number of hours to study {}: '.format(item)))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if hours <= 0:
+						continue
+					break
+			self.accru_wages(job=item, counterparty=self, labour_hours=hours, wage=0) # TODO Account for requirements
+		elif command.lower() == 'purchase':
+			while True:
+				item = input('Enter item to purchase: ')
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			qty = 0
+			while True:
+				try:
+					qty = int(input('Enter quantity of {} item to purchase: '.format(item)))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if qty <= 0:
+						continue
+					break
+			self.purchase(item, qty)
+		elif command.lower() == 'consume':
+			while True:
+				item = input('Enter item to consume: ') # TODO Some sort of check for non-consumable items
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			qty = 0
+			while True:
+				try:
+					qty = int(input('Enter quantity of {} item to consume: '.format(item)))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if qty <= 0:
+						continue
+					break
+			self.consume(item, qty)
+		elif command.lower() == 'produce':
+			while True:
+				item = input('Enter item to produce: ') # TODO Some sort of check for non-consumable items
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			qty = 0
+			while True:
+				try:
+					qty = int(input('Enter quantity of {} item to produce: '.format(item)))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if qty <= 0:
+						continue
+					break
+			self.produce(item, qty)
+		elif command.lower() == 'use':
+			while True:
+				item = input('Enter item to use: ') # TODO Some sort of check for non-usable items
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			qty = 0
+			while True:
+				try:
+					qty = int(input('Enter number of uses for {} item: '.format(item)))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if qty <= 0:
+						continue
+					break
+			self.use_item(item, qty)
+		elif command.lower() == 'attack':
+			while True:
+				item = input('Enter item to attack with: ')
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			qty = 1
+			while True:
+				try:
+					counterparty = int(input('Enter an entity ID number to attack: '))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				if counterparty not in factory.get_all_ids():
+					print('{} is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(counterparty, factory.get_all_ids()))
+					continue
+				counterparty = factory.get_by_id(counterparty)
+				break
+			target = input('Enter an item or Individual to attack: ') # TODO Validate item or Individual
+			self.use_item(item, qty, counterparty, target)
+		elif command.lower() == 'birth':
+			while True:
+				try:
+					counterparty = int(input('Enter an entity ID number to conceive with: '))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				if counterparty not in factory.get_all_ids():
+					print('{} is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(counterparty, factory.get_all_ids()))
+					continue
+				counterparty = factory.get_by_id(counterparty)
+				break
+			amount_1 = 0
+			while True:
+				try:
+					amount_1 = int(input('Enter amount of cash to pass on to child from the first parent: '))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if amount_1 < 0:
+						continue
+					break
+			amount_2 = 0
+			while True:
+				try:
+					amount_2 = int(input('Enter amount of cash to pass on to child from the second parent: '))
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if amount_2 < 0:
+						continue
+					break
+			self.birth(counterparty, amount_1, amount_2)
+		elif command.lower() == 'dividend':
+			if not isinstance(self, Corporation):
+				print('{} is not a Corporation and unable to pay dividends.'.format(self.name))
+				return
+			div_rate = 0
+			while True:
+				try:
+					div_rate = float(input('Enter amount of cash to pass on to child: '))
+				except ValueError:
+					print('Not a valid entry. Must be a positive number.')
+					continue
+				else:
+					if div_rate <= 0:
+						continue
+					break
+			self.dividend(div_rate)
+		elif command.lower() == 'demand':
+			print('World Demand as of {}: \n{}'.format(world.now, world.demand))
+		elif command.lower() == 'help':
+			commands = {
+				'select': 'Choose a different entity (Individual or Corporation.',
+				'incorp': 'Incorporate a company to produce items.',
+				'claimland': 'Claim land for free, but it must be defended.',
+				'hire': 'Hire a part-time or full time worker.',
+				'study': 'Study education and skills as an Individual to improve.',
+				'purchase': 'Purchase items.',
+				'consume': 'Consume items.',
+				'produce': 'Produce items, this will also attempt to aquire any requirements.',
+				'use': 'Use an item.',
+				'attack': 'Attack another Individual or item with an item.',
+				'birth': 'Have a child with another Individual.',
+				'dividend': 'Declare dividends for a Corporation.',
+				'demand': 'See the demand table.',
+				'skip': 'Skip an entities turn even if they have hours left.',
+				'end': 'End the day even if multiple entities have hours left.',
+				'exit': 'Exit out of the sim.'
+			}
+			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
+			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
+				print(cmd_table)
+			# for k, v in commands.items():
+			# 	print('{}: {}'.format(k, v))
+		elif command.lower() == 'skip':
+			self.set_hours(MAX_HOURS)
+		elif command.lower() == 'end':
+			# world.end = True
+			return 'end'
+		elif command.lower() == 'exit':
+			exit()
+		else:
+			print('Not a valid command. Type exit to close.')
 
 class Individual(Entity):
 	def __init__(self, name, items, hours=12, current_need=None, parents=(None, None), entity_id=None):
@@ -3186,7 +3625,7 @@ class Individual(Entity):
 		# Note: The 2nd to 5th values are for another program
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst, Fun','100,100,100,100','1,1,2,5','85,50,60,40', str(hunger_start)+',100,100,100',None,'Labour') ]
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger, Hygiene, Thirst','100,100,100','1,1,2','85,50,60', str(hunger_start)+',100,100',None,items) ]
-		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', hours, 'Thirst, Hunger', '100, 100', '1, 1', '60, 85', current_need, str(parents), None, items) ] # TODO Maybe add active bool field
+		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', hours, 'Thirst, Hunger', '100, 100', '1, 1', '100, 100', current_need, str(parents), None, items) ] # TODO Maybe add active bool field
 		# print('Entity Data: {}'.format(entity_data))
 		#entity_data = [ (name,0.0,1,100,0.5,'iex',12,'Hunger','100','1','85', str(hunger_start),None,items) ]
 		if entity_id is None:
@@ -3252,23 +3691,23 @@ class Individual(Entity):
 		# print(self.needs)
 		return self.needs
 
-	def set_need(self, need, need_delta, forced=False, v=False):
-		if v: print('Set Need: {} | {} | {}'.format(need, self.name, self.entity_id))
+	def set_need(self, need, need_delta, forced=False, attacked=False, v=False):
+		if v: print('{}-{} sets need {} down by {}'.format(self.name, self.entity_id, need, need_delta))
 		if self not in factory.registry[Individual]:
 			print('{} is already deceased.'.format(self.name))
 			return
 		self.needs[need]['Current Need'] += need_delta
 		current_need_all = world.entities.loc[world.entities['entity_id'] == self.entity_id, 'current_need'].values[0]
-		if v: print('Current Need Start: {}'.format(current_need_all))
+		# if v: print('Current Need Start: {}'.format(current_need_all))
 		current_need_all = [x.strip() for x in str(current_need_all).split(',')]
-		if v: print('Current Need All: {}'.format(current_need_all))
+		# if v: print('Current Needs: {}'.format(current_need_all))
 		for i, need_spot in enumerate(self.needs):
-			if v: print('Need Spot: {} | {}'.format(i, need_spot))
+			# if v: print('Need Spot: {} | {}'.format(i, need_spot))
 			if need == need_spot:
 				break
 		current_need_all[i] = self.needs[need]['Current Need']
 		current_need_all = ', '.join(str(x) for x in current_need_all)
-		if v: print('Current Need All After: {}'.format(current_need_all))
+		# if v: print('Current Need All After: {}'.format(current_need_all))
 		cur = ledger.conn.cursor()
 		set_need_query = '''
 			UPDATE entities
@@ -3284,16 +3723,19 @@ class Individual(Entity):
 			factory.destroy(self)
 			if forced:
 				print('{} died due to natural causes.'.format(self.name))
+			elif attacked:
+				print('{} died due to attack.'.format(self.name))
 			else:
 				print('{} died due to {}.'.format(self.name, need))
 			self.dead = True
 		world.entities = accts.get_entities().reset_index()
 		return self.needs[need]['Current Need']
 
-	def birth(self, counterparty=None, amount=None):
+	def birth(self, counterparty=None, amount_1=None, amount_2=None):
 		print('\nPerson is born!')
-		if amount is None:
-			amount = INIT_CAPITAL
+		if amount_1 is None and amount_2 is None:
+			amount_1 = INIT_CAPITAL / 2
+			amount_2 = INIT_CAPITAL / 2
 		self.entities = accts.get_entities()
 		if counterparty is None:
 			individuals = factory.registry[Individual]
@@ -3318,18 +3760,18 @@ class Individual(Entity):
 		ledger.set_entity(self.entity_id)
 		cash1 = ledger.balance_sheet(['Cash'])
 		ledger.reset()
-		if cash1 >= amount / 2:
-			gift_entry1 = [ ledger.get_event(), self.entity_id, world.now, 'Gift cash to child', '', '', '', 'Wealth', 'Cash', amount / 2 ]
+		if cash1 >= amount_1:
+			gift_entry1 = [ ledger.get_event(), self.entity_id, world.now, 'Gift cash to child', '', '', '', 'Wealth', 'Cash', amount_1 ]
 		else:
-			print('{} does not have ${} in cash to give birth with {}.'.format(self.name, amount / 2, counterparty.name))
+			print('{} does not have ${} in cash to give birth with {}.'.format(self.name, amount_1, counterparty.name))
 			return
 		ledger.set_entity(counterparty.entity_id)
 		cash2 = ledger.balance_sheet(['Cash'])
 		ledger.reset()
-		if cash2 >= amount / 2:
-			gift_entry2 = [ ledger.get_event(), counterparty.entity_id, world.now, 'Gift cash to child', '', '', '', 'Wealth', 'Cash', amount / 2 ]
+		if cash2 >= amount_2:
+			gift_entry2 = [ ledger.get_event(), counterparty.entity_id, world.now, 'Gift cash to child', '', '', '', 'Wealth', 'Cash', amount_2 ]
 		else:
-			print('{} does not have ${} in cash to have child with {}.'.format(counterparty.name, amount / 2, self.name))
+			print('{} does not have ${} in cash to have child with {}.'.format(counterparty.name, amount_2, self.name))
 			return
 			# TODO Support looping through counterparties if first does not have enough cash
 			# self.entity_ids.remove(counterparty.entity_id)
@@ -3347,7 +3789,7 @@ class Individual(Entity):
 		individual = factory.get_by_id(last_entity_id + 1)
 		world.prices = pd.concat([world.prices, individual.prices])
 
-		gift_event += individual.capitalize(amount=amount, buffer=True) # TODO Hardcoded amount for now
+		gift_event += individual.capitalize(amount=amount_1 + amount_2, buffer=True) # TODO Hardcoded amount for now
 
 		ledger.journal_entry(gift_event)
 
@@ -3615,6 +4057,23 @@ class Corporation(Organization):
 	def __repr__(self):
 		return 'Corp: {} | {}'.format(self.name, self.entity_id)
 
+	def list_shareholders(self, largest=False):
+		ledger.reset()
+		shareholders = ledger.get_qty(items=self.name, accounts='Investments', by_entity=True)
+		if shareholders.empty:
+			print('No shareholders listed for {}-{}. Try again the next day.\n'.format(self.name, self.entity_id))
+			return
+		# print('{}-{} shareholders: \n{}'.format(self.name, self.entity_id, shareholders))
+		if largest:
+			largest_shareholder = shareholders.loc[shareholders['qty'] == shareholders['qty'].max()]['entity_id'].values[0] # TODO Fix multiple Corporations with the same name
+			# if len(largest_shareholder) >= 2:
+			# 	largest_shareholder = largest_shareholder[0]
+			print('{}-{} largest shareholder Entity ID: {}'.format(self.name, self.entity_id, largest_shareholder))
+			return largest_shareholder
+		else:
+			print('{}-{} shareholders: \n{}'.format(self.name, self.entity_id, shareholders))
+			return shareholders
+
 	def declare_div(self, div_rate): # TODO Move this to corporation subclass
 		item = self.name
 		shareholders = ledger.get_qty(items=item, accounts='Investments', by_entity=True)
@@ -3640,7 +4099,7 @@ class Corporation(Organization):
 		div_event += [div_exp_entry]
 		ledger.journal_entry(div_event)
 
-	def dividend(self):
+	def dividend(self, div_rate=1):
 		ledger.set_entity(self.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
 		#print('{}-{} cash: {}'.format(self.name, self.entity_id, cash))
@@ -3648,7 +4107,7 @@ class Corporation(Organization):
 		#print('{}-{} funding: {}'.format(self.name, funding))
 		ledger.reset()
 		if cash >= funding * 2:
-			self.declare_div(div_rate=1)
+			self.declare_div(div_rate=div_rate)
 
 class Government(Organization):
 	def __init__(self, name, items):
@@ -3709,6 +4168,12 @@ class EntityFactory:
 		org_types = [*self.registry.keys()]
 		return self.get(org_types)
 
+	def get_all_ids(self):
+		ids = []
+		for entity in self.get_all():
+			ids.append(entity.entity_id)
+		return ids
+
 	def get_pos(self, entity):
 		typ = type(entity)
 		for index, el in enumerate(self.get(typ)):
@@ -3758,12 +4223,15 @@ if __name__ == '__main__':
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
 	parser.add_argument('-t', '--time', type=int, help='The number of days the sim will run for.')
+	parser.add_argument('-u', '--user', action="store_true", help='Play the sim!')
 	args = parser.parse_args()
 
 	if args.database is None:
 		args.database = 'econ01.db'
 
 	print(time_stamp() + 'Start Econ Sim | Population: {}.'.format(args.population))
+	if args.user:
+		print(time_stamp() + 'Play the sim by entering commands.')
 	if (args.delay is not None) and (args.delay is not 0):
 		print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))	
 	if args.random:
