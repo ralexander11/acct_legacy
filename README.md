@@ -24,6 +24,7 @@ The below instructions apply when not using the acct.db file included in the rep
 11. Enter a number for the capital such as 100000 or any amount you wish
 12. Type "gl" command
 13. Type "bs" command
+14. Type "help" for more commands
 
 ### Part II - Make trades
 Unfortunately, IEX changed their policies and the below will not work currently.

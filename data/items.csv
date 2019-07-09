@@ -35,7 +35,7 @@ Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 0.1",None,None,None,None,N
 Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Water Well,None,None,continuous,Equipment,"Rock, Wood","100, 20",4,None,None,None,None,None,None,30,ticks,None,None,None,100,None,None,Well
 Water,None,None,None,Subscription,"Land, Water Well","1, 1",None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Well
-#Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,"100, 200","usage, ticks",None,None,None,20,None,None,Carpenter
+Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,"100, 200","usage, ticks",None,None,None,20,None,None,Carpenter
 #Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 #Haircut,None,None,None,Service,Barber,1,None,None,None,Hygiene,100,None,None,None,None,None,None,None,None,None,None,Barber Shop
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Harvest Guild

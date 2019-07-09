@@ -7,14 +7,14 @@ import logging
 import warnings
 
 
-DISPLAY_WIDTH = 98#196#
+DISPLAY_WIDTH = 98
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', 30)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
 class Accounts:
-	def __init__(self, conn=None, standard_accts=None):
+	def __init__(self, conn=None, standard_accts=None, entities_table_name=None, items_table_name=None):
 		if conn is None:
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
@@ -49,11 +49,27 @@ class Accounts:
 
 		try:
 			self.refresh_accts()
+			if entities_table_name is None:
+				self.entities_table_name = 'entities'
+			else:
+				self.entities_table_name = entities_table_name
+			if items_table_name is None:
+				self.items_table_name = 'items'
+			else:
+				self.items_table_name = items_table_name
 		except:
 			self.coa = None
 			self.create_accts(standard_accts)
 			# self.refresh_accts()
+			if entities_table_name is None:
+				self.entities_table_name = 'entities'
+			else:
+				self.entities_table_name = entities_table_name
 			self.create_entities()
+			if items_table_name is None:
+				self.items_table_name = 'items'
+			else:
+				self.items_table_name = items_table_name
 			self.create_items()
 
 	def create_accts(self, standard_accts=None):
@@ -101,7 +117,7 @@ class Accounts:
 	# TODO Maybe make entities a class
 	def create_entities(self): # TODO Add command to book more entities
 		create_entities_query = '''
-			CREATE TABLE IF NOT EXISTS entities (
+			CREATE TABLE IF NOT EXISTS ''' + self.entities_table_name + ''' (
 				entity_id INTEGER PRIMARY KEY,
 				name text,
 				comm real DEFAULT 0,
@@ -121,7 +137,7 @@ class Accounts:
 			);
 			''' # TODO Add needs table?
 		default_entities = ['''
-			INSERT INTO entities (
+			INSERT INTO ''' + self.entities_table_name + ''' (
 				name,
 				comm,
 				min_qty,
@@ -168,7 +184,7 @@ class Accounts:
 	# Maybe make items a class
 	def create_items(self):# TODO Add command to book more items
 		create_items_query = '''
-			CREATE TABLE IF NOT EXISTS items (
+			CREATE TABLE IF NOT EXISTS ''' + self.items_table_name + ''' (
 				item_id text PRIMARY KEY,
 				int_rate_fix real,
 				int_rate_var real,
@@ -195,7 +211,7 @@ class Accounts:
 			);
 			''' # Metric can have values of 'ticks' or 'units' or 'spoilage'
 		default_item = ['''
-			INSERT INTO items (
+			INSERT INTO ''' + self.items_table_name + ''' (
 				item_id,
 				int_rate_fix,
 				int_rate_var,
@@ -312,12 +328,12 @@ class Accounts:
 			outputs = input('Enter the output names as a list: ') # For corporations
 
 			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,auth_shares,outputs)
-			cur.execute('INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO entities VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()
@@ -356,12 +372,12 @@ class Accounts:
 			producer = input('Enter the producer of the item: ')
 
 			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,usage_req,use_amount,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer)
-			cur.execute('INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for item in item_data:
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
-				insert_sql = 'INSERT INTO items VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, item)
 
 		self.conn.commit()
@@ -387,14 +403,14 @@ class Accounts:
 		if infile is None:
 			infile = 'data/entities.csv'
 		self.add_entity(self.load_csv(infile))
-		self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col='entity_id')
+		self.entities = pd.read_sql_query('SELECT * FROM ' + self.entities_table_name + ';', self.conn, index_col='entity_id')
 		return self.entities
 
 	def load_items(self, infile=None):
 		if infile is None:
 			infile = 'data/items.csv'
 		self.add_item(self.load_csv(infile))
-		self.items = pd.read_sql_query('SELECT * FROM items;', self.conn, index_col='item_id')
+		self.items = pd.read_sql_query('SELECT * FROM ' + self.items_table_name + ';', self.conn, index_col='item_id')
 		return self.items
 
 	def export_accts(self):
@@ -416,15 +432,15 @@ class Accounts:
 		self.refresh_accts()
 
 	def get_entities(self):
-		self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col=['entity_id'])
+		self.entities = pd.read_sql_query('SELECT * FROM ' + self.entities_table_name + ';', self.conn, index_col=['entity_id'])
 		return self.entities
 
 	def get_items(self):
-		self.items = pd.read_sql_query('SELECT * FROM items;', self.conn, index_col=['item_id'])
+		self.items = pd.read_sql_query('SELECT * FROM ' + self.items_table_name + ';', self.conn, index_col=['item_id'])
 		return self.items
 
 	def print_entities(self, save=True): # TODO Add error checking if no entities exist
-		#self.entities = pd.read_sql_query('SELECT * FROM entities;', self.conn, index_col=['entity_id'])
+		#self.entities = pd.read_sql_query('SELECT * FROM ' + self.entities_table_name + ';', self.conn, index_col=['entity_id'])
 		self.entities = self.get_entities()
 		if save:
 			self.entities.to_csv('data/entities.csv', index=True)
@@ -1189,6 +1205,7 @@ class Ledger:
 		return new_entry
 
 	def hist_cost(self, qty=None, item=None, acct=None, remaining_txn=False, v=False):
+		v2 = False
 		if qty is None:
 			qty = int(input('Enter quantity: '))
 		if item is None:
@@ -1213,32 +1230,29 @@ class Ledger:
 		if v: print('Qty to go back: {}'.format(qty_back))
 		qty_change = []
 		qty_change.append(qty_back)
-		neg = False
+		# neg = False
 		for txn in qty_txns[::-1]:
-			if v: print('Hist TXN Item: {}'.format(txn))
-			if txn > 0:
-				neg = True
+			if v2: print('Hist TXN Item: {}'.format(txn))
+			# if txn < 0:
+			# 	neg = True
 			count -= 1
-			if v: print('Hist Count: {}'.format(count))
+			if v2: print('Hist Count: {}'.format(count))
 			qty_back -= txn
 			qty_change.append(qty_back)
-			if v: print('Qty Back: {}'.format(qty_back))
-			# if qty_back == 0:
-			# 	del qty_change[-1]
-			# 	break
+			if v2: print('Qty Back: {}'.format(qty_back))
+			if v: print('Count: {} | TXN: {} | Qty Back: {}'.format(count, txn, qty_back))
 			if qty_back == 0:
 				break
-			elif qty_back > 0 and neg:
-				count += 1
-				neg = False
+			# elif qty_back > 0 and neg:
+			# 	count += 1
+			# 	if v: print('Hist Count Neg: {}'.format(count))
+			# 	neg = False
 
-		if v: print('Qty Back End: {}'.format(qty_back))
+		if v2: print('Qty Back End: {}'.format(qty_back))
 		start_qty = qty_txns[count]
-		if v: print('Start QTY: {}'.format(start_qty))
+		if v: print('Start Qty lot: {}'.format(start_qty))
 
 		qty_txns_gl = self.get_qty_txns(item, acct)
-		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-		# 	if v: print('QTY TXNs GL Before: {} \n{}'.format(len(qty_txns_gl), qty_txns_gl))
 		qty_txns_gl_check = qty_txns_gl.loc[qty_txns_gl['credit_acct'] == acct]
 		if not qty_txns_gl_check.empty:
 			mask = qty_txns_gl.credit_acct == acct
@@ -1253,55 +1267,54 @@ class Ledger:
 			qty_txns_gl.loc[mask, 'qty'] *= -1
 
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			if v: print('QTY TXNs GL: \n{}'.format(qty_txns_gl))
-		if v: print('Hist Count: {}'.format(count))
+			if v: print('QTY TXNs GL: {} \n{}'.format(len(qty_txns_gl), qty_txns_gl))
+		if v: print('Hist Count Final: {}'.format(count))
 		start_index = qty_txns_gl.index[count]
-		if v: print('Start Index: {} | Len: {}'.format(start_index, len(qty_txns_gl)))
+		if v2: print('Start Index: {} | Len: {}'.format(start_index, len(qty_txns_gl)))
 		if remaining_txn:
 			avail_txns = qty_txns_gl.loc[start_index:]
 			return avail_txns
-		if v: print('Qty Change List: \n{}'.format(qty_change))
+		if v2: print('Qty Change List: \n{}'.format(qty_change))
 		if len(qty_change) >= 3:
 			avail_qty = start_qty - qty_change[-1]#-3]# Portion of first lot of unsold items that has not been sold
 		else:
 			avail_qty = start_qty
 
-		if v: print('Avail qty: {}'.format(avail_qty))
+		if v: print('Available qty in start lot: {}'.format(avail_qty))
 		amount = 0
 		if qty <= avail_qty: # Case when first available lot covers the need
-			if v: print('Hist Qty: {}'.format(qty))
+			if v2: print('Hist Qty: {}'.format(qty))
 			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[qty]})
 			if price_chart.shape[0] >= 2:
 				print('Historical Cost Price Chart: \n{}'.format(price_chart))
 			amount = price_chart.price.dot(price_chart.qty)
-			print('Historical Cost Case | One: {}'.format(amount))
+			print('Historical Cost Case for {} {} | One: {}'.format(qty, item, amount))
 			return amount
 
 		price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[max(avail_qty, 0)]}) # Create a list of lots with associated price
 		qty = qty - avail_qty # Sell the remainder of first lot of unsold items
-		if v: print('Historical Cost Price Chart Start: \n{}'.format(price_chart))
-		if v: print('Qty First: {}'.format(qty))
+		if v2: print('Historical Cost Price Chart Start: \n{}'.format(price_chart))
+		if v2: print('Qty Left to be Sold First: {}'.format(qty))
 		count += 1
 		if v: print('Count First: {}'.format(count))
-		#for txn in qty_txns[count::-1]: # TODO Remove this loop
 		current_index = qty_txns_gl.index[count]
-		if v: print('Current Index First: {}'.format(current_index))
+		if v2: print('Current Index First: {}'.format(current_index))
 		while qty > 0: # Running amount of qty to be sold
-			if v: print('QTY Check: {}'.format(qty_txns_gl.loc[current_index]['qty']))
-			while qty_txns_gl.loc[current_index]['qty'] < 0:
-				count += 1
-				if v: print('Count When Neg: {}'.format(count))
-				current_index = qty_txns_gl.index[count]
+			if v2: print('QTY Check: {}'.format(qty_txns_gl.loc[current_index]['qty']))
+			# while qty_txns_gl.loc[current_index]['qty'] < 0: # TODO Confirm this is not needed
+			# 	count += 1
+			# 	if v: print('Count When Neg: {}'.format(count))
+			# 	current_index = qty_txns_gl.index[count]
 			current_index = qty_txns_gl.index[count]
-			if v: print('Current Index: {}'.format(current_index))
+			if v2: print('Current Index: {}'.format(current_index))
 			if v: print('Qty Left to be Sold 1: {}'.format(qty))
-			if v: print('Current TXN QTY: {} | {}'.format(qty_txns_gl.loc[current_index]['qty'], self.gl.loc[current_index]['qty']))
+			if v: print('Current TXN Qty: {} | {}'.format(qty_txns_gl.loc[current_index]['qty'], self.gl.loc[current_index]['qty']))
 			if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
 				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(qty, 0)}, ignore_index=True)
 				if price_chart.shape[0] >= 2:
 					print('Historical Cost Price Chart: \n{}'.format(price_chart))
 				amount = price_chart.price.dot(price_chart.qty) # Take dot product
-				print('Historical Cost Case | Two: {}'.format(amount))
+				print('Historical Cost Case for {} {} | Two: {}'.format(qty, item, amount))
 				return amount
 			
 			price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0)}, ignore_index=True)
@@ -1313,7 +1326,7 @@ class Ledger:
 		if price_chart.shape[0] >= 2:
 			print('Historical Cost Price Chart: \n{}'.format(price_chart))
 		amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
-		print('Historical Cost Case | Three: {}'.format(amount))
+		print('Historical Cost Case for {} {} | Three: {}'.format(qty, item, amount))
 		return amount
 
 	def bs_hist(self): # TODO Optimize this so it does not recalculate each time
@@ -1411,7 +1424,7 @@ def main(command=None, external=False):
 
 	while True: # TODO Make this a function that has the command passed in as an argument
 		if args.command is None and not external:
-			command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, Accts, addAcct, loadAccts, exit\n')
+			command = input('\nType one of the following commands:\nBS, GL, JE, RVSL, loadGL, Accts, addAcct, loadAccts, help, exit\n')
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'gl':
 			ledger.print_gl()
