@@ -1288,7 +1288,7 @@ class Ledger:
 			if price_chart.shape[0] >= 2:
 				print('Historical Cost Price Chart: \n{}'.format(price_chart))
 			amount = price_chart.price.dot(price_chart.qty)
-			print('Historical Cost Case for {} {} | One: {}'.format(qty, item, amount))
+			print('Historical Cost Case | One: {} for {} {}'.format(qty, item, amount))
 			return amount
 
 		price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[max(avail_qty, 0)]}) # Create a list of lots with associated price
@@ -1314,7 +1314,7 @@ class Ledger:
 				if price_chart.shape[0] >= 2:
 					print('Historical Cost Price Chart: \n{}'.format(price_chart))
 				amount = price_chart.price.dot(price_chart.qty) # Take dot product
-				print('Historical Cost Case for {} {} | Two: {}'.format(qty, item, amount))
+				print('Historical Cost Case | Two for {} {}: {}'.format(qty, item, amount))
 				return amount
 			
 			price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0)}, ignore_index=True)
@@ -1326,7 +1326,7 @@ class Ledger:
 		if price_chart.shape[0] >= 2:
 			print('Historical Cost Price Chart: \n{}'.format(price_chart))
 		amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
-		print('Historical Cost Case for {} {} | Three: {}'.format(qty, item, amount))
+		print('Historical Cost Case | Three for {] {}: {}'.format(qty, item, amount))
 		return amount
 
 	def bs_hist(self): # TODO Optimize this so it does not recalculate each time

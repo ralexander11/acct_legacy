@@ -279,6 +279,7 @@ class World:
 		return self.end
 
 	def valid_corp(self, ticker):
+		ticker = ticker.title()
 		tickers = []
 		for index, producers in self.items['producer'].iteritems():
 			if producers is not None:
@@ -293,6 +294,7 @@ class World:
 			return False
 
 	def valid_item(self, item, typ=None):
+		item = item.title()
 		if typ is None:
 			if item in self.items.index:
 				return True
@@ -634,7 +636,7 @@ class Entity:
 		print('{}-{} adjusts {} price by a rate of {} from ${} to ${}.'.format(self.name, self.entity_id, item, rate, orig_price, price))
 		return price
 
-	def set_price(self, item=None, qty=0, mark_up=0.1, at_cost=False):
+	def set_price(self, item=None, qty=0, price=None, mark_up=0.1, at_cost=False):
 		if item is None:
 			for item in self.produces:
 				price = world.get_price(item, self.entity_id)
@@ -663,6 +665,11 @@ class Entity:
 						world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost * (1 + mark_up)
 					print('{}-{} sets price for {} from {} to {}.'.format(self.name, self.entity_id, item, price, cost * (1 + mark_up)))
 		else:
+			if price is not None:
+				orig_price = world.get_price(item, self.entity_id)
+				world.prices.at[item, 'price'] = price
+				print('{}-{} manually sets price for {} from {} to {}.'.format(self.name, self.entity_id, item, orig_price, price))
+				return
 			price = world.get_price(item, self.entity_id)
 			item_type = world.get_item_type(item)
 			if item_type in ['Technology','Education','Land']:
@@ -731,7 +738,7 @@ class Entity:
 					return purchase_event, cost
 				else:
 					if item_type is None:
-						print('{}-{} transacted with {} for {} {} shares.'.format(self.name, self.entity_id, counterparty.name, qty, item))
+						print('{}-{} transacted with {}-{} for {} {} shares.'.format(self.name, self.entity_id, counterparty.name, counterparty.entity_id, qty, item))
 					sell_entry = [ ledger.get_event(), counterparty.entity_id, world.now, desc_sell, item, price, qty, 'Cash', acct_sell, price * qty ]
 					purchase_entry = [ ledger.get_event(), self.entity_id, world.now, desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
 					purchase_event += [sell_entry, purchase_entry]
@@ -3315,7 +3322,7 @@ class Entity:
 		if command is None: # TODO Allow to call bs command from econ.py
 			command = args.command
 		if command is None and not external:
-			command = input('\nChoose an action or enter "help" for list of commands: ')
+			command = input('Enter an action or "help" for more info: ')
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'select':
 			# factory.list_entities(Individual)
@@ -3326,7 +3333,10 @@ class Entity:
 				print('{}'.format(entity))
 			while True:
 				try:
-					selection = int(input('Enter an entity ID number: '))
+					selection = input('Enter an entity ID number: ')
+					if selection == '':
+						return
+					selection = int(selection)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3339,15 +3349,19 @@ class Entity:
 		elif command.lower() == 'incorp':
 			while True:
 				corp = input('Enter a corp: ')
+				if corp == '':
+					return
 				if world.valid_corp(corp):
 					break
 				else:
 					print('Not a valid entry.')
 					continue
-			self.incorporate(name=corp)
+			self.incorporate(name=corp.title())
 		elif command.lower() == 'claimland':
 			while True:
 				item = input('Enter type of land to claim: ')
+				if item == '':
+					return
 				if world.valid_item(item, 'Land'):
 					break
 				else:
@@ -3356,7 +3370,10 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = int(input('Enter quantity of {} to claim: '.format(item)))
+					qty = input('Enter quantity of {} to claim: '.format(item))
+					if qty == '':
+						return
+					qty = int(qty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3367,7 +3384,10 @@ class Entity:
 			counterparty = 0
 			while True:
 				try:
-					counterparty = int(input('Enter an entity ID number to claim from (0 for nature): '))
+					counterparty = input('Enter an entity ID number to claim from (0 for nature): ')
+					if counterparty == '':
+						return
+					counterparty = int(counterparty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3378,24 +3398,29 @@ class Entity:
 					counterparty = factory.get_by_id(counterparty)
 				break
 			price = 0
-			self.claim_land(qty, price, item, counterparty)
+			self.claim_land(qty, price, item.title(), counterparty) # TODO Change support for title() to lower()
 		elif command.lower() == 'hire':
 			while True:
 				item = input('Enter type of job to hire for: ')
+				if item == '':
+					return
 				if world.valid_item(item, 'Labour') or world.valid_item(item, 'Job'):
 					break
 				else:
 					print('Not a valid entry.')
 					continue
-			worker = self.worker_counterparty(item, only_avail=True, qualified=True)
-			item_type = world.get_item_type(item)
+			worker = self.worker_counterparty(item.title(), only_avail=True, qualified=True)
+			item_type = world.get_item_type(item.title())
 			if item_type == 'Job':
-				self.hire_worker(item, worker)
+				self.hire_worker(item.title(), worker)
 			else:
 				hours = 0
 				while True:
 					try:
-						hours = int(input('Enter number of hours for {}: '.format(item)))
+						hours = input('Enter number of hours for {}: '.format(item))
+						if hours == '':
+							return
+						hours = int(hours)
 					except ValueError:
 						print('Not a valid entry. Must be a positive whole number.')
 						continue
@@ -3403,10 +3428,12 @@ class Entity:
 						if hours <= 0:
 							continue
 						break
-				self.accru_wages(item, worker, hours)
+				self.accru_wages(item.title(), worker, hours)
 		elif command.lower() == 'study':
 			while True:
 				item = input('Enter item to study: ')
+				if item == '':
+					return
 				if world.valid_item(item, 'Education'):
 					break
 				else:
@@ -3415,7 +3442,10 @@ class Entity:
 			hours = 0
 			while True:
 				try:
-					hours = int(input('Enter number of hours to study {}: '.format(item)))
+					hours = input('Enter number of hours to study {}: '.format(item))
+					if hours == '':
+						return
+					hours = int(hours)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3423,10 +3453,13 @@ class Entity:
 					if hours <= 0:
 						continue
 					break
-			self.accru_wages(job=item, counterparty=self, labour_hours=hours, wage=0) # TODO Account for requirements
+			# self.accru_wages(job=item, counterparty=self, labour_hours=hours, wage=0) # TODO Account for requirements
+			self.produce(item.title(), qty=hours)
 		elif command.lower() == 'purchase':
 			while True:
 				item = input('Enter item to purchase: ')
+				if item == '':
+					return
 				if world.valid_item(item):
 					break
 				else:
@@ -3435,7 +3468,10 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = int(input('Enter quantity of {} item to purchase: '.format(item)))
+					qty = input('Enter quantity of {} item to purchase: '.format(item))
+					if qty == '':
+						return
+					qty = int(qty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3443,10 +3479,12 @@ class Entity:
 					if qty <= 0:
 						continue
 					break
-			self.purchase(item, qty)
+			self.purchase(item.title(), qty)
 		elif command.lower() == 'consume':
 			while True:
 				item = input('Enter item to consume: ') # TODO Some sort of check for non-consumable items
+				if item == '':
+					return
 				if world.valid_item(item):
 					break
 				else:
@@ -3455,7 +3493,10 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = int(input('Enter quantity of {} item to consume: '.format(item)))
+					qty = input('Enter quantity of {} item to consume: '.format(item))
+					if qty == '':
+						return
+					qty = int(qty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3463,10 +3504,12 @@ class Entity:
 					if qty <= 0:
 						continue
 					break
-			self.consume(item, qty)
+			self.consume(item.title(), qty)
 		elif command.lower() == 'produce':
 			while True:
-				item = input('Enter item to produce: ') # TODO Some sort of check for non-consumable items
+				item = input('Enter item to produce: ')
+				if item == '':
+					return
 				if world.valid_item(item):
 					break
 				else:
@@ -3475,7 +3518,10 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = int(input('Enter quantity of {} item to produce: '.format(item)))
+					qty = input('Enter quantity of {} item to produce: '.format(item))
+					if qty == '':
+						return
+					qty = int(qty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3483,10 +3529,12 @@ class Entity:
 					if qty <= 0:
 						continue
 					break
-			self.produce(item, qty)
+			self.produce(item.title(), qty)
 		elif command.lower() == 'use':
 			while True:
 				item = input('Enter item to use: ') # TODO Some sort of check for non-usable items
+				if item == '':
+					return
 				if world.valid_item(item):
 					break
 				else:
@@ -3495,7 +3543,10 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = int(input('Enter number of uses for {} item: '.format(item)))
+					qty = input('Enter number of uses for {} item: '.format(item))
+					if qty == '':
+						return
+					qty = int(qty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3503,10 +3554,12 @@ class Entity:
 					if qty <= 0:
 						continue
 					break
-			self.use_item(item, qty)
+			self.use_item(item.title(), qty)
 		elif command.lower() == 'attack':
 			while True:
 				item = input('Enter item to attack with: ')
+				if item == '':
+					return
 				if world.valid_item(item):
 					break
 				else:
@@ -3515,7 +3568,10 @@ class Entity:
 			qty = 1
 			while True:
 				try:
-					counterparty = int(input('Enter an entity ID number to attack: '))
+					counterparty = input('Enter an entity ID number to attack: ')
+					if counterparty == '':
+						return
+					counterparty = int(counterparty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3525,11 +3581,16 @@ class Entity:
 				counterparty = factory.get_by_id(counterparty)
 				break
 			target = input('Enter an item or Individual to attack: ') # TODO Validate item or Individual
-			self.use_item(item, qty, counterparty, target)
+			if target == '':
+				return
+			self.use_item(item.title(), qty, counterparty, target)
 		elif command.lower() == 'birth':
 			while True:
 				try:
-					counterparty = int(input('Enter an entity ID number to conceive with: '))
+					counterparty = input('Enter an entity ID number to conceive with: ')
+					if counterparty == '':
+						return
+					counterparty = int(counterparty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3541,7 +3602,10 @@ class Entity:
 			amount_1 = 0
 			while True:
 				try:
-					amount_1 = int(input('Enter amount of cash to pass on to child from the first parent: '))
+					amount_1 = input('Enter amount of cash to pass on to child from the first parent: ')
+					if amount_1 == '':
+						return
+					amount_1 = int(amount_1)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3552,7 +3616,10 @@ class Entity:
 			amount_2 = 0
 			while True:
 				try:
-					amount_2 = int(input('Enter amount of cash to pass on to child from the second parent: '))
+					amount_2 = input('Enter amount of cash to pass on to child from the second parent: ')
+					if amount_2 == '':
+						return
+					amount_2 = int(amount_2)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
@@ -3568,7 +3635,10 @@ class Entity:
 			div_rate = 0
 			while True:
 				try:
-					div_rate = float(input('Enter amount of cash to pass on to child: '))
+					div_rate = input('Enter amount of cash to pass on to child: ')
+					if div_rate == '':
+						return
+					div_rate = float(div_rate)
 				except ValueError:
 					print('Not a valid entry. Must be a positive number.')
 					continue
@@ -3577,6 +3647,34 @@ class Entity:
 						continue
 					break
 			self.dividend(div_rate)
+		elif command.lower() == 'price':
+			while True:
+				item = input('Enter item to set the price of: ')
+				if item == '':
+					return
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			qty = 0
+			while True:
+				try:
+					price = input('Enter price to set to: ')
+					if price == '':
+						return
+					price = float(price)
+				except ValueError:
+					print('Not a valid entry. Must be a positive number.')
+					continue
+				else:
+					if price < 0:
+						continue
+					elif price == 0:
+						print('That\'s cheating!')
+						continue
+					break
+			self.set_price(item.title(), qty, price)
 		elif command.lower() == 'demand':
 			print('World Demand as of {}: \n{}'.format(world.now, world.demand))
 		elif command.lower() == 'help':
@@ -3611,7 +3709,7 @@ class Entity:
 		elif command.lower() == 'exit':
 			exit()
 		else:
-			print('Not a valid command. Type exit to close.')
+			print('"{}"" is not a valid command. Type "exit" to close or "help" for more options.'.format(command))
 		# else:
 		# 	acct.main(command, external=True)
 		# if external:
@@ -3717,6 +3815,8 @@ class Individual(Entity):
 			print('{} is already deceased.'.format(self.name))
 			return
 		self.needs[need]['Current Need'] += need_delta
+		if self.needs[need]['Current Need'] < 0:
+			self.needs[need]['Current Need'] = 0
 		current_need_all = world.entities.loc[world.entities['entity_id'] == self.entity_id, 'current_need'].values[0]
 		# if v: print('Current Need Start: {}'.format(current_need_all))
 		current_need_all = [x.strip() for x in str(current_need_all).split(',')]

@@ -57,3 +57,4 @@ Super Tech,None,None,None,Technology,"Time, Wire, Wood","20, 200, 400",None,None
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Anvil,None,None,continuous,Equipment,"Time, Rock","2, 50",1,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,Blacksmith
 Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","100","ticks",None,None,None,100,None,None,Blacksmith
+Math,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
