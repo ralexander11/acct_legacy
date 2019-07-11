@@ -125,6 +125,8 @@ class Accounts:
 				max_qty INTEGER,
 				liquidate_chance real,
 				ticker_source text DEFAULT 'iex',
+				entity_type text,
+				government text,
 				hours INTEGER,
 				needs text,
 				need_max INTEGER DEFAULT 100,
@@ -144,6 +146,8 @@ class Accounts:
 				max_qty,
 				liquidate_chance,
 				ticker_source,
+				entity_type,
+				government,
 				hours,
 				needs,
 				need_max,
@@ -161,6 +165,8 @@ class Accounts:
 					100,
 					0.5,
 					'iex',
+					'Individual',
+					1,
 					24,
 					'Hunger',
 					100,
@@ -317,6 +323,8 @@ class Accounts:
 			max_qty = ''
 			liquidate_chance = ''
 			ticker_source = input('Enter the source for tickers: ')
+			entity_type = input('Enter the type of the entity: ')
+			government = input('Enter the ID for the government the entity belongs to: ')
 			hours = input('Enter the number of hours in a work day: ')
 			needs = input('Enter the needs of the entity as a list: ')
 			need_max = input('Enter the maximum need value as a list: ')
@@ -327,13 +335,13 @@ class Accounts:
 			auth_shares = input('Enter the number of shares authorized: ')
 			outputs = input('Enter the output names as a list: ') # For corporations
 
-			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,auth_shares,outputs)
-			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,auth_shares,outputs)
+			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()
@@ -468,11 +476,22 @@ class Ledger:
 			self.ledger_name = 'gen_ledger'
 		else:
 			self.ledger_name = ledger_name
+		if entity is not None:
+			if not isinstance(entity, (list, tuple)):
+				if isinstance(entity, str):
+					if ',' in entity:
+						entity = [x.strip() for x in entity.split(',')]
+						entity = list(map(int, entity))
+					else:
+						entity = [int(entity)]
+				else:
+					entity = [entity]
 		self.entity = entity
 		self.date = date
 		self.start_date = start_date
 		self.txn = txn
 		self.start_txn = start_txn
+		self.default = None
 		self.create_ledger()
 		self.refresh_ledger() # TODO Maybe make this self.gl = self.refresh_ledger()
 		self.balance_sheet()
@@ -501,9 +520,21 @@ class Ledger:
 
 	def set_entity(self, entity=None):
 		if entity is None:
-			self.entity = int(input('Enter an Entity ID: ')) # TODO Change entity_id to string type
+			self.entity = input('Enter an Entity ID: ')
+			if self.entity == '':
+				self.entity = None
 		else:
 			self.entity = entity
+		if self.entity is not None:
+			if not isinstance(self.entity, (list, tuple)):
+				if isinstance(self.entity, str):
+					if ',' in self.entity:
+						self.entity = [x.strip() for x in self.entity.split(',')]
+						self.entity = list(map(int, self.entity))
+					else:
+						self.entity = [int(self.entity)]
+				else:
+					self.entity = [self.entity]
 		self.refresh_ledger()
 		self.balance_sheet()
 		return self.entity
@@ -552,8 +583,8 @@ class Ledger:
 		self.balance_sheet()
 		return self.start_txn
 
-	def reset(self):
-		self.entity = None
+	def reset(self):#, default=self.default):
+		self.entity = self.default
 		self.date = None
 		self.start_date = None
 		self.txn = None
@@ -564,8 +595,8 @@ class Ledger:
 	def refresh_ledger(self):
 		# print('Refreshing Ledger.')
 		self.gl = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', self.conn, index_col='txn_id')
-		if self.entity is not None: # TODO make able to select multiple entities
-			self.gl = self.gl[(self.gl.entity_id == self.entity)]
+		if self.entity is not None:
+			self.gl = self.gl[(self.gl.entity_id.isin(self.entity))]
 		if self.date is not None:
 			self.gl = self.gl[(self.gl.date <= self.date)]
 		if self.start_date is not None:
@@ -779,7 +810,8 @@ class Ledger:
 			if self.entity is None:
 				self.bs.to_sql('balance_sheet', self.conn, if_exists='replace')
 			else:
-				self.bs.to_sql('balance_sheet_' + str(self.entity), self.conn, if_exists='replace')
+				entities = '_'.join(str(e) for e in self.entity)
+				self.bs.to_sql('balance_sheet_' + entities, self.conn, if_exists='replace')
 		return net_asset_value
 
 	def print_bs(self):
@@ -903,7 +935,8 @@ class Ledger:
 			if self.entity is None:
 				inventory.to_sql('inventory', self.conn, if_exists='replace')
 			else:
-				inventory.to_sql('inventory_' + str(self.entity), self.conn, if_exists='replace')
+				entities = '_'.join(str(e) for e in self.entity)
+				inventory.to_sql('inventory_' + entities, self.conn, if_exists='replace')
 		return inventory
 
 	# Used when booking journal entries to match related transactions
@@ -921,9 +954,9 @@ class Ledger:
 
 	def get_entity(self):
 		if self.entity is None:
-			entity = 1
+			entity = [1]
 		else:
-			entity = self.entity
+			entity = self.entity # TODO Long term solution
 		return entity
 
 	def journal_entry(self, journal_data=None):
@@ -980,7 +1013,16 @@ class Ledger:
 			if event == '':
 				event = str(self.get_event())
 			if entity == '':
-				entity = str(self.get_entity())
+				entity = self.get_entity()
+				if isinstance(entity, (list, tuple)):
+					entity_str = [str(e) for e in entity]
+					while True:
+						entity_choice = input('There are multiple entities in this view. Choose from the below: \n{}'.format(entity))
+						if entity_choice in entity_str:
+							break
+					entity = entity_choice
+				else:
+					entity = str(entity)
 			
 
 			if qty == '': # TODO No qty and price default needed now
@@ -1008,7 +1050,10 @@ class Ledger:
 				if event == '' or event == 'nan':
 					event = str(self.get_event())
 				if entity == '' or entity == 'nan':
-					entity = str(self.get_entity())
+					entity = self.get_entity()
+					if isinstance(entity, (list, tuple)):
+						entity = entity[0]
+					entity = str(entity)
 				if date == 'NaT':
 					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
@@ -1326,7 +1371,7 @@ class Ledger:
 		if price_chart.shape[0] >= 2:
 			print('Historical Cost Price Chart: \n{}'.format(price_chart))
 		amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
-		print('Historical Cost Case | Three for {] {}: {}'.format(qty, item, amount))
+		print('Historical Cost Case | Three for {} {}: {}'.format(qty, item, amount))
 		return amount
 
 	def bs_hist(self): # TODO Optimize this so it does not recalculate each time
@@ -1557,7 +1602,7 @@ def main(command=None, external=False):
 		elif command.lower() == 'exit' or args.command is not None:
 			exit()
 		else:
-			print('Not a valid command. Type exit to close.')
+			print('Not a valid command. Type "exit" to close or "help" for more info.')
 		if external:
 			break
 
