@@ -23,9 +23,9 @@ trade_accts = [
 		('Unrealized Gain','Revenue'),
 		('Unrealized Loss','Expense'),
 		('Interest Expense','Expense'),
+		('Interest Income','Revenue'),
 		('Dividend Receivable','Asset'),
 		('Dividend Income','Revenue'),
-		('Interest Income','Revenue')
 	]
 
 class Trading(object):
@@ -159,7 +159,7 @@ class Trading(object):
 		loan_bal = 0
 		loan_bal = self.ledger.balance_sheet(loan_accts)
 		#print('Loan Bal: {}'.format(loan_bal))
-		if loan_bal < 0:
+		if loan_bal:
 			logging.info('Loan exists!')
 			cur = self.ledger.conn.cursor()
 			for loan_type in loan_accts:

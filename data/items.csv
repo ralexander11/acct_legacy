@@ -25,7 +25,7 @@ Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,No
 Harvester,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 #Berries,None,None,None,Commodity,"Time, Land","1, 10",None,None,None,Hunger,0.25,None,None,8,spoilage,None,None,None,1,None,None,Individual
-Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water","8, 400, 0.1, 1",None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Farm
+#Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water","8, 400, 0.1, 1",None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Farm
 Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,Farm
 Plow,None,None,start,Equipment,"Metal Working, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 10, 20",12,None,None,None,None,Cultivator,0.5,"10,100","usage, ticks",None,None,None,100,None,None,Blacksmith
 Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 0.1",None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,Lumbermill
@@ -65,3 +65,5 @@ Engineer,None,None,None,Labour,"Electronics, Blacksmither","1, 10",1000,None,Non
 University Campus,None,None,continuous,Buildings,"Time, Land, Wood, Rock","2, 100, 100, 60",10,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
 #Electronics,None,None,None,Education,"Study","16",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
 Electronics,None,None,None,Education,"Study, University Campus","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Credit Line,0.05,None,None,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank

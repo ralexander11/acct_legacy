@@ -101,6 +101,13 @@ econ_accts = [
 	('Dividend Income','Revenue'),
 	('Dividend Payable','Liability'),
 	('Dividend Expense','Expense'),
+	('Commission Expense','Expense'),
+	('Investment Gain','Revenue'),
+	('Investment Loss','Expense'),
+	('Unrealized Gain','Revenue'),
+	('Unrealized Loss','Expense'),
+	('Interest Expense','Expense'),
+	('Interest Income','Revenue'),
 	('Education','Asset'),
 	('Studying Education','Asset'),
 	('Education Expense','Expense'),
@@ -110,6 +117,9 @@ econ_accts = [
 	('Technology Expense','Expense'),
 	('Technology Produced','Revenue'),
 	('Deposits','Liability'),
+	('Bank','Asset'),
+	('Loan','Liability'),
+	('Loans Receivable','Asset'),
 	('Gift','Revenue'),
 	('Gift Expense','Expense'),
 ] # TODO Remove div exp once retained earnings is implemented
@@ -148,6 +158,8 @@ class World:
 				last_entity_id = self.entities.reset_index()['entity_id'].max()
 				factory.create(Government, 'Player-' + str(last_entity_id + 1), items=None)
 			for gov in factory.get(Government):
+				gov.bank = None
+				print('Bank: {}'.format(gov.bank))
 				self.indiv_items_produced = self.items[self.items['producer'].str.contains('Individual', na=False)].reset_index() # TODO Move to own function
 				self.indiv_items_produced = self.indiv_items_produced['item_id'].tolist()
 				self.indiv_items_produced = ', '.join(self.indiv_items_produced)
@@ -199,7 +211,10 @@ class World:
 			# 	print('Governments: \n{}'.format(govs))
 			for index, gov in govs.iterrows():
 				factory.create(Government, gov['name'], gov['entity_id'], items=None)
-			self.players = len(govs)	
+			self.players = len(govs)
+			for gov in factory.get(Government):
+				gov.bank = None
+				# TODO Check if Bank entities exist and assign them to the correct play based on the shareholders
 			for index, indiv in individuals.iterrows():
 				current_need_all = [int(x.strip()) for x in str(indiv['current_need']).split(',')]
 				if not any(n <= 0 for n in current_need_all):
@@ -340,8 +355,17 @@ class World:
 			else:
 				return False
 
+	def valid_need(self, need):
+		if not isinstance(need, str):
+			return False
+		need = need.title()
+		if need in self.global_needs:
+			return True
+		else:
+			return False
+
 	def get_item_type(self, item):
-		if item in ['Land','Labour','Job','Equipment','Buildings','Subscription','Service','Commodity','Components','Technology','Education','Government','Non-Profit','Time','None']:
+		if item in ['Land','Labour','Job','Equipment','Buildings','Subscription','Service','Commodity','Components','Technology','Education','Government','Non-Profit','Time','Loan','None']:
 			return item
 		else:
 			return self.get_item_type(self.items.loc[item, 'child_of'])
@@ -430,17 +454,21 @@ class World:
 			t3_2_end = time.perf_counter()
 			print(time_stamp() + '3.2: WIP check took {:,.2f} sec for {}-{}.'.format((t3_2_end - t3_2_start), entity.name, entity.entity_id))
 			t3_3_start = time.perf_counter()
-			entity.check_subscriptions()
+			entity.check_interest()
 			t3_3_end = time.perf_counter()
-			print(time_stamp() + '3.3: Sub check took {:,.2f} sec for {}-{}.'.format((t3_3_end - t3_3_start), entity.name, entity.entity_id))
+			print(time_stamp() + '3.3: Int check took {:,.2f} sec for {}-{}.'.format((t3_3_end - t3_3_start), entity.name, entity.entity_id))
 			t3_4_start = time.perf_counter()
-			entity.check_salary()
+			entity.check_subscriptions()
 			t3_4_end = time.perf_counter()
-			print(time_stamp() + '3.4: Sal check took {:,.2f} sec for {}-{}.'.format((t3_4_end - t3_4_start), entity.name, entity.entity_id))
+			print(time_stamp() + '3.4: Sub check took {:,.2f} sec for {}-{}.'.format((t3_4_end - t3_4_start), entity.name, entity.entity_id))
 			t3_5_start = time.perf_counter()
-			entity.pay_wages()
+			entity.check_salary()
 			t3_5_end = time.perf_counter()
-			print(time_stamp() + '3.5: Wag check took {:,.2f} sec for {}-{}.'.format((t3_5_end - t3_5_start), entity.name, entity.entity_id))
+			print(time_stamp() + '3.5: Sal check took {:,.2f} sec for {}-{}.'.format((t3_5_end - t3_5_start), entity.name, entity.entity_id))
+			t3_6_start = time.perf_counter()
+			entity.pay_wages()
+			t3_6_end = time.perf_counter()
+			print(time_stamp() + '3.6: Wag check took {:,.2f} sec for {}-{}.'.format((t3_6_end - t3_6_start), entity.name, entity.entity_id))
 		t3_end = time.perf_counter()
 		print(time_stamp() + '3: Entity check took {:,.2f} min.'.format((t3_end - t3_start) / 60))
 		print()
@@ -450,7 +478,7 @@ class World:
 			for player in factory.get(Government):
 				print('~' * DISPLAY_WIDTH)
 				print('Player: {}'.format(player))
-				print('Citizen Entities: \n{}'.format(player.get()))
+				print('Citizen Entities: \n{}'.format(player.get(envs=False)))
 				self.selection = None
 				ledger.default = player.get(ids=True)
 				ledger.reset()
@@ -1163,6 +1191,7 @@ class Entity:
 
 	def fulfill(self, item, qty, reqs='requirements', amts='amount', man=False, check=False): # TODO Maybe add buffer=True
 		v = False
+		# TODO Determine the min amount possible to produce when incomplete
 		try:
 			if not self.gl_tmp.empty:
 				# if item == 'Hydroponics' or item == 'Wire':
@@ -1757,7 +1786,7 @@ class Entity:
 
 			elif req_item_type == 'Education':
 				if item_type == 'Job' or item_type == 'Labour':
-					# if type(self) == Individual:
+					if type(self) == Individual:
 						edu_status = ledger.get_qty(items=req_item, accounts=['Education'])
 						edu_status_wip = ledger.get_qty(items=req_item, accounts=['Studying Education'])
 						req_qty = int(req_qty)
@@ -2223,7 +2252,7 @@ class Entity:
 				continue
 			elif item_type in ('Subscription', 'Service'):
 				ledger.set_date(str(world.now - datetime.timedelta(days=1)))
-				hist_bal = ledger.balance_sheet(['Subscription Revenue','Service Revenue'], item)
+				hist_bal = ledger.balance_sheet(['Subscription Revenue','Service Revenue'], item, v=True)
 				ledger.reset()
 				ledger.set_entity(self.entity_id)
 				print('Serv and Sub Hist Bal of {} for {}-{}: {}'.format(item, self.name, self.entity_id, hist_bal))
@@ -2311,6 +2340,9 @@ class Entity:
 			names = list(collections.OrderedDict.fromkeys(filter(None, names)))
 			name = names[0]
 			#print('Ticker: {}'.format(name))
+		if name == 'Bank' and world.gov.bank is not None:
+			print('{} already has a bank. Only one bank per government is allowed.'.format(world.gov))
+			return
 		legal_form = world.org_type(name)
 		# print('Legal Form: {}'.format(legal_form))
 		if legal_form == Corporation:
@@ -2331,6 +2363,9 @@ class Entity:
 		#print('Corp Name: \n{}'.format(name))
 		corp = factory.create(legal_form, name, items_produced, self.government, auth_qty)
 		world.prices = pd.concat([world.prices, corp.prices])
+		if name.split('-')[0] == 'Bank':
+			world.gov.bank = corp
+			print('{}\'s central bank created.'.format(world.gov))
 		counterparty = corp
 		if legal_form == Corporation:
 			self.auth_shares(name, auth_qty, counterparty)
@@ -3285,6 +3320,105 @@ class Entity:
 		ledger.journal_entry(find_item_event)
 		return find_item_event
 
+	def deposit(self, amount, counterparty=None):
+		# TODO Make only one bank allowed per gov and auto select that bank entity as the counter party
+		if counterparty is None:
+			counterparty = world.gov.bank
+		if counterparty is None:
+			print('{} has not founded their central bank yet. Incorporate a Bank to do so.'.format(world.gov))
+			return
+		ledger.set_entity(self.entity_id)
+		cash = ledger.balance_sheet(['Cash'])
+		ledger.reset()
+		if cash >= amount:
+			bank_entry = [ ledger.get_event(), self.entity_id, world.now, 'Deposit cash with {}'.format(counterparty.name), '', '', '', 'Bank', 'Cash', amount ]
+			deposit_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Deposit cash from {}'.format(self.name), '', '', '', 'Cash', 'Deposits', amount ]
+			deposit_event = [bank_entry, deposit_entry]
+			ledger.journal_entry(deposit_event)
+			return deposit_event
+		else:
+			print('{} does not have {} to deposit with {}. Cash held: {}'.format(self.name, amount, counterparty.name, cash))
+
+	def withdrawal(self, amount, counterparty=None):
+		if counterparty is None:
+			counterparty = world.gov.bank
+		if counterparty is None:
+			print('{} has not founded their central bank yet. Incorporate a Bank to do so.'.format(world.gov))
+			return
+		ledger.set_entity(self.entity_id)
+		cash = ledger.balance_sheet(['Bank']) # TODO Fix that this assumes only one bank
+		ledger.reset()
+		if cash >= amount:
+			bank_entry = [ ledger.get_event(), self.entity_id, world.now, 'Withdraw cash from {}'.format(counterparty.name), '', '', '', 'Cash', 'Bank', amount ]
+			withdrawal_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Withdraw cash to {}'.format(self.name), '', '', '', 'Deposits', 'Cash', amount ]
+			withdrawal_event = [bank_entry, withdrawal_entry]
+			ledger.journal_entry(withdrawal_event)
+			return withdrawal_event
+		else:
+			print('{} does not have {} to withdraw from {}. Cash held in bank: {}'.format(self.name, amount, counterparty.name, cash))
+
+	def loan(self, amount, counterparty=None, item=None):
+		if item is None:
+			item = 'Credit Line'
+		if counterparty is None:
+			counterparty = world.gov.bank
+		if counterparty is None:
+			print('{} has not founded their central bank yet. Incorporate a Bank to do so.'.format(world.gov))
+			return
+		ledger.set_entity(counterparty.entity_id)
+		cash = ledger.balance_sheet(['Cash'])
+		ledger.reset()
+		qty = 1
+		if cash >= amount:
+			loan_entry = [ ledger.get_event(), self.entity_id, world.now, 'Loan cash from {}'.format(counterparty.name), item, '', '', 'Cash', 'Loan', amount ]
+			lend_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Lend cash to {}'.format(self.name), item, '', '', 'Loans Receivable', 'Cash', amount ]
+			loan_event = [loan_entry, lend_entry]
+			ledger.journal_entry(loan_event)
+			return loan_event
+		else:
+			print('{} does not have {} to loan to {}. Cash held by bank: {}'.format(counterparty.name, amount, self.name, cash))
+
+	def repay(self, amount, counterparty=None, item=None):
+		if item is None:
+			item = 'Credit Line'
+		if counterparty is None:
+			counterparty = world.gov.bank
+		if counterparty is None:
+			print('{} has not founded their central bank yet. Incorporate a Bank to do so.'.format(world.gov))
+			return
+		ledger.set_entity(self.entity_id)
+		cash = ledger.balance_sheet(['Cash'])
+		ledger.reset()
+		qty = 1
+		if cash >= amount:
+			loan_repay_entry = [ ledger.get_event(), self.entity_id, world.now, 'Repay loan to {}'.format(counterparty.name), item, '', '', 'Loan', 'Cash', amount ]
+			lend_repay_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Lend repayment from {}'.format(self.name), item, '', '', 'Cash', 'Loans Receivable', amount ]
+			loan_repay_event = [loan_repay_entry, lend_repay_entry]
+			ledger.journal_entry(loan_repay_event)
+			return loan_repay_event
+		else:
+			print('{} does not have {} to repay loan to {}. Cash held by bank: {}'.format(self.name, amount, counterparty.name, cash))
+
+	def check_interest(self, item=None):
+		if item is None:
+			item = 'Credit Line'
+		ledger.set_entity(self.entity_id)
+		loan_bal = ledger.balance_sheet(['Loan'])
+		ledger.reset()
+		if loan_bal:
+			# TODO Return bs of items with balance for given accounts
+			counterparty = world.gov.bank
+			int_rate_fix = world.items.loc[item, 'int_rate_fix']
+			int_rate_var = 0 # TODO Add var int logic and support
+			rate = int_rate_fix + int_rate_var
+			period = 1 / 365 # TODO Add frequency logic
+			int_amount = round(loan_bal * rate * period, 2)
+			int_exp_entry = [ ledger.get_event(), self.entity_id, world.now, 'Interest expense for {}'.format(item), '', '', '', 'Interest Expense', 'Cash', int_amount ]
+			int_rev_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Interest income from {}'.format(item), '', '', '', 'Cash', 'Interest Income', int_amount ]
+			# TODO Add bank interest revenue entry
+			int_exp_event = [int_exp_entry, int_rev_entry]
+			ledger.journal_entry(int_exp_event)
+
 	def depreciation_check(self, items=None): # TODO Add support for explicitly provided items
 		if items is None:
 			ledger.set_entity(self.entity_id)
@@ -3960,23 +4094,114 @@ class Entity:
 						continue
 					break
 			self.set_price(item.title(), qty, price)
+		elif command.lower() == 'deposit':
+			counterparty = world.gov.bank
+			while True:
+				try:
+					amount = input('Enter amount to deposit: ')
+					if amount == '':
+						return
+					amount = float(amount)
+				except ValueError:
+					print('Not a valid entry. Must be a positive number.')
+					continue
+				else:
+					if amount <= 0:
+						continue
+					break
+			self.deposit(amount, counterparty)
+		elif command.lower() == 'withdraw':
+			counterparty = world.gov.bank
+			while True:
+				try:
+					amount = input('Enter amount to withdraw: ')
+					if amount == '':
+						return
+					amount = float(amount)
+				except ValueError:
+					print('Not a valid entry. Must be a positive number.')
+					continue
+				else:
+					if amount <= 0:
+						continue
+					break
+			self.withdrawal(amount, counterparty)
+		elif command.lower() == 'loan':
+			counterparty = world.gov.bank
+			while True:
+				try:
+					amount = input('Enter amount to borrow as loan: ')
+					if amount == '':
+						return
+					amount = float(amount)
+				except ValueError:
+					print('Not a valid entry. Must be a positive number.')
+					continue
+				else:
+					if amount <= 0:
+						continue
+					break
+			self.loan(amount, counterparty, item=None)
+		elif command.lower() == 'repay':
+			counterparty = world.gov.bank
+			while True:
+				try:
+					amount = input('Enter amount to repay of loan: ')
+					if amount == '':
+						return
+					amount = float(amount)
+				except ValueError:
+					print('Not a valid entry. Must be a positive number.')
+					continue
+				else:
+					if amount <= 0:
+						continue
+					break
+			self.repay(amount, counterparty, item=None)
 		elif command.lower() == 'demand':
 			print('World Demand as of {}: \n{}'.format(world.now, world.demand))
 		elif command.lower() == 'auto':
 			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
+		elif command.lower() == 'items':
+			print('World Items Available: \n{}'.format(world.items.index.values))
+			while True:
+				item = input('\nEnter an item to see all it\'s properties: ')
+				if item == '':
+					return
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			with pd.option_context('display.max_colwidth', 200):
+				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
+		elif command.lower() == 'needs':
+			print('Global Needs: \n{}'.format(world.global_needs))
+			while True:
+				need = input('\nEnter a need to see all the items that satisfy it: ')
+				if need == '':
+					return
+				if world.valid_need(need):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			need_items = world.items[world.items['satisfies'].str.contains(need.title(), na=False)].index.values
+			print('Items that satisfy {}: \n{}'.format(need.title(), need_items))
 		elif command.lower() == 'help':
 			commands = {
 				'select': 'Choose a different entity (Individual or Corporation.',
+				'needs': 'See a list of all needs in the sim and list items that satisfy those needs.',
+				'items': 'See a list of all available items and details for specific items.',
 				'incorp': 'Incorporate a company to produce items.',
 				'claimland': 'Claim land for free, but it must be defended.',
+				'produce': 'Produce items.',
+				'consume': 'Consume items.',
+				'autoproduce': 'Produce items automatically.',
+				'purchase': 'Purchase items.',
+				'use': 'Use an item.',
 				'hire': 'Hire a part-time or full-time worker.',
 				'study': 'Study education and skills as an Individual to improve.',
-				'purchase': 'Purchase items.',
-				'gift': 'Gift cash or items between entities.',
-				'consume': 'Consume items.',
-				'produce': 'Produce items.',
-				'autoproduce': 'Produce items automatically.',
-				'use': 'Use an item.',
 				'attack': 'Attack another Individual or item with an item.',
 				'birth': 'Have a child with another Individual.',
 				'dividend': 'Declare dividends for a Corporation.',
@@ -3995,6 +4220,10 @@ class Entity:
 			commands = {
 				'recurproduce': 'Produce items, this will also attempt to aquire any requirements.',
 				'gift': 'Gift cash or items between entities.',
+				'deposit': 'Deposit cash with the bank.',
+				'withdraw': 'Withdraw cash from the bank.',
+				'loan': 'Borrow cash from the bank.',
+				'repay': 'Repay cash borrowed from the bank.',
 				'price': 'Set the price of items.',
 				'exit': 'Exit out of the sim.'
 			}
@@ -4637,6 +4866,8 @@ class Government(Organization):
 
 	def __repr__(self):
 		return 'Gov: {} | {}'.format(self.name, self.entity_id)
+
+# TODO Add Governmental org type for govnerment organizations
 
 class NonProfit(Organization):
 	def __init__(self, name, items, government, auth_qty=0, entity_id=None):
