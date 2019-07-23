@@ -652,9 +652,10 @@ class Ledger:
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		all_accts = False
 		if item is not None: # TODO Add support for multiple items maybe
+			if v: print('BS Item: {}'.format(item))
 			self.gl = self.gl[self.gl['item_id'] == item]
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			if v: print(self.gl)
+			if v: print('BS GL: \n{}'.format(self.gl))
 		if accounts is None: # Create a list of all the accounts
 			all_accts = True
 			# debit_accts = pd.unique(self.gl['debit_acct'])
@@ -698,17 +699,18 @@ class Ledger:
 		# TODO The below repeated sections can probably be handled more elegantly
 
 		asset_bal = 0
-		if v: print('Asset Accounts: {}'.format(assets))
+		# if v: print('Asset Accounts: {}'.format(assets))
 		for acct in assets:
-			#print(self.gl)
-			if v: print('Account: {}'.format(acct))
+			if v: print('Asset Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Asset Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Asset Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
@@ -721,14 +723,16 @@ class Ledger:
 
 		liab_bal = 0
 		for acct in liabilities:
-			logging.debug('Account: {}'.format(acct))
+			if v: print('Liability Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Liabilities Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Liabilities Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
@@ -739,14 +743,16 @@ class Ledger:
 
 		wealth_bal = 0
 		for acct in wealth:
-			logging.debug('Account: {}'.format(acct))
+			if v: print('Wealth Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Wealth Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Wealth Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
@@ -757,14 +763,16 @@ class Ledger:
 
 		rev_bal = 0
 		for acct in revenues:
-			logging.debug('Account: {}'.format(acct))
+			if v: print('Revenue Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Revenues Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Revenues Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
@@ -775,14 +783,16 @@ class Ledger:
 
 		exp_bal = 0
 		for acct in expenses:
-			logging.debug('Account: {}'.format(acct))
+			if v: print('Expense Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Expenses Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Expenses Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
@@ -812,6 +822,8 @@ class Ledger:
 			else:
 				entities = '_'.join(str(e) for e in self.entity)
 				self.bs.to_sql('balance_sheet_' + entities, self.conn, if_exists='replace')
+		if item is not None:
+			self.reset()
 		return net_asset_value
 
 	def print_bs(self):

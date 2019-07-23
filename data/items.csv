@@ -11,6 +11,7 @@ Components,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Education,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Technology,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Government,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Governmental,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Environment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -42,7 +43,7 @@ Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,"100,
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Harvest Guild
 Manager,None,None,None,Job,Reading,1,2000,"Paper","1",None,None,None,None,None,None,None,None,None,None,None,None,None
 #Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,50,ticks,None,None,None,50,None,None,Blacksmith
-Town Hall,None,None,None,Government,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+#Bank,None,None,None,Governmental,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 University,None,None,None,Non-Profit,"University Campus","1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
@@ -66,4 +67,5 @@ University Campus,None,None,continuous,Buildings,"Time, Land, Wood, Rock","2, 10
 #Electronics,None,None,None,Education,"Study","16",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
 Electronics,None,None,None,Education,"Study, University Campus","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Credit Line,0.05,None,None,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
+Init Capital,0,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
+Credit Line 5,0.05,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
