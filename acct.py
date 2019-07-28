@@ -134,6 +134,7 @@ class Accounts:
 				need_threshold INTEGER DEFAULT 40,
 				current_need INTEGER DEFAULT 50,
 				parents text,
+				user text,
 				auth_shares INTEGER,
 				outputs text
 			);
@@ -155,6 +156,7 @@ class Accounts:
 				need_threshold,
 				current_need,
 				parents,
+				user,
 				auth_shares,
 				outputs
 				)
@@ -174,6 +176,7 @@ class Accounts:
 					40,
 					50,
 					'(None,None)',
+					'True',
 					1000000,
 					'Labour'
 				);
@@ -332,16 +335,17 @@ class Accounts:
 			need_threshold = input('Enter the threshold for the needs as a list: ')
 			current_need = input('Enter the starting level for the needs as a list: ')
 			parents = input('Enter two IDs for parents as a tuple: ')
+			user = input('Enter whether the entity is a user as True or False: ')
 			auth_shares = input('Enter the number of shares authorized: ')
 			outputs = input('Enter the output names as a list: ') # For corporations
 
-			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,auth_shares,outputs)
-			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,outputs)
+			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()
@@ -466,6 +470,18 @@ class Accounts:
 			print(self.items)
 		print('-' * DISPLAY_WIDTH)
 		return self.items
+
+	def print_table(self, table_name=None):
+		if table_name is None:
+			table_name = input('Enter a table to display: ')
+		try:
+			table = pd.read_sql_query('SELECT * FROM ' + table_name + ';', self.conn)
+			print('{} table: \n{}'.format(table_name, table))
+		except Exception as e:
+			print('There exists no table called: {}'.format(table_name))
+			print('Error: {}'.format(repr(e)))
+			table = table_name
+		return table
 
 
 class Ledger:
@@ -1565,6 +1581,8 @@ def main(command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'loaditems':
 			accts.load_items()
+		elif command.lower() == 'table':
+			accts.print_table()
 
 		elif command.lower() == 'bsn':
 			ledger.balance_sheet_new()
@@ -1606,6 +1624,7 @@ def main(command=None, external=False):
 				'importgl': 'Import the General Ledger from csv.',#'Also supports loading trasnactions from RBC online banking and a legacy account system.',
 				'exportaccts': 'Export the Chart of Accounts to csv.',
 				'importaccts': 'Import the Chart of Accounts from csv.',
+				'table': 'Display any table in the database given its name.',
 				'exit': 'Exit out of the program.'
 			}
 			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
