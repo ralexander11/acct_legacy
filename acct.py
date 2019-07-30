@@ -136,6 +136,7 @@ class Accounts:
 				parents text,
 				user text,
 				auth_shares INTEGER,
+				int_rate real,
 				outputs text
 			);
 			''' # TODO Add needs table?
@@ -158,6 +159,7 @@ class Accounts:
 				parents,
 				user,
 				auth_shares,
+				int_rate,
 				outputs
 				)
 				VALUES (
@@ -178,6 +180,7 @@ class Accounts:
 					'(None,None)',
 					'True',
 					1000000,
+					0.0,
 					'Labour'
 				);
 			'''] # TODO Rename outputs to produces
@@ -337,15 +340,16 @@ class Accounts:
 			parents = input('Enter two IDs for parents as a tuple: ')
 			user = input('Enter whether the entity is a user as True or False: ')
 			auth_shares = input('Enter the number of shares authorized: ')
+			int_rate = input('Enter the interest rate for the bank: ')
 			outputs = input('Enter the output names as a list: ') # For corporations
 
-			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,outputs)
-			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,int_rate,outputs)
+			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()

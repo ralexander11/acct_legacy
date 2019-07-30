@@ -172,7 +172,7 @@ class World:
 				print('{} | Interest Rate: {}'.format(gov.bank, gov.bank.interest_rate))
 				user_count = args.Users
 				for person in range(1, self.population + 1):
-					# print('Person: {}'.format(person))
+					print('Person: {}'.format(person))
 					user = False
 					if user_count:
 						user = True
@@ -180,7 +180,7 @@ class World:
 					self.entities = accts.get_entities()
 					last_entity_id = self.entities.reset_index()['entity_id'].max()
 					factory.create(Individual, 'Person-' + str(last_entity_id + 1), self.indiv_items_produced, self.global_needs, gov.entity_id, user=user)
-					entity = factory.get_by_id(person)
+					entity = factory.get_by_id(last_entity_id +1)
 					self.prices = pd.concat([self.prices, entity.prices])
 			self.set_table(self.prices, 'prices')
 			self.gov = factory.get(Government)[0]
@@ -208,36 +208,44 @@ class World:
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Items Config: \n{}'.format(self.items))
 			self.entities = accts.get_entities().reset_index()
-			# TODO Reload env and govs
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print('Loaded Entities: \n{}'.format(self.entities))
 			envs = self.entities.loc[self.entities['entity_type'] == 'Environment']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Environments: \n{}'.format(envs))
 			for index, env in envs.iterrows():
 				factory.create(Environment, env['name'], env['entity_id'])
 			self.env = factory.get(Environment)[0]
-			self.setup_prices()
+			# self.setup_prices()
 			self.produce_queue = self.get_table('produce_queue')
 			self.end = False
 			govs = self.entities.loc[self.entities['entity_type'] == 'Government']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Governments: \n{}'.format(govs))
 			for index, gov in govs.iterrows():
-				factory.create(Government, gov['name'], None, gov['entity_id'], gov['user'])
+				factory.create(Government, gov['name'], None, gov['user'], gov['entity_id'])
 			self.players = len(govs)
-			# for gov in factory.get(Government):
-				# gov.bank = None
-				# TODO Check if Bank entities exist and assign them to the correct player based on the shareholders
+			banks = self.entities.loc[self.entities['entity_type'] == 'Bank']
+			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 	print('Banks: \n{}'.format(banks))
+			for index, bank in banks.iterrows():
+				factory.create(Bank, bank['name'], bank['government'], bank['int_rate'], None, bank['user'], bank['entity_id'])
+			for gov in factory.get(Government):
+				bank_id = self.entities.loc[(self.entities['entity_type'] == 'Bank') & (self.entities['government'] == str(gov.entity_id)), 'entity_id'].values[0]
+				print('Bank ID: {}'.format(bank_id))
+				gov.bank = factory.get_by_id(bank_id)
 			for index, indiv in individuals.iterrows():
 				current_need_all = [int(x.strip()) for x in str(indiv['current_need']).split(',')]
 				if not any(n <= 0 for n in current_need_all):
-					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), indiv['hours'], indiv['current_need'], indiv['parents'], indiv['user'], indiv['entity_id'])
+					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, indiv['government'], indiv['hours'], indiv['current_need'], indiv['parents'], indiv['user'], indiv['entity_id'])
 			corps = self.entities.loc[self.entities['entity_type'] == 'Corporation']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Corporations: \n{}'.format(corps))	
 			for index, corp in corps.iterrows():
 				legal_form = self.org_type(corp['name'])
-				factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), corp['auth_shares'], corp['entity_id'])
-			self.set_table(self.prices, 'prices')
+				factory.create(legal_form, corp['name'], corp['outputs'], corp['government'], corp['auth_shares'], corp['entity_id'])
+			self.prices = self.get_table('prices')
+			self.prices = self.prices.set_index('item_id')
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
@@ -432,6 +440,7 @@ class World:
 
 	def get_price(self, item, entity_id=None):
 		if not isinstance(entity_id, int) and entity_id is not None:
+		# if not np.issubdtype(entity_id, np.integer) and entity_id is not None:
 			entity_id = entity_id.entity_id # Incase an entity object is passed instead
 		if entity_id:
 			#print('Entity ID: {}'.format(entity_id))
@@ -2629,7 +2638,7 @@ class Entity:
 		last_entity_id = entities.reset_index()['entity_id'].max()
 		name = name + '-' + str(last_entity_id + 1)
 		#print('Corp Name: \n{}'.format(name))
-		corp = factory.create(legal_form, name, items_produced, self.government, auth_qty)
+		corp = factory.create(legal_form, name, items_produced, self.government, auth_qty)#, int(last_entity_id + 1))
 		world.prices = pd.concat([world.prices, corp.prices])
 		if name.split('-')[0] == 'Bank':
 			world.gov.bank = corp
@@ -4707,7 +4716,7 @@ class Individual(Entity):
 		needs = ', '.join(needs)
 
 		# Note: The 2nd to 5th values are for another program
-		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, hours, needs, max_need, decay_rate, threshold, current_need, str(parents), user, None, items) ] # TODO Maybe add dead or active bool field
+		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, hours, needs, max_need, decay_rate, threshold, current_need, str(parents), user, None, None, items) ] # TODO Maybe add dead or active bool field
 		# print('Entity Data: {}'.format(entity_data))
 
 		if not os.path.exists('db/' + args.database) or args.reset:
@@ -4726,9 +4735,9 @@ class Individual(Entity):
 				user = False
 			else:
 				user = gov.user
-		elif user == 'True':
+		elif user == 'True' or user == '1' or user == 1:
 			user = True
-		elif user == 'False':
+		elif user == 'False' or user == '0' or user == 0:
 			user = False
 		self.user = user
 		self.dead = False
@@ -5147,7 +5156,7 @@ class Individual(Entity):
 class Environment(Entity):
 	def __init__(self, name, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, None) ] # Note: The 2nd to 5th values are for another program
 		if not os.path.exists('db/' + args.database) or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
@@ -5186,7 +5195,7 @@ class Organization(Entity):
 class Corporation(Organization):
 	def __init__(self, name, items, government, auth_shares=1000000, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, None, None, None, None, None, None, None, None, auth_shares, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, None, None, None, None, None, None, None, None, auth_shares, None, items) ] # Note: The 2nd to 5th values are for another program
 		if not os.path.exists('db/' + args.database) or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
@@ -5194,7 +5203,10 @@ class Corporation(Organization):
 				accts.add_entity(entity_data)
 				self.entity_id = entity_id
 		else:
-			self.entity_id = entity_id
+			if entity_id is None:
+				self.entity_id = accts.add_entity(entity_data)
+			else:
+				self.entity_id = entity_id
 		self.name = name
 		self.government = government
 		self.user = None
@@ -5300,7 +5312,7 @@ class Corporation(Organization):
 class Government(Organization):
 	def __init__(self, name, items=None, user=False, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, user, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, user, None, None, items) ] # Note: The 2nd to 5th values are for another program
 		if not os.path.exists('db/' + args.database) or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
@@ -5310,9 +5322,9 @@ class Government(Organization):
 		else:
 			self.entity_id = entity_id
 		self.name = name
-		if user == 'True':
+		if user == 'True' or user == '1' or user == 1:
 			user = True
-		elif user == 'False':
+		elif user == 'False' or user == '0' or user == 0:
 			user = False
 		self.user = user # TODO Should user be part of the saved entity data?
 		self.government = self.entity_id
@@ -5326,7 +5338,8 @@ class Government(Organization):
 		else:
 			self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
 		print('\nCreate Government: {} | User: {} | entity_id: {}'.format(self.name, self.user, self.entity_id))
-		self.bank = self.create_bank()
+		if not os.path.exists('db/' + args.database) or args.reset:
+			self.bank = self.create_bank()
 
 	def get(self, typ=None, users=True, computers=True, ids=False, envs=True):
 		entities = []
@@ -5364,7 +5377,7 @@ class Government(Organization):
 class Governmental(Organization):
 	def __init__(self, name, government, items=None, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
 		if not os.path.exists('db/' + args.database) or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
@@ -5397,7 +5410,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 	# TODO Can the below be omitted for inheritance
 	def __init__(self, name, government, interest_rate=None, items=None, user=None, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, user, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, user, None, interest_rate, items) ] # Note: The 2nd to 5th values are for another program
 		if not os.path.exists('db/' + args.database) or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
@@ -5414,9 +5427,9 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 				user = False
 			else:
 				user = gov.user
-		elif user == 'True':
+		elif user == 'True' or user == '1' or user == 1:
 			user = True
-		elif user == 'False':
+		elif user == 'False' or user == '0' or user == 0:
 			user = False
 		self.user = user
 		self.produces = items
@@ -5428,7 +5441,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 			self.prices = pd.DataFrame({'entity_id': self.entity_id, 'item_id': self.produces,'price': INIT_PRICE}).set_index('item_id')
 		else:
 			self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
-		print('\nCreate Central Bank: {} | entity_id: {}'.format(self.name, self.entity_id))
+		print('\nCreate Central Bank: {} | User: {} | entity_id: {}'.format(self.name, self.user, self.entity_id))
 		if interest_rate is None:
 			self.interest_rate = 0.0
 
@@ -5452,7 +5465,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 class NonProfit(Organization):
 	def __init__(self, name, items, government, auth_qty=0, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
 		if not os.path.exists('db/' + args.database) or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
