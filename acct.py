@@ -447,12 +447,16 @@ class Accounts:
 		cur.close()
 		self.refresh_accts()
 
-	def get_entities(self):
-		self.entities = pd.read_sql_query('SELECT * FROM ' + self.entities_table_name + ';', self.conn, index_col=['entity_id'])
+	def get_entities(self, entities_table_name=None):
+		if entities_table_name is None:
+			entities_table_name = self.entities_table_name
+		self.entities = pd.read_sql_query('SELECT * FROM ' + entities_table_name + ';', self.conn, index_col=['entity_id'])
 		return self.entities
 
-	def get_items(self):
-		self.items = pd.read_sql_query('SELECT * FROM ' + self.items_table_name + ';', self.conn, index_col=['item_id'])
+	def get_items(self, items_table_name=None):
+		if items_table_name is None:
+			items_table_name=self.items_table_name
+		self.items = pd.read_sql_query('SELECT * FROM ' + items_table_name + ';', self.conn, index_col=['item_id'])
 		return self.items
 
 	def print_entities(self, save=True): # TODO Add error checking if no entities exist
@@ -1205,6 +1209,18 @@ class Ledger:
 		except Exception as e:
 			print('Error: {}'.format(e))
 
+	def remove_entries(self, txns=None):
+		if txns is None:
+			txns = []
+			txns = txns.append(input('Which transaction ID would you like to remove? '))
+		cur = self.conn.cursor()
+		for txn in txns:
+			cur.execute('DELETE FROM '+ self.ledger_name +' WHERE txn_id=?', (txn,))
+		self.conn.commit()
+		cur.close()
+		print('Removed {} entries.'.format(len(txns)))
+		self.refresh_ledger()
+
 	def reversal_entry(self, txn=None, date=None): # This func effectively deletes a transaction
 		if txn is None:
 			txn = input('Which txn_id to reverse? ')
@@ -1492,6 +1508,19 @@ def main(command=None, external=False):
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
 	parser.add_argument('-c', '--command', type=str, help='A command for the program.')
+	# Dummy args to allow it work with econ.py
+	parser.add_argument('-sim', '--simulation', action='store_true', help='Run on historical data.')
+	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
+	parser.add_argument('-P', '--players', type=int, default=1, help='The number of players in the econ sim.')
+	parser.add_argument('-p', '--population', type=int, default=2, help='The number of people in the econ sim.')
+	parser.add_argument('-r', '--reset', action='store_true', help='Reset the sim!')
+	parser.add_argument('-rand', '--random', action='store_false', help='Remove randomness from the sim!')
+	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
+	parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
+	parser.add_argument('-t', '--time', type=int, help='The number of days the sim will run for.')
+	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital each player to start with.')
+	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim!')
+	parser.add_argument('-U', '--Users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	args = parser.parse_args()
 
 	accts = Accounts(conn=args.database)
@@ -1598,7 +1627,7 @@ def main(command=None, external=False):
 			DISPLAY_WIDTH = int(input('Enter number for display width: '))
 			if args.command is not None: exit()
 
-		elif command.lower() == 'help':
+		elif command.lower() == 'help' or command.lower() == 'accthelp':
 			commands = {
 				'accts': 'View the Chart of Accounts with their types.',
 				'gl': 'View the General Ledger.',
@@ -1618,7 +1647,7 @@ def main(command=None, external=False):
 			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
-		elif command.lower() == 'more':
+		elif command.lower() == 'more' or command.lower() == 'acctmore':
 			commands = {
 				'split': 'Split a journal entry into more granular entries.',
 				'uncategorize': 'For journal entries that are uncategorized, assign them to a new account.',
@@ -1637,7 +1666,8 @@ def main(command=None, external=False):
 		elif command.lower() == 'exit' or args.command is not None:
 			exit()
 		else:
-			print('Not a valid command. Type "exit" to close or "help" for more info.')
+			# print('Not a valid command. Type "exit" to close or "help" for more info.')
+			print('"{}" is not a valid command. Type "exit" to close or "help" for more options.'.format(command))
 		if external:
 			break
 

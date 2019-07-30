@@ -1,5 +1,7 @@
 import acct
 import pandas as pd
+# import pygame
+# from pygame.locals import *
 import collections
 import itertools
 import argparse
@@ -124,10 +126,12 @@ econ_accts = [
 	('Loans Receivable','Asset'),
 	('Gift','Revenue'),
 	('Gift Expense','Expense'),
+	('End of Day','Info'),
 ] # TODO Remove div exp once retained earnings is implemented
 
 class World:
 	def __init__(self, factory, players=1, population=2):
+		# pygame.init()
 		self.factory = factory
 		if not os.path.exists('db/' + args.database) or args.reset:
 			self.clear_tables()
@@ -187,15 +191,16 @@ class World:
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
 		else:
+			# pygame.init()
 			continue_date = self.get_table('date').values[0][0]
 			self.now = datetime.datetime.strptime(continue_date[:10], '%Y-%m-%d').date()
 			# self.now += datetime.timedelta(days=-1)
 			print(time_stamp() + 'Continuing sim from {} file as of {}.'.format(args.database, self.now))
 			self.items = accts.get_items()
 			self.global_needs = self.create_needs()
-			self.demand = self.get_table('demand')
-			self.delay = self.get_table('delay')
-			self.entities = accts.get_entities().reset_index()
+			self.demand = self.get_table('prior_demand')
+			self.delay = self.get_table('prior_delay')
+			self.entities = accts.get_entities('prior_entities').reset_index()
 			individuals = self.entities.loc[self.entities['entity_type'] == 'Individual']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Individuals: \n{}'.format(individuals))
@@ -208,8 +213,8 @@ class World:
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Items Config: \n{}'.format(self.items))
 			self.entities = accts.get_entities().reset_index()
-			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				print('Loaded Entities: \n{}'.format(self.entities))
+			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 	print('Loaded Entities: \n{}'.format(self.entities))
 			envs = self.entities.loc[self.entities['entity_type'] == 'Environment']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Environments: \n{}'.format(envs))
@@ -217,19 +222,22 @@ class World:
 				factory.create(Environment, env['name'], env['entity_id'])
 			self.env = factory.get(Environment)[0]
 			# self.setup_prices()
-			self.produce_queue = self.get_table('produce_queue')
+			self.produce_queue = self.get_table('prior_produce_queue')
 			self.end = False
 			govs = self.entities.loc[self.entities['entity_type'] == 'Government']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Governments: \n{}'.format(govs))
 			for index, gov in govs.iterrows():
-				factory.create(Government, gov['name'], None, gov['user'], gov['entity_id'])
+				factory.create(Government, gov['name'], None, gov['user'], int(gov['entity_id']))
 			self.players = len(govs)
 			banks = self.entities.loc[self.entities['entity_type'] == 'Bank']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Banks: \n{}'.format(banks))
 			for index, bank in banks.iterrows():
-				factory.create(Bank, bank['name'], bank['government'], bank['int_rate'], None, bank['user'], bank['entity_id'])
+				int_rate = bank['int_rate']
+				if int_rate is not None:
+					int_rate = float(int_rate)
+				factory.create(Bank, bank['name'], int(bank['government']), int_rate, None, bank['user'], int(bank['entity_id']))
 			for gov in factory.get(Government):
 				bank_id = self.entities.loc[(self.entities['entity_type'] == 'Bank') & (self.entities['government'] == str(gov.entity_id)), 'entity_id'].values[0]
 				print('Bank ID: {}'.format(bank_id))
@@ -237,18 +245,27 @@ class World:
 			for index, indiv in individuals.iterrows():
 				current_need_all = [int(x.strip()) for x in str(indiv['current_need']).split(',')]
 				if not any(n <= 0 for n in current_need_all):
-					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, indiv['government'], indiv['hours'], indiv['current_need'], indiv['parents'], indiv['user'], indiv['entity_id'])
+					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
 			corps = self.entities.loc[self.entities['entity_type'] == 'Corporation']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Corporations: \n{}'.format(corps))	
 			for index, corp in corps.iterrows():
 				legal_form = self.org_type(corp['name'])
-				factory.create(legal_form, corp['name'], corp['outputs'], corp['government'], corp['auth_shares'], corp['entity_id'])
-			self.prices = self.get_table('prices')
+				factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), corp['auth_shares'], corp['entity_id'])
+			self.prices = self.get_table('prior_prices')
 			self.prices = self.prices.set_index('item_id')
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
+			print('\nRoll back to last full day.')
+			try:
+				last_eod_index = ledger.gl.loc[ledger.gl['credit_acct'] == 'End of Day'].iloc[-1].name
+			except IndexError:
+				print('Less than one day completed in prior run.')
+				last_eod_index = 0
+			incomplete_cycle = ledger.gl.loc[ledger.gl.index > last_eod_index].index.values.tolist()
+			print('Number of incomplete transactions: {}'.format(len(incomplete_cycle)))
+			ledger.remove_entries(incomplete_cycle)
 		print()
 		self.cols = ledger.gl.columns.values.tolist()
 		print(self.cols) # For verbosity
@@ -491,6 +508,17 @@ class World:
 				self.end = True
 		if self.end:
 			return
+		# Save prior days tables: entities, prices, demand, delay, produce_queue
+		self.prior_entities = self.entities
+		self.set_table(self.prior_entities, 'prior_entities')
+		self.prior_prices = self.prices
+		self.set_table(self.prior_prices, 'prior_prices')
+		self.prior_demand = self.demand
+		self.set_table(self.prior_demand, 'prior_demand')
+		self.prior_delay = self.delay
+		self.set_table(self.prior_delay, 'prior_delay')
+		self.prior_produce_queue = self.produce_queue
+		self.set_table(self.prior_produce_queue, 'prior_produce_queue')
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Econ Updated ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		self.entities = accts.get_entities().reset_index()
@@ -546,7 +574,7 @@ class World:
 		# if args.users or args.Users:
 		if user_check:
 			for player in factory.get(Government):
-				indv_player_check = any([e for e in player.get(Individual) if e.user])
+				indv_player_check = any([e.user for e in player.get(Individual)])
 				if not player.user and not indv_player_check:
 					print()
 					print(time_stamp() + '{} is a computer user.'.format(player))
@@ -719,7 +747,7 @@ class World:
 		# if str(self.now) == '1986-10-31': # For testing impairment
 		# 	individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm', generic=True), target='Plow')
 
-		if args.random and individual: # TODO Add population target
+		if args.random and individual: # TODO Maybe add population target
 			birth_roll = random.randint(1, 20)
 			print('Birth Roll: {}'.format(birth_roll))
 			if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
@@ -747,13 +775,30 @@ class World:
 		t9_end = time.perf_counter()
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
 
-		# if END_DATE is not None: # For debugging
-		# 	if self.now >= datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
-		# 		world.end = True # TODO User remove
+		# Book End of Day entry
+		eod_entry = [ ledger.get_event(), 0, world.now, 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
+		ledger.journal_entry([eod_entry])
 
 		t1_end = time.perf_counter()
 		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
 		self.ticktock(v=False) # TODO User
+
+	def handle_events(self):
+		paused = False
+		while True:
+			# events = pygame.event.get()
+			for event in events:
+				print('Event: {} | Type: {}'.format(event, event.type))
+				if event.type == KEYDOWN:
+					if event.key == K_SPACE:
+						paused = not paused
+					elif event.key == K_ESCAPE:
+						exit()
+			if paused:
+				# pygame.time.wait(60)
+				time.sleep(0.1)
+			else:
+				return
 
 class Entity:
 	def __init__(self, name):
@@ -4650,6 +4695,7 @@ class Entity:
 				'dividend': 'Declare dividends for a Corporation.',
 				'demand': 'See the demand table.',
 				'auto': 'See the auto production queue table.',
+				'accthelp': 'View commands for the accounting system.',
 				'skip': 'Skip an entities turn even if they have hours left.',
 				'end': 'End the day even if multiple entities have hours left.',
 				'exit': 'Exit out of the sim.'
@@ -4669,6 +4715,7 @@ class Entity:
 				'repay': 'Repay cash borrowed from the bank.',
 				'adjrate': 'Adjust central bank interest rate.',
 				'price': 'Set the price of items.',
+				'acctmore': 'View more commands for the accounting system.',
 				'exit': 'Exit out of the sim.'
 			}
 			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
@@ -4681,13 +4728,13 @@ class Entity:
 			return 'end'
 		elif command.lower() == 'exit':
 			exit()
-		else:
-			print('"{}" is not a valid command. Type "exit" to close or "help" for more options.'.format(command))
 		# else:
-		# 	acct.main(command, external=True)
-		# if external:
-		# 	# break
-		# 	return 'end'
+		# 	print('"{}" is not a valid command. Type "exit" to close or "help" for more options.'.format(command))
+		else:
+			acct.main(command, external=True)
+		if external:
+			# break
+			return 'end'
 
 class Individual(Entity):
 	def __init__(self, name, items, needs, government, hours=12, current_need=None, parents=(None, None), user=None, entity_id=None):
@@ -5343,11 +5390,9 @@ class Government(Organization):
 
 	def get(self, typ=None, users=True, computers=True, ids=False, envs=True):
 		entities = []
-		if envs: # TODO Exclude environments
-			# for entity in factory.get(typ):
-			entities = [entity for entity in factory.get(typ) if entity.government == self.entity_id or entity.government is None]
+		if envs:
+			entities = [entity for entity in factory.get(typ) if (entity.government == self.entity_id) or (entity.government is None)]
 		else:
-			# for entity in factory.get(typ): # TODO Exclude environments
 			entities = [entity for entity in factory.get(typ) if entity.government == self.entity_id]
 		if not computers:
 			entities = [entity for entity in entities if entity.user]
@@ -5610,7 +5655,7 @@ if __name__ == '__main__':
 	parser.add_argument('-t', '--time', type=int, help='The number of days the sim will run for.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital each player to start with.')
 	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim!')
-	parser.add_argument('-U', '--Users', type=int, nargs='?', const=-1, help='Play the sim as a individual!')
+	parser.add_argument('-U', '--Users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	# TODO Add argparse for setting win conditions
 	# User would one or more goals for Wealth, Tech, Population, Land
 	# Or a time limit, with the highest of one or more of the above
@@ -5621,9 +5666,9 @@ if __name__ == '__main__':
 		args.database = 'econ01.db'
 	if args.capital is None:
 		args.capital = 100000
-	# command = None
-	# if command is None:
-	# 	command = args.command
+	command = None
+	if command is None:
+		command = args.command
 
 	print(time_stamp() + 'Start Econ Sim | Players: {} | Population: {}'.format(args.players, args.population))
 	if args.users:
@@ -5670,6 +5715,7 @@ if __name__ == '__main__':
 	# pr.enable()
 	
 	while True:
+		# world.handle_events()
 		world.update_econ()
 		if world.end:
 			break
