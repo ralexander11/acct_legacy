@@ -95,6 +95,7 @@ ENV/
 # Project files
 db/*.db
 data/
+*config*.yaml
 *config*.py
 run.py
 app/

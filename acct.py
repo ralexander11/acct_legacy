@@ -24,7 +24,9 @@ class Accounts:
 				conn = sqlite3.connect('db/acct.db')
 				website = False
 				logging.debug('Website: {}'.format(website))
+			self.db = 'acct.db'
 		elif isinstance(conn, str):
+			self.db = conn
 			if '/' not in conn:
 				conn = 'db/' + conn
 			try:
@@ -35,16 +37,18 @@ class Accounts:
 				conn = sqlite3.connect(conn)
 				website = False
 				logging.debug('Website: {}'.format(website))
-		else:
-			try:
-				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
-				website = True
-				logging.debug('Website: {}'.format(website))
-			except:
-				conn = sqlite3.connect('db/acct.db')
-				website = False
-				logging.debug('Website: {}'.format(website))
+		# else:
+		# 	print('Conn path: {}'.format(conn))
+		# 	try:
+		# 		conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
+		# 		website = True
+		# 		logging.debug('Website: {}'.format(website))
+		# 	except:
+		# 		conn = sqlite3.connect('db/acct.db')
+		# 		website = False
+		# 		logging.debug('Website: {}'.format(website))
 
+		# self.db = args.database
 		self.conn = conn
 
 		try:
@@ -484,7 +488,8 @@ class Accounts:
 			table_name = input('Enter a table to display: ')
 		try:
 			table = pd.read_sql_query('SELECT * FROM ' + table_name + ';', self.conn)
-			print('{} table: \n{}'.format(table_name, table))
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print('{} table: \n{}'.format(table_name, table))
 		except Exception as e:
 			print('There exists no table called: {}'.format(table_name))
 			print('Error: {}'.format(repr(e)))
@@ -887,12 +892,15 @@ class Ledger:
 			all_accts = True
 			if no_item:
 				accounts = pd.unique(self.gl['debit_acct'])
+				if v: print('Accounts Before Filter: \n{}'.format(accounts))
+				# Filter for only Asset and Liability accounts
+				accounts = [acct for acct in accounts if self.get_acct_elem(acct) == 'Asset' or self.get_acct_elem(acct) == 'Liability']
 			else:
 				item_txns = self.gl.loc[self.gl['item_id'].isin(items)]
 				accounts = pd.unique(item_txns['debit_acct'])
 			#credit_accts = pd.unique(self.gl['credit_acct']) # Not needed
 			#accounts = list( set(accounts) | set(credit_accts) ) # Not needed
-		if v: print('Accounts: {}'.format(accounts))
+		if v: print('Accounts: {}\n'.format(accounts))
 		if isinstance(accounts, str):
 			accounts = [x.strip() for x in accounts.split(',')]
 		accounts = list(filter(None, accounts))
@@ -916,9 +924,9 @@ class Ledger:
 				if v: print('Item: {}'.format(item))
 				if by_entity:
 					entities = pd.unique(self.gl[self.gl['item_id'] == item]['entity_id'])
-					if v: print('Entities: \n{}'.format(entities))
+					if v: print('Entities: {}'.format(entities))
 					for entity_id in entities:
-						if v: print('Entity ID: \n{}'.format(entity_id))
+						if v: print('Entity ID: {}'.format(entity_id))
 						self.set_entity(entity_id)
 						qty_txns = self.get_qty_txns(item, acct)
 						if v: print('QTY TXNs by entity: \n{}'.format(qty_txns))
@@ -935,7 +943,7 @@ class Ledger:
 							if v: print('Error Credits: {} | {}'.format(e, repr(e)))
 							credits = 0
 						qty = round(debits - credits, 0)
-						if v: print('QTY: {}'.format(qty))
+						if v: print('QTY: {}\n'.format(qty))
 						inventory = inventory.append({'entity_id':entity_id, 'item_id':item, 'qty':qty}, ignore_index=True)
 						#if v: print(inventory)
 						self.reset()
@@ -945,18 +953,18 @@ class Ledger:
 					if v: print('QTY TXNs: \n{}'.format(qty_txns))
 					try:
 						debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
-						if v: print('Debits: \n{}'.format(debits))
+						if v: print('Debits: {}'.format(debits))
 					except KeyError as e:
 						if v: print('Error Debits: {} | {}'.format(e, repr(e)))
 						debits = 0
 					try:
 						credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
-						if v: print('Credits: \n{}'.format(credits))
+						if v: print('Credits: {}'.format(credits))
 					except KeyError as e:
 						if v: print('Error Credits: {} | {}'.format(e, repr(e)))
 						credits = 0
 					qty = round(debits - credits, 0)
-					if v: print('QTY: {}'.format(qty))
+					if v: print('QTY: {}\n'.format(qty))
 					if single_item:
 						total_qty += int(qty)
 					else:
@@ -1051,12 +1059,15 @@ class Ledger:
 			if entity == '':
 				entity = self.get_entity()
 				if isinstance(entity, (list, tuple)):
-					entity_str = [str(e) for e in entity]
-					while True:
-						entity_choice = input('There are multiple entities in this view. Choose from the below: \n{}'.format(entity))
-						if entity_choice in entity_str:
-							break
-					entity = entity_choice
+					if len(entity) == 1:
+						entity = entity[0]
+					else:
+						entity_str = [str(e) for e in entity]
+						while True:
+							entity_choice = input('There are multiple entities in this view. Choose from the following {}: '.format(entity))
+							if entity_choice in entity_str:
+								break
+						entity = entity_choice
 				else:
 					entity = str(entity)
 			
@@ -1073,7 +1084,10 @@ class Ledger:
 		else: # Create journal entries by passing data to the function
 			for je in journal_data:
 				event = str(je[0])
-				entity = str(je[1])
+				entity = je[1]
+				if isinstance(entity, (list, tuple)):
+					entity = entity[0]
+				entity = str(entity)
 				date = str(je[2])
 				desc = str(je[3])
 				item  = str(je[4])
@@ -1297,130 +1311,137 @@ class Ledger:
 		self.refresh_ledger()
 		return new_entry
 
-	def hist_cost(self, qty=None, item=None, acct=None, remaining_txn=False, v=False):
+	def hist_cost(self, qty=None, item=None, acct=None, remaining_txn=False, avg_cost=False, v=False):
 		v2 = False
-		if qty is None:
-			qty = int(input('Enter quantity: '))
-		if item is None:
-			item = input('Enter item: ')
-		if v: print('Getting historical cost of {} for {} qty.'.format(item, qty))
-		if acct is None:
-			acct = 'Inventory' #input('Enter account: ') # TODO Remove this maybe
-		if qty == 0:
-			return 0
-
-		qty_txns = self.get_qty_txns(item, acct)
-		m1 = qty_txns.credit_acct == acct
-		m2 = qty_txns.credit_acct != acct
-		credit_qtys = -qty_txns['qty']
-		debit_qtys = qty_txns['qty']
-		qty_txns = np.select([m1, m2], [credit_qtys, debit_qtys])
-		if v: print('Qty TXNs: {} \n{}'.format(len(qty_txns), qty_txns))
-
-		# Find the first lot of unsold items
-		count = 0
-		qty_back = self.get_qty(item, [acct]) # TODO Confirm this work when there are multiple different lots of buys and sells in the past
-		if v: print('Qty to go back: {}'.format(qty_back))
-		qty_change = []
-		qty_change.append(qty_back)
-		# neg = False
-		for txn in qty_txns[::-1]:
-			if v2: print('Hist TXN Item: {}'.format(txn))
-			# if txn < 0:
-			# 	neg = True
-			count -= 1
-			if v2: print('Hist Count: {}'.format(count))
-			qty_back -= txn
-			qty_change.append(qty_back)
-			if v2: print('Qty Back: {}'.format(qty_back))
-			if v: print('Count: {} | TXN: {} | Qty Back: {}'.format(count, txn, qty_back))
-			if qty_back == 0:
-				break
-			# elif qty_back > 0 and neg:
-			# 	count += 1
-			# 	if v: print('Hist Count Neg: {}'.format(count))
-			# 	neg = False
-
-		if v2: print('Qty Back End: {}'.format(qty_back))
-		start_qty = qty_txns[count]
-		if v: print('Start Qty lot: {}'.format(start_qty))
-
-		qty_txns_gl = self.get_qty_txns(item, acct)
-		qty_txns_gl_check = qty_txns_gl.loc[qty_txns_gl['credit_acct'] == acct]
-		if not qty_txns_gl_check.empty:
-			mask = qty_txns_gl.credit_acct == acct
-			#print('Mask: \n{}'.format(mask))
-			#qty_txns_gl_flip = qty_txns_gl.loc[mask, 'qty'] # Testing
-			#print('qty_txns_gl_flip: \n{}'.format(qty_txns_gl_flip))
-			# flip_qty = qty_txns_gl['qty'] * -1
-			warnings.filterwarnings('ignore')
-			# WithCopyWarning: Warning here
-			# qty_txns_gl.loc[mask, 'qty'] = flip_qty
-			#qty_txns_gl.loc[mask, 'qty'] = qty_txns_gl['qty'] * -1 # Old
-			qty_txns_gl.loc[mask, 'qty'] *= -1
-
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			if v: print('QTY TXNs GL: {} \n{}'.format(len(qty_txns_gl), qty_txns_gl))
-		if v: print('Hist Count Final: {}'.format(count))
-		start_index = qty_txns_gl.index[count]
-		if v2: print('Start Index: {} | Len: {}'.format(start_index, len(qty_txns_gl)))
-		if remaining_txn:
-			avail_txns = qty_txns_gl.loc[start_index:]
-			return avail_txns
-		if v2: print('Qty Change List: \n{}'.format(qty_change))
-		if len(qty_change) >= 3:
-			avail_qty = start_qty - qty_change[-1]#-3]# Portion of first lot of unsold items that has not been sold
-		else:
-			avail_qty = start_qty
-
-		if v: print('Available qty in start lot: {}'.format(avail_qty))
-		amount = 0
-		if qty <= avail_qty: # Case when first available lot covers the need
-			if v2: print('Hist Qty: {}'.format(qty))
-			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[qty]})
-			if price_chart.shape[0] >= 2:
-				print('Historical Cost Price Chart: \n{}'.format(price_chart))
-			amount = price_chart.price.dot(price_chart.qty)
-			print('Historical Cost Case | One: {} for {} {}'.format(qty, item, amount))
+		# TODO Support avg_cost flag by getting total balance of item and dividing by total qty of item
+		if avg_cost:
+			total_balance = ledger.balance_sheet([acct])
+			total_qty = ledger.get_qty(items=item, accounts=[acct])
+			amount = qty * (total_balance / total_qty)
 			return amount
+		else:
+			if qty is None:
+				qty = int(input('Enter quantity: '))
+			if item is None:
+				item = input('Enter item: ')
+			if v: print('Getting historical cost of {} for {} qty.'.format(item, qty))
+			if acct is None:
+				acct = 'Inventory' #input('Enter account: ') # TODO Remove this maybe
+			if qty == 0:
+				return 0
 
-		price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[max(avail_qty, 0)]}) # Create a list of lots with associated price
-		qty = qty - avail_qty # Sell the remainder of first lot of unsold items
-		if v2: print('Historical Cost Price Chart Start: \n{}'.format(price_chart))
-		if v2: print('Qty Left to be Sold First: {}'.format(qty))
-		count += 1
-		if v: print('Count First: {}'.format(count))
-		current_index = qty_txns_gl.index[count]
-		if v2: print('Current Index First: {}'.format(current_index))
-		while qty > 0: # Running amount of qty to be sold
-			if v2: print('QTY Check: {}'.format(qty_txns_gl.loc[current_index]['qty']))
-			# while qty_txns_gl.loc[current_index]['qty'] < 0: # TODO Confirm this is not needed
-			# 	count += 1
-			# 	if v: print('Count When Neg: {}'.format(count))
-			# 	current_index = qty_txns_gl.index[count]
-			current_index = qty_txns_gl.index[count]
-			if v2: print('Current Index: {}'.format(current_index))
-			if v: print('Qty Left to be Sold 1: {}'.format(qty))
-			if v: print('Current TXN Qty: {} | {}'.format(qty_txns_gl.loc[current_index]['qty'], self.gl.loc[current_index]['qty']))
-			if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
-				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(qty, 0)}, ignore_index=True)
+			qty_txns = self.get_qty_txns(item, acct)
+			m1 = qty_txns.credit_acct == acct
+			m2 = qty_txns.credit_acct != acct
+			credit_qtys = -qty_txns['qty']
+			debit_qtys = qty_txns['qty']
+			qty_txns = np.select([m1, m2], [credit_qtys, debit_qtys])
+			if v: print('Qty TXNs: {} \n{}'.format(len(qty_txns), qty_txns))
+
+			# Find the first lot of unsold items
+			count = 0
+			qty_back = self.get_qty(item, [acct]) # TODO Confirm this work when there are multiple different lots of buys and sells in the past
+			if v: print('Qty to go back: {}'.format(qty_back))
+			qty_change = []
+			qty_change.append(qty_back)
+			# neg = False
+			for txn in qty_txns[::-1]:
+				if v2: print('Hist TXN Item: {}'.format(txn))
+				# if txn < 0:
+				# 	neg = True
+				count -= 1
+				if v2: print('Hist Count: {}'.format(count))
+				qty_back -= txn
+				qty_change.append(qty_back)
+				if v2: print('Qty Back: {}'.format(qty_back))
+				if v: print('Count: {} | TXN: {} | Qty Back: {}'.format(count, txn, qty_back))
+				if qty_back == 0:
+					break
+				# elif qty_back > 0 and neg:
+				# 	count += 1
+				# 	if v: print('Hist Count Neg: {}'.format(count))
+				# 	neg = False
+
+			if v2: print('Qty Back End: {}'.format(qty_back))
+			start_qty = qty_txns[count]
+			if v: print('Start Qty lot: {}'.format(start_qty))
+
+			qty_txns_gl = self.get_qty_txns(item, acct)
+			qty_txns_gl_check = qty_txns_gl.loc[qty_txns_gl['credit_acct'] == acct]
+			if not qty_txns_gl_check.empty:
+				mask = qty_txns_gl.credit_acct == acct
+				#print('Mask: \n{}'.format(mask))
+				#qty_txns_gl_flip = qty_txns_gl.loc[mask, 'qty'] # Testing
+				#print('qty_txns_gl_flip: \n{}'.format(qty_txns_gl_flip))
+				# flip_qty = qty_txns_gl['qty'] * -1
+				warnings.filterwarnings('ignore')
+				# WithCopyWarning: Warning here
+				# qty_txns_gl.loc[mask, 'qty'] = flip_qty
+				#qty_txns_gl.loc[mask, 'qty'] = qty_txns_gl['qty'] * -1 # Old
+				qty_txns_gl.loc[mask, 'qty'] *= -1
+
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				if v: print('QTY TXNs GL: {} \n{}'.format(len(qty_txns_gl), qty_txns_gl))
+			if v: print('Hist Count Final: {}'.format(count))
+			start_index = qty_txns_gl.index[count]
+			if v2: print('Start Index: {} | Len: {}'.format(start_index, len(qty_txns_gl)))
+			if remaining_txn:
+				avail_txns = qty_txns_gl.loc[start_index:]
+				return avail_txns
+			if v2: print('Qty Change List: \n{}'.format(qty_change))
+			if len(qty_change) >= 3:
+				avail_qty = start_qty - qty_change[-1]#-3]# Portion of first lot of unsold items that has not been sold
+			else:
+				avail_qty = start_qty
+
+			if v: print('Available qty in start lot: {}'.format(avail_qty))
+			amount = 0
+			if qty <= avail_qty: # Case when first available lot covers the need
+				if v2: print('Hist Qty: {}'.format(qty))
+				price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[qty]})
 				if price_chart.shape[0] >= 2:
 					print('Historical Cost Price Chart: \n{}'.format(price_chart))
-				amount = price_chart.price.dot(price_chart.qty) # Take dot product
-				print('Historical Cost Case | Two for {} {}: {}'.format(qty, item, amount))
+				amount = price_chart.price.dot(price_chart.qty)
+				print('Historical Cost Case | One: {} for {} {}'.format(qty, item, amount))
 				return amount
-			
-			price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0)}, ignore_index=True)
-			qty = qty - self.gl.loc[current_index]['qty']
-			if v: print('Qty Left to be Sold 2: {}'.format(qty))
-			count += 1
-			if v: print('Count: {}'.format(count))
 
-		if price_chart.shape[0] >= 2:
-			print('Historical Cost Price Chart: \n{}'.format(price_chart))
-		amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
-		print('Historical Cost Case | Three for {} {}: {}'.format(qty, item, amount))
-		return amount
+			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[max(avail_qty, 0)]}) # Create a list of lots with associated price
+			qty = qty - avail_qty # Sell the remainder of first lot of unsold items
+			if v2: print('Historical Cost Price Chart Start: \n{}'.format(price_chart))
+			if v2: print('Qty Left to be Sold First: {}'.format(qty))
+			count += 1
+			if v: print('Count First: {}'.format(count))
+			current_index = qty_txns_gl.index[count]
+			if v2: print('Current Index First: {}'.format(current_index))
+			while qty > 0: # Running amount of qty to be sold
+				if v2: print('QTY Check: {}'.format(qty_txns_gl.loc[current_index]['qty']))
+				# while qty_txns_gl.loc[current_index]['qty'] < 0: # TODO Confirm this is not needed
+				# 	count += 1
+				# 	if v: print('Count When Neg: {}'.format(count))
+				# 	current_index = qty_txns_gl.index[count]
+				current_index = qty_txns_gl.index[count]
+				if v2: print('Current Index: {}'.format(current_index))
+				if v: print('Qty Left to be Sold 1: {}'.format(qty))
+				if v: print('Current TXN Qty: {} | {}'.format(qty_txns_gl.loc[current_index]['qty'], self.gl.loc[current_index]['qty']))
+				if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
+					price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(qty, 0)}, ignore_index=True)
+					if price_chart.shape[0] >= 2:
+						print('Historical Cost Price Chart: \n{}'.format(price_chart))
+					amount = price_chart.price.dot(price_chart.qty) # Take dot product
+					print('Historical Cost Case | Two for {} {}: {}'.format(qty, item, amount))
+					return amount
+				
+				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0)}, ignore_index=True)
+				qty = qty - self.gl.loc[current_index]['qty']
+				if v: print('Qty Left to be Sold 2: {}'.format(qty))
+				count += 1
+				if v: print('Count: {}'.format(count))
+
+			if price_chart.shape[0] >= 2:
+				print('Historical Cost Price Chart: \n{}'.format(price_chart))
+			amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
+			print('Historical Cost Case | Three for {} {}: {}'.format(qty, item, amount))
+			return amount
 
 	def bs_hist(self): # TODO Optimize this so it does not recalculate each time
 		gl_entities = pd.unique(self.gl['entity_id'])
@@ -1502,7 +1523,7 @@ class Ledger:
 		print('QTYs converted.')
 
 
-def main(command=None, external=False):
+def main(conn=None, command=None, external=False):
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
@@ -1523,7 +1544,9 @@ def main(command=None, external=False):
 	parser.add_argument('-U', '--Users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	args = parser.parse_args()
 
-	accts = Accounts(conn=args.database)
+	if args.database is not None:
+		conn = args.database
+	accts = Accounts(conn=conn)
 	ledger = Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	if command is None:
 		command = args.command
@@ -1573,10 +1596,14 @@ def main(command=None, external=False):
 			ledger.print_bs()
 			if args.command is not None: exit()
 		elif command.lower() == 'qty':
-			item = input('Which ticker? ')#.lower()
+			item = input('Which item or ticker? ')#.lower()
 			acct = input('Which account? ')#.title()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				print(ledger.get_qty(item, acct))
+			if args.command is not None: exit()
+		elif command.lower() == 'inv':
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print(ledger.get_qty(by_entity=True, v=True))
 			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()
@@ -1604,11 +1631,13 @@ def main(command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'items':
 			accts.print_items()
+			if args.command is not None: exit()
 		elif command.lower() == 'addentity':
 			accts.add_entity()
 			if args.command is not None: exit()
 		elif command.lower() == 'additem':
 			accts.add_item()
+			if args.command is not None: exit()
 		elif command.lower() == 'loadentities':
 			accts.load_entities()
 			if args.command is not None: exit()
@@ -1617,6 +1646,12 @@ def main(command=None, external=False):
 		elif command.lower() == 'table':
 			accts.print_table()
 
+		elif command.lower() == 'db':
+			if args.database is not None:
+				db = args.database
+			else:
+				db = accts.db
+			print('Current database: {}'.format(db))
 		elif command.lower() == 'bsn':
 			ledger.balance_sheet_new()
 		elif command.lower() == 'histcost':

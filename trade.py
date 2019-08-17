@@ -4,6 +4,8 @@ import argparse
 import logging
 import datetime
 import urllib.request
+import json
+import yaml
 
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
@@ -47,15 +49,39 @@ class Trading(object):
 		self.sim = sim
 		self.date = date
 
+	def load_config(self, file='config.yaml'):
+		config = None
+		with open(file, 'r') as stream:
+			try:
+				config = yaml.safe_load(stream)
+				# print('Load config success: \n{}'.format(config))
+			except yaml.YAMLError as e:
+				print('Error loading yaml config: \n{}'.format(repr(e)))
+		return config
+
 	def get_price(self, symbol, date=None):
 		if not self.sim:
-			url = 'https://api.iextrading.com/1.0/stock/'
+			# url = 'https://api.iextrading.com/1.0/stock/' # Old Url
+			# 'https://cloud.iexapis.com/stable/tops?token=YOUR_TOKEN_HERE&symbols=aapl'
+			# url = 'https://cloud.iexapis.com/stable/tops?token='
+			# request_str = url + token + '&symbols=' + symbol
+			# https://cloud.iexapis.com/stable/stock/aapl/quote?token=YOUR_TOKEN_HERE
+			url = 'https://cloud.iexapis.com/stable/stock/'
+			token = self.load_config()['api_token']
+			request_str = url + symbol + '/quote?token=' + token
 			try:
-				price = float(urllib.request.urlopen(url + symbol + '/price').read())
-			except:
-				logging.warning('Error getting price from: ' + url + symbol + '/price\n')
+				raw_quote = urllib.request.urlopen(request_str).read()
+			except Exception as e:
+				logging.warning('Error getting price for {} via: \n{}'.format(symbol, request_str))
+				logging.warning(repr(e))
 				return 0
 			else:
+				quote = raw_quote.decode('utf-8')
+				quote = json.loads(quote)
+				# print(quote)
+				name = quote['symbol']
+				price = float(quote['close'])
+				print('Price for {}: {}'.format(name, price))
 				return price
 		else:
 			infile = 'market_data/data/quote/iex_quote_' + date + '.csv'
@@ -401,6 +427,7 @@ def main(command=None, external=False):
 	accts = acct.Accounts(conn=args.database, standard_accts=trade_accts)
 	ledger = acct.Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
+	# config = trade.load_config()
 	if command is None:
 		command = args.command
 
@@ -425,7 +452,7 @@ def main(command=None, external=False):
 		elif command.lower() == 'exit':
 			exit()
 		else:
-			acct.main(command, external=True)
+			acct.main(conn=ledger.conn, command=command, external=True)
 		if external:
 			break
 

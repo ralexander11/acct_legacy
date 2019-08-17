@@ -52,4 +52,4 @@ Unfortunately, IEX changed their policies and the below will not work currently.
 * Pandas 0.22
 
 
-Data provided for free by [IEX](https://iextrading.com/developer). View [IEX’s Terms of Use](https://iextrading.com/api-exhibit-a/).
+Data provided by [IEX Cloud].(https://iexcloud.io)
