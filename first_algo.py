@@ -1,6 +1,8 @@
-from acct import Accounts
-from acct import Ledger
-from trade import Trading
+import acct
+import trade
+# from acct import Accounts
+# from acct import Ledger
+# from trade import Trading
 from market_data.market_data import MarketData
 from market_data.combine_data import CombineData
 import pandas as pd
@@ -9,6 +11,7 @@ import logging
 import datetime
 import random
 import time
+import yaml
 import glob, os
 
 DISPLAY_WIDTH = 98
@@ -19,10 +22,34 @@ pd.set_option('display.max_rows', 30)
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
 random.seed()
-WK52_REDUCE = 10
+WK52_REDUCE = 1 #10
+
+trade_accts = [
+		('Cash','Asset'),
+		('Chequing','Asset'),
+		('Savings','Asset'),
+		('Investments','Asset'),
+		('Visa','Liability'),
+		('Student Credit','Liability'),
+		('Credit Line','Liability'),
+		('Uncategorized','Admin'),
+		('Info','Admin'),
+		('Commission Expense','Expense'),
+		('Investment Gain','Revenue'),
+		('Investment Loss','Expense'),
+		('Unrealized Gain','Revenue'),
+		('Unrealized Loss','Expense'),
+		('Interest Expense','Expense'),
+		('Interest Income','Revenue'),
+		('Dividend Receivable','Asset'),
+		('Dividend Income','Revenue'),
+	]
 
 class TradingAlgo(object):
 	def __init__(self, ledger, trade, combine_data):
+		self.config = self.load_config()
+		self.token = self.config['api_token']
+		self.data_location = 'market_data/data/'
 		self.ledger = ledger
 		self.trade = trade
 		self.gl = trade.gl
@@ -45,20 +72,30 @@ class TradingAlgo(object):
 		self.sim = trade.sim
 		self.date = trade.date
 
-	def time(self):
-		time = datetime.datetime.now().strftime('[%Y-%b-%d %I:%M:%S %p] ')
-		return time
+	def time_stamp(self):
+		time_stamp = datetime.datetime.now().strftime('[%Y-%b-%d %I:%M:%S %p] ')
+		return time_stamp
+
+	def load_config(self, file='config.yaml'):
+		config = None
+		with open(file, 'r') as stream:
+			try:
+				config = yaml.safe_load(stream)
+				# print('Load config success: \n{}'.format(config))
+			except yaml.YAMLError as e:
+				print('Error loading yaml config: \n{}'.format(repr(e)))
+		return config
 
 	def check_weekend(self, date=None):
 		# Get the day of the week (Monday is 0)
-		if trade.sim:
+		if date is not None:
 			weekday = datetime.datetime.strptime(date, '%Y-%m-%d').weekday()
 		else:
 			weekday = datetime.datetime.today().weekday()
 
 		# Don't do anything on weekends
 		if weekday == 5 or weekday == 6:
-			print(algo.time() + 'Today is a weekend.')
+			print(self.time_stamp() + 'Today is a weekend.')
 			return weekday
 
 	def check_holiday(self, date=None):
@@ -82,17 +119,17 @@ class TradingAlgo(object):
 							'2019-07-04',
 							'2019-09-02',
 							'2019-11-28',
-							'2019-12-25'
+							'2019-12-25',
 						]
 
 		# Don't do anything on trade holidays
-		if trade.sim:
+		if date is not None:
 			current_date = date
 		else:
 			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
 		for holiday in trade_holidays:
 			if holiday == current_date:
-				print(algo.time() + 'Today is a trade holiday.')
+				print(self.time_stamp() + 'Today is a trade holiday.')
 				return holiday
 
 	def check_hours(self, begin_time=None, end_time=None, check_time=None):
@@ -109,12 +146,14 @@ class TradingAlgo(object):
 
 	def get_symbols(self, flag, date=None):
 		if flag == 'iex' and not trade.sim:
-			symbols_url = 'https://api.iextrading.com/1.0/ref-data/symbols'
+			# symbols_url = 'https://api.iextrading.com/1.0/ref-data/symbols'
+			symbols_url = 'https://cloud.iexapis.com/stable/ref-data/iex/symbols'
+			symbols_url = symbols_url + '?token=' + self.token
 			symbols = pd.read_json(symbols_url, typ='frame', orient='records')
 			symbols = symbols.sample(frac=1).reset_index(drop=True) #Randomize list
 
-		elif flag == 'iex' and trade.sim:
-			path = 'market_data/data/tickers/iex_tickers_'
+		elif flag == 'iex' and date is not None:
+			path = self.data_location + 'tickers/iex_tickers_'
 			infile = path + date + '.csv'
 			with open(infile, 'r') as f:
 				symbols = pd.read_csv(f)
@@ -133,7 +172,7 @@ class TradingAlgo(object):
 
 	# Check how much capital is available
 	def check_capital(self, capital_accts=None):
-		logging.info(algo.time() + 'Checking capital...')
+		logging.info(self.time_stamp() + 'Checking capital...')
 		self.gl = self.ledger.gl
 		if capital_accts is None:
 			capital_accts = ['Cash','Chequing']
@@ -142,7 +181,7 @@ class TradingAlgo(object):
 		logging.info(capital_bal)
 		return capital_bal
 	
-	 # Generates the trade details
+	# Generates the trade details
 	def get_trade(self, symbols, portfolio=None):
 		# TODO Add case to handle lists
 		if not isinstance(symbols, str): # Get random ticker from df
@@ -172,7 +211,7 @@ class TradingAlgo(object):
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
 		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
-		logging.info(algo.time() + 'Done getting fresh portfolio.')
+		logging.info(self.time_stamp() + 'Done getting fresh portfolio.')
 		return portfolio
 
 	# Buy shares until you run out of capital
@@ -185,13 +224,13 @@ class TradingAlgo(object):
 
 	# Sell randomly from a random subset of positions
 	def random_sell(self, portfolio, date=None):
-		print(algo.time() + 'Randomly selling from {} securities.'.format(len(portfolio)))
+		print(self.time_stamp() + 'Randomly selling from {} securities.'.format(len(portfolio)))
 		t1_start = time.perf_counter()
 		for count, symbol in enumerate(portfolio['symbol'][:random.randint(1,len(portfolio))]):
 			logging.debug('Selling shares of: {}'.format(symbol))
 			self.trade.sell_shares(*self.get_trade(symbol, portfolio), date)
 		t1_end = time.perf_counter()
-		print(algo.time() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
+		print(self.time_stamp() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
 
 	# First algo functions
 	def rank_wk52high(self, assets, date=None): # TODO Make this able to be a percentage change calc
@@ -203,12 +242,12 @@ class TradingAlgo(object):
 		end_point = 'quote'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
-			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		quote_df = self.combine_data.load_file(path)
 		end_point = 'stats'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
-			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		stats_df = self.combine_data.load_file(path)
 		merged = self.combine_data.merge_data(quote_df, stats_df)
 		merged = merged[(merged.close <= assets)]
@@ -228,12 +267,12 @@ class TradingAlgo(object):
 		end_point = 'quote'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
-			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		quote_df = self.combine_data.load_file(path)
 		end_point = 'stats'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
-			path = 'market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		stats_df = self.combine_data.load_file(path)
 		merged = self.combine_data.merge_data(quote_df, stats_df)
 		merged = merged[(merged.close <= assets)]
@@ -283,8 +322,8 @@ class TradingAlgo(object):
 	def main(self, date=None):
 		t4_start = time.perf_counter()
 		print('=' * DISPLAY_WIDTH)
-		print(self.time() + 'Sim date: {}'.format(date))
-		#print(algo.time() + 'Entity: {} \nCommission: {}, Min QTY: {}, Max QTY: {}, Liquidate Chance: {}, Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
+		print(self.time_stamp() + 'Sim date: {}'.format(date))
+		#print(self.time_stamp() + 'Entity: {} \nCommission: {}, Min QTY: {}, Max QTY: {}, Liquidate Chance: {}, Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
 		print ('-' * DISPLAY_WIDTH)
 
 		self.trade.int_exp(date=date) # TODO ensure this only runs daily
@@ -303,7 +342,7 @@ class TradingAlgo(object):
 
 		# if not self.trade.sim:
 		# 	if not algo.check_hours():
-		# 		print(self.time() + 'Not within trading hours.')
+		# 		print(self.time_stamp() + 'Not within trading hours.')
 		# 		return
 
 		capital = self.check_capital()
@@ -313,14 +352,14 @@ class TradingAlgo(object):
 		try: # TODO Move into own function maybe
 			portfolio = self.get_portfolio()
 		except:
-			print(self.time() + 'Initial porfolio setup.')
+			print(self.time_stamp() + 'Initial porfolio setup.')
 			rank = self.rank(assets, date)
 			ticker = rank.index[0]
 			capital_remain, qty = self.buy_max(capital, ticker, date)
 			print('-' * DISPLAY_WIDTH)
 			self.ledger.print_bs()
 			nav = self.ledger.balance_sheet()
-			print(self.time() + 'Done initial porfolio setup.')
+			print(self.time_stamp() + 'Done initial porfolio setup.')
 			return nav
 
 		# Trading Algo
@@ -344,19 +383,8 @@ class TradingAlgo(object):
 		self.ledger.get_qty(accounts=['Investments'])
 		#ledger.bs_hist()
 		t4_end = time.perf_counter()
-		print(self.time() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
+		print(self.time_stamp() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
 		return nav
-
-	def test1(self, date=None): # TODO Remove
-		dates = ['2018-09-26','2018-09-27','2018-09-28','2018-10-01','2018-10-02']
-		capital = self.check_capital()
-		assets = self.ledger.balance_sheet(['Cash','Investments'])
-		print('Assets: {}'.format(assets))
-		for date in dates:
-			#print(date)
-			rank = self.rank(assets, date, v=True)
-			#print(rank)
-		exit()
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -367,41 +395,41 @@ if __name__ == '__main__':
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
 	args = parser.parse_args()
 
-	accts = Accounts(conn=args.database)
-	ledger = Ledger(accts, ledger_name=args.ledger,entity=args.entity)
-	trade = Trading(ledger, sim=args.simulation)
+	accts = acct.Accounts(conn=args.database, standard_accts=trade_accts)
+	ledger = acct.Ledger(accts, ledger_name=args.ledger, entity=args.entity)
+	trade = trade.Trading(ledger, sim=args.simulation)
 	data = MarketData()
 	combine_data = CombineData()
 	algo = TradingAlgo(ledger, trade, combine_data)
 
-	#algo.test1()
-
 	if trade.sim:
 		t0_start = time.perf_counter()
-		print(algo.time() + 'Setup default accounts:')
-		accts.load_accts('trading')
 		cap = args.capital
 		if cap is None:
 			cap = float(10000)
-		print(algo.time() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
-		path = 'market_data/data/quote/*.csv'
+		print(algo.time_stamp() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
+		data_path = algo.data_location + 'quote/*.csv'
 		dates = []
-		for fname in glob.glob(path):
+		for fname in glob.glob(data_path):
 			fname_date = os.path.basename(fname)[-14:-4]
 			dates.append(fname_date)
 		dates.sort()
-		#print(dates)
-		print(algo.time() + 'Number of Days: {}'.format(len(dates)))
-		print(accts.coa)
+		print(dates)
+		print(algo.time_stamp() + 'Number of Days: {}'.format(len(dates)))
+		# print(accts.coa)
 		if algo.check_capital() == 0:
 			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), trade.trade_date(dates[0]), 'Deposit capital', '', '', '', 'Cash', 'Wealth', cap] ]
 			ledger.journal_entry(deposit_capital)
 			#print(deposit_capital)
 		for date in dates[1:]:
-			algo.main(date)
+			try:
+				algo.main(date)
+			except FileNotFoundError as e:
+				print(algo.time_stamp() + 'No data for prior date: {}'.format(date))
+				# print(algo.time_stamp() + 'Error: {}'.format(repr(e)))
 		print('-' * DISPLAY_WIDTH)
 		ledger.print_bs() # Display final bs
 		t0_end = time.perf_counter()
-		print(algo.time() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
+		print(algo.time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:
 		algo.main()

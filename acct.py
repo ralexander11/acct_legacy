@@ -1402,7 +1402,7 @@ class Ledger:
 				if price_chart.shape[0] >= 2:
 					print('Historical Cost Price Chart: \n{}'.format(price_chart))
 				amount = price_chart.price.dot(price_chart.qty)
-				print('Historical Cost Case | One: {} for {} {}'.format(qty, item, amount))
+				print('Historical Cost Case | One for {} {}: {}'.format(qty, item, amount))
 				return amount
 
 			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[max(avail_qty, 0)]}) # Create a list of lots with associated price

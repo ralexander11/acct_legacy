@@ -32,6 +32,9 @@ trade_accts = [
 
 class Trading(object):
 	def __init__(self, ledger, comm=0.0, sim=False, date=None):
+		self.config = self.load_config()
+		self.token = self.config['api_token']
+		self.data_location = 'market_data/data/'
 		self.ledger = ledger
 		self.gl = ledger.gl
 		self.ledger_name = ledger.ledger_name
@@ -67,8 +70,8 @@ class Trading(object):
 			# request_str = url + token + '&symbols=' + symbol
 			# https://cloud.iexapis.com/stable/stock/aapl/quote?token=YOUR_TOKEN_HERE
 			url = 'https://cloud.iexapis.com/stable/stock/'
-			token = self.load_config()['api_token']
-			request_str = url + symbol + '/quote?token=' + token
+			# token = self.load_config()['api_token']
+			request_str = url + symbol + '/quote?token=' + self.token
 			try:
 				raw_quote = urllib.request.urlopen(request_str).read()
 			except Exception as e:
@@ -84,7 +87,7 @@ class Trading(object):
 				print('Price for {}: {}'.format(name, price))
 				return price
 		else:
-			infile = 'market_data/data/quote/iex_quote_' + date + '.csv'
+			infile = self.data_location + 'quote/iex_quote_' + date + '.csv'
 			try:
 				with open(infile, 'r') as f:
 					hist_df = pd.read_csv(f, index_col='symbol')
@@ -143,12 +146,10 @@ class Trading(object):
 			if date is None:
 				date = input('Enter a date as format yyyy-mm-dd: ')
 		current_qty = self.ledger.get_qty(symbol, ['Investments'])
-		print('Current QTY: {}'.format(current_qty))
-		print('Symbol: {}'.format(symbol))
+		# print('Current Qty of {}: {}'.format(symbol, current_qty))
 		if qty > current_qty:
 			print('You currently have ' + str(round(current_qty, 2)) + ' shares of ' + symbol + ' but you tried to sell ' + str(round(qty, 2)) + ' shares.')
 			return
-
 		# Calculate profit
 		price = self.get_price(symbol, date=date)
 		if price == 0:
@@ -237,16 +238,18 @@ class Trading(object):
 		if inv.empty:
 			print('No securities held to true up.')
 			return
-		logging.debug('Inventory: \n{}'.format(inv))
+		# print('Inventory: \n{}'.format(inv))
 
 		try:
+			self.gl = self.ledger.gl
+			# print('gl: \n{}'.format(self.gl))
 			rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			if rvsl_txns.empty:
 				print('First or second true up run.')
-			logging.debug('RVSL TXNs: {}'.format(rvsl_txns))
+			# print('RVSL TXNs: \n{}'.format(rvsl_txns))
 			# Get list of Unrealized Gain / Loss txns
 			inv_txns = self.gl[( (self.gl['debit_acct'] == 'Unrealized Loss') | (self.gl['credit_acct'] == 'Unrealized Gain') ) & (~self.gl['event_id'].isin(rvsl_txns))]
-			logging.debug('Inv TXNs: {}'.format(inv_txns))
+			# print('Inv TXNs: \n{}'.format(inv_txns))
 			for txn in inv_txns.iterrows():
 				self.ledger.reversal_entry(str(txn[0]), date)
 		except:
@@ -266,7 +269,7 @@ class Trading(object):
 			unrealized_gain = None
 			unrealized_loss = None
 			if market_value == hist_cost:
-				logging.debug('No gains.')
+				print('No gains due to no change in price.')
 				continue
 			elif market_value > hist_cost:
 				unrealized_gain = market_value - hist_cost
@@ -280,7 +283,6 @@ class Trading(object):
 				logging.debug(true_up_entry)
 			true_up_event = [true_up_entry]
 			logging.info(true_up_event)
-
 			self.ledger.journal_entry(true_up_event)
 
 	def dividends(self, end_point='dividends/3m', date=None): # TODO Need to reengineer this due to delay in exdate divs displaying from IEX feed
@@ -427,7 +429,6 @@ def main(command=None, external=False):
 	accts = acct.Accounts(conn=args.database, standard_accts=trade_accts)
 	ledger = acct.Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	trade = Trading(ledger, sim=args.simulation)
-	# config = trade.load_config()
 	if command is None:
 		command = args.command
 

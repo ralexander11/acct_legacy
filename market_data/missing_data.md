@@ -2,11 +2,11 @@
 
 ##Market Data
 
-2018-09-05 to 2018-09-11
+2018-05-22
 
 Resolved by copying data from the prior day.
 
-2018-05-22
+2018-09-05 to 2018-09-11
 
 Resolved by copying data from the prior day.
 
@@ -17,3 +17,7 @@ Resolved by copying data from the prior day.
 2018-10-25
 
 Resolved by copying data from the prior day.
+
+2019-05-28 to 2019-08-25
+
+IEX switched API to IEX cloud
