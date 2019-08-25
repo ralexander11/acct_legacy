@@ -49,10 +49,13 @@ class TradingAlgo(object):
 	def __init__(self, ledger, trade, combine_data):
 		self.config = self.load_config()
 		self.token = self.config['api_token']
-		self.data_location = 'market_data/data/'
+		if os.path.exists('../market_data/data/'):
+			self.data_location = '../market_data/data/'
+		else:
+			self.data_location = 'market_data/data/'
 		self.ledger = ledger
 		self.trade = trade
-		self.gl = trade.gl
+		# self.gl = trade.gl
 		self.ledger_name = trade.ledger_name
 		self.entity = trade.entity
 		self.date = trade.date
@@ -78,6 +81,8 @@ class TradingAlgo(object):
 
 	def load_config(self, file='config.yaml'):
 		config = None
+		if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
+			file = '/home/robale5/becauseinterfaces.com/acct/config.yaml'
 		with open(file, 'r') as stream:
 			try:
 				config = yaml.safe_load(stream)
@@ -145,7 +150,7 @@ class TradingAlgo(object):
 			return check_time >= begin_time or check_time <= end_time
 
 	def get_symbols(self, flag, date=None):
-		if flag == 'iex' and not trade.sim:
+		if flag == 'iex' and date is None:
 			# symbols_url = 'https://api.iextrading.com/1.0/ref-data/symbols'
 			symbols_url = 'https://cloud.iexapis.com/stable/ref-data/iex/symbols'
 			symbols_url = symbols_url + '?token=' + self.token
@@ -173,7 +178,7 @@ class TradingAlgo(object):
 	# Check how much capital is available
 	def check_capital(self, capital_accts=None):
 		logging.info(self.time_stamp() + 'Checking capital...')
-		self.gl = self.ledger.gl
+		# self.gl = self.ledger.gl
 		if capital_accts is None:
 			capital_accts = ['Cash','Chequing']
 		capital_bal = 0
@@ -233,7 +238,7 @@ class TradingAlgo(object):
 		print(self.time_stamp() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
 
 	# First algo functions
-	def rank_wk52high(self, assets, date=None): # TODO Make this able to be a percentage change calc
+	def rank_wk52high(self, assets, norm=False, date=None): # TODO Make this able to be a percentage change calc
 		if date is not None:
 			date = datetime.datetime.strptime(date, '%Y-%m-%d').date() - datetime.timedelta(days=1)
 		if date is None:
@@ -251,15 +256,19 @@ class TradingAlgo(object):
 		stats_df = self.combine_data.load_file(path)
 		merged = self.combine_data.merge_data(quote_df, stats_df)
 		merged = merged[(merged.close <= assets)]
+		if not norm:
+			auth_shares = 1
+		else:
+			auth_shares = merged['sharesOutstanding']
 
-		wk52high = merged['week52high']
-		close = merged['close']
+		wk52high = merged['week52high'] * auth_shares
+		close = merged['close'] * auth_shares
 		rank_wk52 = wk52high - close
 		rank_wk52.sort_values(ascending=False, inplace=True)
 		#print('rank_wk52: \n{}'.format(rank_wk52))
 		return rank_wk52
 
-	def rank_day50avg(self, assets, date=None): # TODO Make this able to be a percentage change calc
+	def rank_day50avg(self, assets, norm=False, date=None): # TODO Make this able to be a percentage change calc
 		if date is not None:
 			date = datetime.datetime.strptime(date, '%Y-%m-%d').date() - datetime.timedelta(days=1)
 		if date is None:
@@ -276,21 +285,25 @@ class TradingAlgo(object):
 		stats_df = self.combine_data.load_file(path)
 		merged = self.combine_data.merge_data(quote_df, stats_df)
 		merged = merged[(merged.close <= assets)]
+		if not norm:
+			auth_shares = 1
+		else:
+			auth_shares = merged['sharesOutstanding']
 
-		day50avg = merged['day50MovingAvg']
-		close = merged['close']
+		day50avg = merged['day50MovingAvg'] * auth_shares
+		close = merged['close'] * auth_shares
 		rank_day50 = close - day50avg
 		rank_day50.sort_values(ascending=False, inplace=True)
 		#print('rank_day50: \n{}'.format(rank_day50))
 		return rank_day50
 
-	def rank(self, assets, date=None, v=False):
-		rank_wk52 = self.rank_wk52high(assets, date)
+	def rank(self, assets, norm=False, date=None, v=False):
+		rank_wk52 = self.rank_wk52high(assets, norm, date)
 		rank_wk52 = rank_wk52.rank()
 		rank_wk52 = rank_wk52 / WK52_REDUCE
 		if v:
 			print('\nrank_wk52: {}\n{}'.format(date, rank_wk52.head(30)))
-		rank_day50 = self.rank_day50avg(assets, date)
+		rank_day50 = self.rank_day50avg(assets, norm, date)
 		rank_day50 = rank_day50.rank()
 		if v:
 			print('\nrank_day50: {}\n{}'.format(date, rank_day50.head(30)))
@@ -319,7 +332,7 @@ class TradingAlgo(object):
 			self.trade.sell_shares(symbol, qty, date)
 			print('Liquidated {} shares of {}.'.format(qty, symbol))
 
-	def main(self, date=None):
+	def main(self, norm=False, date=None):
 		t4_start = time.perf_counter()
 		print('=' * DISPLAY_WIDTH)
 		print(self.time_stamp() + 'Sim date: {}'.format(date))
@@ -353,7 +366,7 @@ class TradingAlgo(object):
 			portfolio = self.get_portfolio()
 		except:
 			print(self.time_stamp() + 'Initial porfolio setup.')
-			rank = self.rank(assets, date)
+			rank = self.rank(assets, norm, date)
 			ticker = rank.index[0]
 			capital_remain, qty = self.buy_max(capital, ticker, date)
 			print('-' * DISPLAY_WIDTH)
@@ -363,7 +376,7 @@ class TradingAlgo(object):
 			return nav
 
 		# Trading Algo
-		rank = self.rank(assets, date)
+		rank = self.rank(assets, norm, date)
 		#with pd.options.display.float_format = '{:,.2f}'.format: # Test this
 		print('Rank: \n{}'.format(rank.head()))
 		ticker = rank.index[0]
@@ -393,6 +406,7 @@ if __name__ == '__main__':
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
+	parser.add_argument('-norm', '--norm', action="store_true", help='Normalize stock prices in algo rankings.')
 	args = parser.parse_args()
 
 	accts = acct.Accounts(conn=args.database, standard_accts=trade_accts)
@@ -423,7 +437,7 @@ if __name__ == '__main__':
 			#print(deposit_capital)
 		for date in dates[1:]:
 			try:
-				algo.main(date)
+				algo.main(args.norm, date)
 			except FileNotFoundError as e:
 				print(algo.time_stamp() + 'No data for prior date: {}'.format(date))
 				# print(algo.time_stamp() + 'Error: {}'.format(repr(e)))
@@ -432,4 +446,4 @@ if __name__ == '__main__':
 		t0_end = time.perf_counter()
 		print(algo.time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:
-		algo.main()
+		algo.main(args.norm)

@@ -29,6 +29,8 @@ class MarketData(object):
 
 	def load_config(self, file='config.yaml'):
 		config = None
+		if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
+			file = '/home/robale5/becauseinterfaces.com/acct/config.yaml'
 		with open(file, 'r') as stream:
 			try:
 				config = yaml.safe_load(stream)

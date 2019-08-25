@@ -18,12 +18,12 @@ class Accounts:
 		if conn is None:
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
-				website = True
-				logging.debug('Website: {}'.format(website))
+				self.website = True
+				logging.debug('Website: {}'.format(self.website))
 			except:
 				conn = sqlite3.connect('db/acct.db')
-				website = False
-				logging.debug('Website: {}'.format(website))
+				self.website = False
+				logging.debug('Website: {}'.format(self.website))
 			self.db = 'acct.db'
 		elif isinstance(conn, str):
 			self.db = conn
@@ -31,22 +31,22 @@ class Accounts:
 				conn = 'db/' + conn
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/' + conn)
-				website = True
-				logging.debug('Website: {}'.format(website))
+				self.website = True
+				logging.debug('Website: {}'.format(self.website))
 			except:
 				conn = sqlite3.connect(conn)
-				website = False
-				logging.debug('Website: {}'.format(website))
+				self.website = False
+				logging.debug('Website: {}'.format(self.website))
 		# else:
 		# 	print('Conn path: {}'.format(conn))
 		# 	try:
 		# 		conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
-		# 		website = True
-		# 		logging.debug('Website: {}'.format(website))
+		# 		self.website = True
+		# 		logging.debug('Website: {}'.format(self.website))
 		# 	except:
 		# 		conn = sqlite3.connect('db/acct.db')
-		# 		website = False
-		# 		logging.debug('Website: {}'.format(website))
+		# 		self.website = False
+		# 		logging.debug('Website: {}'.format(self.website))
 
 		# self.db = args.database
 		self.conn = conn
@@ -652,8 +652,8 @@ class Ledger:
 		else:
 			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
 
-	def balance_sheet_new(self, accounts=None, item=None, v=True):
-		# TODO WIP
+	def balance(self, accounts=None, item=None, v=True):
+		# TODO Modify tmp gl
 		self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		self.gl['credit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
 		self.gl['debit_amount'] = self.gl.apply(lambda x: x['amount'] if (x['debit_acct_type'] == 'Asset') | (x['debit_acct_type'] == 'Expense') else x['amount'] * -1, axis=1)
@@ -666,16 +666,14 @@ class Ledger:
 			debit_accts = pd.unique(self.gl['debit_acct'])
 			credit_accts = pd.unique(self.gl['credit_acct'])
 			accounts = list( set(debit_accts) | set(credit_accts) )
-
-		self.bs = pd.DataFrame(columns=['line_item','balance'])
-
 		debits = self.gl.groupby('debit_acct').sum()['debit_amount']#[acct]
-		# print('New Debits: \n{}'.format(debits))
+		# print('Bal Debits: \n{}'.format(debits))
 		credits = self.gl.groupby('credit_acct').sum()['credit_amount']#[acct]
-		# print('New Credits: \n{}'.format(credits))
-		print(debits + credits)
+		# print('Bal Credits: \n{}'.format(credits))
+		# print(debits + credits)
 		result = debits.add(credits, fill_value=0)
-		print(result)
+		# print('Balance: {}'.format(result))
+		return result
 
 	def balance_sheet(self, accounts=None, item=None, v=False): # TODO Needs to be optimized with:
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
@@ -870,9 +868,13 @@ class Ledger:
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, v=False):
+	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, credit=False, v=False):
 		# if items == 'Food':
 		# 	v = True
+		if not credit:
+			acct_side = 'debit_acct'
+		else:
+			acct_side = 'credit_acct'
 		all_accts = False
 		single_item = False
 		no_item = False
@@ -891,13 +893,13 @@ class Ledger:
 			if v: print('No account given.')
 			all_accts = True
 			if no_item:
-				accounts = pd.unique(self.gl['debit_acct'])
+				accounts = pd.unique(self.gl[acct_side])
 				if v: print('Accounts Before Filter: \n{}'.format(accounts))
 				# Filter for only Asset and Liability accounts
 				accounts = [acct for acct in accounts if self.get_acct_elem(acct) == 'Asset' or self.get_acct_elem(acct) == 'Liability']
 			else:
 				item_txns = self.gl.loc[self.gl['item_id'].isin(items)]
-				accounts = pd.unique(item_txns['debit_acct'])
+				accounts = pd.unique(item_txns[acct_side])
 			#credit_accts = pd.unique(self.gl['credit_acct']) # Not needed
 			#accounts = list( set(accounts) | set(credit_accts) ) # Not needed
 		if v: print('Accounts: {}\n'.format(accounts))
@@ -915,7 +917,8 @@ class Ledger:
 			if v: print('Acct: {}'.format(acct))
 			if no_item: # Get qty for all items
 				if v: print('No item given.')
-				items = pd.unique(self.gl[self.gl['debit_acct'] == acct]['item_id'].dropna()).tolist() # Assuming you can't have a negative inventory
+
+				items = pd.unique(self.gl[self.gl[acct_side] == acct]['item_id'].dropna()).tolist() # Assuming you can't have a negative inventory
 				#credit_items = pd.unique(self.gl[self.gl['credit_acct'] == acct]['item_id'].dropna()).tolist() # Causes issues
 				#items = list( set(items) | set(credit_items) ) # Causes issues
 				items = list(filter(None, items))

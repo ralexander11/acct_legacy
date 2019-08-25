@@ -208,7 +208,7 @@ class World:
 			# 	print('Individuals: \n{}'.format(individuals))
 			alive_individuals = []
 			for index, row in individuals.iterrows():
-				current_need_all = [int(x.strip()) for x in str(row['current_need']).split(',')]
+				current_need_all = [int(float(x.strip())) for x in str(row['current_need']).split(',')]
 				if not any(n <= 0 for n in current_need_all):
 					alive_individuals.append(row)
 			self.population = len(alive_individuals)
@@ -245,7 +245,7 @@ class World:
 				print('Bank ID: {}'.format(bank_id))
 				gov.bank = factory.get_by_id(bank_id)
 			for index, indiv in individuals.iterrows():
-				current_need_all = [int(x.strip()) for x in str(indiv['current_need']).split(',')]
+				current_need_all = [int(float(x.strip())) for x in str(indiv['current_need']).split(',')]
 				if not any(n <= 0 for n in current_need_all):
 					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
 			corps = self.entities.loc[self.entities['entity_type'] == 'Corporation']
@@ -255,7 +255,10 @@ class World:
 				legal_form = self.org_type(corp['name'])
 				factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), corp['auth_shares'], corp['entity_id'])
 			self.prices = self.get_table('prior_prices')
-			self.prices = self.prices.set_index('item_id')
+			try: # TODO Test if this error check is needed or just the correction can be used
+				self.prices = self.prices.set_index('item_id')
+			except KeyError:
+				self.prices = self.prices.set_index('index')
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
@@ -859,7 +862,11 @@ class Entity:
 				rate = 0.8 #0.98
 			else:
 				rate = 1.1 #1.01
-		# rate = 1 + rate
+		producer_count = world.prices.loc[(world.prices.index == item)].shape[0]
+		if producer_count > 1 and (direction == 'down' or direction == 'down_high'):
+			price = self.match_price(item)
+			if price is not None:
+				return price
 		if item == self.name:
 			print('{} cannot get a price for shares of {}.'.format(self.name, item))
 			return 1 # TODO Fix how prices for corporate entities work. Could have a price column on the entities table
@@ -965,6 +972,15 @@ class Entity:
 				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				# 	print(world.prices)
 		world.set_table(world.prices, 'prices')
+
+	def match_price(self, item):
+		orig_price = world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'].values[0]
+		low_price = world.prices.loc[(world.prices.index == item), 'price'].min()
+		if low_price < orig_price:
+			world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = low_price
+			print('{} matches price for {} from {} to {}.'.format(self.name, item, orig_price, low_price))
+			world.set_table(world.prices, 'prices')
+			return low_price
 
 	def transact(self, item, price, qty, counterparty, acct_buy='Inventory', acct_sell='Inventory', acct_rev='Sales', desc_pur=None, desc_sell=None, item_type=None, buffer=False):
 		if qty == 0:
@@ -2669,11 +2685,14 @@ class Entity:
 					metrics = world.items.loc[item, 'metric']
 					if metrics is None:
 						metrics = []
-					if hist_bal != 0 and global_qty_inv > 0 and wip_qty_inv == 0:
+					if hist_bal != 0 and wip_qty_inv == 0 and global_qty_inv > 0:
 						self.adj_price(item, direction='down')
-					elif hist_bal != 0 and ('spoilage' in metrics or 'obsolescence' in metrics) and global_qty_inv == 0 and wip_qty_inv == 0:
+					elif hist_bal != 0 and ('spoilage' in metrics or 'obsolescence' in metrics) and wip_qty_inv == 0 and global_qty_inv == 0:
 						print('Adjust food price down due to spoilage.')
 						self.adj_price(item, direction='down')
+					else:
+						price = world.get_price(item, self.entity_id)
+						print('No price change for {} from: {}'.format(item, price))
 			ledger.reset()
 
 	def negative_bal(self):
@@ -5075,8 +5094,11 @@ class Individual(Entity):
 
 		# Quit any current jobs
 		ledger.set_entity(self.entity_id)
-		current_jobs = ledger.get_qty(accounts=['Start Job'])
+		current_jobs = ledger.get_qty(accounts=['Start Job', 'Quit Job'])
 		ledger.reset()
+		print('Jobs at death: \n{}'.format(current_jobs)) # 1986-11-29
+		current_jobs = current_jobs.groupby(['item_id']).sum().reset_index() # TODO Use credit=True in get_qty() and 'Worker Info' account
+		print('Grouped Jobs at death: \n{}'.format(current_jobs)) # 1986-12-16
 		for index, job in current_jobs.iterrows():
 			item = job['item_id']
 			worker_state = job['qty']

@@ -6,6 +6,7 @@ import datetime
 import urllib.request
 import json
 import yaml
+import os
 
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
@@ -34,9 +35,12 @@ class Trading(object):
 	def __init__(self, ledger, comm=0.0, sim=False, date=None):
 		self.config = self.load_config()
 		self.token = self.config['api_token']
-		self.data_location = 'market_data/data/'
+		if os.path.exists('../market_data/data/'):
+			self.data_location = '../market_data/data/'
+		else:
+			self.data_location = 'market_data/data/'
 		self.ledger = ledger
-		self.gl = ledger.gl
+		# self.gl = ledger.gl
 		self.ledger_name = ledger.ledger_name
 		self.entity = ledger.entity
 		self.date = ledger.date # TODO May not be needed
@@ -54,6 +58,8 @@ class Trading(object):
 
 	def load_config(self, file='config.yaml'):
 		config = None
+		if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
+			file = '/home/robale5/becauseinterfaces.com/acct/config.yaml'
 		with open(file, 'r') as stream:
 			try:
 				config = yaml.safe_load(stream)
@@ -190,14 +196,14 @@ class Trading(object):
 			logging.info('Loan exists!')
 			cur = self.ledger.conn.cursor()
 			for loan_type in loan_accts:
-				loans = pd.unique(self.gl.loc[self.gl['credit_acct'] == loan_type]['item_id'])
+				loans = pd.unique(self.ledger.gl.loc[self.ledger.gl['credit_acct'] == loan_type]['item_id'])
 				for loan in loans:
 					try:
-						debits = self.gl.loc[self.gl['item_id'] == loan].groupby('debit_acct').sum()['amount'][loan_type]
+						debits = self.ledger.gl.loc[self.ledger.gl['item_id'] == loan].groupby('debit_acct').sum()['amount'][loan_type]
 					except:
 						debits = 0
 					try:
-						credits = self.gl.loc[self.gl['item_id'] == loan].groupby('credit_acct').sum()['amount'][loan_type]
+						credits = self.ledger.gl.loc[self.ledger.gl['item_id'] == loan].groupby('credit_acct').sum()['amount'][loan_type]
 					except:
 						credits = 0
 					loan_bal = credits - debits
@@ -241,14 +247,14 @@ class Trading(object):
 		# print('Inventory: \n{}'.format(inv))
 
 		try:
-			self.gl = self.ledger.gl
-			# print('gl: \n{}'.format(self.gl))
-			rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+			# self.gl = self.ledger.gl
+			# print('gl: \n{}'.format(self.ledger.gl))
+			rvsl_txns = self.ledger.gl[self.ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			if rvsl_txns.empty:
 				print('First or second true up run.')
 			# print('RVSL TXNs: \n{}'.format(rvsl_txns))
 			# Get list of Unrealized Gain / Loss txns
-			inv_txns = self.gl[( (self.gl['debit_acct'] == 'Unrealized Loss') | (self.gl['credit_acct'] == 'Unrealized Gain') ) & (~self.gl['event_id'].isin(rvsl_txns))]
+			inv_txns = self.ledger.gl[( (self.ledger.gl['debit_acct'] == 'Unrealized Loss') | (self.ledger.gl['credit_acct'] == 'Unrealized Gain') ) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]
 			# print('Inv TXNs: \n{}'.format(inv_txns))
 			for txn in inv_txns.iterrows():
 				self.ledger.reversal_entry(str(txn[0]), date)
@@ -335,8 +341,8 @@ class Trading(object):
 	def div_accr(self, end_point='dividends/3m', date=None): # TODO Rengineer this along with dividends function
 	# TODO Add commenting
 		url = 'https://api.iextrading.com/1.0/stock/'
-		rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
-		div_accr_txns = self.gl[( self.gl['debit_acct'] == 'Dividend Receivable') & (~self.gl['event_id'].isin(rvsl_txns))] # Get list of div accrual entries
+		rvsl_txns = self.ledger.gl[self.ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		div_accr_txns = self.ledger.gl[( self.ledger.gl['debit_acct'] == 'Dividend Receivable') & (~self.ledger.gl['event_id'].isin(rvsl_txns))] # Get list of div accrual entries
 		logging.debug(div_accr_txns)
 		for index, div_accr_txn in div_accr_txns.iterrows():
 			logging.debug(div_accr_txn)
