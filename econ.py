@@ -189,6 +189,16 @@ class World:
 					entity = factory.get_by_id(last_entity_id +1)
 					# self.prices = pd.concat([self.prices, entity.prices])
 			self.set_table(self.prices, 'prices')
+			# Track historical prices
+			tmp_prices = self.prices.reset_index()
+			tmp_prices['date'] = self.now
+			self.hist_prices = pd.DataFrame(tmp_prices, columns=['date','entity_id','price'])
+			self.set_table(self.hist_prices, 'hist_prices')
+			# Track historical demand
+			tmp_demand = self.demand.reset_index()
+			tmp_demand['date_saved'] = self.now
+			self.hist_demand = pd.DataFrame(tmp_demand, columns=['date_saved','date','entity_id','item_id','qty','reason'])
+			self.set_table(self.hist_demand, 'hist_demand')
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
@@ -259,6 +269,8 @@ class World:
 				self.prices = self.prices.set_index('item_id')
 			except KeyError:
 				self.prices = self.prices.set_index('index')
+			self.hist_prices = self.get_table('hist_prices')
+			self.hist_demand = self.get_table('hist_demand')
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
@@ -822,6 +834,19 @@ class World:
 		# Book End of Day entry
 		eod_entry = [ ledger.get_event(), 0, world.now, 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
 		ledger.journal_entry([eod_entry])
+
+		# Track historical prices
+		tmp_prices = self.prices.reset_index()
+		tmp_prices['date'] = self.now
+		self.hist_prices = pd.concat([self.hist_prices, tmp_prices])
+		self.hist_prices = self.hist_prices.dropna()
+		self.set_table(self.hist_prices, 'hist_prices')
+		# Track historical demand
+		tmp_demand = self.demand.reset_index()
+		tmp_demand['date_saved'] = self.now
+		self.hist_demand = pd.concat([self.hist_demand, tmp_demand])
+		self.set_table(self.hist_demand, 'hist_demand')
+		# print('Hist Demand: \n{}'.format(self.hist_demand))
 
 		t1_end = time.perf_counter()
 		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
@@ -3229,7 +3254,8 @@ class Entity:
 		# Ensure jobs is a list
 		if isinstance(jobs, str):
 			jobs = [x.strip() for x in jobs.split(',')]
-		jobs = list(filter(None, jobs))
+		# Ensure items on jobs list are unqiue
+		jobs = list(collections.OrderedDict.fromkeys(filter(None, jobs)))
 		for job in jobs:
 			ledger.set_entity(self.entity_id)
 			wages_payable = abs(ledger.balance_sheet(accounts=['Wages Payable'], item=job))

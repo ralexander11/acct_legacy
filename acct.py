@@ -652,28 +652,30 @@ class Ledger:
 		else:
 			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
 
-	def balance(self, accounts=None, item=None, v=True):
-		# TODO Modify tmp gl
+	def balance(self, accounts=None, item=None, v=False):
+		# TODO Modify tmp gl instead of self.gl
 		self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		self.gl['credit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
 		self.gl['debit_amount'] = self.gl.apply(lambda x: x['amount'] if (x['debit_acct_type'] == 'Asset') | (x['debit_acct_type'] == 'Expense') else x['amount'] * -1, axis=1)
 		self.gl['credit_amount'] = self.gl.apply(lambda x: x['amount'] * -1 if (x['debit_acct_type'] == 'Asset') | (x['debit_acct_type'] == 'Expense') else x['amount'], axis=1)
-		all_accts = False
+		# all_accts = False
 		if item is not None: # TODO Add support for multiple items maybe
+			if v: print('Item: \n{}'.format(item))
 			self.gl = self.gl[self.gl['item_id'] == item]
 		if accounts is None: # Create a list of all the accounts
-			all_accts = True
+			# all_accts = True
 			debit_accts = pd.unique(self.gl['debit_acct'])
 			credit_accts = pd.unique(self.gl['credit_acct'])
 			accounts = list( set(debit_accts) | set(credit_accts) )
+		if v: print('Accounts: \n{}'.format(accounts))
 		debits = self.gl.groupby('debit_acct').sum()['debit_amount']#[acct]
-		# print('Bal Debits: \n{}'.format(debits))
+		if v: print('Bal Debits: \n{}'.format(debits))
 		credits = self.gl.groupby('credit_acct').sum()['credit_amount']#[acct]
-		# print('Bal Credits: \n{}'.format(credits))
-		# print(debits + credits)
-		result = debits.add(credits, fill_value=0)
-		# print('Balance: {}'.format(result))
-		return result
+		if v: print('Bal Credits: \n{}'.format(credits))
+		if v: print(debits + credits)
+		bal = debits.add(credits, fill_value=0)
+		if v: print('Balance: {}'.format(bal))
+		return bal
 
 	def balance_sheet(self, accounts=None, item=None, v=False): # TODO Needs to be optimized with:
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
@@ -1316,23 +1318,26 @@ class Ledger:
 
 	def hist_cost(self, qty=None, item=None, acct=None, remaining_txn=False, avg_cost=False, v=False):
 		v2 = False
-		# TODO Support avg_cost flag by getting total balance of item and dividing by total qty of item
-		if avg_cost:
-			total_balance = ledger.balance_sheet([acct])
+		if qty is None:
+			qty = int(input('Enter quantity: '))
+		if item is None:
+			item = input('Enter item: ')
+		if acct is None:
+			acct = 'Inventory' #input('Enter account: ') # TODO Remove this maybe
+		if qty == 0:
+			return 0
+
+		if avg_cost: # TODO Test Avg Cost
+			if v: print('Getting average historical cost of {} for {} qty.'.format(item, qty))
+			total_balance = ledger.balance_sheet([acct], item=item)
+			if v: print('Total Balance: {}'.format(total_balance))
 			total_qty = ledger.get_qty(items=item, accounts=[acct])
+			if v: print('Total Qty: {}'.format(total_qty))
 			amount = qty * (total_balance / total_qty)
+			if v: print('Avg. Cost Amount: {}'.format(amount))
 			return amount
 		else:
-			if qty is None:
-				qty = int(input('Enter quantity: '))
-			if item is None:
-				item = input('Enter item: ')
 			if v: print('Getting historical cost of {} for {} qty.'.format(item, qty))
-			if acct is None:
-				acct = 'Inventory' #input('Enter account: ') # TODO Remove this maybe
-			if qty == 0:
-				return 0
-
 			qty_txns = self.get_qty_txns(item, acct)
 			m1 = qty_txns.credit_acct == acct
 			m2 = qty_txns.credit_acct != acct
@@ -1655,10 +1660,10 @@ def main(conn=None, command=None, external=False):
 			else:
 				db = accts.db
 			print('Current database: {}'.format(db))
-		elif command.lower() == 'bsn':
-			ledger.balance_sheet_new()
+		elif command.lower() == 'bal':
+			ledger.balance()
 		elif command.lower() == 'histcost':
-			result = ledger.hist_cost(400, 'Rock', 'Inventory', v=True)
+			result = ledger.hist_cost(400, 'Rock', 'Inventory', avg_cost=True, v=True)
 			print('Historical cost of {} {}: {}'.format(400, 'Rock', result))
 			if args.command is not None: exit()
 		elif command.lower() == 'width': # TODO Try and make this work

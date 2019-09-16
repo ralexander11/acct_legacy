@@ -103,6 +103,7 @@ app/
 # Other
 old/
 misc/
+logs/
 .bash_profile
 *config*.json
 *.txt
