@@ -624,7 +624,6 @@ class World:
 
 		# User mode
 		user_check = any([entity for entity in factory.get() if entity.user])
-		# if args.users or args.Users:
 		if user_check:
 			for player in factory.get(Government):
 				indv_player_check = any([e.user for e in player.get(Individual)])
@@ -4081,23 +4080,27 @@ class Entity:
 			command = input('Enter an action or "help" for more info: ')
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'select':
-			for entity in world.gov.get(Individual, computers=False):
-				if not world.gov.user:
-					if self.entity_id in entity.parents or entity.entity_id == self.entity_id: # TODO Make function to recusively check all entities and get just the relatives
-						print('{} Hours: {}'.format(entity, entity.hours))
-				else:
-					print('{} Hours: {}'.format(entity, entity.hours))
+			if not world.gov.user:
+				individual_ids = self.get_children(founder=True, ids=True)#, v=True)
+				individuals = [factory.get_by_id(entity_id) for entity_id in individual_ids]
+			else:
+				individuals = world.gov.get(Individual, computers=False)
+			for entity in individuals:
+				print('{} Hours: {}'.format(entity, entity.hours))
 			print()
-			for entity in world.gov.get(Bank, computers=False):
+			banks = world.gov.get(Bank, computers=False)
+			for entity in banks:
 				print('{}'.format(entity))
-			for entity in self.is_owner(world.gov.get(Corporation)):
+			corps = self.is_owner(world.gov.get(Corporation)) # TODO Maybe support seeing all corps owned by all individuals the player controls
+			for entity in corps:
 				print('{}'.format(entity))
 			corp_ids = []
-			# gov_users = [g for g in factory.get(Government, computers=False)]
-			# indv_users = [e for e in factory.get(Individual, computers=False)]
 			if not world.gov.user:
-				# TODO use get relatives function and check if selection in that
-				corp_ids = [corp.entity_id for corp in self.is_owner(world.gov.get(Corporation))]
+				bank_ids = [bank.entity_id for bank in banks]
+				corp_ids = [corp.entity_id for corp in corps]
+				entities = individual_ids + corp_ids + bank_ids
+			else:
+				entities = world.gov.get(computers=False, ids=True, envs=False)
 			while True:
 				try:
 					selection = input('Enter an entity ID number: ')
@@ -4105,10 +4108,10 @@ class Entity:
 						return
 					selection = int(selection)
 				except ValueError:
-					print('"{}" is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(selection, world.gov.get(computers=False, ids=True, envs=False) + corp_ids))
+					print('"{}" is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(selection, entities))
 					continue
-				if selection not in world.gov.get(computers=False, ids=True, envs=False) + corp_ids:
-					print('"{}" is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(selection, world.gov.get(computers=False, ids=True, envs=False) + corp_ids))
+				if selection not in entities:
+					print('"{}" is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(selection, entities))
 					continue
 				world.selection = factory.get_by_id(selection)
 				break
@@ -4138,7 +4141,7 @@ class Entity:
 			others = False
 			counterparty = self
 			founders = collections.OrderedDict()
-			while True: # TODO Add support for multiple founders
+			while True: # TODO Add support for multiple founders (this may be done)
 				if others:
 					while True:
 						try:
@@ -4587,6 +4590,10 @@ class Entity:
 				return
 			self.use_item(item.title(), qty, counterparty, target)
 		elif command.lower() == 'birth':
+			if not world.gov.user:
+				individual_ids = self.get_children(founder=True, ids=True)
+			else:
+				individual_ids = world.gov.get(Individual, ids=True)
 			while True:
 				try:
 					counterparty = input('Enter an entity ID number to conceive with: ')
@@ -4594,10 +4601,10 @@ class Entity:
 						return
 					counterparty = int(counterparty)
 				except ValueError:
-					print('"{}" is not a valid entry. Must be one of the following numbers: \n{}'.format(counterparty, world.gov.get(Individual, ids=True)))
+					print('"{}" is not a valid entry. Must be one of the following numbers: \n{}'.format(counterparty, individual_ids))
 					continue
 				if counterparty not in world.gov.get(Individual, ids=True):
-					print('"{}" is not a valid entry. Must be one of the following numbers: \n{}'.format(counterparty, world.gov.get(Individual, ids=True)))
+					print('"{}" is not a valid entry. Must be one of the following numbers: \n{}'.format(counterparty, individual_ids))
 					continue
 				counterparty = factory.get_by_id(counterparty)
 				break
@@ -4874,8 +4881,17 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
 		elif command.lower() == 'skip':
-			self.set_hours(MAX_HOURS)
-			world.selection = None # TODO Fix skip causing other player to be selected if first player has multiple entities
+			if isinstance(self, Individual):
+				self.set_hours(MAX_HOURS)
+			user_entities = self.get_children(founder=True)
+			if user_entities:
+				user_entities = [e for e in user_entities if e.hours != 0]
+				if user_entities:
+					world.selection = user_entities[0]
+				else:
+					world.selection = None
+			else:
+				world.selection = None
 		elif command.lower() == 'end':
 			# world.end = True
 			return 'end'
@@ -4895,7 +4911,7 @@ class Individual(Entity):
 		if isinstance(parents, str):
 			parents = parents.replace('(', '').replace(')', '')
 			parents = tuple(x.strip() for x in parents.split(','))
-		#print('Parents Start: {}\n{}'.format(parents, type(parents)))
+		print('Parents Start: {}\n{}'.format(parents, type(parents[0])))
 
 		max_need = []
 		decay_rate = []
@@ -5191,6 +5207,89 @@ class Individual(Entity):
 			inherit_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Inheritance from ' + self.name, index[0], entry[2], entry[3], index[1], index[2], entry[4] ]
 			inherit_event += [bequeath_entry, inherit_entry]
 		ledger.journal_entry(inherit_event)
+
+	def get_children(self, founder=False, ids=False, v=False):
+		if founder:
+			founder_id = self.get_founder()
+			entity = factory.get_by_id(founder_id)
+		else:
+			entity = self
+		children = []
+		to_check = factory.get(Individual, ids=True)
+		children = entity.check_parent(to_check, children, v=v)
+		# if len(children) == 2: # TODO Not needed
+		# 	children = children[0] + children[1]
+		if v: print('Children Before: {}'.format(children))
+		children = list(collections.OrderedDict.fromkeys(filter(None, children))) # Remove dupes
+		if not ids:
+			children = [factory.get_by_id(entity_id) for entity_id in children]
+		return children
+
+	def check_parent(self, to_check, children, parent=None, lineage=None, v=False):
+		if v: print('To Check Start: {}'.format(to_check))
+		if v: print('Children Start: {}'.format(children))
+		if lineage is None:
+			lineage = []
+		else:
+			if v: print('Lineage: {}'.format(lineage))
+		if not to_check:
+			return children
+		if parent:
+			entity_id = parent
+			if v: print('Parent: {}'.format(entity_id))
+		else:
+			entity_id = to_check[0]
+		if v: print('Checking: {}'.format(entity_id))
+		if isinstance(entity_id, int):
+			entity = factory.get_by_id(entity_id)
+		if v: print('Parents: {}'.format(entity.parents))
+		if entity.parents[0] is None and entity.parents[1] is None:
+			if v: print('Case 1')
+			if self.entity_id == entity.entity_id:
+				if v: print('Case 1.1')
+				children.append(entity.entity_id)
+				if lineage:
+					children += lineage
+			if lineage:
+				to_check = [x for x in to_check if x not in lineage]
+			if not parent:
+				to_check.remove(entity.entity_id)
+			if v: print('To Check: {}'.format(to_check))
+			if v: print('Children: {}'.format(children))
+			return self.check_parent(to_check, children, v=v)
+		elif entity.parents[0] == entity_id or entity.parents[1] == entity_id:
+			if v: print('Case 2')
+			children.append(entity.entity_id)
+			to_check.remove(entity.entity_id)
+			if lineage:
+				if v: print('Case 2.1')
+				children += lineage
+				to_check = [x for x in to_check if x not in lineage]
+			if v: print('To Check: {}'.format(to_check))
+			if v: print('Children: {}'.format(children))
+			return self.check_parent(to_check, children, v=v)
+		else:
+			if v: print('Case 3')
+			lineage.append(entity.entity_id)
+			if v: print('To Check: {}'.format(to_check))
+			if v: print('Children: {}'.format(children))
+			return self.check_parent(to_check, children, entity.parents[0], lineage, v=v)#, self.check_parent(to_check, children, entity.parents[1], lineage, v=v)
+
+	def get_founder(self, entity_id=None):
+		if entity_id is None:
+			entity_id = self.entity_id
+		if isinstance(entity_id, int):
+			entity = factory.get_by_id(entity_id)
+		if entity.parents[0] is None and entity.parents[1] is None:
+			return entity.entity_id
+		else:
+			return entity.get_founder(entity.parents[0])#, entity.get_founder(entity.parents[1])
+
+#bob.parents('jack','jill')
+#jack.parents('tom','kate')
+#jill.parents('frank','alice')
+#kate.children = ['jack','bob']
+#all: [bob, jack, jill, tom, kate, frank, alice]
 
 	def need_decay(self, need, decay_rate=1):
 		rand = 1
@@ -5530,7 +5629,7 @@ class Government(Organization):
 			user = True
 		elif user == 'False' or user == '0' or user == 0:
 			user = False
-		self.user = user # TODO Should user be part of the saved entity data?
+		self.user = user
 		self.government = self.entity_id
 		self.produces = items
 		if isinstance(self.produces, str):
@@ -5803,7 +5902,7 @@ if __name__ == '__main__':
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-c', '--command', type=str, help='A command for the program.')
 	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
-	parser.add_argument('-P', '--players', type=int, default=1, help='The number of players in the econ sim.')
+	parser.add_argument('-P', '--players', type=int, default=1, help='The number of players in the econ sim.') # TODO Rename to number of Governments
 	parser.add_argument('-p', '--population', type=int, default=2, help='The number of people in the econ sim.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the sim!')
 	parser.add_argument('-rand', '--random', action='store_false', help='Remove randomness from the sim!')

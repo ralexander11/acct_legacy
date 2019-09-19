@@ -619,7 +619,7 @@ class Ledger:
 		self.txn = None
 		self.start_txn = None
 		self.refresh_ledger()
-		self.balance_sheet()
+		self.balance_sheet() # TODO This makes things very inefficient
 
 	def refresh_ledger(self):
 		# print('Refreshing Ledger.')
@@ -652,30 +652,68 @@ class Ledger:
 		else:
 			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
 
-	def balance(self, accounts=None, item=None, v=False):
-		# TODO Modify tmp gl instead of self.gl
-		self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
-		self.gl['credit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
-		self.gl['debit_amount'] = self.gl.apply(lambda x: x['amount'] if (x['debit_acct_type'] == 'Asset') | (x['debit_acct_type'] == 'Expense') else x['amount'] * -1, axis=1)
-		self.gl['credit_amount'] = self.gl.apply(lambda x: x['amount'] * -1 if (x['debit_acct_type'] == 'Asset') | (x['debit_acct_type'] == 'Expense') else x['amount'], axis=1)
-		# all_accts = False
+	def balance(self, accounts=None, item=None, nav=False, v=False):
+		if accounts == '':
+			accounts = None
 		if item is not None: # TODO Add support for multiple items maybe
 			if v: print('Item: \n{}'.format(item))
 			self.gl = self.gl[self.gl['item_id'] == item]
 		if accounts is None: # Create a list of all the accounts
-			# all_accts = True
-			debit_accts = pd.unique(self.gl['debit_acct'])
-			credit_accts = pd.unique(self.gl['credit_acct'])
-			accounts = list( set(debit_accts) | set(credit_accts) )
+			accounts = np.unique(self.gl[['debit_acct', 'credit_acct']].values).tolist()
+		else:
+			if not isinstance(accounts, (list, tuple)):
+				accounts = [x.strip() for x in accounts.split(',')]
 		if v: print('Accounts: \n{}'.format(accounts))
-		debits = self.gl.groupby('debit_acct').sum()['debit_amount']#[acct]
-		if v: print('Bal Debits: \n{}'.format(debits))
-		credits = self.gl.groupby('credit_acct').sum()['credit_amount']#[acct]
-		if v: print('Bal Credits: \n{}'.format(credits))
-		if v: print(debits + credits)
+		self.gl = self.gl.loc[(self.gl['debit_acct'].isin(accounts)) | (self.gl['credit_acct'].isin(accounts))]
+		print('GL Filtered: \n{}'.format(self.gl))
+
+		# TODO Modify tmp gl instead of self.gl
+		self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
+		self.gl['credit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
+		self.gl['debit_amount'] = self.gl.apply(lambda x: x['amount'] if (x['debit_acct_type'] == 'Asset') | (x['debit_acct_type'] == 'Expense') else x['amount'] * -1, axis=1)
+		self.gl['credit_amount'] = self.gl.apply(lambda x: x['amount'] * -1 if (x['credit_acct_type'] == 'Asset') | (x['credit_acct_type'] == 'Expense') else x['amount'], axis=1)
+		print('GL Enhanced: \n{}'.format(self.gl))
+
+		debits = self.gl.groupby(['debit_acct','debit_acct_type']).sum()['debit_amount']
+		debits.index.rename('acct', level=0, inplace=True)
+		debits.index.rename('acct_type', level=1, inplace=True)
+		print(debits.index)
+		if v: print('\nDebits: \n{}'.format(debits))
+		credits = self.gl.groupby(['credit_acct','credit_acct_type']).sum()['credit_amount']
+		credits.index.rename('acct', level=0, inplace=True)
+		credits.index.rename('acct_type', level=1, inplace=True)
+		if v: print('\nCredits: \n{}'.format(credits))
 		bal = debits.add(credits, fill_value=0)
-		if v: print('Balance: {}'.format(bal))
+		# if v: print('Add: \n{}'.format(bal))
+		bal = bal.reset_index()
+		if v: print('Add Reset: \n{}'.format(bal))
+		bal = bal.loc[(bal['acct'].isin(accounts))]
+		if bal.empty:
+			bal = 0
+			return bal
+		if v: print('Add Filtered: \n{}'.format(bal))
+		bal = bal.sum()
+		if v: print('Balance: \n{}'.format(bal))
+		bal = bal.values[-1]
+		if v: print('Balance Value: \n{}'.format(bal))
+		self.refresh_ledger()
 		return bal
+
+#Option 1:
+# Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
+# Liab   - Credit bal - Neg : Dr. = pos & Cr. = neg
+# =
+# Wealth - Credit bal - Pos : Dr. = neg & Cr. = pos
+# Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
+# Exp    - Debit  bal - Neg : Dr. = neg & Cr. = pos
+
+#Option 2 (current):
+# Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
+# Liab   - Credit bal - Pos : Dr. = neg & Cr. = pos
+# =
+# Wealth - Credit bal - Pos : Dr. = neg & Cr. = pos
+# Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
+# Exp    - Debit  bal - Pos : Dr. = pos & Cr. = neg
 
 	def balance_sheet(self, accounts=None, item=None, v=False): # TODO Needs to be optimized with:
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
@@ -1661,7 +1699,9 @@ def main(conn=None, command=None, external=False):
 				db = accts.db
 			print('Current database: {}'.format(db))
 		elif command.lower() == 'bal':
-			ledger.balance()
+			acct = input('Which account? ').title()
+			bal = ledger.balance(acct, v=True)
+			print(bal)
 		elif command.lower() == 'histcost':
 			result = ledger.hist_cost(400, 'Rock', 'Inventory', avg_cost=True, v=True)
 			print('Historical cost of {} {}: {}'.format(400, 'Rock', result))
