@@ -178,7 +178,7 @@ class World:
 				print('{} | Interest Rate: {}'.format(gov.bank, gov.bank.interest_rate))
 				user_count = args.Users
 				for person in range(1, self.population + 1):
-					print('Person: {}'.format(person))
+					print('\nPerson: {}'.format(person))
 					user = False
 					if user_count:
 						user = True
@@ -186,8 +186,9 @@ class World:
 					self.entities = accts.get_entities()
 					last_entity_id = self.entities.reset_index()['entity_id'].max()
 					factory.create(Individual, 'Person-' + str(last_entity_id + 1), self.indiv_items_produced, self.global_needs, gov.entity_id, user=user)
-					entity = factory.get_by_id(last_entity_id +1)
+					entity = factory.get_by_id(last_entity_id + 1)
 					# self.prices = pd.concat([self.prices, entity.prices])
+			self.entities = accts.get_entities()
 			self.set_table(self.prices, 'prices')
 			# Track historical prices
 			tmp_prices = self.prices.reset_index()
@@ -199,6 +200,19 @@ class World:
 			tmp_demand['date_saved'] = self.now
 			self.hist_demand = pd.DataFrame(tmp_demand, columns=['date_saved','date','entity_id','item_id','qty','reason'])
 			self.set_table(self.hist_demand, 'hist_demand')
+			# Track historical hours and needs
+			self.hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
+			self.hist_hours = self.hist_hours[['entity_id','hours']].set_index(['entity_id'])
+			self.hist_hours['date'] = self.now
+			self.hist_hours = self.hist_hours[['date','hours']]
+			for need in self.global_needs:
+				self.hist_hours[need] = None
+			for individual in factory.get(Individual):
+				for need in individual.needs:
+					self.hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
+			# print('\nHist Hours: \n{}'.format(self.hist_hours))
+			self.set_table(self.hist_hours, 'hist_hours')
+			# Set the default starting gov
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
@@ -269,8 +283,12 @@ class World:
 				self.prices = self.prices.set_index('item_id')
 			except KeyError:
 				self.prices = self.prices.set_index('index')
-			self.hist_prices = self.get_table('hist_prices')
-			self.hist_demand = self.get_table('hist_demand')
+			try: # TODO Remove error checking because of legacy db files
+				self.hist_prices = self.get_table('hist_prices')
+				self.hist_demand = self.get_table('hist_demand')
+				self.hist_hours = self.get_table('hist_hours')
+			except Exception as e:
+				print('Loading Error: {}'.format(repr(e)))
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
@@ -845,7 +863,20 @@ class World:
 		tmp_demand['date_saved'] = self.now
 		self.hist_demand = pd.concat([self.hist_demand, tmp_demand])
 		self.set_table(self.hist_demand, 'hist_demand')
-		# print('Hist Demand: \n{}'.format(self.hist_demand))
+		# print('\nHist Demand: \n{}'.format(self.hist_demand))
+		# Track historical hours and needs
+		tmp_hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
+		tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id'])
+		tmp_hist_hours['date'] = self.now
+		tmp_hist_hours = tmp_hist_hours[['date','hours']]
+		for need in self.global_needs:
+			tmp_hist_hours[need] = None
+		for individual in factory.get(Individual):
+			for need in individual.needs:
+				tmp_hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
+		self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
+		self.set_table(self.hist_hours, 'hist_hours')
+		# print('\nHist Hours: \n{}'.format(self.hist_hours))
 
 		t1_end = time.perf_counter()
 		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
@@ -4911,7 +4942,7 @@ class Individual(Entity):
 		if isinstance(parents, str):
 			parents = parents.replace('(', '').replace(')', '')
 			parents = tuple(x.strip() for x in parents.split(','))
-		print('Parents Start: {}\n{}'.format(parents, type(parents[0])))
+		# print('Parents Start: {}'.format(parents))
 
 		max_need = []
 		decay_rate = []
@@ -4967,7 +4998,7 @@ class Individual(Entity):
 		else:
 			self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
 		self.parents = parents
-		print('\nCreate Individual: {} | User: {} | entity_id: {}'.format(self.name, self.user, self.entity_id))
+		print('Create Individual: {} | User: {} | entity_id: {}'.format(self.name, self.user, self.entity_id))
 		print('Citizen of Government: {}'.format(self.government))
 		print('Parents: {}'.format(self.parents))
 		self.hours = hours
@@ -5016,7 +5047,7 @@ class Individual(Entity):
 				self.needs[need]['Max Need'] = int(needs_max[i])
 				self.needs[need]['Decay Rate'] = int(decay_rate[i])
 				self.needs[need]['Threshold'] = int(threshold[i])
-				self.needs[need]['Current Need'] = int(current_need[i])
+				self.needs[need]['Current Need'] = int(float(current_need[i]))
 		# print(self.needs)
 		return self.needs
 
@@ -5284,12 +5315,6 @@ class Individual(Entity):
 			return entity.entity_id
 		else:
 			return entity.get_founder(entity.parents[0])#, entity.get_founder(entity.parents[1])
-
-#bob.parents('jack','jill')
-#jack.parents('tom','kate')
-#jill.parents('frank','alice')
-#kate.children = ['jack','bob']
-#all: [bob, jack, jill, tom, kate, frank, alice]
 
 	def need_decay(self, need, decay_rate=1):
 		rand = 1
