@@ -144,11 +144,13 @@ class World:
 			if args.items is None:
 				items_file = 'data/items.csv'
 			self.items = accts.load_items(items_file) # TODO Change config file to JSON
+			self.items_map = pd.DataFrame(columns=['item_id', 'child_of'], index=['item_id']).dropna()
+			self.set_table(self.items_map, 'items_map')
 			self.global_needs = self.create_needs()
 			print(time_stamp() + 'Loading items from: {}'.format(items_file))
 			self.demand = pd.DataFrame(columns=['date','entity_id','item_id','qty','reason'])
 			self.set_table(self.demand, 'demand')
-			self.delay = pd.DataFrame(columns=['txn_id','delay']) # TODO Create table in db and save df to it after each edit
+			self.delay = pd.DataFrame(columns=['txn_id','delay','hours','job'])
 			self.set_table(self.delay, 'delay')
 			self.players = players # TODO Change players to govs
 			self.population = population
@@ -223,6 +225,7 @@ class World:
 			# self.now += datetime.timedelta(days=-1)
 			print(time_stamp() + 'Continuing sim from {} file as of {}.'.format(args.database, self.now))
 			self.items = accts.get_items()
+			self.items_map = self.get_table('items_map')
 			self.global_needs = self.create_needs()
 			self.demand = self.get_table('prior_demand')
 			self.delay = self.get_table('prior_delay')
@@ -449,10 +452,13 @@ class World:
 			return False
 
 	def get_item_type(self, item):
-		if self.items.loc[item, 'child_of'] is None:
-			return item
-		else:
-			return self.get_item_type(self.items.loc[item, 'child_of'])
+		try:
+			if self.items.loc[item, 'child_of'] is None:
+				return item
+			else:
+				return self.get_item_type(self.items.loc[item, 'child_of'])
+		except IndexError as e:
+			return self.get_item_type(self.items_map.loc[item, 'child_of'])
 
 	def org_type(self, name):
 		if name == 'Government':
@@ -601,6 +607,7 @@ class World:
 		self.prices = self.prices.sort_values(['entity_id'], na_position='first')
 		with pd.option_context('display.max_rows', None):
 			print('\nPrices: \n{}\n'.format(self.prices))
+			# print('Delays: \n{}\n'.format(self.delay))
 
 		demand_items = self.demand.drop_duplicates(['item_id']) # TODO Is this needed?
 		self.set_table(self.demand, 'demand')
@@ -877,6 +884,8 @@ class World:
 		self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
 		self.set_table(self.hist_hours, 'hist_hours')
 		# print('\nHist Hours: \n{}'.format(self.hist_hours))
+
+		print('\nItems Map: \n{}'.format(self.items_map)) # TODO Comment out
 
 		t1_end = time.perf_counter()
 		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
@@ -1480,7 +1489,7 @@ class Entity:
 			return modifier, equip_info
 		return None, None
 
-	def fulfill(self, item, qty, reqs='requirements', amts='amount', man=False, check=False): # TODO Maybe add buffer=True
+	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False): # TODO Maybe add buffer=True
 		v = False
 		# TODO Determine the min amount possible to produce when incomplete
 		try:
@@ -1525,12 +1534,12 @@ class Entity:
 				req_qty = 1
 			if v: print('Requirement: {}'.format(requirement))
 
-			if req_item_type == 'Time':
+			if req_item_type == 'Time' and partial is None:
 				# TODO Consider how Equipment could reduce time requirements
 				time_required = True
 				if v: print('Time Required: {}'.format(time_required))
 
-			elif req_item_type == 'Land':
+			elif req_item_type == 'Land' and partial is None:
 				modifier, items_info = self.check_productivity(req_item)
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -1616,7 +1625,7 @@ class Entity:
 						self.gl_tmp = ledger.gl
 						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
-			elif req_item_type == 'Buildings':
+			elif req_item_type == 'Buildings' and partial is None:
 				modifier, items_info = self.check_productivity(req_item)
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -1721,7 +1730,7 @@ class Entity:
 						self.gl_tmp = ledger.gl
 						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
-			elif req_item_type == 'Equipment': # TODO Make generic for process
+			elif req_item_type == 'Equipment' and partial is None: # TODO Make generic for process
 				modifier, items_info = self.check_productivity(req_item)
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -1825,7 +1834,7 @@ class Entity:
 						self.gl_tmp = ledger.gl
 						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
-			elif req_item_type == 'Components':
+			elif req_item_type == 'Components' and partial is None:
 				modifier, items_info = self.check_productivity(req_item)
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -1898,7 +1907,7 @@ class Entity:
 						self.gl_tmp = ledger.gl
 						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
-			elif req_item_type == 'Commodity':
+			elif req_item_type == 'Commodity' and partial is None:
 				modifier, items_info = self.check_productivity(req_item)
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -1993,7 +2002,7 @@ class Entity:
 						self.gl_tmp = ledger.gl
 						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
-			elif req_item_type == 'Service':
+			elif req_item_type == 'Service' and partial is None:
 				# TODO Add support for qty to Services
 				print('{} will attempt to purchase the {} service to produce {} {}.'.format(self.name, req_item, qty, item))
 				entries = self.purchase(req_item, req_qty * qty, buffer=True)
@@ -2013,7 +2022,7 @@ class Entity:
 					self.gl_tmp = ledger.gl
 					# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 
-			elif req_item_type == 'Subscription':
+			elif req_item_type == 'Subscription' and partial is None:
 				# TODO Add support for capacity to Subscriptions
 				# TODO Add check to ensure payment has been made recently (maybe on day of)
 				subscription_state = ledger.get_qty(items=req_item, accounts=['Subscription Info'])
@@ -2038,7 +2047,7 @@ class Entity:
 					else:
 						incomplete = True
 
-			elif req_item_type == 'Job':
+			elif req_item_type == 'Job' and partial is None:
 				if item_type == 'Job' or item_type == 'Labour':
 					# if type(self) == Individual:
 					if isinstance(self, Individual):
@@ -2135,6 +2144,12 @@ class Entity:
 					print('{} requires {} {} labour to produce {} {} and has done: {}'.format(self.name, req_qty * (1-modifier) * qty, req_item, qty, item, labour_done))
 					labour_required = (req_qty * (1-modifier) * qty)
 					# Labourer does the amount they can, and get that value from the entries. Then add to the labour hours done and try again
+					if partial is not None:
+						print('Partial Labour: {}'.format(partial))
+						job = world.delay.loc[partial, 'job']
+						if req_item == job:
+							labour_required = world.delay.loc[partial, 'hours']
+					wip_choice = False
 					while labour_done < labour_required:
 						required_hours = int(math.ceil((req_qty * (1-modifier) * qty) - labour_done))
 						if item_type == 'Education':
@@ -2143,7 +2158,36 @@ class Entity:
 							counterparty = self
 							entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, wage=0, buffer=True)
 						else:
-							print('{} has not had enough {} labour done today to produce {} {}.\n{} will attempt to hire a {} for {} hours.'.format(self.name, req_item, qty, item, self.name, req_item, required_hours))
+							print('{} to produce {} {} requires {} labour for {} hours.'.format(self.name, qty, item, req_item, required_hours))
+							if qty == 1:
+								if man:
+									choice = input('Do you want to work on the {} over multiple days? (Y/N): '.format(item))
+									if choice.upper() == 'Y':
+										wip_choice = True
+								else:
+									if 'Individual' in world.items.loc[item, 'producer']:
+										wip_choice = True
+							if wip_choice:
+								orig_required_hours = required_hours
+								if man:
+									while True:
+										try:
+											required_hours = input('How much to work to create {}? '.format(item))
+											required_hours = int(required_hours)
+										except ValueError:
+											print('"{}" is not a valid entry. Must be a number: \n{}'.format(required_hours))
+											continue
+										if required_hours > orig_required_hours: 
+											print('"{}" is more hours than required: \n{}'.format(required_hours))
+											continue
+										break
+								else:
+									required_hours = WORK_DAY
+									if orig_required_hours < WORK_DAY:
+										required_hours = orig_required_hours
+								if required_hours != orig_required_hours:
+									time_required = True
+							print('{} will attempt to hire {} labour for {} hours.'.format(self.name, req_item, required_hours))
 							counterparty = self.worker_counterparty(req_item, man=man)
 							# if counterparty is None:
 							# 	max_qty_possible = 0
@@ -2160,6 +2204,8 @@ class Entity:
 						if not entries:
 							entries = []
 							incomplete = True
+							if wip_choice: # TODO Not sure if this needed
+								time_required = False
 							if item_type != 'Education':
 								#print('World Demand Before: \n{}'.format(world.demand))
 								demand_count = world.demand.loc[world.demand['item_id'] == item].shape[0]
@@ -2192,20 +2238,26 @@ class Entity:
 							self.gl_tmp = ledger.gl
 							# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 						if entries:
-							labour_done += entries[0][6] # Same as required_hours
+							labour_done += required_hours # Same as entries[0][6]
 							counterparty.set_hours(required_hours)
-							if item_type == 'Education':
+							if wip_choice and time_required and partial is None:
+								world.delay = world.delay.append({'txn_id':None, 'delay':1, 'hours':orig_required_hours - required_hours, 'job':req_item}, ignore_index=True)
+								world.set_table(world.delay, 'delay')
+							if item_type == 'Education' or wip_choice:
 								break
 					# print('Labour Done End: {}'.format(labour_done))
-					try:
-						max_qty_possible = min(math.floor(labour_done / (req_qty * (1-modifier))), max_qty_possible)
-					except ZeroDivisionError:
-						max_qty_possible = min(max_qty_possible, qty)
-					if item_type == 'Education': # TODO Handle this better
-						max_qty_possible = max(1, max_qty_possible)
-					# print('Max Qty Possible with {} Labour: {}'.format(req_item, max_qty_possible))
+					if not wip_choice:
+						try:
+							max_qty_possible = min(math.floor(labour_done / (req_qty * (1-modifier))), max_qty_possible)
+						except ZeroDivisionError:
+							max_qty_possible = min(max_qty_possible, qty)
+						if item_type == 'Education': # TODO Handle this better
+							max_qty_possible = max(1, max_qty_possible)
+						# print('Max Qty Possible with {} Labour: {}'.format(req_item, max_qty_possible))
+					else:
+						max_qty_possible = 0
 
-			elif req_item_type == 'Education':
+			elif req_item_type == 'Education' and partial is None:
 				if item_type == 'Job' or item_type == 'Labour':
 					# if type(self) == Individual:
 					if isinstance(self, Individual):
@@ -2244,7 +2296,7 @@ class Entity:
 							else:
 								incomplete = True
 
-			elif req_item_type == 'Technology':
+			elif req_item_type == 'Technology' and partial is None:
 				ledger.reset()
 				tech_done_status = ledger.get_qty(items=req_item, accounts=['Technology'])
 				tech_status_wip = ledger.get_qty(items=req_item, accounts=['Researching Technology'])
@@ -2524,6 +2576,18 @@ class Entity:
 		if buffer:
 			return produce_event, time_required
 		ledger.journal_entry(produce_event)
+		partial_work = world.delay['txn_id'].isnull()
+		if v: print('Partial Work: \n{}'.format(partial_work))
+		if not partial_work.empty:
+			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+			# Get list of WIP txns for different item types
+			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			txn_id = wip_txns.index[-1]
+			partial_index = partial_work.index[-1]
+			if v: print('Partial Index: {}'.format(partial_index))
+			world.delay.at[partial_index, 'txn_id'] = txn_id
+			world.set_table(world.delay, 'delay')
+			if v: print('World Delay: \n{}'.format(world.delay))
 		if produce_event[-1][-3] == 'Inventory':
 			self.set_price(item, qty)
 		else:
@@ -2561,7 +2625,7 @@ class Entity:
 		wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 		if v: print('WIP TXNs: \n{}'.format(wip_txns))
 		if not wip_txns.empty:
-			#print('WIP Transactions: \n{}'.format(wip_txns))
+			# print('WIP Transactions: \n{}'.format(wip_txns))
 			# Compare the gl dates to the WIP time from the items table
 			#items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
 			items_continuous = world.items[world.items['freq'].str.contains('continuous', na=False)]
@@ -2579,6 +2643,7 @@ class Entity:
 				requirements = list(filter(None, requirements))
 				if v: print('WIP Requirements for {}: {}'.format(item, requirements))
 				# if v: print('WIP Requirements for {}: {}'.format(item, requirements))
+				timespan = 0
 				for i, requirement in enumerate(requirements):
 					requirement_type = world.get_item_type(requirement)
 					if v: print('Requirement Timespan: {} | {}'.format(requirement, i))
@@ -2591,11 +2656,12 @@ class Entity:
 					amounts = [x.strip() for x in amounts.split(',')]
 				amounts = list(map(float, amounts))
 				if v: print('Amounts: {}'.format(amounts))
-				timespan = amounts[i]
-				date_done = (datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=timespan)).date()
-				days_left = (date_done - world.now).days
-				if days_left < 0:
-					continue
+				if 'Time' in requirements:
+					timespan = amounts[i]
+					date_done = (datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=timespan)).date()
+					days_left = (date_done - world.now).days
+					if days_left < 0:
+						continue
 				for equip_requirement in requirements:
 					if v: print('Requirement: {}'.format(equip_requirement))
 					if equip_requirement in items_continuous.index.values:
@@ -2640,16 +2706,45 @@ class Entity:
 					try:
 						delay = world.delay.loc[world.delay['txn_id'] == index, 'delay'].values[0]
 						print('{} delayed by {} days.'.format(item, delay))
+						hours = world.delay.loc[world.delay['txn_id'] == index, 'hours'].values[0]
 					except KeyError as e:
 						delay = 0
+						hours = None
+					if hours is not None:
+						job = world.delay.loc[world.delay['txn_id'] == index, 'job'].values[0]
+						if v: print('WIP Partial Job: {}'.format(job))
+						partial_index = world.delay.loc[world.delay['txn_id'] == index].index.tolist()[0]
+						if v: print('Partial Index: {}'.format(partial_index))
+						incomplete, partial_work_event, time_required, max_qty_possible = self.fulfill(item, qty=1, partial=partial_index, man=self.user)
+						if v: print('WIP Partial Work Event: {}\n{}'.format(incomplete, partial_work_event))
+						if incomplete:
+							print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
+							return
+						else:
+							if v: print('Partial Delay Before: \n{}'.format(world.delay))
+							world.delay.at[partial_index, 'delay'] += 1
+							world.delay.at[partial_index, 'hours'] -= partial_work_event[0][6]
+							if v: print('Partial Delay: \n{}'.format(world.delay))
+							world.set_table(world.delay, 'delay')
+							ledger.journal_entry(partial_work_event)
+					try:
+						delay = world.delay.loc[world.delay['txn_id'] == index, 'delay'].values[0]
+						if v: print('{} delayed by {} days after.'.format(item, delay))
+						hours = world.delay.loc[world.delay['txn_id'] == index, 'hours'].values[0]
+					except KeyError as e:
+						delay = 0
+						hours = None
 				if v: print('WIP lifespan for {}: {}'.format(item, timespan))
 				timespan += delay
-				if v: print('WIP lifespan with delay of {} for {}: {}'.format(item, delay, timespan))
+				if v: print('WIP lifespan with delay of {} for {}: {}'.format(delay, item, timespan))
 				date_done = (datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=timespan)).date()
 				if v: print('WIP date done for {}: {} Today is: {}'.format(item, date_done, world.now))
 				days_left = abs(date_done - world.now).days
 				if days_left < timespan:
-					print('{} has {} WIP days left for {}.'.format(self.name, days_left, item))
+					if hours:
+						print('{} has {} WIP days and {} hours left for {}.'.format(self.name, days_left, hours, item))
+					else:
+						print('{} has {} WIP days left for {}.'.format(self.name, days_left, item))
 				# If the time elapsed has passed
 				if date_done == world.now:
 					if v: print('WIP date is done for {}: {} Today is: {}'.format(item, date_done, world.now))
@@ -2808,7 +2903,7 @@ class Entity:
 			name = names[0]
 			#print('Ticker: {}'.format(name))
 		if name == 'Bank' and world.gov.bank is not None:
-			print('{} already has a bank. Only one Central Bank per government is allowed.'.format(world.gov))
+			print('{} already has a bank. Only one Central Bank per Government is allowed.'.format(world.gov))
 			return
 		legal_form = world.org_type(name)
 		# print('Legal Form: {}'.format(legal_form))
@@ -2830,6 +2925,7 @@ class Entity:
 		#print('Corp Name: \n{}'.format(name))
 		corp = factory.create(legal_form, name, items_produced, self.government, auth_qty)#, int(last_entity_id + 1))
 		# world.prices = pd.concat([world.prices, corp.prices])
+		world.items_map = world.items_map.append({'item_id':name, 'child_of':'Shares'}, ignore_index=True)
 		if name.split('-')[0] == 'Bank':
 			world.gov.bank = corp
 			print('{}\'s central bank created.'.format(world.gov))
@@ -3313,8 +3409,10 @@ class Entity:
 				counterparties = job_wages_pay_txns.shape[0]
 				if v: print('Number of Counterparties for {}: {}'.format(job, counterparties))
 				pay_wages_event = []
-				for n in range(counterparties):
-					counterparty, event_id = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', n=n, allowed=Individual, v=v)
+				n = 0
+				for m in range(counterparties, 0, -1):
+				# for n in range(counterparties):
+					counterparty, event_id = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', m=m, n=n, allowed=Individual, v=v)
 					wages_pay_entry = [ event_id, self.entity_id, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
 					wages_chg_entry = [ event_id, counterparty.entity_id, world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
 					pay_wages_event += [wages_pay_entry, wages_chg_entry]
@@ -5935,8 +6033,8 @@ if __name__ == '__main__':
 	parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
 	parser.add_argument('-t', '--time', type=int, help='The number of days the sim will run for.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital each player to start with.')
-	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim!')
-	parser.add_argument('-U', '--Users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
+	parser.add_argument('-U', '--Users', type=int, nargs='?', const=-1, help='Play the sim!')
+	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	# TODO Add argparse for setting win conditions
 	# User would one or more goals for Wealth, Tech, Population, Land
 	# Or a time limit, with the highest of one or more of the above
@@ -5946,7 +6044,7 @@ if __name__ == '__main__':
 	if args.database is None:
 		args.database = 'econ01.db'
 	if args.capital is None:
-		args.capital = 100000
+		args.capital = 1000000
 	command = None
 	if command is None:
 		command = args.command

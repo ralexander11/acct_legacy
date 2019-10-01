@@ -5,6 +5,8 @@ import argparse
 import datetime
 import logging
 import warnings
+from contextlib import contextmanager
+import time
 
 
 DISPLAY_WIDTH = 98
@@ -496,6 +498,23 @@ class Accounts:
 			table = table_name
 		return table
 
+	def export_table(self, table_name=None):
+		if table_name is None:
+			table_name = input('Enter a table to export: ')
+		try:
+			table = pd.read_sql_query('SELECT * FROM ' + table_name + ';', self.conn)
+			save_location = 'data/'
+			outfile = table_name + datetime.datetime.today().strftime('_%Y-%m-%d_%H-%M-%S') + '.csv'
+			table.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
+			print('{} data saved to: {}'.format(table_name, save_location + outfile))
+			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 	print('{} table export: \n{}'.format(table_name, table))
+		except Exception as e:
+			print('There exists no table called: {}'.format(table_name))
+			print('Error: {}'.format(repr(e)))
+			table = table_name
+		return table
+
 
 class Ledger:
 	def __init__(self, accts, ledger_name=None, entity=None, date=None, start_date=None, txn=None, start_txn=None):
@@ -547,6 +566,7 @@ class Ledger:
 		self.conn.commit()
 		cur.close()
 
+	@contextmanager
 	def set_entity(self, entity=None):
 		if entity is None:
 			self.entity = input('Enter an Entity ID: ')
@@ -566,7 +586,9 @@ class Ledger:
 					self.entity = [self.entity]
 		self.refresh_ledger()
 		self.balance_sheet()
-		return self.entity
+		# return self.entity
+		yield self.entity
+		self.reset()
 
 	def set_date(self, date=None):
 		if date is None:
@@ -665,41 +687,62 @@ class Ledger:
 				accounts = [x.strip() for x in accounts.split(',')]
 		if v: print('Accounts: \n{}'.format(accounts))
 		self.gl = self.gl.loc[(self.gl['debit_acct'].isin(accounts)) | (self.gl['credit_acct'].isin(accounts))]
-		print('GL Filtered: \n{}'.format(self.gl))
+		if v: print('GL Filtered: \n{}'.format(self.gl))
 
 		# TODO Modify tmp gl instead of self.gl
 		self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		self.gl['credit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
 		self.gl['debit_amount'] = self.gl.apply(lambda x: x['amount'] if (x['debit_acct_type'] == 'Asset') | (x['debit_acct_type'] == 'Expense') else x['amount'] * -1, axis=1)
 		self.gl['credit_amount'] = self.gl.apply(lambda x: x['amount'] * -1 if (x['credit_acct_type'] == 'Asset') | (x['credit_acct_type'] == 'Expense') else x['amount'], axis=1)
-		print('GL Enhanced: \n{}'.format(self.gl))
+		if v: print('GL Enhanced: \n{}'.format(self.gl))
 
 		debits = self.gl.groupby(['debit_acct','debit_acct_type']).sum()['debit_amount']
 		debits.index.rename('acct', level=0, inplace=True)
 		debits.index.rename('acct_type', level=1, inplace=True)
-		print(debits.index)
 		if v: print('\nDebits: \n{}'.format(debits))
 		credits = self.gl.groupby(['credit_acct','credit_acct_type']).sum()['credit_amount']
 		credits.index.rename('acct', level=0, inplace=True)
 		credits.index.rename('acct_type', level=1, inplace=True)
 		if v: print('\nCredits: \n{}'.format(credits))
-		bal = debits.add(credits, fill_value=0)
+		bal = debits.add(credits, fill_value=0).reset_index()
 		# if v: print('Add: \n{}'.format(bal))
-		bal = bal.reset_index()
+		# bal = bal.reset_index()
 		if v: print('Add Reset: \n{}'.format(bal))
 		bal = bal.loc[(bal['acct'].isin(accounts))]
 		if bal.empty:
 			bal = 0
 			return bal
-		if v: print('Add Filtered: \n{}'.format(bal))
-		bal = bal.sum()
-		if v: print('Balance: \n{}'.format(bal))
-		bal = bal.values[-1]
-		if v: print('Balance Value: \n{}'.format(bal))
+		bal = bal.groupby(['acct_type']).sum()
+		if v: print('New Bal: \n{}'.format(bal))
+		try:
+			asset_bal = bal.loc['Asset', 0]
+		except KeyError as e:
+			asset_bal = 0
+		try:
+			liab_bal = bal.loc['Liability', 0]
+		except KeyError as e:
+			liab_bal = 0
+		try:
+			wealth_bal = bal.loc['Wealth', 0]
+		except KeyError as e:
+			wealth_bal = 0
+		try:
+			rev_bal = bal.loc['Revenue', 0]
+		except KeyError as e:
+			rev_bal = 0
+		try:
+			exp_bal = bal.loc['Expense', 0]
+		except KeyError as e:
+			exp_bal = 0
+		retained_earnings = rev_bal - exp_bal
+		net_asset_value = asset_bal - liab_bal
+		if net_asset_value == 0: # Two ways to calc NAV depending on accounts
+			net_asset_value = wealth_bal + retained_earnings
+		if v: print('NAV: \n{}'.format(net_asset_value))
 		self.refresh_ledger()
-		return bal
+		return net_asset_value # TODO This func is slow
 
-#Option 1:
+#Option 1 (will be below):
 # Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
 # Liab   - Credit bal - Neg : Dr. = pos & Cr. = neg
 # =
@@ -707,7 +750,7 @@ class Ledger:
 # Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
 # Exp    - Debit  bal - Neg : Dr. = neg & Cr. = pos
 
-#Option 2 (current):
+#Option 2 (above):
 # Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
 # Liab   - Credit bal - Pos : Dr. = neg & Cr. = pos
 # =
@@ -1691,6 +1734,8 @@ def main(conn=None, command=None, external=False):
 			accts.load_items()
 		elif command.lower() == 'table':
 			accts.print_table()
+		elif command.lower() == 'exporttable':
+			accts.export_table()
 
 		elif command.lower() == 'db':
 			if args.database is not None:
@@ -1700,8 +1745,18 @@ def main(conn=None, command=None, external=False):
 			print('Current database: {}'.format(db))
 		elif command.lower() == 'bal':
 			acct = input('Which account? ').title()
-			bal = ledger.balance(acct, v=True)
+			tbal_start = time.perf_counter()
+			bal = ledger.balance(acct, v=False)
+			tbal_end = time.perf_counter()
 			print(bal)
+			print('Bal took {:,.2f} sec.'.format((tbal_end - tbal_start)))
+
+			tbal_start = time.perf_counter()
+			bal = ledger.print_bs()
+			tbal_end = time.perf_counter()
+			print(bal)
+			print('BS took {:,.2f} sec.'.format((tbal_end - tbal_start)))
+
 		elif command.lower() == 'histcost':
 			result = ledger.hist_cost(400, 'Rock', 'Inventory', avg_cost=True, v=True)
 			print('Historical cost of {} {}: {}'.format(400, 'Rock', result))
