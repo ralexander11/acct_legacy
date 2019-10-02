@@ -607,7 +607,7 @@ class World:
 		self.prices = self.prices.sort_values(['entity_id'], na_position='first')
 		with pd.option_context('display.max_rows', None):
 			print('\nPrices: \n{}\n'.format(self.prices))
-			# print('Delays: \n{}\n'.format(self.delay))
+			print('Delays: \n{}\n'.format(self.delay))
 
 		demand_items = self.demand.drop_duplicates(['item_id']) # TODO Is this needed?
 		self.set_table(self.demand, 'demand')
@@ -736,7 +736,7 @@ class World:
 		t5_start = time.perf_counter()
 		print('Check Optional Items:')
 		for entity in factory.get(users=False):#(Corporation):
-			#print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
+			print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
 			entity.check_optional()
 			entity.check_inv()
 			if isinstance(entity, Corporation):
@@ -885,7 +885,7 @@ class World:
 		self.set_table(self.hist_hours, 'hist_hours')
 		# print('\nHist Hours: \n{}'.format(self.hist_hours))
 
-		print('\nItems Map: \n{}'.format(self.items_map)) # TODO Comment out
+		# print('\nItems Map: \n{}'.format(self.items_map))
 
 		t1_end = time.perf_counter()
 		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
@@ -2145,13 +2145,15 @@ class Entity:
 					labour_required = (req_qty * (1-modifier) * qty)
 					# Labourer does the amount they can, and get that value from the entries. Then add to the labour hours done and try again
 					if partial is not None:
-						print('Partial Labour: {}'.format(partial))
+						# print('Partial Labour: {}'.format(partial))
 						job = world.delay.loc[partial, 'job']
 						if req_item == job:
 							labour_required = world.delay.loc[partial, 'hours']
+							# print('Partial Required Hours: {}'.format(labour_required))
 					wip_choice = False
 					while labour_done < labour_required:
-						required_hours = int(math.ceil((req_qty * (1-modifier) * qty) - labour_done))
+						required_hours = labour_required - labour_done
+						orig_required_hours = required_hours
 						if item_type == 'Education':
 							print('{} has not studied enough {} today. Will attempt to study for {} hours.'.format(self.name, req_item, required_hours)) #MAX_HOURS = 12
 							required_hours = min(required_hours, MAX_HOURS)
@@ -2165,10 +2167,9 @@ class Entity:
 									if choice.upper() == 'Y':
 										wip_choice = True
 								else:
-									if 'Individual' in world.items.loc[item, 'producer']:
-										wip_choice = True
+									# if 'Individual' in world.items.loc[item, 'producer']: # TODO Is this needed?
+									wip_choice = True
 							if wip_choice:
-								orig_required_hours = required_hours
 								if man:
 									while True:
 										try:
@@ -2182,13 +2183,16 @@ class Entity:
 											continue
 										break
 								else:
-									required_hours = WORK_DAY
+									required_hours = WORK_DAY # TODO Or MAX_HOURS?
 									if orig_required_hours < WORK_DAY:
 										required_hours = orig_required_hours
 								if required_hours != orig_required_hours:
 									time_required = True
 							print('{} will attempt to hire {} labour for {} hours.'.format(self.name, req_item, required_hours))
-							counterparty = self.worker_counterparty(req_item, man=man)
+							if 'Individual' in world.items.loc[item, 'producer'] and qty == 1:
+								counterparty = self
+							else:
+								counterparty = self.worker_counterparty(req_item, man=man)
 							# if counterparty is None:
 							# 	max_qty_possible = 0
 							if isinstance(counterparty, tuple):
@@ -2238,10 +2242,13 @@ class Entity:
 							self.gl_tmp = ledger.gl
 							# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 						if entries:
-							labour_done += required_hours # Same as entries[0][6]
-							counterparty.set_hours(required_hours)
-							if wip_choice and time_required and partial is None:
-								world.delay = world.delay.append({'txn_id':None, 'delay':1, 'hours':orig_required_hours - required_hours, 'job':req_item}, ignore_index=True)
+							hours_done = entries[0][6]
+							labour_done += hours_done # Same as required_hours
+							counterparty.set_hours(hours_done)
+							hours_remain = orig_required_hours - hours_done
+							if wip_choice and time_required and partial is None and hours_remain:
+								# print('Partial - Orig Hours: {} | Hours Done: {}'.format(orig_required_hours, hours_done))
+								world.delay = world.delay.append({'txn_id':None, 'delay':1, 'hours':hours_remain, 'job':req_item}, ignore_index=True)
 								world.set_table(world.delay, 'delay')
 							if item_type == 'Education' or wip_choice:
 								break
@@ -2255,7 +2262,11 @@ class Entity:
 							max_qty_possible = max(1, max_qty_possible)
 						# print('Max Qty Possible with {} Labour: {}'.format(req_item, max_qty_possible))
 					else:
-						max_qty_possible = 0
+						if labour_done > 0:
+							max_qty_possible = 1
+						else:
+							max_qty_possible = 0
+						# print('WIP Choice: {} | Max Qty Possible for {}: {}'.format(wip_choice, item, max_qty_possible))
 
 			elif req_item_type == 'Education' and partial is None:
 				if item_type == 'Job' or item_type == 'Labour':
@@ -2576,18 +2587,20 @@ class Entity:
 		if buffer:
 			return produce_event, time_required
 		ledger.journal_entry(produce_event)
-		partial_work = world.delay['txn_id'].isnull()
-		if v: print('Partial Work: \n{}'.format(partial_work))
-		if not partial_work.empty:
+		if world.delay['txn_id'].isnull().values.any():
 			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			# Get list of WIP txns for different item types
 			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-			txn_id = wip_txns.index[-1]
-			partial_index = partial_work.index[-1]
-			if v: print('Partial Index: {}'.format(partial_index))
-			world.delay.at[partial_index, 'txn_id'] = txn_id
-			world.set_table(world.delay, 'delay')
-			if v: print('World Delay: \n{}'.format(world.delay))
+			if v: print('WIP TXNs: \n{}'.format(wip_txns))
+			if not wip_txns.empty:
+				txn_id = wip_txns.index[-1]
+				partial_work = world.delay.loc[world.delay['txn_id'].isnull()]
+				if v: print('Partial Work: \n{}'.format(partial_work))
+				partial_index = partial_work.index[-1]
+				if v: print('Partial Index: {}'.format(partial_index))
+				world.delay.at[partial_index, 'txn_id'] = txn_id
+				world.set_table(world.delay, 'delay')
+				if v: print('World Delay: \n{}'.format(world.delay))
 		if produce_event[-1][-3] == 'Inventory':
 			self.set_price(item, qty)
 		else:
@@ -2669,13 +2682,13 @@ class Entity:
 						if not result and not check:
 							print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
 							if world.delay.empty:
-								world.delay = world.delay.append({'txn_id':index, 'delay': 1}, ignore_index=True)
+								world.delay = world.delay.append({'txn_id':index, 'delay':1, 'hours':None, 'job':None}, ignore_index=True)
 								world.set_table(world.delay, 'delay')
 							elif index in world.delay['txn_id'].values:
 								world.delay.loc[world.delay['txn_id'] == index, 'delay'] += 1
 								world.set_table(world.delay, 'delay')
 							else:
-								world.delay = world.delay.append({'txn_id':index, 'delay': 1}, ignore_index=True)
+								world.delay = world.delay.append({'txn_id':index, 'delay':1, 'hours':None, 'job':None}, ignore_index=True)
 								world.set_table(world.delay, 'delay')
 							return
 				start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d').date()
@@ -2702,12 +2715,14 @@ class Entity:
 				if check:
 					continue
 				delay = 0
+				# partial_complete = False
+				partial_index = None
 				if not world.delay.empty:
 					try:
 						delay = world.delay.loc[world.delay['txn_id'] == index, 'delay'].values[0]
 						print('{} delayed by {} days.'.format(item, delay))
 						hours = world.delay.loc[world.delay['txn_id'] == index, 'hours'].values[0]
-					except KeyError as e:
+					except (KeyError, IndexError) as e:
 						delay = 0
 						hours = None
 					if hours is not None:
@@ -2717,13 +2732,14 @@ class Entity:
 						if v: print('Partial Index: {}'.format(partial_index))
 						incomplete, partial_work_event, time_required, max_qty_possible = self.fulfill(item, qty=1, partial=partial_index, man=self.user)
 						if v: print('WIP Partial Work Event: {}\n{}'.format(incomplete, partial_work_event))
-						if incomplete:
+						if incomplete or not partial_work_event:
 							print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
 							return
 						else:
 							if v: print('Partial Delay Before: \n{}'.format(world.delay))
-							world.delay.at[partial_index, 'delay'] += 1
 							world.delay.at[partial_index, 'hours'] -= partial_work_event[0][6]
+							if world.delay.at[partial_index, 'hours'] != 0:
+								world.delay.at[partial_index, 'delay'] += 1
 							if v: print('Partial Delay: \n{}'.format(world.delay))
 							world.set_table(world.delay, 'delay')
 							ledger.journal_entry(partial_work_event)
@@ -2731,7 +2747,7 @@ class Entity:
 						delay = world.delay.loc[world.delay['txn_id'] == index, 'delay'].values[0]
 						if v: print('{} delayed by {} days after.'.format(item, delay))
 						hours = world.delay.loc[world.delay['txn_id'] == index, 'hours'].values[0]
-					except KeyError as e:
+					except (KeyError, IndexError) as e:
 						delay = 0
 						hours = None
 				if v: print('WIP lifespan for {}: {}'.format(item, timespan))
@@ -2748,6 +2764,9 @@ class Entity:
 				# If the time elapsed has passed
 				if date_done == world.now:
 					if v: print('WIP date is done for {}: {} Today is: {}'.format(item, date_done, world.now))
+					# if partial_complete:
+					if partial_index is not None: # TODO Capture additional labour costs in finished WIP entry
+						world.delay = world.delay.drop([partial_index]).reset_index(drop=True)
 					# Undo "in use" entries for related items
 					release_txns = ledger.gl[(ledger.gl['credit_acct'] == 'In Use') & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 					#print('Release TXNs: \n{}'.format(release_txns))
@@ -3472,15 +3491,15 @@ class Entity:
 		if check:
 			return
 		if recently_paid and not incomplete:
-			if counterparty.hours > 0:
+			if counterparty.hours > 0: # TODO Move this above fulfill()
 				hours_worked = min(labour_hours, counterparty.hours)
 				wages_exp_entry = [ ledger.get_event(), self.entity_id, world.now, desc_exp, job, wage, hours_worked, 'Wages Expense', 'Wages Payable', wage * hours_worked ]
 				wages_rev_entry = [ ledger.get_event(), counterparty.entity_id, world.now, desc_rev, job, wage, hours_worked, 'Wages Receivable', 'Wages Income', wage * hours_worked ]
 				accru_wages_event += [wages_exp_entry, wages_rev_entry]
 			else:
-				if not incomplete:
+				if not incomplete: # TODO This is not needed
 					print('{} does not have enough time left to do {} job for {} hours.'.format(counterparty.name, job, labour_hours))
-				else:
+				else: # TODO This is not needed
 					print('{} cannot fulfill the requirements to allow {} to work.'.format(self.name, job))
 				return
 			if buffer:
@@ -5112,6 +5131,7 @@ class Individual(Entity):
 		return 'Indv: {} | {}'.format(self.name, self.entity_id)
 
 	def set_hours(self, hours_delta=0):
+		# print('Set Hours Before: {}'.format(self.hours))
 		self.hours -= hours_delta
 		if self.hours < 0:
 			self.hours = 0
@@ -5125,6 +5145,7 @@ class Individual(Entity):
 		cur.execute(set_need_query, values)
 		ledger.conn.commit()
 		cur.close()
+		# print('Set Hours After: {}'.format(self.hours))
 		return self.hours
 
 	def reset_hours(self):
@@ -5179,6 +5200,7 @@ class Individual(Entity):
 		ledger.conn.commit()
 		cur.close()
 		if self.needs[need]['Current Need'] <= 0:
+			self.reset_hours()
 			self.inheritance()
 			factory.destroy(self)
 			if forced:
@@ -5706,9 +5728,9 @@ class Corporation(Organization):
 	def dividend(self, div_rate=1):
 		ledger.set_entity(self.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
-		#print('{} cash: {}'.format(self.name, cash))
+		# print('{} cash: {}'.format(self.name, cash))
 		funding = ledger.balance_sheet(accounts=['Shares'], item=self.name)
-		#print('{} funding: {}'.format(self.name, funding))
+		# print('{} funding: {}'.format(self.name, funding))
 		ledger.reset()
 		if cash >= funding * 2: # TODO Make 2 a global constant
 			self.declare_div(div_rate=div_rate)

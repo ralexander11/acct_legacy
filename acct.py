@@ -5,8 +5,8 @@ import argparse
 import datetime
 import logging
 import warnings
-from contextlib import contextmanager
 import time
+# from contextlib import contextmanager
 
 
 DISPLAY_WIDTH = 98
@@ -566,7 +566,7 @@ class Ledger:
 		self.conn.commit()
 		cur.close()
 
-	@contextmanager
+	# @contextmanager
 	def set_entity(self, entity=None):
 		if entity is None:
 			self.entity = input('Enter an Entity ID: ')
@@ -586,9 +586,9 @@ class Ledger:
 					self.entity = [self.entity]
 		self.refresh_ledger()
 		self.balance_sheet()
-		# return self.entity
-		yield self.entity
-		self.reset()
+		return self.entity
+		# yield self.entity
+		# self.reset()
 
 	def set_date(self, date=None):
 		if date is None:
