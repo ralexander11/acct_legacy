@@ -135,7 +135,9 @@ class World:
 	def __init__(self, factory, players=1, population=2):
 		# pygame.init()
 		self.factory = factory
-		if not os.path.exists('db/' + args.database) or args.reset:
+		# print('New db: {}'.format(new_db))
+		# if not os.path.exists('db/' + args.database) or args.reset:
+		if new_db or args.reset:
 			self.clear_tables()
 			print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Create World ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 			self.now = datetime.datetime(1986,10,1).date() # TODO Make start_date constant
@@ -250,7 +252,6 @@ class World:
 			for index, env in envs.iterrows():
 				factory.create(Environment, env['name'], env['entity_id'])
 			self.env = factory.get(Environment)[0]
-			# self.setup_prices()
 			self.produce_queue = self.get_table('prior_produce_queue')
 			self.end = False
 			govs = self.entities.loc[self.entities['entity_type'] == 'Government']
@@ -282,10 +283,6 @@ class World:
 				legal_form = self.org_type(corp['name'])
 				factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), corp['auth_shares'], corp['entity_id'])
 			self.prices = self.get_table('prior_prices')
-			try: # TODO Test if this error check is needed or just the correction can be used
-				self.prices = self.prices.set_index('item_id')
-			except KeyError:
-				self.prices = self.prices.set_index('index')
 			try: # TODO Remove error checking because of legacy db files
 				self.hist_prices = self.get_table('hist_prices')
 				self.hist_demand = self.get_table('hist_demand')
@@ -304,9 +301,27 @@ class World:
 			incomplete_cycle = ledger.gl.loc[ledger.gl.index > last_eod_index].index.values.tolist()
 			print('Number of incomplete transactions: {}'.format(len(incomplete_cycle)))
 			ledger.remove_entries(incomplete_cycle)
+			print()
+			for typ in factory.registry.keys():
+				for entity in factory.get(typ):
+					ledger.set_entity(entity.entity_id)
+					entity.cash = ledger.balance_sheet(['Cash'])
+					print('{} Cash: {}'.format(entity.name, entity.cash))
+					ledger.reset()
+				print()
+				for entity in factory.get(typ):
+					ledger.set_entity(entity.entity_id)
+					entity.nav = ledger.balance_sheet()
+					print('{} NAV: {}'.format(entity.name, entity.nav))
+					ledger.reset()
+				if len(factory.registry[typ]) != 0 and typ != Environment and typ != Government and typ != Bank:
+					print('\nPre Entity Sort by NAV: {} \n{}'.format(typ, factory.registry[typ]))
+					factory.registry[typ].sort(key=lambda x: x.nav)
+					print('Post Entity Sort by NAV: {} \n{}\n'.format(typ, factory.registry[typ]))
 		print()
 		self.cols = ledger.gl.columns.values.tolist()
 		print(self.cols) # For verbosity
+		print(self.delay)
 
 	def clear_tables(self, tables=None):
 		if tables is None:
@@ -329,40 +344,38 @@ class World:
 		cur.close()
 		#print('Clear tables.')
 
-	def set_table(self, table, table_name):
+	def set_table(self, table, table_name, v=False):
+		if v: print('Orig set table: {}\n{}'.format(table_name, table))
 		if not isinstance(table, (pd.DataFrame, pd.Series)):
 			if not isinstance(table, collections.Iterable):
 				table = [table]
 			table = pd.DataFrame(data=table, index=None)
-		table = table.reset_index()
-		if 'index' in table.columns and not table.empty:
-			if table.iloc[0, 0] == 0:
-				table = table.drop(['index'], axis=1)
+			if v: print('Singleton set table: {}\n{}'.format(table_name, table))
+		try:
+			table = table.reset_index()
+			if v: print('Reset Index - set table: {}\n{}'.format(table_name, table))
+		except ValueError as e:
+			print('Set table error: {}'.format(repr(e)))
 		table.to_sql(table_name, ledger.conn, if_exists='replace', index=False)
+		if v: print('Final set table: {}\n{}'.format(table_name, table))
 		return table
 
-	def get_table(self, table):
-		table = pd.read_sql_query('SELECT * FROM ' + table + ';', ledger.conn)
+	def get_table(self, table_name, v=False):
+		tmp = pd.read_sql_query('SELECT * FROM ' + table_name + ';', ledger.conn)
+		if v: print('Get table tmp: \n{}'.format(tmp))
+		index = tmp.columns[0]
+		if v: print('Index: {}'.format(index))
+		table = pd.read_sql_query('SELECT * FROM ' + table_name + ';', ledger.conn, index_col=index)
+		table.index.name = None
+		if v: print('Get table: {}\n{}'.format(table_name, table))
 		return table
 
-	def setup_prices(self):
-		# TODO Make self.prices a multindex with item_id and entity_id
-		self.prices = pd.DataFrame(columns=['entity_id','price'], index=['item_id'])
-		print('\nSetup Prices: \n{}'.format(self.prices))
+	def setup_prices(self, v=True):
+		# TODO Maybe make self.prices a multindex with item_id and entity_id
+		self.prices = pd.DataFrame(columns=['entity_id','price'])
+		self.prices.index.name = 'item_id'
+		if v: print('\nSetup Prices: \n{}'.format(self.prices))
 		return self.prices
-
-		# self.prices = pd.DataFrame(data={'item_id': self.items.index,'entity_id': self.env.entity_id,'price': INIT_PRICE}) # TODO Clean this up
-		# self.prices = self.prices[14:]
-		# self.prices['item_type'] = self.prices.apply(lambda x: self.get_item_type(x['item_id']), axis=1)
-		# self.prices = self.prices.set_index('item_id')
-		# clear_prices = self.prices.loc[self.prices['item_type'].isin(['Technology','Education','Land'])].reset_index()
-		# for i, item in clear_prices['item_id'].iteritems():
-		# 	self.prices.at[item, 'price'] = 0
-		# self.prices.at['Study','price'] = 0
-		# self.prices.drop(columns=['item_type'], inplace=True)
-		# print('Prices Setup: \n{}\n'.format(self.prices))
-		# self.set_table(self.prices, 'prices')
-		# return self.prices
 
 	def create_world(self, lands=None, date=None):
 		print(time_stamp() + 'Creating world.')
@@ -1505,7 +1518,9 @@ class Entity:
 		if qty == 0:
 			return None, [], None, 0
 		event = []
+		wip_choice = False
 		time_required = False
+		tmp_delay = world.delay
 		orig_hours = world.get_hours()
 		if v: print('Orig Hours: \n{}'.format(orig_hours))
 		item_info = world.items.loc[item]
@@ -2110,7 +2125,6 @@ class Entity:
 
 			elif req_item_type == 'Labour':
 				if item_type == 'Job' or item_type == 'Labour':
-					# if type(self) == Individual:
 					if isinstance(self, Individual):
 						experience = abs(ledger.get_qty(items=req_item, accounts=['Wages Income']))
 						if experience < req_qty:
@@ -2150,91 +2164,98 @@ class Entity:
 						if req_item == job:
 							labour_required = world.delay.loc[partial, 'hours']
 							# print('Partial Required Hours: {}'.format(labour_required))
-					wip_choice = False
 					while labour_done < labour_required:
-						print('labour_done: {} | labour_required: {} | wip_choice: {}'.format(labour_done, labour_required, wip_choice))
+						print('Labour Done: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
 						required_hours = labour_required - labour_done
 						orig_required_hours = required_hours
-						if item_type == 'Education':
-							print('{} has not studied enough {} today. Will attempt to study for {} hours.'.format(self.name, req_item, required_hours)) #MAX_HOURS = 12
-							required_hours = min(required_hours, MAX_HOURS)
-							counterparty = self
-							entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, wage=0, buffer=True)
-						else:
-							print('{} to produce {} {} requires {} labour for {} hours.'.format(self.name, qty, item, req_item, required_hours))
-							if qty == 1:
-								if man:
-									choice = input('Do you want to work on the {} over multiple days? (Y/N): '.format(item))
-									if choice.upper() == 'Y':
-										wip_choice = True
-								else:
-									# if 'Individual' in world.items.loc[item, 'producer']: # TODO Is this needed?
+						# if item_type == 'Education':
+						# 	print('{} has not studied enough {} today. Will attempt to study for {} hours.'.format(self.name, req_item, required_hours)) #MAX_HOURS = 12
+						# 	required_hours = min(required_hours, MAX_HOURS)
+						# 	counterparty = self
+						# 	entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, wage=0, buffer=True)
+						# else:
+						print('{} to produce {} {} requires {} labour for {} hours.'.format(self.name, qty, item, req_item, required_hours))
+						if qty == 1:
+							if man:
+								choice = input('Do you want to work on the {} over multiple days? (Y/N): '.format(item))
+								if choice.upper() == 'Y':
 									wip_choice = True
-							if wip_choice:
-								if man:
-									while True:
-										try:
-											required_hours = input('How much to work to create {}? '.format(item))
-											required_hours = int(required_hours)
-										except ValueError:
-											print('"{}" is not a valid entry. Must be a number: \n{}'.format(required_hours))
-											continue
-										if required_hours > orig_required_hours: 
-											print('"{}" is more hours than required: \n{}'.format(required_hours))
-											continue
-										break
-								else:
-									required_hours = WORK_DAY # TODO Or MAX_HOURS?
-									if orig_required_hours < WORK_DAY:
-										required_hours = orig_required_hours
-								if required_hours != orig_required_hours:
-									time_required = True
-							print('{} will attempt to hire {} labour for {} hours.'.format(self.name, req_item, required_hours))
-							if 'Individual' in world.items.loc[item, 'producer'] and qty == 1:
-								counterparty = self
 							else:
-								counterparty = self.worker_counterparty(req_item, man=man)
-							# if counterparty is None:
-							# 	max_qty_possible = 0
-							if isinstance(counterparty, tuple):
-								counterparty, entries = counterparty
-								event += entries
-								if entries:
-									for entry in entries:
-										entry_df = pd.DataFrame([entry], columns=world.cols)
-										ledger.gl = ledger.gl.append(entry_df)
-									self.gl_tmp = ledger.gl
-									# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
-							entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True)
+								# if 'Individual' in world.items.loc[item, 'producer']: # TODO Is this needed?
+								wip_choice = True
+						if wip_choice:
+							if man:
+								while True:
+									try:
+										required_hours = input('How much to work to create {}? '.format(item))
+										required_hours = int(required_hours)
+									except ValueError:
+										print('"{}" is not a valid entry. Must be a number: \n{}'.format(required_hours))
+										continue
+									if required_hours > orig_required_hours: 
+										print('"{}" is more hours than required: \n{}'.format(required_hours))
+										continue
+									break
+							else:
+								required_hours = WORK_DAY # TODO Or MAX_HOURS?
+								if orig_required_hours < WORK_DAY:
+									required_hours = orig_required_hours
+							if required_hours != orig_required_hours:
+								time_required = True
+						print('{} will attempt to hire {} labour for {} hours.'.format(self.name, req_item, required_hours))
+						if 'Individual' in world.items.loc[item, 'producer'] and qty == 1:
+							counterparty = self
+						else:
+							counterparty = self.worker_counterparty(req_item, man=man)
+						# if counterparty is None:
+						# 	max_qty_possible = 0
+						if isinstance(counterparty, tuple):
+							counterparty, entries = counterparty
+							event += entries
+							if entries:
+								for entry in entries:
+									entry_df = pd.DataFrame([entry], columns=world.cols)
+									ledger.gl = ledger.gl.append(entry_df)
+								self.gl_tmp = ledger.gl
+								# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True)
+						# print('Labour Entries: \n{}'.format(entries))
 						if not entries and (not wip_choice or not labour_done):
 							entries = []
 							incomplete = True
 							if wip_choice:
 								time_required = False
-							if item_type != 'Education':
-								#print('World Demand Before: \n{}'.format(world.demand))
-								demand_count = world.demand.loc[world.demand['item_id'] == item].shape[0]
-								print('Demand Count Buckets for {}: {}'.format(item, demand_count))
-								if demand_count:
-									try:
-										qty_possible = max(int(math.floor(labour_done / (req_qty * (1-modifier)))), 1)
-									except ZeroDivisionError:
-										qty_possible = qty
-									qty_poss_bucket = max(int(math.ceil(qty_possible // demand_count)), 1)
-									# TODO Better handle zero remaining when qty_poss_bucket is also 1
-									qty_poss_remain = qty_possible % qty_poss_bucket
-									print('Labour Done for {}: {} | Qty Possible for {}: {}'.format(req_item, labour_done, item, qty_possible))
-									print('Qty Poss. per Bucket: {} | Qty Poss. Remain: {}'.format(qty_poss_bucket, qty_poss_remain))
-									world.demand.loc[world.demand['item_id'] == item, 'qty'] = qty_poss_bucket
-									for i, row in world.demand.iterrows():
-										if row['item_id'] == item:
-											break
-									world.demand.at[i, 'qty'] = qty_poss_bucket + qty_poss_remain
-									world.demand.loc[world.demand['item_id'] == item, 'reason'] = 'labour'
-									world.set_table(world.demand, 'demand')
-									print('{} adjusted {} on demand list due to labour constraint.'.format(self.name, item))
-									#print(time_stamp() + 'World Demand After: \n{}'.format(world.demand))
+							# if item_type != 'Education':
+							#print('World Demand Before: \n{}'.format(world.demand))
+							demand_count = world.demand.loc[world.demand['item_id'] == item].shape[0]
+							print('Demand Count Buckets for {}: {}'.format(item, demand_count))
+							if demand_count:
+								try:
+									qty_possible = max(int(math.floor(labour_done / (req_qty * (1-modifier)))), 1)
+								except ZeroDivisionError:
+									qty_possible = qty
+								qty_poss_bucket = max(int(math.ceil(qty_possible // demand_count)), 1)
+								# TODO Better handle zero remaining when qty_poss_bucket is also 1
+								qty_poss_remain = qty_possible % qty_poss_bucket
+								print('Labour Done for {}: {} | Qty Possible for {}: {}'.format(req_item, labour_done, item, qty_possible))
+								print('Qty Poss. per Bucket: {} | Qty Poss. Remain: {}'.format(qty_poss_bucket, qty_poss_remain))
+								world.demand.loc[world.demand['item_id'] == item, 'qty'] = qty_poss_bucket
+								for i, row in world.demand.iterrows():
+									if row['item_id'] == item:
+										break
+								world.demand.at[i, 'qty'] = qty_poss_bucket + qty_poss_remain
+								world.demand.loc[world.demand['item_id'] == item, 'reason'] = 'labour'
+								world.set_table(world.demand, 'demand')
+								print('{} adjusted {} on demand list due to labour constraint.'.format(self.name, item))
+								#print(time_stamp() + 'World Demand After: \n{}'.format(world.demand))
 							break
+						# elif not entries and item_type == 'Education': # TODO Fix how Study works to use WIP system
+						# 	entries = []
+						# 	incomplete = True
+						# 	if wip_choice:
+						# 		time_required = False
+						elif not entries:
+							entries = []
 						event += entries
 						if entries:
 							for entry in entries:
@@ -2247,30 +2268,30 @@ class Entity:
 							labour_done += hours_done # Same as required_hours
 							counterparty.set_hours(hours_done)
 							hours_remain = orig_required_hours - hours_done
-							if item_type == 'Education':
-								break
+							# if item_type == 'Education':
+							# 	break
+							# print('Partial - Orig Hours: {} | Hours Done: {} | Hours Remain: {} | Partial: {} | Time Required: {}'.format(orig_required_hours, hours_done, hours_remain, partial, time_required))
 						elif not entries and wip_choice:
 							break
+					# print('Partial - Partial: {} | Time Required: {}'.format(partial, time_required))
 					if wip_choice and time_required and partial is None and hours_remain:
-						print('Partial - Orig Hours: {} | Hours Done: {} | Hours Remain: {}'.format(orig_required_hours, hours_done, hours_remain))
-						world.delay = world.delay.append({'txn_id':None, 'delay':1, 'hours':hours_remain, 'job':req_item}, ignore_index=True)
-						world.set_table(world.delay, 'delay')
-					# print('Labour Done End: {}'.format(labour_done))
+						tmp_delay = tmp_delay.append({'txn_id':None, 'delay':1, 'hours':hours_remain, 'job':req_item}, ignore_index=True)
+					# print('Labour Done End: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
 					if not wip_choice:
 						try:
 							max_qty_possible = min(math.floor(labour_done / (req_qty * (1-modifier))), max_qty_possible)
 						except ZeroDivisionError:
 							max_qty_possible = min(max_qty_possible, qty)
-						if item_type == 'Education': # TODO Handle this better
-							max_qty_possible = max(1, max_qty_possible)
+						# if item_type == 'Education': # TODO Handle this better
+						# 	max_qty_possible = max(1, max_qty_possible)
 						# print('Max Qty Possible with {} Labour: {}'.format(req_item, max_qty_possible))
 					else:
-						if labour_done > 0:
+						if labour_done > 0:# and item_type != 'Education':
 							max_qty_possible = 1
 						else:
 							max_qty_possible = 0
 						# print('WIP Choice: {} | Max Qty Possible for {}: {}'.format(wip_choice, item, max_qty_possible))
-
+				# TODO Fix date Education labout messes up: 1986-10-09
 			elif req_item_type == 'Education' and partial is None:
 				if item_type == 'Job' or item_type == 'Labour':
 					# if type(self) == Individual:
@@ -2278,7 +2299,7 @@ class Entity:
 						edu_status = ledger.get_qty(items=req_item, accounts=['Education'])
 						edu_status_wip = ledger.get_qty(items=req_item, accounts=['Studying Education'])
 						req_qty = int(req_qty)
-						print('{} has {} education hours for {} and requires {} to learn {}.'.format(self.name, edu_status, req_item, req_qty, item))
+						print('{} has {} education hours for {} and requires {} to be a {}.'.format(self.name, edu_status, req_item, req_qty, item))
 						if edu_status >= req_qty:
 							print('{} has knowledge of {} to create {}.'.format(self.name, req_item, item))
 						elif edu_status + edu_status_wip >= req_qty:
@@ -2354,12 +2375,16 @@ class Entity:
 				if v: print('Reset hours for {} from {} to {}.'.format(individual.name, individual.hours, orig_hours[individual.name]))
 				individual.hours = orig_hours[individual.name]
 			print('{} cannot produce {} {} at this time. The max possible is: {}\n'.format(self.name, qty, item, max_qty_possible))
-			if max_qty_possible and not man:
+			if max_qty_possible and not man and not wip_choice:
 				event = []
 				# print('tmp_gl before recur for item: {} \n{}'.format(item, self.gl_tmp))
 				self.gl_tmp = pd.DataFrame() # TODO Confirm this is needed
 				incomplete, event_max_possible, time_required, max_qty_possible = self.fulfill(item, max_qty_possible, man=man)
 				event += event_max_possible
+		else:
+			world.delay = tmp_delay # TODO This would not factor in any chnages to world.delay from a lower stack frame but might not matter
+			world.set_table(world.delay, 'delay')
+			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
 		self.gl_tmp = pd.DataFrame()
 		return incomplete, event, time_required, max_qty_possible
 
@@ -3209,7 +3234,7 @@ class Entity:
 			qty_existance = 0
 			# Filter for item and add up all qtys to support multiple entries
 			for index, demand_row in world.demand.iterrows():
-				if item_type == 'Education':
+				if item_type == 'Education': # TODO Maybe add Service also
 					if demand_row['entity_id'] == self.entity_id: # TODO Could filter df for entity_id first
 						if demand_row['item_id'] == item:
 							qty = demand_row['qty']
@@ -3236,13 +3261,13 @@ class Entity:
 				outcome, time_required = self.produce(item, qty)
 			if v: print('Second Demand Check Outcome: {} \n{}'.format(time_required, outcome))
 			if outcome:
-				if item_type == 'Education':
-					edu_hours = int(math.ceil(qty - MAX_HOURS))
-					#print('Edu Hours: {} | {}'.format(edu_hours, index))
-					if edu_hours > 0:
-						world.demand.at[index, 'qty'] = edu_hours
-						world.set_table(world.demand, 'demand')
-					#print('Demand After: \n{}'.format(world.demand))
+				# if item_type == 'Education':
+				# 	edu_hours = int(math.ceil(qty - MAX_HOURS))
+				# 	#print('Edu Hours: {} | {}'.format(edu_hours, index))
+				# 	if edu_hours > 0:
+				# 		world.demand.at[index, 'qty'] = edu_hours
+				# 		world.set_table(world.demand, 'demand')
+				# 	#print('Demand After: \n{}'.format(world.demand))
 				if item_type == 'Technology':
 					return
 				else:
@@ -3494,7 +3519,7 @@ class Entity:
 			print('No workers available to do {} job for {} hours.'.format(job, labour_hours))
 			return
 		#print('Labour Counterparty: {}'.format(counterparty.name))
-		if job == 'Study':
+		if job == 'Study': # TODO Fix how Study works to use WIP system
 			desc_exp = 'Record study hours'
 			desc_rev = 'Record study hours'
 		if wage is None:
@@ -3511,7 +3536,7 @@ class Entity:
 				accru_wages_event += [wages_exp_entry, wages_rev_entry]
 			else:
 				if not incomplete: # TODO This is not needed
-					print('{} does not have enough time left to do {} job for {} hours.'.format(counterparty.name, job, labour_hours))
+					print('{} does not have enough time left to do {} job for {} hours. Hours: {}'.format(counterparty.name, job, labour_hours, counterparty.hours))
 				else: # TODO This is not needed
 					print('{} cannot fulfill the requirements to allow {} to work.'.format(self.name, job))
 				return
@@ -4262,6 +4287,29 @@ class Entity:
 				entities = individual_ids + corp_ids + bank_ids
 			else:
 				entities = world.gov.get(computers=False, ids=True, envs=False)
+			while True:
+				try:
+					selection = input('Enter an entity ID number: ')
+					if selection == '':
+						return
+					selection = int(selection)
+				except ValueError:
+					print('"{}" is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(selection, entities))
+					continue
+				if selection not in entities:
+					print('"{}" is not a valid entity ID selection. Must be one of the following numbers: \n{}'.format(selection, entities))
+					continue
+				world.selection = factory.get_by_id(selection)
+				break
+			return world.selection
+		elif command.lower() == 'superselect':
+			entities = factory.get()
+			for entity in entities:
+				if isinstance(entity, Individual):
+					print('{} Hours: {}'.format(entity, entity.hours))
+				else:
+					print('{}'.format(entity))
+			print()
 			while True:
 				try:
 					selection = input('Enter an entity ID number: ')
@@ -5035,6 +5083,8 @@ class Entity:
 				'repay': 'Repay cash borrowed from the bank.',
 				'adjrate': 'Adjust central bank interest rate.',
 				'price': 'Set the price of items.',
+				'user': 'Toggle selected entity between user or computer control.',
+				'superselect': 'Select any entity, including computer users.',
 				'acctmore': 'View more commands for the accounting system.',
 				'exit': 'Exit out of the sim.'
 			}
@@ -5096,7 +5146,8 @@ class Individual(Entity):
 		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, hours, needs, max_need, decay_rate, threshold, current_need, str(parents), user, None, None, items) ] # TODO Maybe add dead or active bool field
 		# print('Entity Data: {}'.format(entity_data))
 
-		if not os.path.exists('db/' + args.database) or args.reset:
+		# if not os.path.exists('db/' + args.database) or args.reset:
+		if new_db or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
 			else:
@@ -5618,7 +5669,8 @@ class Environment(Entity):
 	def __init__(self, name, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, None) ] # Note: The 2nd to 5th values are for another program
-		if not os.path.exists('db/' + args.database) or args.reset:
+		# if not os.path.exists('db/' + args.database) or args.reset:
+		if new_db or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
 			else:
@@ -5657,7 +5709,8 @@ class Corporation(Organization):
 	def __init__(self, name, items, government, auth_shares=1000000, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, None, None, None, None, None, None, None, None, auth_shares, None, items) ] # Note: The 2nd to 5th values are for another program
-		if not os.path.exists('db/' + args.database) or args.reset:
+		# if not os.path.exists('db/' + args.database) or args.reset:
+		if new_db or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
 			else:
@@ -5774,7 +5827,8 @@ class Government(Organization):
 	def __init__(self, name, items=None, user=False, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, user, None, None, items) ] # Note: The 2nd to 5th values are for another program
-		if not os.path.exists('db/' + args.database) or args.reset:
+		# if not os.path.exists('db/' + args.database) or args.reset:
+		if new_db or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
 			else:
@@ -5799,7 +5853,8 @@ class Government(Organization):
 		else:
 			self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
 		print('\nCreate Government: {} | User: {} | entity_id: {}'.format(self.name, self.user, self.entity_id))
-		if not os.path.exists('db/' + args.database) or args.reset:
+		# if not os.path.exists('db/' + args.database) or args.reset:
+		if new_db or args.reset:
 			self.bank = self.create_bank()
 
 	def get(self, typ=None, users=True, computers=True, ids=False, envs=True):
@@ -5837,7 +5892,8 @@ class Governmental(Organization):
 	def __init__(self, name, government, items=None, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
-		if not os.path.exists('db/' + args.database) or args.reset:
+		# if not os.path.exists('db/' + args.database) or args.reset:
+		if new_db or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
 			else:
@@ -5870,7 +5926,8 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 	def __init__(self, name, government, interest_rate=None, items=None, user=None, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, user, None, interest_rate, items) ] # Note: The 2nd to 5th values are for another program
-		if not os.path.exists('db/' + args.database) or args.reset:
+		# if not os.path.exists('db/' + args.database) or args.reset:
+		if new_db or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
 			else:
@@ -5925,7 +5982,8 @@ class NonProfit(Organization):
 	def __init__(self, name, items, government, auth_qty=0, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
-		if not os.path.exists('db/' + args.database) or args.reset:
+		# if not os.path.exists('db/' + args.database) or args.reset:
+		if new_db or args.reset:
 			if entity_id is None:
 				self.entity_id = accts.add_entity(entity_data)
 			else:
@@ -6118,6 +6176,11 @@ if __name__ == '__main__':
 		print(time_stamp() + 'Econ Sim has no end date and will end if everyone dies.')
 	else:
 		print(time_stamp() + 'Econ Sim has an end date of {} or if everyone dies.'.format(END_DATE))
+	print(time_stamp() + 'Database file: {}'.format(args.database))
+	new_db = True
+	# print('Existing DB Check: {}'.format(os.path.exists('db/' + args.database)))
+	if os.path.exists('db/' + args.database):
+		new_db = False
 	if args.reset:
 		delete_db(args.database)
 	accts = acct.Accounts(args.database, econ_accts)
