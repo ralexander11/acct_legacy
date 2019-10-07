@@ -2152,6 +2152,7 @@ class Entity:
 							# print('Partial Required Hours: {}'.format(labour_required))
 					wip_choice = False
 					while labour_done < labour_required:
+						print('labour_done: {} | labour_required: {} | wip_choice: {}'.format(labour_done, labour_required, wip_choice))
 						required_hours = labour_required - labour_done
 						orig_required_hours = required_hours
 						if item_type == 'Education':
@@ -2205,10 +2206,10 @@ class Entity:
 									self.gl_tmp = ledger.gl
 									# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 							entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True)
-						if not entries:
+						if not entries and (not wip_choice or not labour_done):
 							entries = []
 							incomplete = True
-							if wip_choice: # TODO Not sure if this needed
+							if wip_choice:
 								time_required = False
 							if item_type != 'Education':
 								#print('World Demand Before: \n{}'.format(world.demand))
@@ -2246,12 +2247,14 @@ class Entity:
 							labour_done += hours_done # Same as required_hours
 							counterparty.set_hours(hours_done)
 							hours_remain = orig_required_hours - hours_done
-							if wip_choice and time_required and partial is None and hours_remain:
-								# print('Partial - Orig Hours: {} | Hours Done: {}'.format(orig_required_hours, hours_done))
-								world.delay = world.delay.append({'txn_id':None, 'delay':1, 'hours':hours_remain, 'job':req_item}, ignore_index=True)
-								world.set_table(world.delay, 'delay')
-							if item_type == 'Education' or wip_choice:
+							if item_type == 'Education':
 								break
+						elif not entries and wip_choice:
+							break
+					if wip_choice and time_required and partial is None and hours_remain:
+						print('Partial - Orig Hours: {} | Hours Done: {} | Hours Remain: {}'.format(orig_required_hours, hours_done, hours_remain))
+						world.delay = world.delay.append({'txn_id':None, 'delay':1, 'hours':hours_remain, 'job':req_item}, ignore_index=True)
+						world.set_table(world.delay, 'delay')
 					# print('Labour Done End: {}'.format(labour_done))
 					if not wip_choice:
 						try:
@@ -2715,7 +2718,7 @@ class Entity:
 				if check:
 					continue
 				delay = 0
-				# partial_complete = False
+				hours = None
 				partial_index = None
 				if not world.delay.empty:
 					try:
@@ -3224,7 +3227,14 @@ class Entity:
 			if 'existance' in item_demand['reason'].values:
 				self.adj_price(item, qty, direction='up')
 			outcome, time_required = self.produce(item, qty)
-			if v: print('Outcome: {} \n{}'.format(time_required, outcome))
+			if v: print('Demand Check Outcome: {} \n{}'.format(time_required, outcome))
+			if to_drop:
+				index = to_drop[-1]
+			if not outcome and world.demand.loc[index, 'reason'] == 'Labour':
+				print('Retrying demand check of {} for qty of 1 (instead of {}) due to labour constraint. ({}) {}'.format(item, qty, to_drop[0], world.demand.loc[index, 'reason']))
+				qty = 1
+				outcome, time_required = self.produce(item, qty)
+			if v: print('Second Demand Check Outcome: {} \n{}'.format(time_required, outcome))
 			if outcome:
 				if item_type == 'Education':
 					edu_hours = int(math.ceil(qty - MAX_HOURS))
@@ -3287,33 +3297,36 @@ class Entity:
 								if result:
 									break
 
-	def claim_land(self, qty, price=0, item='Land', counterparty=None, buffer=False): # QTY in square meters
+	def claim_land(self, qty, price=0, item='Land', counterparty=None, buffer=False): # Unit qty in square meters
 		if qty <= 0:
 			return
 		if counterparty is None:
 			counterparty = world.env.entity_id
 		print('{} claiming {} {} from entity ID: {}.'.format(self.name, qty, item, counterparty))
-		# if args.users: # TODO Add support for non-user claim time requirement
-		time_required = qty / EXPLORE_TIME
+		time_needed = qty / EXPLORE_TIME
 		if isinstance(self, Corporation):
-			largest_shareholder = self.list_shareholders(largest=True)
-			if largest_shareholder is None:
+			largest_shareholder_id = self.list_shareholders(largest=True)
+			if largest_shareholder_id is None:
 				return
-			largest_shareholder = factory.get_by_id(largest_shareholder)
-			if largest_shareholder.hours < time_required:
-				print('{} does not have enough time to claim {} units of {}.'.format(largest_shareholder.name, qty, item))
-				return
-			else:
-				largest_shareholder.set_hours(time_required)
+			largest_shareholder = factory.get_by_id(largest_shareholder_id)
+			entity = largest_shareholder
+			print('{} will attempt to claim {} {} on behalf of {}. Hours: {}'.format(entity.name, qty, item, self.name, entity.hours))
 		else:
-			if self.hours < time_required:
-				print('{} does not have enough time to claim {} units of {}.'.format(self.name, qty, item))
+			entity = self
+		if entity.hours < time_needed:
+			orig_qty = qty
+			qty = math.floor(entity.hours / (1 / EXPLORE_TIME))
+			if qty == 0:
+				print('{} lacks time to claim {} units of {}. Can claim {} units with {} hours time.'.format(entity.name, orig_qty, item, qty, entity.hours))
 				return
-			else:
-				self.set_hours(time_required)
+			print('{} lacks time to claim {} units of {}. But can claim {} units with {} hours time instead.'.format(entity.name, orig_qty, item, qty, entity.hours))
+			time_needed = entity.hours
+		orig_hours = entity.hours
+		entity.set_hours(time_needed)
 		# TODO Decide if fulfill() is required when claiming land from other entity
 		incomplete, claim_land_event, time_required, max_qty_possible = self.fulfill(item, qty)
 		if incomplete:
+			entity.set_hours(-orig_hours)
 			return
 		claim_land_entry = []
 		yield_land_entry = []
@@ -3340,7 +3353,7 @@ class Entity:
 			# if not claim_land_event:
 			# 	return
 			ledger.journal_entry(claim_land_event)
-			return True
+			return True # TODO Make this return claim_land_event
 		else:
 			unused_land = ledger.get_qty(items=item, accounts=['Land'])
 			if unused_land < qty:
