@@ -321,7 +321,6 @@ class World:
 		print()
 		self.cols = ledger.gl.columns.values.tolist()
 		print(self.cols) # For verbosity
-		print(self.delay)
 
 	def clear_tables(self, tables=None):
 		if tables is None:
@@ -616,7 +615,7 @@ class World:
 		print('Industry: {}'.format(len(factory.registry[Corporation])))
 		# self.check_end()
 		for individual in factory.get(Individual):
-				individual.reset_hours()
+			individual.reset_hours()
 		self.prices = self.prices.sort_values(['entity_id'], na_position='first')
 		with pd.option_context('display.max_rows', None):
 			print('\nPrices: \n{}\n'.format(self.prices))
@@ -1626,6 +1625,9 @@ class Entity:
 					max_qty_possible = min(math.floor(land / (req_qty * (1-modifier))), max_qty_possible)
 				except ZeroDivisionError:
 					max_qty_possible = min(max_qty_possible, qty)
+				if max_qty_possible < qty: # TODO Handle in similar way for commodities and other item types
+					incomplete = True
+				print('Land Max Qty Possible: {}'.format(max_qty_possible))
 				if (time_required or item_type == 'Buildings' or item_type == 'Equipment') and not incomplete: # TODO Handle land in use during one tick
 					entries = self.in_use(req_item, req_qty * (1-modifier) * qty, world.get_price(req_item, self.entity_id), 'Land', buffer=True)
 					#print('Land In Use Entries: \n{}'.format(entries))
@@ -1712,6 +1714,7 @@ class Entity:
 					max_qty_possible = min(math.floor((building * capacity) / (req_qty * (1-modifier))), max_qty_possible)
 				except ZeroDivisionError:
 					max_qty_possible = min(max_qty_possible, qty)
+				print('Buildings Max Qty Possible: {}'.format(max_qty_possible))
 				qty_to_use = 0
 				if building != 0:
 					qty_to_use = int(min(building, int(math.ceil((qty * (1-modifier) * req_qty) / (building * capacity)))))
@@ -1817,6 +1820,7 @@ class Entity:
 					max_qty_possible = min(math.floor((equip_qty * capacity) / (req_qty * (1-modifier))), max_qty_possible)
 				except ZeroDivisionError:
 					max_qty_possible = min(max_qty_possible, qty)
+				print('Equipment Max Qty Possible: {}'.format(max_qty_possible))
 				qty_to_use = 0
 				if equip_qty != 0:
 					qty_to_use = int(min(equip_qty, int(math.ceil((qty * (1-modifier) * req_qty) / (equip_qty * capacity)))))
@@ -1909,6 +1913,7 @@ class Entity:
 					max_qty_possible = min(math.floor(component_qty / (req_qty * (1-modifier))), max_qty_possible)
 				except ZeroDivisionError:
 					max_qty_possible = min(max_qty_possible, qty)
+				print('Components Max Qty Possible: {}'.format(max_qty_possible))
 				if not check:
 					entries = self.consume(req_item, qty=req_qty * (1-modifier) * qty, buffer=True)
 					if not entries:
@@ -2121,7 +2126,7 @@ class Entity:
 							max_qty_possible = min(math.floor((workers * capacity) / req_qty), max_qty_possible)
 						except ZeroDivisionError:
 							max_qty_possible = min(max_qty_possible, qty)
-						# print('Job Max Qty Possible: {}'.format(max_qty_possible))
+						print('Job Max Qty Possible: {}'.format(max_qty_possible))
 
 			elif req_item_type == 'Labour':
 				if item_type == 'Job' or item_type == 'Labour':
@@ -2149,6 +2154,7 @@ class Entity:
 								ledger.gl = ledger.gl.append(entry_df)
 							self.gl_tmp = ledger.gl
 							# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						print('{} used {} and gained {} labour productivity.'.format(self.name, items_info['item_id'].iloc[0], modifier))
 					else:
 						modifier = 0
 					ledger.set_start_date(str(world.now))
@@ -2164,6 +2170,7 @@ class Entity:
 						if req_item == job:
 							labour_required = world.delay.loc[partial, 'hours']
 							# print('Partial Required Hours: {}'.format(labour_required))
+					orig_labour_required = labour_required
 					while labour_done < labour_required:
 						print('Labour Done: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
 						required_hours = labour_required - labour_done
@@ -2197,11 +2204,11 @@ class Entity:
 										continue
 									break
 							else:
-								required_hours = WORK_DAY # TODO Or MAX_HOURS?
-								if orig_required_hours < WORK_DAY:
-									required_hours = orig_required_hours
-							if required_hours != orig_required_hours:
-								time_required = True
+								required_hours = min(required_hours, WORK_DAY) # TODO Or MAX_HOURS?
+								# if orig_required_hours < WORK_DAY:
+								# 	required_hours = orig_required_hours
+							# if required_hours != orig_labour_required:
+							time_required = True
 						print('{} will attempt to hire {} labour for {} hours.'.format(self.name, req_item, required_hours))
 						if 'Individual' in world.items.loc[item, 'producer'] and qty == 1:
 							counterparty = self
@@ -2272,7 +2279,12 @@ class Entity:
 							# 	break
 							# print('Partial - Orig Hours: {} | Hours Done: {} | Hours Remain: {} | Partial: {} | Time Required: {}'.format(orig_required_hours, hours_done, hours_remain, partial, time_required))
 						elif not entries and wip_choice:
+							hours_remain = orig_labour_required - labour_done
+							if not hours_remain:
+								time_required = False
 							break
+						else:
+							hours_remain = orig_labour_required - labour_done
 					# print('Partial - Partial: {} | Time Required: {}'.format(partial, time_required))
 					if wip_choice and time_required and partial is None and hours_remain:
 						tmp_delay = tmp_delay.append({'txn_id':None, 'delay':1, 'hours':hours_remain, 'job':req_item}, ignore_index=True)
@@ -2290,8 +2302,8 @@ class Entity:
 							max_qty_possible = 1
 						else:
 							max_qty_possible = 0
-						# print('WIP Choice: {} | Max Qty Possible for {}: {}'.format(wip_choice, item, max_qty_possible))
-				# TODO Fix date Education labout messes up: 1986-10-09
+					print('Labour Max Qty Possible for {}: {} | WIP Choice: {}'.format(item, max_qty_possible, wip_choice))
+
 			elif req_item_type == 'Education' and partial is None:
 				if item_type == 'Job' or item_type == 'Labour':
 					# if type(self) == Individual:
@@ -2375,10 +2387,15 @@ class Entity:
 				if v: print('Reset hours for {} from {} to {}.'.format(individual.name, individual.hours, orig_hours[individual.name]))
 				individual.hours = orig_hours[individual.name]
 			print('{} cannot produce {} {} at this time. The max possible is: {}\n'.format(self.name, qty, item, max_qty_possible))
+			print('Hours reset:')
+			for individual in world.gov.get(Individual):
+				print('{} Hours: {}'.format(individual.name, individual.hours))
+			print()
 			if max_qty_possible and not man and not wip_choice:
 				event = []
 				# print('tmp_gl before recur for item: {} \n{}'.format(item, self.gl_tmp))
 				self.gl_tmp = pd.DataFrame() # TODO Confirm this is needed
+				print('{} will try again to produce {} but for {} units.'.format(self.name, item, max_qty_possible))
 				incomplete, event_max_possible, time_required, max_qty_possible = self.fulfill(item, max_qty_possible, man=man)
 				event += event_max_possible
 		else:
@@ -2594,8 +2611,8 @@ class Entity:
 			world.set_table(world.demand, 'demand')
 			print('{} exists on the demand table exactly for {} will drop index items {}.'.format(item, self.name, to_drop))
 		to_drop = []
-		if orig_qty != qty and qty != 0:
-			print('World Demand: \n{}'.format(world.demand))
+		# if orig_qty != qty and qty != 0:
+		# 	print('World Demand: \n{}'.format(world.demand))
 		for index, demand_item in world.demand.iterrows():
 			if qty_distribute == 0:
 				break
@@ -2611,7 +2628,8 @@ class Entity:
 			world.set_table(world.demand, 'demand')
 			print('{} exists on the demand table will drop index items {}.'.format(item, to_drop))
 		if orig_qty != qty and qty != 0:
-			print('Partially Fulfilled Qty for: {} | Orig Qty: {} | Qty Produced: {} \nWorld Demand Changed: \n{}'.format(item, orig_qty, qty, world.demand))
+			print('Partially Fulfilled Qty for: {} | Orig Qty: {} | Qty Produced: {}'.format(item, orig_qty, qty))
+			# print('World Demand Changed: \n{}'.format(world.demand))
 		if buffer:
 			return produce_event, time_required
 		ledger.journal_entry(produce_event)
@@ -2633,7 +2651,7 @@ class Entity:
 			self.set_price(item, qty)
 		else:
 			self.set_price(item, qty, at_cost=True)
-		return True, time_required
+		return qty, time_required # TODO Return the qty instead of True
 
 	def set_produce(self, item, qty, freq=0):
 		# TODO Maybe make multindex with item_id and entity_id
@@ -3261,6 +3279,7 @@ class Entity:
 				outcome, time_required = self.produce(item, qty)
 			if v: print('Second Demand Check Outcome: {} \n{}'.format(time_required, outcome))
 			if outcome:
+				qty = outcome
 				# if item_type == 'Education':
 				# 	edu_hours = int(math.ceil(qty - MAX_HOURS))
 				# 	#print('Edu Hours: {} | {}'.format(edu_hours, index))
@@ -3373,11 +3392,12 @@ class Entity:
 			if claim_land_entry and yield_land_entry:
 				claim_land_event += [yield_land_entry, claim_land_entry]
 			if buffer:
-				print('{} claims {} square meters of {}.'.format(self.name, qty, item))
+				print('{} claims {} square meters of {} in {} hours.'.format(self.name, qty, item, time_needed))
 				return claim_land_event
 			# if not claim_land_event:
 			# 	return
 			ledger.journal_entry(claim_land_event)
+			print('{} claims {} square meters of {} in {} hours.'.format(self.name, qty, item, time_needed))
 			return True # TODO Make this return claim_land_event
 		else:
 			unused_land = ledger.get_qty(items=item, accounts=['Land'])
@@ -5588,6 +5608,10 @@ class Individual(Entity):
 					#print('QTY Held: {}'.format(qty_held))
 					if qty_held < qty_wanted:
 						outcome, time_required = self.produce(item_choosen, qty_wanted - qty_held)
+						if not outcome:
+							if (qty_wanted - qty_held) != 1:
+								print('Trying to address {} need again for 1 qty of {}.'.format(need, item_choosen))
+								outcome, time_required = self.produce(item_choosen, qty=1)
 						ledger.set_entity(self.entity_id)
 						qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 						ledger.reset()
