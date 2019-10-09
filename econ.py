@@ -1626,6 +1626,9 @@ class Entity:
 					max_qty_possible = min(math.floor(land / (req_qty * (1-modifier))), max_qty_possible)
 				except ZeroDivisionError:
 					max_qty_possible = min(max_qty_possible, qty)
+				if max_qty_possible < qty: # TODO Handle in similar way for commodities and other item types
+					incomplete = True
+				print('Land Max Qty Possible: {}'.format(max_qty_possible))
 				if (time_required or item_type == 'Buildings' or item_type == 'Equipment') and not incomplete: # TODO Handle land in use during one tick
 					entries = self.in_use(req_item, req_qty * (1-modifier) * qty, world.get_price(req_item, self.entity_id), 'Land', buffer=True)
 					#print('Land In Use Entries: \n{}'.format(entries))
@@ -1712,6 +1715,7 @@ class Entity:
 					max_qty_possible = min(math.floor((building * capacity) / (req_qty * (1-modifier))), max_qty_possible)
 				except ZeroDivisionError:
 					max_qty_possible = min(max_qty_possible, qty)
+				print('Buildings Max Qty Possible: {}'.format(max_qty_possible))
 				qty_to_use = 0
 				if building != 0:
 					qty_to_use = int(min(building, int(math.ceil((qty * (1-modifier) * req_qty) / (building * capacity)))))
@@ -1817,6 +1821,7 @@ class Entity:
 					max_qty_possible = min(math.floor((equip_qty * capacity) / (req_qty * (1-modifier))), max_qty_possible)
 				except ZeroDivisionError:
 					max_qty_possible = min(max_qty_possible, qty)
+				print('Equipment Max Qty Possible: {}'.format(max_qty_possible))
 				qty_to_use = 0
 				if equip_qty != 0:
 					qty_to_use = int(min(equip_qty, int(math.ceil((qty * (1-modifier) * req_qty) / (equip_qty * capacity)))))
@@ -1909,6 +1914,7 @@ class Entity:
 					max_qty_possible = min(math.floor(component_qty / (req_qty * (1-modifier))), max_qty_possible)
 				except ZeroDivisionError:
 					max_qty_possible = min(max_qty_possible, qty)
+				print('Components Max Qty Possible: {}'.format(max_qty_possible))
 				if not check:
 					entries = self.consume(req_item, qty=req_qty * (1-modifier) * qty, buffer=True)
 					if not entries:
@@ -2121,7 +2127,7 @@ class Entity:
 							max_qty_possible = min(math.floor((workers * capacity) / req_qty), max_qty_possible)
 						except ZeroDivisionError:
 							max_qty_possible = min(max_qty_possible, qty)
-						# print('Job Max Qty Possible: {}'.format(max_qty_possible))
+						print('Job Max Qty Possible: {}'.format(max_qty_possible))
 
 			elif req_item_type == 'Labour':
 				if item_type == 'Job' or item_type == 'Labour':
@@ -2290,7 +2296,8 @@ class Entity:
 							max_qty_possible = 1
 						else:
 							max_qty_possible = 0
-						# print('WIP Choice: {} | Max Qty Possible for {}: {}'.format(wip_choice, item, max_qty_possible))
+					print('Labour Max Qty Possible: {}'.format(max_qty_possible))
+					print('Labour Max Qty Possible for {}: {} | WIP Choice: {}'.format(item, max_qty_possible, wip_choice))
 				# TODO Fix date Education labout messes up: 1986-10-09
 			elif req_item_type == 'Education' and partial is None:
 				if item_type == 'Job' or item_type == 'Labour':
@@ -2633,7 +2640,7 @@ class Entity:
 			self.set_price(item, qty)
 		else:
 			self.set_price(item, qty, at_cost=True)
-		return True, time_required
+		return qty, time_required # TODO Return the qty instead of True
 
 	def set_produce(self, item, qty, freq=0):
 		# TODO Maybe make multindex with item_id and entity_id
@@ -3261,6 +3268,7 @@ class Entity:
 				outcome, time_required = self.produce(item, qty)
 			if v: print('Second Demand Check Outcome: {} \n{}'.format(time_required, outcome))
 			if outcome:
+				qty = outcome
 				# if item_type == 'Education':
 				# 	edu_hours = int(math.ceil(qty - MAX_HOURS))
 				# 	#print('Edu Hours: {} | {}'.format(edu_hours, index))
