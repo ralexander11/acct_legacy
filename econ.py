@@ -27,7 +27,7 @@ WORK_DAY = 8
 INIT_PRICE = 10.0
 INIT_CAPITAL = 2000
 EXPLORE_TIME = 400
-TWO_PAY_PERIODS = 32
+PAY_PERIODS = 32
 GESTATION = 2
 
 def time_stamp(offset=0):
@@ -134,6 +134,7 @@ econ_accts = [
 class World:
 	def __init__(self, factory, players=1, population=2):
 		# pygame.init()
+		self.paused = False
 		self.factory = factory
 		# print('New db: {}'.format(new_db))
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -200,7 +201,7 @@ class World:
 			self.hist_prices = pd.DataFrame(tmp_prices, columns=['date','entity_id','price'])
 			self.set_table(self.hist_prices, 'hist_prices')
 			# Track historical demand
-			tmp_demand = self.demand.reset_index()
+			tmp_demand = self.demand.copy(deep=True)#.reset_index()
 			tmp_demand['date_saved'] = self.now
 			self.hist_demand = pd.DataFrame(tmp_demand, columns=['date_saved','date','entity_id','item_id','qty','reason'])
 			self.set_table(self.hist_demand, 'hist_demand')
@@ -652,7 +653,7 @@ class World:
 			t3_5_end = time.perf_counter()
 			print(time_stamp() + '3.5: Sal check took {:,.2f} sec for {}.'.format((t3_5_end - t3_5_start), entity.name, entity.entity_id))
 			t3_6_start = time.perf_counter()
-			entity.pay_wages()
+			entity.pay_wages(v=True)
 			t3_6_end = time.perf_counter()
 			print(time_stamp() + '3.6: Wag check took {:,.2f} sec for {}.'.format((t3_6_end - t3_6_start), entity.name, entity.entity_id))
 		t3_end = time.perf_counter()
@@ -661,7 +662,7 @@ class World:
 
 		# User mode
 		user_check = any([entity for entity in factory.get() if entity.user])
-		if user_check:
+		if user_check or self.paused:
 			for player in factory.get(Government):
 				indv_player_check = any([e.user for e in player.get(Individual)])
 				if not player.user and not indv_player_check:
@@ -698,6 +699,8 @@ class World:
 					if result == 'end':# and world.gov.user:
 						break
 			ledger.default = None
+			if self.paused:
+				self.paused = not self.paused
 			print()
 
 		# Computer mode
@@ -878,7 +881,7 @@ class World:
 		self.hist_prices = self.hist_prices.dropna()
 		self.set_table(self.hist_prices, 'hist_prices')
 		# Track historical demand
-		tmp_demand = self.demand.reset_index()
+		tmp_demand = self.demand.copy(deep=True)#.reset_index()
 		tmp_demand['date_saved'] = self.now
 		self.hist_demand = pd.concat([self.hist_demand, tmp_demand])
 		self.set_table(self.hist_demand, 'hist_demand')
@@ -904,19 +907,19 @@ class World:
 		self.ticktock(v=False) # TODO User
 
 	def handle_events(self):
-		paused = False
+		self.paused = False
 		while True:
 			# events = pygame.event.get()
 			for event in events:
 				print('Event: {} | Type: {}'.format(event, event.type))
 				if event.type == KEYDOWN:
 					if event.key == K_SPACE:
-						paused = not paused
+						self.paused = not self.paused
 					elif event.key == K_ESCAPE:
 						exit()
-			if paused:
-				# pygame.time.wait(60)
-				time.sleep(0.1)
+			if self.paused:
+				# time.sleep(0.1)
+				return
 			else:
 				return
 
@@ -1073,7 +1076,7 @@ class Entity:
 		#print('Cash: {}'.format(cash))
 		ledger.set_entity(counterparty.entity_id)
 		qty_avail = ledger.get_qty(items=item, accounts=[acct_sell])
-		print('Qty Available to purchase from {}: {}'.format(counterparty.name, counterparty.entity_id, qty_avail))
+		print('Qty Available to purchase from {}: {}'.format(counterparty.name, qty_avail))
 		ledger.reset()
 		if cash >= (qty * price):
 			#print('Transact Item Type: {}'.format(item_type))
@@ -1098,7 +1101,7 @@ class Entity:
 					return purchase_event, cost
 				else:
 					if item_type is None:
-						print('{} transacted with {} for {} {} shares.'.format(self.name, counterparty.name, counterparty.entity_id, qty, item))
+						print('{} transacted with {} for {} {} shares.'.format(self.name, counterparty.name, qty, item))
 					sell_entry = [ ledger.get_event(), counterparty.entity_id, world.now, desc_sell, item, price, qty, 'Cash', acct_sell, price * qty ]
 					purchase_entry = [ ledger.get_event(), self.entity_id, world.now, desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
 					purchase_event += [sell_entry, purchase_entry]
@@ -1150,7 +1153,7 @@ class Entity:
 				print('No {} to offer {} service. Will add it to the demand table for {}.'.format(', '.join(producers), item, self.name))
 				self.item_demanded(item, qty)
 				return
-			print('{} choose {} for the {} service counterparty.'.format(self.name, counterparty.name, counterparty.entity_id, item))
+			print('{} choose {} for the {} service counterparty.'.format(self.name, counterparty.name, item))
 			acct_buy = 'Service Expense'
 			acct_sell = 'Service Revenue'
 		ledger.reset()
@@ -1519,7 +1522,7 @@ class Entity:
 		event = []
 		wip_choice = False
 		time_required = False
-		tmp_delay = world.delay
+		tmp_delay = world.delay.copy(deep=True)
 		orig_hours = world.get_hours()
 		if v: print('Orig Hours: \n{}'.format(orig_hours))
 		item_info = world.items.loc[item]
@@ -1558,6 +1561,7 @@ class Entity:
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
 					entries = self.use_item(items_info['item_id'].iloc[0], buffer=True)
+					ledger.set_entity(self.entity_id)
 					if not entries:
 						entries = []
 						# incomplete = True # TODO This should not fail the entire production
@@ -1647,6 +1651,7 @@ class Entity:
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
 					entries = self.use_item(items_info['item_id'].iloc[0], buffer=True)
+					ledger.set_entity(self.entity_id)
 					if not entries:
 						entries = []
 						# incomplete = True
@@ -1753,6 +1758,7 @@ class Entity:
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
 					entries = self.use_item(items_info['item_id'].iloc[0], buffer=True)
+					ledger.set_entity(self.entity_id)
 					if not entries:
 						entries = []
 						# incomplete = True
@@ -1858,6 +1864,7 @@ class Entity:
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
 					entries = self.use_item(items_info['item_id'].iloc[0], buffer=True)
+					ledger.set_entity(self.entity_id)
 					if not entries:
 						entries = []
 						# incomplete = True
@@ -1932,6 +1939,7 @@ class Entity:
 				ledger.set_entity(self.entity_id)
 				if modifier is not None:
 					entries = self.use_item(items_info['item_id'].iloc[0], buffer=True)
+					ledger.set_entity(self.entity_id)
 					if not entries:
 						entries = []
 						# incomplete = True
@@ -2141,6 +2149,7 @@ class Entity:
 					ledger.set_entity(self.entity_id)
 					if modifier is not None:
 						entries = self.use_item(items_info['item_id'].iloc[0], buffer=True)
+						ledger.set_entity(self.entity_id)
 						if not entries:
 							entries = []
 							# incomplete = True
@@ -2154,25 +2163,24 @@ class Entity:
 								ledger.gl = ledger.gl.append(entry_df)
 							self.gl_tmp = ledger.gl
 							# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
-						print('{} used {} and gained {} labour productivity.'.format(self.name, items_info['item_id'].iloc[0], modifier))
 					else:
 						modifier = 0
 					ledger.set_start_date(str(world.now))
-					labour_done = ledger.get_qty(items=req_item, accounts=['Wages Expense'])
+					labour_done = ledger.get_qty(items=req_item, accounts=['Wages Expense'])#, v=True)
 					ledger.reset()
 					ledger.set_entity(self.entity_id)
-					print('{} requires {} {} labour to produce {} {} and has done: {}'.format(self.name, req_qty * (1-modifier) * qty, req_item, qty, item, labour_done))
 					labour_required = (req_qty * (1-modifier) * qty)
+					print('{} requires {} {} labour to produce {} {} and has done: {}'.format(self.name, labour_required, req_item, qty, item, labour_done))
 					# Labourer does the amount they can, and get that value from the entries. Then add to the labour hours done and try again
 					if partial is not None:
-						# print('Partial Labour: {}'.format(partial))
+						print('Partial Labour: {}'.format(partial))
 						job = world.delay.loc[partial, 'job']
 						if req_item == job:
 							labour_required = world.delay.loc[partial, 'hours']
-							# print('Partial Required Hours: {}'.format(labour_required))
-					orig_labour_required = labour_required
+							print('Partial Required Hours: {}'.format(labour_required))
+					orig_labour_required = labour_required # TODO This might not be needed
 					while labour_done < labour_required:
-						print('Labour Done: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
+						print('Labour Done Cycle: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
 						required_hours = labour_required - labour_done
 						orig_required_hours = required_hours
 						# if item_type == 'Education':
@@ -2227,6 +2235,7 @@ class Entity:
 								# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 						entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True)
 						# print('Labour Entries: \n{}'.format(entries))
+						print('WIP Choice: {} | Labour Done: {}'.format(wip_choice, labour_done))
 						if not entries and (not wip_choice or not labour_done):
 							entries = []
 							incomplete = True
@@ -2273,6 +2282,7 @@ class Entity:
 						if entries:
 							hours_done = entries[0][6]
 							labour_done += hours_done # Same as required_hours
+							print('Labour done at end of cycle: {} | Hours done: {}'.format(labour_done, hours_done))
 							counterparty.set_hours(hours_done)
 							hours_remain = orig_required_hours - hours_done
 							# if item_type == 'Education':
@@ -2287,9 +2297,25 @@ class Entity:
 							hours_remain = orig_labour_required - labour_done
 					# print('Partial - Partial: {} | Time Required: {}'.format(partial, time_required))
 					if wip_choice and time_required and partial is None and hours_remain:
-						tmp_delay = tmp_delay.append({'txn_id':None, 'delay':1, 'hours':hours_remain, 'job':req_item}, ignore_index=True)
+						# TODO Check existing delay table for same items
+						already_wip = False
+						for index, row in tmp_delay.iterrows():
+							txn_id = row['txn_id']
+							try:
+								check_row = ledger.gl.loc[txn_id]
+							except KeyError:
+								continue
+							# print('Entity ID: {} | Item ID: {}'.format(check_row['entity_id'], check_row['item_id']))
+							if check_row['entity_id'] != self.entity_id:
+								continue
+							if check_row['item_id'] == item:
+								already_wip = True
+								break
+						if not already_wip:
+							tmp_delay = tmp_delay.append({'txn_id':None, 'delay':1, 'hours':hours_remain, 'job':req_item}, ignore_index=True)
+							# print('tmp_delay: \n{}'.format(tmp_delay))
 					# print('Labour Done End: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
-					if not wip_choice:
+					if not wip_choice and partial is None:
 						try:
 							max_qty_possible = min(math.floor(labour_done / (req_qty * (1-modifier))), max_qty_possible)
 						except ZeroDivisionError:
@@ -2302,7 +2328,7 @@ class Entity:
 							max_qty_possible = 1
 						else:
 							max_qty_possible = 0
-					print('Labour Max Qty Possible for {}: {} | WIP Choice: {}'.format(item, max_qty_possible, wip_choice))
+					print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | Partial: {}'.format(item, max_qty_possible, wip_choice, partial))
 
 			elif req_item_type == 'Education' and partial is None:
 				if item_type == 'Job' or item_type == 'Labour':
@@ -2399,7 +2425,7 @@ class Entity:
 				incomplete, event_max_possible, time_required, max_qty_possible = self.fulfill(item, max_qty_possible, man=man)
 				event += event_max_possible
 		else:
-			world.delay = tmp_delay # TODO This would not factor in any chnages to world.delay from a lower stack frame but might not matter
+			world.delay = tmp_delay.copy(deep=True) # TODO This would not factor in any chnages to world.delay from a lower stack frame but might not matter
 			world.set_table(world.delay, 'delay')
 			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
 		self.gl_tmp = pd.DataFrame()
@@ -2683,17 +2709,16 @@ class Entity:
 		# Get list of WIP txns for different item types
 		wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 		if v: print('WIP TXNs: \n{}'.format(wip_txns))
+		time_check = False
 		if not wip_txns.empty:
-			# print('WIP Transactions: \n{}'.format(wip_txns))
+			if v: print('WIP Transactions: \n{}'.format(wip_txns))
 			# Compare the gl dates to the WIP time from the items table
 			#items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
 			items_continuous = world.items[world.items['freq'].str.contains('continuous', na=False)]
 			for index, wip_lot in wip_txns.iterrows():
 				wip_event = []
 				item = wip_lot.loc['item_id']
-				# item_type = world.get_item_type(item)
-				# if item == 'Food':
-				# 	v = True
+				if v: print('WIP Index Check: {}'.format(index))
 				if v: print('WIP Item Check: {}'.format(item))
 				#if v: print('Continuous Items: \n{}'.format(items_continuous))
 				requirements = world.items.loc[item, 'requirements']
@@ -2701,12 +2726,12 @@ class Entity:
 					requirements = [x.strip() for x in requirements.split(',')]
 				requirements = list(filter(None, requirements))
 				if v: print('WIP Requirements for {}: {}'.format(item, requirements))
-				# if v: print('WIP Requirements for {}: {}'.format(item, requirements))
 				timespan = 0
 				for i, requirement in enumerate(requirements):
 					requirement_type = world.get_item_type(requirement)
 					if v: print('Requirement Timespan: {} | {}'.format(requirement, i))
 					if requirement_type == 'Time':
+						time_check = True
 						break
 				if v: print('Time Requirement: {}'.format(requirement))
 				#amounts = [x.strip() for x in items_time['amount'][item].split(',')]
@@ -2715,49 +2740,50 @@ class Entity:
 					amounts = [x.strip() for x in amounts.split(',')]
 				amounts = list(map(float, amounts))
 				if v: print('Amounts: {}'.format(amounts))
-				if 'Time' in requirements:
+				if time_check: # TODO This will cause problems where an item requires Time and a lot of labour such that it becomes WIP
+					if v: print('Time Check for: {}'.format(requirement))
 					timespan = amounts[i]
 					date_done = (datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=timespan)).date()
 					days_left = (date_done - world.now).days
 					if days_left < 0:
 						continue
-				for equip_requirement in requirements:
-					if v: print('Requirement: {}'.format(equip_requirement))
-					if equip_requirement in items_continuous.index.values:
-						result = self.use_item(equip_requirement, check=check)
-						if not result and not check:
-							print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
-							if world.delay.empty:
-								world.delay = world.delay.append({'txn_id':index, 'delay':1, 'hours':None, 'job':None}, ignore_index=True)
-								world.set_table(world.delay, 'delay')
-							elif index in world.delay['txn_id'].values:
-								world.delay.loc[world.delay['txn_id'] == index, 'delay'] += 1
-								world.set_table(world.delay, 'delay')
-							else:
-								world.delay = world.delay.append({'txn_id':index, 'delay':1, 'hours':None, 'job':None}, ignore_index=True)
-								world.set_table(world.delay, 'delay')
-							return
-				start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d').date()
-				if v: print('Start Date: {}'.format(start_date))
-				ledger.set_date(str(start_date))
-				modifier, items_info = self.check_productivity(requirement)
-				if v: print('Modifier: {}'.format(modifier))
-				ledger.reset()
-				ledger.set_entity(self.entity_id)
-				if modifier:
-					if v: print('Time Modifier Item: {}'.format(items_info['item_id'].iloc[0]))
-					entries = self.use_item(items_info['item_id'].iloc[0], check=check)
-					if not entries:
-						entries = []
+					for equip_requirement in requirements:
+						if v: print('Equip Requirement: {}'.format(equip_requirement))
+						if equip_requirement in items_continuous.index.values:
+							result = self.use_item(equip_requirement, check=check)
+							if not result and not check:
+								print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
+								if world.delay.empty:
+									world.delay = world.delay.append({'txn_id':index, 'delay':1, 'hours':None, 'job':None}, ignore_index=True)
+									world.set_table(world.delay, 'delay')
+								elif index in world.delay['txn_id'].values:
+									world.delay.loc[world.delay['txn_id'] == index, 'delay'] += 1
+									world.set_table(world.delay, 'delay')
+								else:
+									world.delay = world.delay.append({'txn_id':index, 'delay':1, 'hours':None, 'job':None}, ignore_index=True)
+									world.set_table(world.delay, 'delay')
+								return
+					start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d').date()
+					if v: print('Start Date: {}'.format(start_date))
+					ledger.set_date(str(start_date))
+					modifier, items_info = self.check_productivity(requirement)
+					if v: print('Modifier: {}'.format(modifier))
+					ledger.reset()
+					ledger.set_entity(self.entity_id)
+					if modifier:
+						if v: print('Time Modifier Item: {}'.format(items_info['item_id'].iloc[0]))
+						entries = self.use_item(items_info['item_id'].iloc[0], check=check)
+						if not entries:
+							entries = []
+							modifier = 0
+						if entries is True:
+							entries = []
+						wip_event += entries
+					else:
 						modifier = 0
-					if entries is True:
-						entries = []
-					wip_event += entries
-				else:
-					modifier = 0
-				ledger.reset()
-				if v: print('Modifier End: {}'.format(modifier))
-				timespan = timespan * (1 - modifier)
+					ledger.reset()
+					if v: print('Modifier End: {}'.format(modifier))
+					timespan = timespan * (1 - modifier)
 				if check:
 					continue
 				delay = 0
@@ -2777,16 +2803,16 @@ class Entity:
 						partial_index = world.delay.loc[world.delay['txn_id'] == index].index.tolist()[0]
 						if v: print('Partial Index: {}'.format(partial_index))
 						incomplete, partial_work_event, time_required, max_qty_possible = self.fulfill(item, qty=1, partial=partial_index, man=self.user)
-						if v: print('WIP Partial Work Event: {}\n{}'.format(incomplete, partial_work_event))
+						# print('WIP Partial Work Event: Incomplete: {} | Time Required: {}\n{}'.format(incomplete, time_required, partial_work_event))
 						if incomplete or not partial_work_event:
+							world.delay.at[partial_index, 'delay'] += 1
 							print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
-							return
+							continue
 						else:
-							if v: print('Partial Delay Before: \n{}'.format(world.delay))
-							world.delay.at[partial_index, 'hours'] -= partial_work_event[0][6]
+							world.delay.at[partial_index, 'hours'] -= partial_work_event[-1][6]
 							if world.delay.at[partial_index, 'hours'] != 0:
 								world.delay.at[partial_index, 'delay'] += 1
-							if v: print('Partial Delay: \n{}'.format(world.delay))
+							# print('World Delay Adj: \n{}'.format(world.delay))
 							world.set_table(world.delay, 'delay')
 							ledger.journal_entry(partial_work_event)
 					try:
@@ -2804,9 +2830,9 @@ class Entity:
 				days_left = abs(date_done - world.now).days
 				if days_left < timespan:
 					if hours:
-						print('{} has {} WIP days and {} hours left for {}.'.format(self.name, days_left, hours, item))
+						print('{} has {} WIP days and {} hours left for {}. [{}]'.format(self.name, days_left, hours, item, index))
 					else:
-						print('{} has {} WIP days left for {}.'.format(self.name, days_left, item))
+						print('{} has {} WIP days left for {}. [{}]'.format(self.name, days_left, item, index))
 				# If the time elapsed has passed
 				if date_done == world.now:
 					if v: print('WIP date is done for {}: {} Today is: {}'.format(item, date_done, world.now))
@@ -2815,9 +2841,9 @@ class Entity:
 						world.delay = world.delay.drop([partial_index]).reset_index(drop=True)
 					# Undo "in use" entries for related items
 					release_txns = ledger.gl[(ledger.gl['credit_acct'] == 'In Use') & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-					#print('Release TXNs: \n{}'.format(release_txns))
+					# print('Release TXNs: \n{}'.format(release_txns))
 					in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'In Use') & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['date'] <= wip_lot[2]) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # Ensure only captures related items, perhaps using date as a filter
-					#print('In Use TXNs: \n{}'.format(in_use_txns))
+					# print('In Use TXNs: \n{}'.format(in_use_txns))
 					for index, in_use_txn in in_use_txns.iterrows():
 						release_entry = [ in_use_txn[0], in_use_txn[1], world.now, in_use_txn[4] + ' released', in_use_txn[4], in_use_txn[5], in_use_txn[6], in_use_txn[8], 'In Use', in_use_txn[9] ]
 						release_event = [release_entry]
@@ -3459,9 +3485,11 @@ class Entity:
 			jobs = [x.strip() for x in jobs.split(',')]
 		# Ensure items on jobs list are unqiue
 		jobs = list(collections.OrderedDict.fromkeys(filter(None, jobs)))
+		if v: print('Jobs to pay wages: \n{}'.format(jobs))
 		for job in jobs:
 			ledger.set_entity(self.entity_id)
 			wages_payable = abs(ledger.balance_sheet(accounts=['Wages Payable'], item=job))
+			if v: print('Pay Wages GL: \n{}'.format(ledger.gl))
 			labour_hours = abs(ledger.get_qty(items=job, accounts=['Wages Payable']))
 			ledger.reset()
 			#print('Wages Payable: {}'.format(wages_payable))
@@ -3478,21 +3506,28 @@ class Entity:
 				wages_paid_txns = ledger.gl[( (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['debit_acct'] == 'Wages Payable') & (ledger.gl['credit_acct'] == 'Cash') & (ledger.gl['item_id'] == job) ) & (~ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
 				#print('Wages Paid TXN Event IDs: \n{}'.format(wages_paid_txns))
 				wages_pay_txns = ledger.gl[( (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['debit_acct'] == 'Wages Expense') & (ledger.gl['credit_acct'] == 'Wages Payable') ) & (~ledger.gl['event_id'].isin(wages_paid_txns)) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-				with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-					if v: print('Wages Pay TXNs: \n{}'.format(wages_pay_txns))
+				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				# 	if v: print('Wages Pay TXNs: \n{}'.format(wages_pay_txns))
 				job_wages_pay_txns = wages_pay_txns.loc[wages_pay_txns['item_id'] == job]
 				with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-					if v: print('Wages Job Pay TXNs: \n{}'.format(job_wages_pay_txns))
+					if v: print('Wages Pay TXNs for job: {}\n{}'.format(job, job_wages_pay_txns))
 				counterparties = job_wages_pay_txns.shape[0]
 				if v: print('Number of Counterparties for {}: {}'.format(job, counterparties))
 				pay_wages_event = []
 				n = 0
-				for m in range(counterparties, 0, -1):
-				# for n in range(counterparties):
-					counterparty, event_id = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', m=m, n=n, allowed=Individual, v=v)
-					wages_pay_entry = [ event_id, self.entity_id, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
-					wages_chg_entry = [ event_id, counterparty.entity_id, world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
-					pay_wages_event += [wages_pay_entry, wages_chg_entry]
+				m = counterparties
+				if wages_pay_txns.event_id.nunique() == 1:
+					for m in range(counterparties, 0, -1): # If part of same event
+						counterparty, event_id = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', m=m, n=n, allowed=Individual, v=v)
+						wages_pay_entry = [ event_id, self.entity_id, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
+						wages_chg_entry = [ event_id, counterparty.entity_id, world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
+						pay_wages_event += [wages_pay_entry, wages_chg_entry]
+				else:
+					for n in range(counterparties): # If part of different event
+						counterparty, event_id = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', m=m, n=n, allowed=Individual, v=v)
+						wages_pay_entry = [ event_id, self.entity_id, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
+						wages_chg_entry = [ event_id, counterparty.entity_id, world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
+						pay_wages_event += [wages_pay_entry, wages_chg_entry]
 				ledger.journal_entry(pay_wages_event)
 			else:
 				print('{} does not have enough cash to pay wages for {} work. Cash: {}'.format(self.name, job, cash))
@@ -3501,7 +3536,7 @@ class Entity:
 				return
 
 	def check_wages(self, job):
-		TWO_PAY_PERIODS = 32 #datetime.timedelta(days=32)
+		# PAY_PERIODS = 32 #datetime.timedelta(days=32)
 		ledger.set_entity(self.entity_id)
 		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of Wages Payable txns
@@ -3529,7 +3564,7 @@ class Entity:
 		if isinstance(last_paid, datetime.timedelta):
 			last_paid = last_paid.days
 		#print('Last Paid: \n{}'.format(last_paid))
-		if last_paid < TWO_PAY_PERIODS:
+		if last_paid < PAY_PERIODS:
 			return True
 
 	def accru_wages(self, job, counterparty, labour_hours, wage=None, buffer=False, check=False):

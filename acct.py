@@ -933,7 +933,7 @@ class Ledger:
 				entities = '_'.join(str(e) for e in self.entity)
 				self.bs.to_sql('balance_sheet_' + entities, self.conn, if_exists='replace')
 		if item is not None:
-			self.reset()
+			self.refresh_ledger()
 		return net_asset_value
 
 	def print_bs(self):
@@ -952,8 +952,8 @@ class Ledger:
 		return qty_txns
 
 	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, credit=False, v=False):
-		# if items == 'Food':
-		# 	v = True
+		# if items == 'Weaving':
+		# 	if v: print('Get Qty GL: \n{}'.format(self.gl))
 		if not credit:
 			acct_side = 'debit_acct'
 		else:
