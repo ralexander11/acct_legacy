@@ -432,7 +432,7 @@ if __name__ == '__main__':
 		print(algo.time_stamp() + 'Number of Days: {}'.format(len(dates)))
 		# print(accts.coa)
 		if algo.check_capital() == 0:
-			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), trade.trade_date(dates[0]), 'Deposit capital', '', '', '', 'Cash', 'Wealth', cap] ]
+			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), trade.trade_date(dates[0]), 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
 			ledger.journal_entry(deposit_capital)
 			#print(deposit_capital)
 		for date in dates[1:]:

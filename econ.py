@@ -51,10 +51,10 @@ def delete_db(db_name=None):
 econ_accts = [
 	('Cash','Asset'),
 	('Info','Admin'),
-	('Natural Wealth','Wealth'),
-	('Nation Wealth','Wealth'),
+	('Natural Wealth','Equity'),
+	('Nation Wealth','Equity'),
 	('Investments','Asset'),
-	('Shares','Wealth'),
+	('Shares','Equity'),
 	('Land','Asset'),
 	('Buildings','Asset'),
 	('Building Produced','Revenue'),
@@ -653,7 +653,7 @@ class World:
 			t3_5_end = time.perf_counter()
 			print(time_stamp() + '3.5: Sal check took {:,.2f} sec for {}.'.format((t3_5_end - t3_5_start), entity.name, entity.entity_id))
 			t3_6_start = time.perf_counter()
-			entity.pay_wages(v=True)
+			entity.pay_wages()
 			t3_6_end = time.perf_counter()
 			print(time_stamp() + '3.6: Wag check took {:,.2f} sec for {}.'.format((t3_6_end - t3_6_start), entity.name, entity.entity_id))
 		t3_end = time.perf_counter()
@@ -871,7 +871,7 @@ class World:
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
 
 		# Book End of Day entry
-		eod_entry = [ ledger.get_event(), 0, world.now, 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
+		eod_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
 		ledger.journal_entry([eod_entry])
 
 		# Track historical prices
@@ -1089,9 +1089,9 @@ class Entity:
 					ledger.reset()
 					#print('Cost: {}'.format(cost_amt))
 					avg_price = cost_amt / qty
-					cogs_entry = [ ledger.get_event(), counterparty.entity_id, world.now, desc_sell, item, avg_price, qty, 'Cost of Goods Sold', acct_sell, cost_amt ]
-					sale_entry = [ ledger.get_event(), counterparty.entity_id, world.now, desc_sell, item, price, qty, 'Cash', acct_rev, price * qty ]
-					purchase_entry = [ ledger.get_event(), self.entity_id, world.now, desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
+					cogs_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, avg_price, qty, 'Cost of Goods Sold', acct_sell, cost_amt ]
+					sale_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_rev, price * qty ]
+					purchase_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
 					purchase_event += [cogs_entry, sale_entry, purchase_entry]
 					if buffer:
 						counterparty.adj_price(item, qty, direction='up')
@@ -1102,8 +1102,8 @@ class Entity:
 				else:
 					if item_type is None:
 						print('{} transacted with {} for {} {} shares.'.format(self.name, counterparty.name, qty, item))
-					sell_entry = [ ledger.get_event(), counterparty.entity_id, world.now, desc_sell, item, price, qty, 'Cash', acct_sell, price * qty ]
-					purchase_entry = [ ledger.get_event(), self.entity_id, world.now, desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
+					sell_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_sell, price * qty ]
+					purchase_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
 					purchase_event += [sell_entry, purchase_entry]
 					if buffer:
 						counterparty.adj_price(item, qty, direction='up')
@@ -1257,7 +1257,7 @@ class Entity:
 			cost_amt = ledger.hist_cost(qty, item, item_type)#, v=True)
 			ledger.reset()
 			price = cost_amt / qty
-			sale_entry = [ ledger.get_event(), self.entity_id, world.now, 'Put {} up for sale'.format(item), item, price, qty, 'Inventory', item_type, cost_amt ]
+			sale_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Put {} up for sale'.format(item), item, price, qty, 'Inventory', item_type, cost_amt ]
 			sale_event = [sale_entry]
 			ledger.journal_entry(gift_event)
 		else:
@@ -1271,8 +1271,8 @@ class Entity:
 			cash = ledger.balance_sheet(['Cash'])
 			ledger.reset()
 			if cash >= price * qty:
-				giftee_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Cash gift received from {}'.format(self.name), '', '', '', 'Cash', 'Gift', price * qty ]
-				giftor_entry = [ ledger.get_event(), self.entity_id, world.now, 'Cash gift given to {}'.format(counterparty.name), '', '', '', 'Gift Expense', 'Cash', price * qty ]
+				giftee_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Cash gift received from {}'.format(self.name), '', '', '', 'Cash', 'Gift', price * qty ]
+				giftor_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Cash gift given to {}'.format(counterparty.name), '', '', '', 'Gift Expense', 'Cash', price * qty ]
 				gift_event = [giftee_entry, giftor_entry]
 				ledger.journal_entry(gift_event)
 			else:
@@ -1290,8 +1290,8 @@ class Entity:
 				print('{} getting historical cost of {} {} to gift.'.format(self.name, qty, item))
 				cost_amt = ledger.hist_cost(qty, item, 'Inventory')#, v=True)
 				ledger.reset()
-				giftee_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Gift received from {}'.format(self.name), item, cost_amt / qty, qty, account, 'Gift', cost_amt ]
-				giftor_entry = [ ledger.get_event(), self.entity_id, world.now, 'Gift given to {}'.format(counterparty.name), item, cost_amt / qty, qty, 'Gift Expense', account, cost_amt ]
+				giftee_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Gift received from {}'.format(self.name), item, cost_amt / qty, qty, account, 'Gift', cost_amt ]
+				giftor_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Gift given to {}'.format(counterparty.name), item, cost_amt / qty, qty, 'Gift Expense', account, cost_amt ]
 				gift_event = [giftee_entry, giftor_entry]
 				ledger.journal_entry(gift_event)
 			else:
@@ -1320,7 +1320,7 @@ class Entity:
 			ledger.reset()
 			#print('Cost: {}'.format(cost))
 			price = cost / qty
-			consume_entry = [ ledger.get_event(), self.entity_id, world.now, item + ' consumed', item, price, qty, 'Goods Consumed', 'Inventory', cost ]
+			consume_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', item + ' consumed', item, price, qty, 'Goods Consumed', 'Inventory', cost ]
 			consume_event += [consume_entry]
 			if buffer:
 				return consume_event
@@ -1336,7 +1336,7 @@ class Entity:
 		qty_held = ledger.get_qty(items=item, accounts=[account])
 		ledger.reset()
 		if (qty_held >= qty) or buffer:
-			in_use_entry = [ ledger.get_event(), self.entity_id, world.now, item + ' in use', item, price, qty, 'In Use', account, price * qty ]
+			in_use_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', item + ' in use', item, price, qty, 'In Use', account, price * qty ]
 			in_use_event = [in_use_entry]
 			if buffer:
 				return in_use_event
@@ -2280,7 +2280,7 @@ class Entity:
 							self.gl_tmp = ledger.gl
 							# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 						if entries:
-							hours_done = entries[0][6]
+							hours_done = entries[0][8]
 							labour_done += hours_done # Same as required_hours
 							print('Labour done at end of cycle: {} | Hours done: {}'.format(labour_done, hours_done))
 							counterparty.set_hours(hours_done)
@@ -2549,7 +2549,7 @@ class Entity:
 				indirect_costs.drop('debit_acct_type', axis=1, inplace=True)
 				#print('Cost DF: \n{}'.format(indirect_costs))
 				# if v: print('Indirect Cost: {}'.format(cost))
-				indirect_costs = indirect_costs[['event_id', 'entity_id', 'date', 'description', 'item_id', 'price', 'qty', 'credit_acct', 'debit_acct', 'amount']]
+				indirect_costs = indirect_costs[['event_id', 'entity_id', 'cp_id', 'date', 'location', 'description', 'item_id', 'price', 'qty', 'credit_acct', 'debit_acct', 'amount']]
 				#print('Cost DF After Swap: \n{}'.format(indirect_costs))
 				indirect_costs.rename({'debit_acct': 'credit_acct', 'credit_acct': 'debit_acct'}, axis='columns', inplace=True)
 				#print('Cost DF After Rename: \n{}'.format(indirect_costs))
@@ -2579,7 +2579,7 @@ class Entity:
 					cost_df.drop('debit_acct_type', axis=1, inplace=True)
 					#print('Cost DF: \n{}'.format(cost_df))
 					#print('Cost Price: {}'.format(cost))
-					cost_df = cost_df[['event_id', 'entity_id', 'date', 'description', 'item_id', 'price', 'qty', 'credit_acct', 'debit_acct', 'amount']]
+					cost_df = cost_df[['event_id', 'entity_id', 'cp_id', 'date', 'location', 'description', 'item_id', 'price', 'qty', 'credit_acct', 'debit_acct', 'amount']]
 					#print('Cost DF After Swap: \n{}'.format(cost_df))
 					cost_df.rename({'debit_acct': 'credit_acct', 'credit_acct': 'debit_acct'}, axis='columns', inplace=True)
 					#print('Cost DF After Rename: \n{}'.format(cost_df))
@@ -2601,7 +2601,7 @@ class Entity:
 		if item_type != 'Service':
 			if cost_entries[0]:
 				credit_acct = 'Cost Pool'
-			produce_entry = [ ledger.get_event(), self.entity_id, world.now, desc, item, price, qty, debit_acct, credit_acct, cost ]
+			produce_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', desc, item, price, qty, debit_acct, credit_acct, cost ]
 		if produce_entry:
 			produce_event += [produce_entry]
 
@@ -2622,7 +2622,7 @@ class Entity:
 				# TODO Support other account types, such as for pollution
 				by_price = 0 #world.get_price(byproduct, self.entity_id)
 				byproduct_amt = float(byproduct_amt)
-				byproduct_entry = [ ledger.get_event(), self.entity_id, world.now, desc, byproduct, by_price, byproduct_amt * qty, debit_acct, credit_acct, by_price * byproduct_amt * qty ]
+				byproduct_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', desc, byproduct, by_price, byproduct_amt * qty, debit_acct, credit_acct, by_price * byproduct_amt * qty ]
 				if byproduct_entry:
 					produce_event += [byproduct_entry]
 		qty_distribute = qty
@@ -2665,7 +2665,7 @@ class Entity:
 			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 			if v: print('WIP TXNs: \n{}'.format(wip_txns))
 			if not wip_txns.empty:
-				txn_id = wip_txns.index[-1]
+				txn_id = int(wip_txns.index[-1])
 				partial_work = world.delay.loc[world.delay['txn_id'].isnull()]
 				if v: print('Partial Work: \n{}'.format(partial_work))
 				partial_index = partial_work.index[-1]
@@ -2809,7 +2809,7 @@ class Entity:
 							print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
 							continue
 						else:
-							world.delay.at[partial_index, 'hours'] -= partial_work_event[-1][6]
+							world.delay.at[partial_index, 'hours'] -= partial_work_event[-1][8]
 							if world.delay.at[partial_index, 'hours'] != 0:
 								world.delay.at[partial_index, 'delay'] += 1
 							# print('World Delay Adj: \n{}'.format(world.delay))
@@ -2842,40 +2842,39 @@ class Entity:
 					# Undo "in use" entries for related items
 					release_txns = ledger.gl[(ledger.gl['credit_acct'] == 'In Use') & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 					# print('Release TXNs: \n{}'.format(release_txns))
-					in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'In Use') & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['date'] <= wip_lot[2]) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # Ensure only captures related items, perhaps using date as a filter
+					in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'In Use') & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['date'] <= wip_lot[3]) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # Ensure only captures related items, perhaps using date as a filter
 					# print('In Use TXNs: \n{}'.format(in_use_txns))
 					for index, in_use_txn in in_use_txns.iterrows():
-						release_entry = [ in_use_txn[0], in_use_txn[1], world.now, in_use_txn[4] + ' released', in_use_txn[4], in_use_txn[5], in_use_txn[6], in_use_txn[8], 'In Use', in_use_txn[9] ]
+						release_entry = [ in_use_txn[0], in_use_txn[1], in_use_txn[2], world.now, in_use_txn[4], in_use_txn[6] + ' released', in_use_txn[6], in_use_txn[7], in_use_txn[8], in_use_txn[10], 'In Use', in_use_txn[11] ]
 						release_event = [release_entry]
 						ledger.journal_entry(release_event)
 					# Book the entry to move from WIP to Inventory
-					if v: print('WIP account for {}: {}'.format(item, wip_lot[7]))
+					if v: print('WIP account for {}: {}'.format(item, wip_lot[9]))
 					if v: print('WIP Lot: \n{}'.format(wip_lot))
-					if wip_lot[7] == 'Researching Technology':
+					if wip_lot[9] == 'Researching Technology':
 						debit_acct = 'Technology'
-						desc = wip_lot[4] + ' researched'
-					elif wip_lot[7] == 'Studying Education':
+						desc = wip_lot[6] + ' researched'
+					elif wip_lot[9] == 'Studying Education':
 						debit_acct = 'Education'
-						desc = wip_lot[4] + ' learned'
-					elif wip_lot[7] == 'WIP Equipment':
+						desc = wip_lot[6] + ' learned'
+					elif wip_lot[9] == 'WIP Equipment':
 						debit_acct = 'Equipment' # TODO Test Equipment that takes Time to produce
-						desc = wip_lot[4] + ' manufactured'
-					elif wip_lot[7] == 'Building Under Construction':
+						desc = wip_lot[6] + ' manufactured'
+					elif wip_lot[9] == 'Building Under Construction':
 						debit_acct = 'Buildings'
-						desc = wip_lot[4] + ' constructed'
-					elif wip_lot[7] == 'WIP Inventory':
+						desc = wip_lot[6] + ' constructed'
+					elif wip_lot[9] == 'WIP Inventory':
 						debit_acct = 'Inventory'
-						desc = wip_lot[4] + ' produced'
+						desc = wip_lot[6] + ' produced'
 					else:
 						debit_acct = 'Inventory'
-						desc = wip_lot[4] + ' produced'
-					wip_entry = [ wip_lot[0], wip_lot[1], world.now, desc, wip_lot[4], wip_lot[5], wip_lot[6] or '', debit_acct, wip_lot[7], wip_lot[9] ]
+						desc = wip_lot[6] + ' produced'
+					wip_entry = [ wip_lot[0], wip_lot[1], wip_lot[2], world.now, wip_lot[4], desc, wip_lot[6], wip_lot[7], wip_lot[8] or '', debit_acct, wip_lot[9], wip_lot[11] ]
 					wip_event += [wip_entry]
 					if v: print('WIP Event: \n{}'.format(wip_event))
 					ledger.journal_entry(wip_event)
 
 	def check_inv(self, v=False):
-		# if type(self) == Corporation:
 		if isinstance(self, Corporation):
 			v = False
 		if v: print('{} running inventory check.'.format(self.name))
@@ -2947,7 +2946,7 @@ class Entity:
 	def capitalize(self, amount=None, buffer=False):
 		if amount is None:
 			amount = INIT_CAPITAL
-		capital_entry = [ ledger.get_event(), self.entity_id, world.now, 'Deposit capital', '', '', '', 'Cash', 'Wealth', amount ]
+		capital_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Deposit capital', '', '', '', 'Cash', 'Equity', amount ]
 		capital_event = [capital_entry]
 		if buffer:
 			return capital_event
@@ -2959,7 +2958,7 @@ class Entity:
 			counterparty = self
 		if qty is None:
 			qty = 100000
-		auth_shares_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Authorize shares', ticker, '', qty, 'Shares', 'Info', 0 ]
+		auth_shares_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Authorize shares', ticker, '', qty, 'Shares', 'Info', 0 ]
 		auth_shares_event = [auth_shares_entry]
 		ledger.journal_entry(auth_shares_event)
 
@@ -3409,11 +3408,12 @@ class Entity:
 		ledger.reset()
 		print('{} available to claim by {}: {}'.format(item, self.name, unused_land))
 		if unused_land >= qty:
-			claim_land_entry = [ ledger.get_event(), self.entity_id, world.now, 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
 			if counterparty == world.env.entity_id:
-				yield_land_entry = [ ledger.get_event(), world.env.entity_id, world.now, 'Bestow land', item, price, qty, 'Natural Wealth', 'Land', qty * price ]
+				claim_land_entry = [ ledger.get_event(), self.entity_id, world.env.entity_id, world.now, '', 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
+				yield_land_entry = [ ledger.get_event(), world.env.entity_id, self.entity_id, world.now, '', 'Bestow land', item, price, qty, 'Natural Wealth', 'Land', qty * price ]
 			else:
-				yield_land_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Lose land', item, price, qty, 'Natural Wealth', 'Land', qty * price ]
+				claim_land_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Claim land', item, price, qty, 'Land', 'Natural Wealth', qty * price ]
+				yield_land_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Lose land', item, price, qty, 'Natural Wealth', 'Land', qty * price ]
 			# claim_land_event = [yield_land_entry, claim_land_entry]
 			if claim_land_entry and yield_land_entry:
 				claim_land_event += [yield_land_entry, claim_land_entry]
@@ -3446,20 +3446,22 @@ class Entity:
 		if txn.empty:
 			print('No counterparty exists for {}.'.format(item))
 			return None, None
-		if v: print('m: {}'.format(m))
-		event_id = txn.iloc[-m].loc['event_id']
-		if v: print('Event ID: {}'.format(event_id))
-		event_txns = ledger.gl[(ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			if v: print('Event TXNs: \n{}'.format(event_txns))
-		item_txn = event_txns.loc[event_txns['item_id'] == item] # If there are multiple items in same event
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			if v: print('Item TXN: \n{}'.format(item_txn))
-		counterparty_txn = item_txn.loc[item_txn['debit_acct'] == account]
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			if v: print('Counterparty TXN: {} \n{}'.format(account, counterparty_txn))
+		counterparty_id = txn.iloc[n].loc['cp_id']
+
 		if v: print('n: {}'.format(n))
-		counterparty_id = counterparty_txn.iloc[n].loc['entity_id']
+		event_id = txn.iloc[n].loc['event_id']
+		# if v: print('Event ID: {}'.format(event_id))
+		# event_txns = ledger.gl[(ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+		# 	if v: print('Event TXNs: \n{}'.format(event_txns))
+		# item_txn = event_txns.loc[event_txns['item_id'] == item] # If there are multiple items in same event
+		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+		# 	if v: print('Item TXN: \n{}'.format(item_txn))
+		# counterparty_txn = item_txn.loc[item_txn['debit_acct'] == account]
+		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+		# 	if v: print('Counterparty TXN: {} \n{}'.format(account, counterparty_txn))
+		# if v: print('n: {}'.format(n))
+		# counterparty_id = counterparty_txn.iloc[n].loc['entity_id']
 		counterparty = factory.get_by_id(counterparty_id)
 		if v: print('Counterparty Type: {}'.format(type(counterparty)))
 		while True:
@@ -3489,7 +3491,7 @@ class Entity:
 		for job in jobs:
 			ledger.set_entity(self.entity_id)
 			wages_payable = abs(ledger.balance_sheet(accounts=['Wages Payable'], item=job))
-			if v: print('Pay Wages GL: \n{}'.format(ledger.gl))
+			# if v: print('Pay Wages GL: \n{}'.format(ledger.gl))
 			labour_hours = abs(ledger.get_qty(items=job, accounts=['Wages Payable']))
 			ledger.reset()
 			#print('Wages Payable: {}'.format(wages_payable))
@@ -3515,19 +3517,18 @@ class Entity:
 				if v: print('Number of Counterparties for {}: {}'.format(job, counterparties))
 				pay_wages_event = []
 				n = 0
-				m = counterparties
-				if wages_pay_txns.event_id.nunique() == 1:
-					for m in range(counterparties, 0, -1): # If part of same event
-						counterparty, event_id = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', m=m, n=n, allowed=Individual, v=v)
-						wages_pay_entry = [ event_id, self.entity_id, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
-						wages_chg_entry = [ event_id, counterparty.entity_id, world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
-						pay_wages_event += [wages_pay_entry, wages_chg_entry]
-				else:
-					for n in range(counterparties): # If part of different event
-						counterparty, event_id = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', m=m, n=n, allowed=Individual, v=v)
-						wages_pay_entry = [ event_id, self.entity_id, world.now, job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
-						wages_chg_entry = [ event_id, counterparty.entity_id, world.now, job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
-						pay_wages_event += [wages_pay_entry, wages_chg_entry]
+				# if wages_pay_txns.event_id.nunique() == 1:
+				# 	for m in range(counterparties, 0, -1): # If part of same event
+				# 		counterparty, event_id = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', m=m, n=n, allowed=Individual, v=v)
+				# 		wages_pay_entry = [ event_id, self.entity_id, counterparty.entity_id, world.now, '', job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
+				# 		wages_chg_entry = [ event_id, counterparty.entity_id, self.entity_id, world.now, '', job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
+				# 		pay_wages_event += [wages_pay_entry, wages_chg_entry]
+				# else:
+				for n in range(counterparties): # If part of different event
+					counterparty, event_id = self.get_counterparty(wages_pay_txns, rvsl_txns, job, 'Wages Receivable', n=n, allowed=Individual, v=v)
+					wages_pay_entry = [ event_id, self.entity_id, counterparty.entity_id, world.now, '', job + ' wages paid', job, wages_payable / labour_hours, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
+					wages_chg_entry = [ event_id, counterparty.entity_id, self.entity_id, world.now, '', job + ' wages received', job, wages_payable / labour_hours, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
+					pay_wages_event += [wages_pay_entry, wages_chg_entry]
 				ledger.journal_entry(pay_wages_event)
 			else:
 				print('{} does not have enough cash to pay wages for {} work. Cash: {}'.format(self.name, job, cash))
@@ -3586,8 +3587,8 @@ class Entity:
 		if recently_paid and not incomplete:
 			if counterparty.hours > 0: # TODO Move this above fulfill()
 				hours_worked = min(labour_hours, counterparty.hours)
-				wages_exp_entry = [ ledger.get_event(), self.entity_id, world.now, desc_exp, job, wage, hours_worked, 'Wages Expense', 'Wages Payable', wage * hours_worked ]
-				wages_rev_entry = [ ledger.get_event(), counterparty.entity_id, world.now, desc_rev, job, wage, hours_worked, 'Wages Receivable', 'Wages Income', wage * hours_worked ]
+				wages_exp_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_exp, job, wage, hours_worked, 'Wages Expense', 'Wages Payable', wage * hours_worked ]
+				wages_rev_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_rev, job, wage, hours_worked, 'Wages Receivable', 'Wages Income', wage * hours_worked ]
 				accru_wages_event += [wages_exp_entry, wages_rev_entry]
 			else:
 				if not incomplete: # TODO This is not needed
@@ -3743,8 +3744,8 @@ class Entity:
 			hire_worker_event += entries
 		# hire_worker_entry = [] # TODO Test if not needed
 		# start_job_entry = [] # TODO Test if not needed
-		hire_worker_entry = [ ledger.get_event(), self.entity_id, world.now, 'Hired ' + job, job, price, qty, 'Worker Info', 'Hire Worker', 0 ]
-		start_job_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Started job as ' + job, job, price, qty, 'Start Job', 'Worker Info', 0 ]
+		hire_worker_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Hired ' + job, job, price, qty, 'Worker Info', 'Hire Worker', 0 ]
+		start_job_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Started job as ' + job, job, price, qty, 'Start Job', 'Worker Info', 0 ]
 		# if hire_worker_entry and start_job_entry: # TODO Test if not needed
 		hire_worker_event += [hire_worker_entry, start_job_entry]
 		first_pay = self.pay_salary(job, counterparty, buffer=buffer, first=True)
@@ -3770,8 +3771,8 @@ class Entity:
 		cp_id = counterparty.entity_id
 		if quit:
 			ent_id, cp_id = cp_id, ent_id
-		fire_worker_entry = [ ledger.get_event(), ent_id, world.now, 'Fired ' + job, job, price, qty, 'Worker Info', 'Fire Worker', 0 ]
-		quit_job_entry = [ ledger.get_event(), cp_id, world.now, 'Quit job as ' + job, job, price, qty, 'Quit Job', 'Worker Info', 0 ]
+		fire_worker_entry = [ ledger.get_event(), ent_id, cp_id, world.now, '', 'Fired ' + job, job, price, qty, 'Worker Info', 'Fire Worker', 0 ]
+		quit_job_entry = [ ledger.get_event(), cp_id, ent_id, world.now, '', 'Quit job as ' + job, job, price, qty, 'Quit Job', 'Worker Info', 0 ]
 		fire_worker_event = [fire_worker_entry, quit_job_entry]
 		if buffer:
 			counterparty.adj_price(job, qty=1, direction='down')
@@ -3810,8 +3811,8 @@ class Entity:
 				#print('Worker State: {}'.format(worker_state))
 				if not worker_state: # If worker_state is zero
 					return
-				for m in range(worker_state, 0, -1):
-					counterparty, event_id = self.get_counterparty(salary_txns, rvsl_txns, job, 'Start Job', m=m, allowed=Individual)#, v=True)
+				for n in range(worker_state):
+					counterparty, event_id = self.get_counterparty(salary_txns, rvsl_txns, job, 'Start Job', n=n, allowed=Individual)#, v=True)
 					# Check is fulltime job is still required
 					items_req = world.items[world.items['requirements'].str.contains(job, na=False)].reset_index()
 					qty_active = ledger.get_qty(items=list(items_req['item_id'].values))
@@ -3831,7 +3832,6 @@ class Entity:
 		# TODO Add accru_salary()
 		# if type(counterparty) != Individual:
 		if not isinstance(counterparty, Individual): # TODO Shouldn't be needed now, this was due to error from inheritance going to a Corporation
-
 			print('Counterparty is not an Individual, it is {} | {}'.format(counterparty.name, counterparty.entity_id))
 			return
 		if first: # TODO Required due to not using db rollback in fulfill
@@ -3857,8 +3857,8 @@ class Entity:
 		ledger.reset()
 		if cash >= (salary * labour_hours) and not incomplete:
 			# TODO Add check if enough cash, if not becomes salary payable
-			salary_exp_entry = [ ledger.get_event(), self.entity_id, world.now, job + ' salary paid', job, salary, labour_hours, 'Salary Expense', 'Cash', salary * labour_hours ]
-			salary_rev_entry = [ ledger.get_event(), counterparty.entity_id, world.now, job + ' salary received', job, salary, labour_hours, 'Cash', 'Salary Income', salary * labour_hours ]
+			salary_exp_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', job + ' salary paid', job, salary, labour_hours, 'Salary Expense', 'Cash', salary * labour_hours ]
+			salary_rev_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', job + ' salary received', job, salary, labour_hours, 'Cash', 'Salary Income', salary * labour_hours ]
 			pay_salary_event += [salary_exp_entry, salary_rev_entry]
 			# TODO Don't set hours if production is not possible
 			counterparty.set_hours(labour_hours)
@@ -3922,8 +3922,8 @@ class Entity:
 				return
 			if entries:
 				order_subscription_event += entries
-			order_subscription_entry = [ ledger.get_event(), self.entity_id, world.now, 'Ordered ' + item, item, price, qty, 'Subscription Info', 'Order Subscription', 0 ]
-			sell_subscription_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Sold ' + item, item, price, qty, 'Sell Subscription', 'Subscription Info', 0 ]
+			order_subscription_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Ordered ' + item, item, price, qty, 'Subscription Info', 'Order Subscription', 0 ]
+			sell_subscription_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Sold ' + item, item, price, qty, 'Sell Subscription', 'Subscription Info', 0 ]
 			order_subscription_event += [order_subscription_entry, sell_subscription_entry]
 			first_payment = self.pay_subscription(item, counterparty, buffer=buffer, first=True)
 			if not first_payment:
@@ -3941,8 +3941,8 @@ class Entity:
 			counterparty.adj_price(item, qty=1, direction='down')
 
 	def cancel_subscription(self, item, counterparty, price=0, qty=-1):
-		cancel_subscription_entry = [ ledger.get_event(), self.entity_id, world.now, 'Cancelled ' + item, item, price, qty, 'Subscription Info', 'Cancel Subscription', 0 ]
-		end_subscription_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'End ' + item, item, price, qty, 'End Subscription', 'Subscription Info', 0 ]
+		cancel_subscription_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Cancelled ' + item, item, price, qty, 'Subscription Info', 'Cancel Subscription', 0 ]
+		end_subscription_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'End ' + item, item, price, qty, 'End Subscription', 'Subscription Info', 0 ]
 		cancel_subscription_event = [cancel_subscription_entry, end_subscription_entry]
 		ledger.journal_entry(cancel_subscription_event)
 		counterparty.adj_price(item, qty=1, direction='down')
@@ -3998,8 +3998,8 @@ class Entity:
 			cash = ledger.balance_sheet(['Cash'])
 			ledger.reset()
 			if cash >= price and not incomplete:
-				pay_subscription_entry = [ ledger.get_event(), self.entity_id, world.now, 'Payment for ' + item, item, price, qty, 'Subscription Expense', 'Cash', price ]
-				charge_subscription_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Received payment for ' + item, item, price, qty, 'Cash', 'Subscription Revenue', price ]
+				pay_subscription_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Payment for ' + item, item, price, qty, 'Subscription Expense', 'Cash', price ]
+				charge_subscription_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Received payment for ' + item, item, price, qty, 'Cash', 'Subscription Revenue', price ]
 				pay_subscription_event += [pay_subscription_entry, charge_subscription_entry]
 				if buffer:
 					counterparty.adj_price(item, qty=1, direction='up_low')
@@ -4020,7 +4020,7 @@ class Entity:
 	def collect_material(self, item, qty=1, price=None, account='Inventory'):
 		if price is None:
 			price = world.get_price(item, 0)
-		collect_mat_entry = [ ledger.get_event(), self.entity_id, world.now, 'Forage ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
+		collect_mat_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Forage ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
 		collect_mat_event = [collect_mat_entry]
 		ledger.journal_entry(collect_mat_event)
 		return collect_mat_event
@@ -4029,7 +4029,7 @@ class Entity:
 	def find_item(self, item, qty=1, price=None, account='Equipment'):
 		if price is None:
 			price = world.get_price(item, 0)
-		find_item_entry = [ ledger.get_event(), self.entity_id, world.now, 'Find ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
+		find_item_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Find ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
 		find_item_event = [find_item_entry]
 		ledger.journal_entry(find_item_event)
 		return find_item_event
@@ -4046,8 +4046,8 @@ class Entity:
 		ledger.reset()
 		if cash >= amount:
 			# TODO Possibly reverse accounts if all money is deposited with the bank at initiation and loans are given
-			deposit_entry = [ ledger.get_event(), self.entity_id, world.now, 'Deposit cash', '', '', '', 'Cash', 'Cash', amount ]
-			bank_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Cash deposit', '', '', '', 'Cash', 'Deposits', amount ]
+			deposit_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Deposit cash', '', '', '', 'Cash', 'Cash', amount ]
+			bank_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Cash deposit', '', '', '', 'Cash', 'Deposits', amount ]
 			deposit_event = [deposit_entry, bank_entry]
 			ledger.journal_entry(deposit_event)
 			return deposit_event
@@ -4064,8 +4064,8 @@ class Entity:
 		cash = ledger.balance_sheet(['Cash']) # TODO This assumes only one bank
 		ledger.reset()
 		if cash >= amount:
-			withdrawal_entry = [ ledger.get_event(), self.entity_id, world.now, 'Withdraw cash', '', '', '', 'Cash', 'Cash', amount ]
-			bank_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Cash withdraw', '', '', '', 'Deposits', 'Cash', amount ]
+			withdrawal_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Withdraw cash', '', '', '', 'Cash', 'Cash', amount ]
+			bank_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Cash withdraw', '', '', '', 'Deposits', 'Cash', amount ]
 			withdrawal_event = [withdrawal_entry, bank_entry]
 			ledger.journal_entry(withdrawal_event)
 			return withdrawal_event
@@ -4085,8 +4085,8 @@ class Entity:
 		ledger.reset()
 		qty = 1
 		if cash >= amount:
-			loan_entry = [ ledger.get_event(), self.entity_id, world.now, 'Loan cash', item, '', '', 'Cash', 'Loan', amount ]
-			lend_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Lend cash', item, '', '', 'Loans Receivable', 'Cash', amount ]
+			loan_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Loan cash', item, '', '', 'Cash', 'Loan', amount ]
+			lend_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Lend cash', item, '', '', 'Loans Receivable', 'Cash', amount ]
 			loan_event = [loan_entry, lend_entry]
 			ledger.journal_entry(loan_event)
 			self.deposit(amount, counterparty)
@@ -4107,8 +4107,8 @@ class Entity:
 		ledger.reset()
 		qty = 1
 		if cash >= amount:
-			loan_repay_entry = [ ledger.get_event(), self.entity_id, world.now, 'Repay loan', item, '', '', 'Loan', 'Cash', amount ]
-			lend_repay_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Lend repayment', item, '', '', 'Cash', 'Loans Receivable', amount ]
+			loan_repay_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Repay loan', item, '', '', 'Loan', 'Cash', amount ]
+			lend_repay_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Lend repayment', item, '', '', 'Cash', 'Loans Receivable', amount ]
 			loan_repay_event = [loan_repay_entry, lend_repay_entry]
 			ledger.journal_entry(loan_repay_event)
 			return loan_repay_event
@@ -4138,8 +4138,8 @@ class Entity:
 			freq = world.items.loc[item, 'freq'] # TODO Add frequency logic
 			period = 1 / freq
 			int_amount = round(loan_bal * rate * period, 2)
-			int_exp_entry = [ ledger.get_event(), self.entity_id, world.now, 'Interest expense for {}'.format(item), '', '', '', 'Interest Expense', 'Cash', int_amount ]
-			int_rev_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Interest income from {}'.format(item), '', '', '', 'Cash', 'Interest Income', int_amount ]
+			int_exp_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Interest expense for {}'.format(item), '', '', '', 'Interest Expense', 'Cash', int_amount ]
+			int_rev_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Interest income from {}'.format(item), '', '', '', 'Cash', 'Interest Income', int_amount ]
 			# TODO Add bank interest revenue entry
 			int_exp_event = [int_exp_entry, int_rev_entry]
 			ledger.journal_entry(int_exp_event)
@@ -4200,7 +4200,7 @@ class Entity:
 						depreciation_event += entries
 						uses += new_uses
 			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
-			depreciation_entry = [ ledger.get_event(), self.entity_id, world.now, 'Depreciation of ' + item, item, '', '', 'Depreciation Expense', 'Accumulated Depreciation', dep_amount ]
+			depreciation_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation of ' + item, item, '', '', 'Depreciation Expense', 'Accumulated Depreciation', dep_amount ]
 			depreciation_event = [depreciation_entry]
 			if buffer:
 				return depreciation_event, uses
@@ -4265,9 +4265,9 @@ class Entity:
 							#print('Spoilage TXN QTY: {}'.format(txn_qty))
 							# Book thes spoilage entry
 							if qty < txn_qty:
-								spoil_entry = [[ inv_lot[0], inv_lot[1], world.now, inv_lot[4] + ' spoilage', inv_lot[4], inv_lot[5], qty or '', 'Spoilage Expense', 'Inventory', inv_lot[5] * qty ]]
+								spoil_entry = [[ inv_lot[0], inv_lot[1], inv_lot[2], world.now, inv_lot[4], inv_lot[6] + ' spoilage', inv_lot[6], inv_lot[7], qty or '', 'Spoilage Expense', 'Inventory', inv_lot[7] * qty ]]
 							else:
-								spoil_entry = [[ inv_lot[0], inv_lot[1], world.now, inv_lot[4] + ' spoilage', inv_lot[4], inv_lot[5], inv_lot[6] or '', 'Spoilage Expense', 'Inventory', inv_lot[9] ]]
+								spoil_entry = [[ inv_lot[0], inv_lot[1], inv_lot[2], world.now, inv_lot[4], inv_lot[6] + ' spoilage', inv_lot[6], inv_lot[7], inv_lot[8] or '', 'Spoilage Expense', 'Inventory', inv_lot[11] ]]
 							ledger.journal_entry(spoil_entry)
 							self.adj_price(item, qty, direction='down_high')
 
@@ -4276,7 +4276,7 @@ class Entity:
 		# item_type = world.get_item_type(item)
 		# asset_bal = ledger.balance_sheet(accounts=[item_type], item=item)
 
-		impairment_entry = [ ledger.get_event(), self.entity_id, world.now, 'Impairment of ' + item, item, '', '', 'Loss on Impairment', 'Accumulated Impairment Losses', amount ]
+		impairment_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Impairment of ' + item, item, '', '', 'Loss on Impairment', 'Accumulated Impairment Losses', amount ]
 		impairment_event = [impairment_entry]
 		ledger.journal_entry(impairment_event)
 		return impairment_event
@@ -4307,10 +4307,10 @@ class Entity:
 				if requirement_type == 'Land' or requirement_type == 'Buildings' or requirement_type == 'Equipment':
 					req_qty = amounts[i] # TODO Support modifiers
 					req_price = world.get_price(requirement, self.entity_id)
-					release_entry = [ ledger.get_event(), self.entity_id, world.now, 'Release ' + requirement + ' used by ' + item, requirement, req_price, req_qty, requirement_type, 'In Use', req_price * req_qty ]
+					release_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Release ' + requirement + ' used by ' + item, requirement, req_price, req_qty, requirement_type, 'In Use', req_price * req_qty ]
 					derecognition_event += [release_entry]
 
-			derecognition_entry = [ ledger.get_event(), self.entity_id, world.now, 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accumulated Depreciation', 'Equipment', asset_bal ]
+			derecognition_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accumulated Depreciation', 'Equipment', asset_bal ]
 			derecognition_event += [derecognition_entry]
 			ledger.journal_entry(derecognition_event)
 
@@ -5363,7 +5363,7 @@ class Individual(Entity):
 		if amount_1 is None:
 			amount_1 = 0
 		if cash1 >= amount_1:
-			gift_entry1 = [ ledger.get_event(), self.entity_id, world.now, 'Gift cash to child', '', '', '', 'Gift Expense', 'Cash', amount_1 ]
+			gift_entry1 = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Gift cash to child', '', '', '', 'Gift Expense', 'Cash', amount_1 ] # TODO Get proper cp_id
 		else:
 			print('{} does not have ${} in cash to give birth with {}.'.format(self.name, amount_1, counterparty.name))
 			return
@@ -5373,7 +5373,7 @@ class Individual(Entity):
 		if amount_2 is None:
 			amount_2 = 0
 		if cash2 >= amount_2:
-			gift_entry2 = [ ledger.get_event(), counterparty.entity_id, world.now, 'Gift cash to child', '', '', '', 'Gift Expense', 'Cash', amount_2 ]
+			gift_entry2 = [ ledger.get_event(), counterparty.entity_id, '', world.now, '', 'Gift cash to child', '', '', '', 'Gift Expense', 'Cash', amount_2 ] # TODO Get proper cp_id
 		else:
 			print('{} does not have ${} in cash to have child with {}.'.format(counterparty.name, amount_2, self.name))
 			return
@@ -5473,8 +5473,8 @@ class Individual(Entity):
 		for index, entry in consolidated_gl.iterrows():
 			#print('Index: \n{}'.format(index))
 			#print('Entry: \n{}'.format(entry))
-			bequeath_entry = [ ledger.get_event(), self.entity_id, world.now, 'Bequeath to ' + counterparty.name, index[0], entry[2], entry[3], index[2], index[1], entry[4] ]
-			inherit_entry = [ ledger.get_event(), counterparty.entity_id, world.now, 'Inheritance from ' + self.name, index[0], entry[2], entry[3], index[1], index[2], entry[4] ]
+			bequeath_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Bequeath to ' + counterparty.name, index[0], entry[2], entry[3], index[2], index[1], entry[4] ]
+			inherit_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Inheritance from ' + self.name, index[0], entry[2], entry[3], index[1], index[2], entry[4] ]
 			inherit_event += [bequeath_entry, inherit_entry]
 		ledger.journal_entry(inherit_event)
 
@@ -5754,7 +5754,7 @@ class Environment(Entity):
 		if date is None:
 			date = world.now
 		price = 0 #world.get_price(item, self.entity_id)
-		land_entry = [ ledger.get_event(), self.entity_id, date, item + ' created', item, price, qty, 'Land', 'Natural Wealth', price * qty ]
+		land_entry = [ ledger.get_event(), self.entity_id, '', date, '', item + ' created', item, price, qty, 'Land', 'Natural Wealth', price * qty ]
 		land_event = [land_entry]
 		ledger.journal_entry(land_event)
 
@@ -5843,10 +5843,10 @@ class Corporation(Organization):
 			shares = shareholder[2]
 			counterparty_id = shareholder[0]
 			# TODO Add div accrual entries and payments
-			div_rev_entry = [ ledger.get_event(), counterparty_id, world.now, 'Dividend received for ' + item, item, div_rate, shares, 'Cash', 'Dividend Income', shares * div_rate ]
+			div_rev_entry = [ ledger.get_event(), counterparty_id, self.entity_id, world.now, '', 'Dividend received for ' + item, item, div_rate, shares, 'Cash', 'Dividend Income', shares * div_rate ]
 			div_event += [div_rev_entry]
 		# TODO This should book against Retained Earnings
-		div_exp_entry = [ ledger.get_event(), self.entity_id, world.now, 'Dividend payment for ' + item, item, div_rate, total_shares, 'Dividend Expense', 'Cash', total_shares * div_rate ]
+		div_exp_entry = [ ledger.get_event(), self.entity_id, counterparty_id, world.now, '', 'Dividend payment for ' + item, item, div_rate, total_shares, 'Dividend Expense', 'Cash', total_shares * div_rate ]
 		div_event += [div_exp_entry]
 		ledger.journal_entry(div_event)
 
@@ -6023,7 +6023,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 	def print_money(self, amount=None):
 		if amount is None:
 			amount = INIT_CAPITAL
-		capital_entry = [ ledger.get_event(), self.entity_id, world.now, 'Create capital', '', '', '', 'Cash', 'Nation Wealth', amount ]
+		capital_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Create capital', '', '', '', 'Cash', 'Nation Wealth', amount ]
 		capital_event = [capital_entry]
 		ledger.journal_entry(capital_event)
 

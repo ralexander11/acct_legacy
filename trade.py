@@ -134,9 +134,9 @@ class Trading(object):
 			return capital_bal
 
 		# Journal entries for a buy transaction
-		buy_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty ]
+		buy_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Shares buy', symbol, price, qty, 'Investments', 'Cash', price * qty ]
 		if self.com() != 0:
-			com_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Comm. buy', symbol, '', '', 'Commission Expense', 'Cash', self.com() ]
+			com_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Comm. buy', symbol, '', '', 'Commission Expense', 'Cash', self.com() ]
 		if self.com() != 0:
 			buy_event = [buy_entry, com_entry]
 		else:
@@ -170,13 +170,13 @@ class Trading(object):
 			investment_loss = hist_cost - sale_proceeds
 
 		# Journal entries for a sell transaction
-		sell_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Shares sell', symbol, hist_cost / qty, qty, 'Cash', 'Investments', hist_cost ]
+		sell_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Shares sell', symbol, hist_cost / qty, qty, 'Cash', 'Investments', hist_cost ]
 		if investment_gain is not None:
-			profit_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Realized gain', symbol, price, '', 'Cash', 'Investment Gain', investment_gain ]
+			profit_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Realized gain', symbol, price, '', 'Cash', 'Investment Gain', investment_gain ]
 		if investment_loss is not None:
-			profit_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Realized loss', symbol, price, '', 'Investment Loss', 'Cash', investment_loss ]
+			profit_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Realized loss', symbol, price, '', 'Investment Loss', 'Cash', investment_loss ]
 		if self.com() != 0:
-			com_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Comm. sell', symbol, '', '','Commission Expense', 'Cash', self.com() ]
+			com_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Comm. sell', symbol, '', '','Commission Expense', 'Cash', self.com() ]
 		if self.com() != 0:
 			sell_event = [sell_entry, profit_entry, com_entry]
 		else:
@@ -234,7 +234,7 @@ class Trading(object):
 					period = 1 / 365 # TODO Add frequency logic
 					int_amount = round(loan_bal * rate * period, 2)
 					logging.info('Int. Expense: {}'.format(int_amount))
-					int_exp_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Interest expense', '', '', '', 'Interest Expense', 'Cash', int_amount ]
+					int_exp_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Interest expense', '', '', '', 'Interest Expense', 'Cash', int_amount ]
 					int_exp_event = [int_exp_entry]
 					self.ledger.journal_entry(int_exp_event)
 			cur.close()
@@ -282,10 +282,10 @@ class Trading(object):
 			else:
 				unrealized_loss = hist_cost - market_value
 			if unrealized_gain is not None:
-				true_up_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Unrealized gain', symbol, price, '', 'Investments', 'Unrealized Gain', unrealized_gain ]
+				true_up_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Unrealized gain', symbol, price, '', 'Investments', 'Unrealized Gain', unrealized_gain ]
 				logging.debug(true_up_entry)
 			if unrealized_loss is not None:
-				true_up_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Unrealized loss', symbol, price, '', 'Unrealized Loss', 'Investments', unrealized_loss ]
+				true_up_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Unrealized loss', symbol, price, '', 'Unrealized Loss', 'Investments', unrealized_loss ]
 				logging.debug(true_up_entry)
 			true_up_event = [true_up_entry]
 			logging.info(true_up_event)
@@ -333,7 +333,7 @@ class Trading(object):
 				logging.debug('QTY: {}'.format(qty))
 				logging.debug('Div Rate: {}'.format(div.iloc[0,0]))
 				logging.debug('Div Proceeds: {}'.format(div_proceeds))
-				div_accr_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Dividend income accrual', symbol, div_rate, qty, 'Dividend Receivable', 'Dividend Income', div_proceeds ]
+				div_accr_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Dividend income accrual', symbol, div_rate, qty, 'Dividend Receivable', 'Dividend Income', div_proceeds ]
 				div_accr_event = [div_accr_entry]
 				print(div_accr_event)
 				self.ledger.journal_entry(div_accr_event)
@@ -366,7 +366,7 @@ class Trading(object):
 			logging.debug('Paydate: {}'.format(paydate))
 			logging.debug('Current Date: {}'.format(current_date))
 			if current_date == paydate:
-				div_relieve_entry = [ div_accr_txn.iloc[0], div_accr_txn.iloc[1], self.trade_date(date), 'Dividend income payment', symbol, div_accr_txn.iloc[5], div_accr_txn.iloc[6], 'Cash', 'Dividend Receivable', div_accr_txn.iloc[9] ]
+				div_relieve_entry = [ div_accr_txn.iloc[0], div_accr_txn.iloc[1], '', self.trade_date(date), '', 'Dividend income payment', symbol, div_accr_txn.iloc[5], div_accr_txn.iloc[6], 'Cash', 'Dividend Receivable', div_accr_txn.iloc[9] ]
 				div_relieve_event = [div_relieve_entry]
 				print(div_relieve_event)
 				self.ledger.journal_entry(div_relieve_event)
@@ -416,8 +416,8 @@ class Trading(object):
 				logging.debug('New QTY: {}'.format(new_qty))
 				logging.debug('New Price: {}'.format(new_price))
 
-				cost_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Stock split old', symbol, old_price, qty, 'Cash', 'Investments', cost ]
-				split_entry = [ self.ledger.get_event(), self.ledger.get_entity(), self.trade_date(date), 'Stock split new', symbol, new_price, new_qty, 'Investments', 'Cash', cost ]
+				cost_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Stock split old', symbol, old_price, qty, 'Cash', 'Investments', cost ]
+				split_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Stock split new', symbol, new_price, new_qty, 'Investments', 'Cash', cost ]
 				split_event = [cost_entry, split_entry]
 				print(split_event)
 				self.ledger.journal_entry(split_event)

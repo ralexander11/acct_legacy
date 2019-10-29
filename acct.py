@@ -91,12 +91,11 @@ class Accounts:
 			('Account','None'),
 			('Admin','Account'),
 			('Asset','Account'),
+			('Liability','Account'),
 			('Equity','Account'),
-			('Liability','Equity'),
-			('Wealth','Equity'),
-			('Revenue','Wealth'),
-			('Expense','Wealth'),
-			('Transfer','Wealth')
+			('Revenue','Equity'),
+			('Expense','Equity'),
+			('Transfer','Equity')
 		]
 
 		personal = [
@@ -550,7 +549,9 @@ class Ledger:
 				txn_id INTEGER PRIMARY KEY,
 				event_id integer NOT NULL,
 				entity_id integer NOT NULL,
+				cp_id integer NOT NULL,
 				date date NOT NULL,
+				location text,
 				description text,
 				item_id text,
 				price real,
@@ -669,7 +670,7 @@ class Ledger:
 		return self.gl
 
 	def get_acct_elem(self, acct):
-		if acct in ['Asset','Liability','Wealth','Revenue','Expense','None']:
+		if acct in ['Asset','Liability','Equity','Revenue','Expense','None']:
 			return acct
 		else:
 			return self.get_acct_elem(self.coa.loc[acct, 'child_of'])
@@ -723,9 +724,9 @@ class Ledger:
 		except KeyError as e:
 			liab_bal = 0
 		try:
-			wealth_bal = bal.loc['Wealth', 0]
+			equity_bal = bal.loc['Equity', 0]
 		except KeyError as e:
-			wealth_bal = 0
+			equity_bal = 0
 		try:
 			rev_bal = bal.loc['Revenue', 0]
 		except KeyError as e:
@@ -737,7 +738,7 @@ class Ledger:
 		retained_earnings = rev_bal - exp_bal
 		net_asset_value = asset_bal - liab_bal
 		if net_asset_value == 0: # Two ways to calc NAV depending on accounts
-			net_asset_value = wealth_bal + retained_earnings
+			net_asset_value = equity_bal + retained_earnings
 		if v: print('NAV: \n{}'.format(net_asset_value))
 		self.refresh_ledger()
 		return net_asset_value # TODO This func is slow
@@ -746,7 +747,7 @@ class Ledger:
 # Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
 # Liab   - Credit bal - Neg : Dr. = pos & Cr. = neg
 # =
-# Wealth - Credit bal - Pos : Dr. = neg & Cr. = pos
+# Equity - Credit bal - Pos : Dr. = neg & Cr. = pos
 # Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
 # Exp    - Debit  bal - Neg : Dr. = neg & Cr. = pos
 
@@ -754,7 +755,7 @@ class Ledger:
 # Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
 # Liab   - Credit bal - Pos : Dr. = neg & Cr. = pos
 # =
-# Wealth - Credit bal - Pos : Dr. = neg & Cr. = pos
+# Equity - Credit bal - Pos : Dr. = neg & Cr. = pos
 # Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
 # Exp    - Debit  bal - Pos : Dr. = pos & Cr. = neg
 
@@ -786,7 +787,7 @@ class Ledger:
 		accounts = None
 		assets = []
 		liabilities = []
-		wealth = []
+		equity = []
 		revenues = []
 		expenses = []
 		for acct in account_details:
@@ -794,8 +795,8 @@ class Ledger:
 				assets.append(acct[0])
 			elif acct[1] == 'Liability':
 				liabilities.append(acct[0])
-			elif acct[1] == 'Wealth':
-				wealth.append(acct[0])
+			elif acct[1] == 'Equity':
+				equity.append(acct[0])
 			elif acct[1] == 'Revenue':
 				revenues.append(acct[0])
 			elif acct[1] == 'Expense':
@@ -851,25 +852,25 @@ class Ledger:
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 		self.bs = self.bs.append({'line_item':'Total Liabilities:', 'balance':liab_bal}, ignore_index=True)
 
-		wealth_bal = 0
-		for acct in wealth:
-			if v: print('Wealth Account: {}'.format(acct))
+		equity_bal = 0
+		for acct in equity:
+			if v: print('Equity Account: {}'.format(acct))
 			try:
 				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
-				if v: print('Wealth Debit Error: {} | {}'.format(e, repr(e)))
+				if v: print('Equity Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
 				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
-				if v: print('Wealth Credit Error: {} | {}'.format(e, repr(e)))
+				if v: print('Equity Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
-			wealth_bal += bal
+			equity_bal += bal
 			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-		self.bs = self.bs.append({'line_item':'Total Wealth:', 'balance':wealth_bal}, ignore_index=True)
+		self.bs = self.bs.append({'line_item':'Total Equity:', 'balance':equity_bal}, ignore_index=True)
 
 		rev_bal = 0
 		for acct in revenues:
@@ -916,10 +917,10 @@ class Ledger:
 
 		net_asset_value = asset_bal - liab_bal
 		if net_asset_value == 0: # Two ways to calc NAV depending on accounts
-			net_asset_value = wealth_bal + retained_earnings
+			net_asset_value = equity_bal + retained_earnings
 
 		total_equity = net_asset_value + liab_bal
-		self.bs = self.bs.append({'line_item':'Wealth+NI+Liab.:', 'balance':total_equity}, ignore_index=True)
+		self.bs = self.bs.append({'line_item':'Equity+NI+Liab.:', 'balance':total_equity}, ignore_index=True)
 
 		check = asset_bal - total_equity
 		self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
@@ -1107,6 +1108,7 @@ class Ledger:
 		if journal_data is None: # Manually enter a journal entry
 			event = input('Enter an optional event_id: ')
 			entity = input('Enter the entity_id: ')
+			cp = input('Enter the counterparty id (or blank for itself): ')
 			while True:
 				try:
 					date_raw = input('Enter a date as format yyyy-mm-dd: ')
@@ -1119,6 +1121,7 @@ class Ledger:
 				except ValueError:
 					print('Incorrect data format, should be YYYY-MM-DD.')
 					continue
+			loc = input('Enter an optional location: ')
 			desc = input('Enter a description: ') + ' [M]'
 			item = input('Enter an optional item_id: ')
 			price = input('Enter an optional price: ')
@@ -1156,16 +1159,17 @@ class Ledger:
 						entity = entity_choice
 				else:
 					entity = str(entity)
-			
+			if cp == '':
+				cp = entity
 
 			if qty == '': # TODO No qty and price default needed now
 				qty = np.nan
 			if price == '':
 				price = np.nan
 
-			values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
+			values = (event, entity, cp, date, loc, desc, item, price, qty, debit, credit, amount)
 			print(values)
-			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
+			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?)', values)
 
 		else: # Create journal entries by passing data to the function
 			for je in journal_data:
@@ -1174,14 +1178,19 @@ class Ledger:
 				if isinstance(entity, (list, tuple)):
 					entity = entity[0]
 				entity = str(entity)
-				date = str(je[2])
-				desc = str(je[3])
-				item  = str(je[4])
-				price = str(je[5])
-				qty = str(je[6])
-				debit = str(je[7])
-				credit = str(je[8])
-				amount = str(je[9])
+				cp = je[2]
+				if isinstance(cp, (list, tuple)):
+					cp = cp[0]
+				cp = str(cp)
+				date = str(je[3])
+				loc = str(je[4])
+				desc = str(je[5])
+				item  = str(je[6])
+				price = str(je[7])
+				qty = str(je[8])
+				debit = str(je[9])
+				credit = str(je[10])
+				amount = str(je[11])
 
 				if event == '' or event == 'nan':
 					event = str(self.get_event())
@@ -1190,6 +1199,8 @@ class Ledger:
 					if isinstance(entity, (list, tuple)):
 						entity = entity[0]
 					entity = str(entity)
+				if cp == '' or cp == 'nan':
+					cp = entity
 				if date == 'NaT':
 					date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 					date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
@@ -1203,9 +1214,9 @@ class Ledger:
 				if price == '':
 					price = np.nan
 
-				values = (event, entity, date, desc, item, price, qty, debit, credit, amount)
+				values = (event, entity, cp, date, loc, desc, item, price, qty, debit, credit, amount)
 				print(values)
-				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?)', values)
+				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?)', values)
 
 		self.conn.commit()
 		txn_id = cur.lastrowid
@@ -1257,7 +1268,9 @@ class Ledger:
 			rbc_txn = pd.DataFrame()
 			rbc_txn['event_id'] = ''
 			rbc_txn['entity_id'] = ''
+			rbc_txn['cp_id'] = ''
 			rbc_txn['date'] = load_gl['Transaction Date']
+			rbc_txn['loc'] = ''
 			rbc_txn['desc'] = load_gl['Description 1'] + ' | ' + load_gl['Description 2']
 			rbc_txn['item_id'] = ''
 			rbc_txn['price'] = ''
@@ -1282,7 +1295,9 @@ class Ledger:
 			leg_txn = pd.DataFrame()
 			leg_txn['event_id'] = ''
 			leg_txn['entity_id'] = ''
+			leg_txn['cp_id'] = ''
 			leg_txn['date'] = load_gl['Transaction Date']
+			leg_txn['loc'] = ''
 			leg_txn['desc'] = load_gl['Description 1'] + ' | ' + load_gl['Description 2']
 			leg_txn['item_id'] = ''
 			leg_txn['price'] = ''
@@ -1336,7 +1351,7 @@ class Ledger:
 		if date is None: # rvsl[7] or np.nan
 			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-		rvsl_entry = [[ rvsl[1], rvsl[2], date, '[RVSL]' + rvsl[4], rvsl[5], rvsl[6] or '', rvsl[7] or '', rvsl[9], rvsl[8], rvsl[10] ]]
+		rvsl_entry = [[ rvsl[1], rvsl[2], rvsl[3], date, rvsl[5], '[RVSL]' + rvsl[6], rvsl[7], rvsl[8] or '', rvsl[9] or '', rvsl[11], rvsl[10], rvsl[12] ]]
 		self.journal_entry(rvsl_entry)
 
 	def split(self, txn=None, debit_acct=None, credit_acct=None, amount=None, date=None):
@@ -1350,21 +1365,21 @@ class Ledger:
 		cur.close()
 		if amount is None:
 			split_amt = float(input('How much to split by? '))
-			while split_amt > split[10]:
+			while split_amt > split[12]:
 				split_amt = float(input('That is too much. How much to split by? '))
 		if debit_acct is None:
 			debit_acct = input('Which debit account to split with? ')
 			if debit_acct == '':
-				debit_acct = split[8]
+				debit_acct = split[10]
 		if credit_acct is None:
 			credit_acct = input('Which credit account to split with? ')
 			if credit_acct == '':
-				credit_acct = split[9]
+				credit_acct = split[11]
 		if date is None:
 			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-		orig_split_entry = [ split[1], split[2], date, split[4], split[5], split[6] or '', split[7] or '', split[8], split[9], split[10] - split_amt ]
-		new_split_entry = [ split[1], split[2], date, split[4], split[5], split[6] or '', split[7] or '', debit_acct, credit_acct, split_amt ]
+		orig_split_entry = [ split[1], split[2], split[3], date, split[5], split[6], split[7], split[8] or '', split[9] or '', split[10], split[11], split[12] - split_amt ]
+		new_split_entry = [ split[1], split[2], split[3], date, split[5], split[6], split[7], split[8] or '', split[9] or '', debit_acct, credit_acct, split_amt ]
 		split_event = [orig_split_entry, new_split_entry]
 		self.journal_entry(split_event)
 
@@ -1376,19 +1391,19 @@ class Ledger:
 		cur.execute(uncat_query)
 		entry = cur.fetchone()
 		#print('Entry: \n{}'.format(entry))
-		debit_acct = entry[8]
-		if entry[8] == 'Uncategorized':
+		debit_acct = entry[10]
+		if entry[10] == 'Uncategorized':
 			if debit_acct is None:
 				debit_acct = input('Enter the account to debit: ')
 			if debit_acct not in self.coa.index:
 				print('\n' + debit + ' is not a valid account.')
-		credit_acct = entry[9]
-		if entry[9] == 'Uncategorized':
+		credit_acct = entry[11]
+		if entry[11] == 'Uncategorized':
 			if credit_acct is None:
 				credit_acct = input('Enter the account to credit: ')
 			if credit_acct not in self.coa.index:
 				print('\n' + credit + ' is not a valid account.')
-		new_entry = [ entry[1], entry[2], entry[3], entry[4], entry[5], entry[6] or '', entry[7] or '', debit_acct, credit_acct, entry[10] ]
+		new_entry = [ entry[1], entry[2], entry[3], entry[4], entry[5], entry[6], entry[7], entry[8] or '', entry[9] or '', debit_acct, credit_acct, entry[12] ]
 		#print('New Entry: \n{}'.format(new_entry))
 		new_cat_query = 'UPDATE '+ self.ledger_name +' SET debit_acct = \'' + debit_acct + '\', credit_acct = \'' + credit_acct + '\' WHERE txn_id = '+ txn + ';'
 		#print('New Cat Query: \n{}'.format(new_cat_query))
@@ -1545,11 +1560,11 @@ class Ledger:
 				entity text NOT NULL,
 				assets real NOT NULL,
 				liabilities real NOT NULL,
-				wealth real NOT NULL,
+				equity real NOT NULL,
 				revenues real NOT NULL,
 				expenses real NOT NULL,
 				net_income real NOT NULL,
-				wealth_ni_liab real NOT NULL,
+				equity_ni_liab real NOT NULL,
 				bal_check real NOT NULL,
 				net_asset_value real NOT NULL
 			);
@@ -1568,11 +1583,11 @@ class Ledger:
 				col0 = str(entity)
 				col1 = self.bs.loc['Total Assets:'][0]
 				col2 = self.bs.loc['Total Liabilities:'][0]
-				col3 = self.bs.loc['Total Wealth:'][0]
+				col3 = self.bs.loc['Total Equity:'][0]
 				col4 = self.bs.loc['Total Revenues:'][0]
 				col5 = self.bs.loc['Total Expenses:'][0]
 				col6 = self.bs.loc['Net Income:'][0]
-				col7 = self.bs.loc['Wealth+NI+Liab.:'][0]
+				col7 = self.bs.loc['Equity+NI+Liab.:'][0]
 				col8 = self.bs.loc['Balance Check:'][0]
 				col9 = self.bs.loc['Net Asset Value:'][0]
 				
