@@ -2708,13 +2708,13 @@ class Entity:
 		# Get list of WIP txns for different item types
 		wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 		if v: print('WIP TXNs: \n{}'.format(wip_txns))
-		time_check = False
 		if not wip_txns.empty:
 			if v: print('WIP Transactions: \n{}'.format(wip_txns))
 			# Compare the gl dates to the WIP time from the items table
 			#items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
 			items_continuous = world.items[world.items['freq'].str.contains('continuous', na=False)]
 			for index, wip_lot in wip_txns.iterrows():
+				time_check = False
 				wip_event = []
 				item = wip_lot.loc['item_id']
 				if v: print('WIP Index Check: {}'.format(index))
@@ -4179,10 +4179,10 @@ class Entity:
 				if metric != 'usage':
 					self.depreciation(item, lifespan, metric)
 
-	def depreciation(self, item, lifespan, metric, uses=1, buffer=False, v=False):
+	def depreciation(self, item, lifespan, metric, uses=1, man=False, buffer=False, v=False):
 		if (metric == 'ticks') or (metric == 'usage'):
-			#item_type = world.get_item_type(item)
-			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Inventory','In Use'], item=item) # TODO Maybe support other accounts
+			ledger.set_entity(self.entity_id)
+			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Inventory','In Use'], item=item) # TODO Maybe support other accounts and remove Inventory
 			if asset_bal == 0:
 				return [], None
 			depreciation_event = []
@@ -4190,23 +4190,35 @@ class Entity:
 			dep_amount = (asset_bal / lifespan) * uses
 			if v: print('Dep. amount for {}: {}'.format(item, dep_amount))
 			accum_dep_bal = ledger.balance_sheet(accounts=['Accumulated Depreciation'], item=item)
+			ledger.reset()
 			if v: print('Accum. Dep. for {}: {}'.format(item, accum_dep_bal))
 			remaining_amount = asset_bal - accum_dep_bal
+			orig_uses = uses
 			if dep_amount > remaining_amount:
-				uses = remaining_amount / (asset_bal / lifespan)
-				dep_amount = remaining_amount
-				new_qty = int(math.ceil(uses / lifespan))
-				print('The {} breaks for the {}. Another {} are required to use.'.format(item, self.name, new_qty))
+				uses = math.floor(remaining_amount / (asset_bal / lifespan))
+				self.derecognize(item, 1) # TODO Handle more than 1 qty
+				dep_amount = (asset_bal / lifespan) * uses
+				new_qty = int(math.ceil((orig_uses - uses) / lifespan))
+				if new_qty == 1:
+					print('The {} breaks for the {}. Another {} is required to use.'.format(item, self.name, new_qty))
+				else:
+					print('The {} breaks for the {}. Another {} are required to use.'.format(item, self.name, new_qty))
 				# Try to purchase a new item if current one breaks
-				outcome = self.purchase(item, new_qty)
-				if outcome:
-					entries, new_uses = self.depreciation(item, lifespan, metric, uses, buffer)
-					if entries:
-						depreciation_event += entries
-						uses += new_uses
+				if not man:
+					# TODO Try to produce first
+					outcome = self.purchase(item, new_qty)
+					if outcome:
+						entries, new_uses = self.depreciation(item, lifespan, metric, (orig_uses - uses), buffer)
+						if entries:
+							depreciation_event += entries
+							uses += new_uses
+					elif not outcome and uses == 0:
+						return [], None
+				elif not outcome and uses == 0:
+					return [], None
 			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
 			depreciation_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation of ' + item, item, '', '', 'Depreciation Expense', 'Accumulated Depreciation', dep_amount ]
-			depreciation_event = [depreciation_entry]
+			depreciation_event += [depreciation_entry]
 			if buffer:
 				return depreciation_event, uses
 			if metric == 'usage':
@@ -4286,17 +4298,19 @@ class Entity:
 		ledger.journal_entry(impairment_event)
 		return impairment_event
 
-	def derecognize(self, item, qty):
+	def derecognize(self, item, qty=1):
 		# TODO Check if item in use
 		# TODO Check if item uses land and release that land
 		#item_type = world.get_item_type(item)
+		ledger.set_entity(self.entity_id)
 		asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=item)# TODO Maybe support other accounts
 		if asset_bal == 0:
 				return
 		accum_dep_bal = ledger.balance_sheet(accounts=['Accumulated Depreciation'], item=item)
 		accum_imp_bal = ledger.balance_sheet(accounts=['Accumulated Impairment Losses'], item=item)
-		accrum_reduction = abs(accum_dep_bal) + abs(accum_imp_bal)
-		if asset_bal == accrum_reduction:
+		ledger.reset()
+		accum_reduction = abs(accum_dep_bal) + abs(accum_imp_bal)
+		if accum_reduction >= asset_bal:
 			derecognition_event = []
 			item_info = world.items.loc[item]
 			reqs = 'requirements'
@@ -4311,12 +4325,16 @@ class Entity:
 				requirement_type = world.get_item_type(requirement)
 				if requirement_type == 'Land' or requirement_type == 'Buildings' or requirement_type == 'Equipment':
 					req_qty = amounts[i] # TODO Support modifiers
-					req_price = world.get_price(requirement, self.entity_id)
+					req_price = world.get_price(requirement, self.entity_id) # TODO Use price from entry
 					release_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Release ' + requirement + ' used by ' + item, requirement, req_price, req_qty, requirement_type, 'In Use', req_price * req_qty ]
 					derecognition_event += [release_entry]
 
 			derecognition_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accumulated Depreciation', 'Equipment', asset_bal ]
-			derecognition_event += [derecognition_entry]
+			overage_entry = []
+			if accum_reduction > asset_bal:
+				overage = accum_reduction - asset_bal
+				overage_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item + ' (Overage)', item, overage / qty, qty, 'Accumulated Depreciation', 'Depreciation Expense', overage ]
+			derecognition_event += [derecognition_entry, overage_entry]
 			ledger.journal_entry(derecognition_event)
 
 	def action(self, command=None, external=False):
@@ -5664,7 +5682,7 @@ class Individual(Entity):
 				ledger.set_entity(self.entity_id)
 				qty_held = ledger.get_qty(items=item_choosen, accounts=['Equipment'])
 				ledger.reset()
-				#print('QTY Held: {}'.format(qty_held))
+				print('{} has {} {} to address {}.'.format(self.name, qty_held, item_choosen, need))
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				uses_needed = int(math.ceil(need_needed / satisfy_rate))
 				print('Uses Needed of {}: {}'.format(item_choosen, uses_needed))
@@ -5690,8 +5708,9 @@ class Individual(Entity):
 							qty_purchase = int(math.ceil(uses_needed / lifespan))
 							break
 					outcome = self.purchase(item_choosen, qty_purchase)
+					# TODO Should update qty_held again
 				if qty_held > 0 or outcome:
-					entries = self.use_item(item_choosen, uses_needed)
+					entries = self.use_item(item_choosen, uses_needed, buffer=True)
 					if not entries:
 						entries = []
 					if entries is True:
