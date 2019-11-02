@@ -73,3 +73,7 @@ Shares,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Non
 Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Init Capital,0,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
 Credit Line 5,0.05,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
+Robot Lumberjack,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,Lumberjack,1,200,usage,None,None,None,10000,None,None,Blacksmith
+Robot Miner,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,Miner,1,200,usage,None,None,None,10000,None,None,Blacksmith
+3D Printer,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,Carpenter,1,200,usage,None,None,None,10000,None,None,Blacksmith
+Robot Blacksmither,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 400, 800",12,None,None,None,None,Blacksmither,1,1000,usage,None,None,None,10000,None,None,Blacksmith
