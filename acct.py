@@ -126,9 +126,9 @@ class Accounts:
 				entity_id INTEGER PRIMARY KEY,
 				name text,
 				comm real DEFAULT 0,
-				min_qty INTEGER,
-				max_qty INTEGER,
-				liquidate_chance real,
+				min_qty INTEGER DEFAULT 1,
+				max_qty INTEGER DEFAULT 100,
+				liquidate_chance real DEFAULT 0.0,
 				ticker_source text DEFAULT 'iex',
 				entity_type text,
 				government text,
@@ -136,8 +136,8 @@ class Accounts:
 				needs text,
 				need_max INTEGER DEFAULT 100,
 				decay_rate INTEGER DEFAULT 1,
-				need_threshold INTEGER DEFAULT 40,
-				current_need INTEGER DEFAULT 50,
+				need_threshold INTEGER DEFAULT 100,
+				current_need INTEGER DEFAULT 100,
 				parents text,
 				user text,
 				auth_shares INTEGER,
@@ -330,16 +330,16 @@ class Accounts:
 		if entity_data is None:
 			name = input('Enter the entity name: ')
 			comm = input('Enter the commission amount: ')
-			min_qty = '' # TODO Remove parameters related to random algo
-			max_qty = ''
-			liquidate_chance = ''
+			min_qty = 1 # TODO Remove parameters related to random algo
+			max_qty = 100 # TODO Remove parameters related to random algo
+			liquidate_chance = 0.5 # TODO Remove parameters related to random algo
 			ticker_source = input('Enter the source for tickers: ')
 			entity_type = input('Enter the type of the entity: ')
 			government = input('Enter the ID for the government the entity belongs to: ')
-			hours = input('Enter the number of hours in a work day: ')
+			hours = input('Enter the number of hours reminaing in their work day: ') # TODO Int validation
 			needs = input('Enter the needs of the entity as a list: ')
 			need_max = input('Enter the maximum need value as a list: ')
-			decay_rate = input('Enter the rates of decay per day for each need.') # TODO Add int validation
+			decay_rate = input('Enter the rates of decay per day for each need: ')
 			need_threshold = input('Enter the threshold for the needs as a list: ')
 			current_need = input('Enter the starting level for the needs as a list: ')
 			parents = input('Enter two IDs for parents as a tuple: ')
@@ -347,6 +347,11 @@ class Accounts:
 			auth_shares = input('Enter the number of shares authorized: ')
 			int_rate = input('Enter the interest rate for the bank: ')
 			outputs = input('Enter the output names as a list: ') # For corporations
+
+			# if auth_shares == '' or auth_shares == 'None' or auth_shares is None:
+			# 	auth_shares = np.nan
+			if int_rate == '' or int_rate == 'None' or int_rate is None:
+				int_rate = np.nan
 
 			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,int_rate,outputs)
 			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
@@ -439,7 +444,7 @@ class Accounts:
 		save_location = 'data/'
 		try:
 			self.coa.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
-			print('File saved as ' + save_location + outfile + '\n')
+			print('File saved as ' + save_location + outfile)
 		except Exception as e:
 			print('Error: {}'.format(e))
 
@@ -1785,7 +1790,7 @@ def main(conn=None, command=None, external=False):
 				'accts': 'View the Chart of Accounts with their types.',
 				'gl': 'View the General Ledger.',
 				'bs': 'View the Balance Sheet and Income Statement.',
-				'entity': 'View only data related to the entity set.',
+				'entity': 'View only data related to the entity selected.',
 				'date': 'Set the date to view the Balance Sheet up to.',
 				'startdate': 'Set the start date to view the Income Statement from.',
 				'reset': 'Resets both the entity and dates, to view for all entities and for all dates.',
