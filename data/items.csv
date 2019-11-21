@@ -27,7 +27,7 @@ Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,
 Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Harvester,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Berries,None,None,None,Commodity,"Land, Forage","10, 8",None,None,None,Hunger,0.25,None,None,8,spoilage,None,None,None,1,None,None,Individual
+Berries,None,None,None,Commodity,"Land, Forage","10, 8",None,None,None,Hunger,0.75,None,None,8,spoilage,None,None,None,1,None,None,Individual
 Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water","8, 400, 0.1, 1",None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Farm
 Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,Farm
 Plow,None,None,start,Equipment,"Metal Working, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 10, 20",12,None,None,None,None,Cultivator,0.5,"10,100","usage, ticks",None,None,None,100,None,None,Blacksmith

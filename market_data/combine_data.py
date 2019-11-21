@@ -18,6 +18,7 @@ class CombineData(object):
 			fname_date = os.path.basename(infile)[-14:-4]
 			#print(fname_date)
 			df = df.assign(date=fname_date)
+			df = df.drop(['ZEXIT','ZIEXT','ZXIET','ZVZZT','ZWZZT','ZXZZT'])
 			#print (df)
 			#print ('-' * DISPLAY_WIDTH)
 			return df

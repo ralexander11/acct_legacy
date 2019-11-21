@@ -24,6 +24,20 @@ logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='
 random.seed()
 WK52_REDUCE = 1 #10
 
+def time_stamp(offset=0):
+	time_stamp = (datetime.datetime.now() + datetime.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
+	return time_stamp
+
+def delete_db(db_name=None):
+	if db_name is None:
+		db_name = 'first01.db'
+	db_path = 'db/'
+	if os.path.exists(db_path + db_name):
+		os.remove(db_path + db_name)
+		print(time_stamp() + 'Database file reset: {}'.format(db_path + db_name))
+	else:
+		print(time_stamp() + 'The database file does not exist to be reset at: {}.'.format(db_path + db_name))
+
 trade_accts = [
 		('Cash','Asset'),
 		('Chequing','Asset'),
@@ -49,13 +63,10 @@ class TradingAlgo(object):
 	def __init__(self, ledger, trade, combine_data):
 		self.config = self.load_config()
 		self.token = self.config['api_token']
-		if os.path.exists('../market_data/data/'):
-			self.data_location = '../market_data/data/'
-		else:
-			self.data_location = 'market_data/data/'
+		self.data_location = trade.data_location
+		print('Data Location: {}'.format(self.data_location))
 		self.ledger = ledger
 		self.trade = trade
-		# self.gl = trade.gl
 		self.ledger_name = trade.ledger_name
 		self.entity = trade.entity
 		self.date = trade.date
@@ -75,10 +86,6 @@ class TradingAlgo(object):
 		self.sim = trade.sim
 		self.date = trade.date
 
-	def time_stamp(self):
-		time_stamp = datetime.datetime.now().strftime('[%Y-%b-%d %I:%M:%S %p] ')
-		return time_stamp
-
 	def load_config(self, file='config.yaml'):
 		config = None
 		if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
@@ -94,13 +101,16 @@ class TradingAlgo(object):
 	def check_weekend(self, date=None):
 		# Get the day of the week (Monday is 0)
 		if date is not None:
-			weekday = datetime.datetime.strptime(date, '%Y-%m-%d').weekday()
+			if not isinstance(date, str):
+				weekday = date.weekday()
+			else:
+				weekday = datetime.datetime.strptime(date, '%Y-%m-%d').weekday()
 		else:
 			weekday = datetime.datetime.today().weekday()
 
 		# Don't do anything on weekends
 		if weekday == 5 or weekday == 6:
-			print(self.time_stamp() + 'Today is a weekend.')
+			print(time_stamp() + 'Today is a weekend.')
 			return weekday
 
 	def check_holiday(self, date=None):
@@ -129,12 +139,15 @@ class TradingAlgo(object):
 
 		# Don't do anything on trade holidays
 		if date is not None:
-			current_date = date
+			if not isinstance(date, str):
+				current_date = date.strftime('%Y-%m-%d')
+			else:
+				current_date = date
 		else:
 			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
 		for holiday in trade_holidays:
 			if holiday == current_date:
-				print(self.time_stamp() + 'Today is a trade holiday.')
+				print(time_stamp() + 'Today is a trade holiday.')
 				return holiday
 
 	def check_hours(self, begin_time=None, end_time=None, check_time=None):
@@ -148,6 +161,25 @@ class TradingAlgo(object):
 			return check_time >= begin_time and check_time <= end_time
 		else: # crosses midnight
 			return check_time >= begin_time or check_time <= end_time
+
+	def get_next_day(self, date=None):
+		if date is not None:
+			# print('date: {} | Type: {}'.format(date, type(date)))
+			if isinstance(date, str):
+				current_date = datetime.datetime.strptime(date, '%Y-%m-%d')
+			else:
+				current_date = date
+		else:
+			current_date = datetime.datetime.today()
+		# print('current_date: {} | Type: {}'.format(current_date, type(current_date)))
+		next_day = (current_date + datetime.timedelta(days=1))#.date()
+		if isinstance(next_day, datetime.datetime):
+			next_day = next_day.date()
+		if self.check_weekend(next_day) is not None:
+			return self.get_next_day(next_day)
+		if self.check_holiday(next_day) is not None:
+			return self.get_next_day(next_day)
+		return next_day
 
 	def get_symbols(self, flag, date=None):
 		if flag == 'iex' and date is None:
@@ -177,7 +209,7 @@ class TradingAlgo(object):
 
 	# Check how much capital is available
 	def check_capital(self, capital_accts=None):
-		logging.info(self.time_stamp() + 'Checking capital...')
+		logging.info(time_stamp() + 'Checking capital...')
 		# self.gl = self.ledger.gl
 		if capital_accts is None:
 			capital_accts = ['Cash','Chequing']
@@ -215,8 +247,8 @@ class TradingAlgo(object):
 		portfolio = self.ledger.get_qty(accounts=['Investments'])
 		portfolio.columns = ['symbol','qty']
 		portfolio = portfolio[(portfolio.qty != 0)] # Filter out tickers with zero qty
-		portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
-		logging.info(self.time_stamp() + 'Done getting fresh portfolio.')
+		# portfolio = portfolio.sample(frac=1).reset_index(drop=True) #Randomize list
+		logging.info(time_stamp() + 'Done getting fresh portfolio.')
 		return portfolio
 
 	# Buy shares until you run out of capital
@@ -229,13 +261,13 @@ class TradingAlgo(object):
 
 	# Sell randomly from a random subset of positions
 	def random_sell(self, portfolio, date=None):
-		print(self.time_stamp() + 'Randomly selling from {} securities.'.format(len(portfolio)))
+		print(time_stamp() + 'Randomly selling from {} securities.'.format(len(portfolio)))
 		t1_start = time.perf_counter()
 		for count, symbol in enumerate(portfolio['symbol'][:random.randint(1,len(portfolio))]):
 			logging.debug('Selling shares of: {}'.format(symbol))
 			self.trade.sell_shares(*self.get_trade(symbol, portfolio), date)
 		t1_end = time.perf_counter()
-		print(self.time_stamp() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
+		print(time_stamp() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
 
 	# First algo functions
 	def rank_wk52high(self, assets, norm=False, date=None): # TODO Make this able to be a percentage change calc
@@ -297,21 +329,35 @@ class TradingAlgo(object):
 		#print('rank_day50: \n{}'.format(rank_day50))
 		return rank_day50
 
-	def rank(self, assets, norm=False, date=None, v=False):
+	def rank_combined(self, assets, norm=False, date=None, v=False):
 		rank_wk52 = self.rank_wk52high(assets, norm, date)
 		rank_wk52 = rank_wk52.rank()
-		rank_wk52 = rank_wk52 / WK52_REDUCE
-		if v:
-			print('\nrank_wk52: {}\n{}'.format(date, rank_wk52.head(30)))
+		rank_wk52 = rank_wk52 / WK52_REDUCE # Now just a 1
+		if v: print('\nrank_wk52: {}\n{}'.format(date, rank_wk52.head(30)))
 		rank_day50 = self.rank_day50avg(assets, norm, date)
 		rank_day50 = rank_day50.rank()
-		if v:
-			print('\nrank_day50: {}\n{}'.format(date, rank_day50.head(30)))
+		if v: print('\nrank_day50: {}\n{}'.format(date, rank_day50.head(30)))
 		rank = rank_wk52.add(rank_day50, fill_value=0)
 		rank.sort_values(ascending=False, inplace=True)
-		if v:
-			print('\nRank: {}\n{}'.format(date, rank.head(30)))
+		if v: print('\nRank: {}\n{}'.format(date, rank.head(30)))
 		return rank
+
+	def rank_change_percent(self, assets, date=None):
+		if date is not None:
+			date = self.get_next_day(date=date)
+		if date is None:
+			date = self.get_next_day()
+		end_point = 'quote'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		if not os.path.exists(path):
+			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+			# print('Path: {}'.format(path))
+		quote_df = self.combine_data.load_file(path)
+		# Filter as per available WealthSimple listing criteria
+		quote_df = quote_df.loc[(quote_df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (quote_df['week52High'] > 0.5) & (quote_df['avgTotalVolume'] > 50000)]
+		quote_df = quote_df[(quote_df.close <= assets)]
+		quote_df.sort_values(by='changePercent', ascending=False, inplace=True)
+		return quote_df
 
 	def buy_single(self, symbol, date=None):
 		print(symbol)
@@ -335,8 +381,7 @@ class TradingAlgo(object):
 	def main(self, norm=False, date=None):
 		t4_start = time.perf_counter()
 		print('=' * DISPLAY_WIDTH)
-		print(self.time_stamp() + 'Sim date: {}'.format(date))
-		#print(self.time_stamp() + 'Entity: {} \nCommission: {}, Min QTY: {}, Max QTY: {}, Liquidate Chance: {}, Ticker Source: {}'.format(ledger.entity, trade.com(), algo.min_qty, algo.max_qty, algo.liquidate_chance, algo.ticker_source))
+		print(time_stamp() + 'Sim date: {}'.format(date))
 		print ('-' * DISPLAY_WIDTH)
 
 		self.trade.int_exp(date=date) # TODO ensure this only runs daily
@@ -355,48 +400,40 @@ class TradingAlgo(object):
 
 		# if not self.trade.sim:
 		# 	if not algo.check_hours():
-		# 		print(self.time_stamp() + 'Not within trading hours.')
+		# 		print(time_stamp() + 'Not within trading hours.')
 		# 		return
 
 		capital = self.check_capital()
 		assets = self.ledger.balance_sheet(['Cash','Investments'])
 
-		# Initial day of portfolio setup
-		try: # TODO Move into own function maybe
-			portfolio = self.get_portfolio()
-		except:
-			print(self.time_stamp() + 'Initial porfolio setup.')
-			rank = self.rank(assets, norm, date)
-			ticker = rank.index[0]
-			capital_remain, qty = self.buy_max(capital, ticker, date)
-			print('-' * DISPLAY_WIDTH)
-			self.ledger.print_bs()
-			nav = self.ledger.balance_sheet()
-			print(self.time_stamp() + 'Done initial porfolio setup.')
-			return nav
-
 		# Trading Algo
-		rank = self.rank(assets, norm, date)
-		#with pd.options.display.float_format = '{:,.2f}'.format: # Test this
-		print('Rank: \n{}'.format(rank.head()))
+		# rank = self.rank_combined(assets, norm, date)
+		rank = self.rank_change_percent(assets, date)
+		print('Rank: \n{}'.format(rank[['changePercent','companyName','sector','primaryExchange','week52High','avgTotalVolume','date']].head()))
+
 		ticker = rank.index[0]
-		portfolio = self.get_portfolio()
-		if ticker == portfolio['symbol'][0]:
-			print('No change from {}.'.format(ticker))
-			self.trade.unrealized(date=date)
-			return
-		self.trade.unrealized(rvsl=True, date=date)
-		self.liquidate(portfolio, date)
+		print('Ticker: {}'.format(ticker))
+		# portfolio = self.get_portfolio()
+		portfolio = self.ledger.get_qty(accounts=['Investments'])
+		# print('Portfolio: \n{}'.format(portfolio))
+		if not portfolio.empty:
+			if ticker == portfolio['item_id'].iloc[0]:#['symbol'][0]:
+				print('No change from {}.'.format(ticker))
+				self.trade.unrealized(date=date)
+				return
+			self.trade.unrealized(rvsl=True, date=date)
+			self.liquidate(portfolio, date)
 		capital = self.check_capital()
 		capital_remain, qty = self.buy_max(capital, ticker, date)
 
 		print('-' * DISPLAY_WIDTH)
 		self.ledger.print_bs()
 		nav = self.ledger.balance_sheet()
-		self.ledger.get_qty(accounts=['Investments'])
+		portfolio = self.ledger.get_qty(accounts=['Investments'])
+		print('Portfolio End: \n{}'.format(portfolio))
 		#ledger.bs_hist()
 		t4_end = time.perf_counter()
-		print(self.time_stamp() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
+		print(time_stamp() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
 		return nav
 
 if __name__ == '__main__':
@@ -407,7 +444,10 @@ if __name__ == '__main__':
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
 	parser.add_argument('-norm', '--norm', action="store_true", help='Normalize stock prices in algo rankings.')
+	parser.add_argument('-r', '--reset', action='store_true', help='Reset the trading sim!')
 	args = parser.parse_args()
+	if args.reset:
+		delete_db(args.database)
 
 	accts = acct.Accounts(conn=args.database, standard_accts=trade_accts)
 	ledger = acct.Ledger(accts, ledger_name=args.ledger, entity=args.entity)
@@ -421,7 +461,7 @@ if __name__ == '__main__':
 		cap = args.capital
 		if cap is None:
 			cap = float(10000)
-		print(algo.time_stamp() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
+		print(time_stamp() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
 		data_path = algo.data_location + 'quote/*.csv'
 		dates = []
 		for fname in glob.glob(data_path):
@@ -429,21 +469,21 @@ if __name__ == '__main__':
 			dates.append(fname_date)
 		dates.sort()
 		print(dates)
-		print(algo.time_stamp() + 'Number of Days: {}'.format(len(dates)))
+		print(time_stamp() + 'Number of Days: {}'.format(len(dates)))
 		# print(accts.coa)
 		if algo.check_capital() == 0:
-			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), trade.trade_date(dates[0]), 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
+			deposit_capital = [ [ledger.get_event(), ledger.get_entity(), '', trade.trade_date(dates[0]), '', 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
 			ledger.journal_entry(deposit_capital)
 			#print(deposit_capital)
 		for date in dates[1:]:
 			try:
 				algo.main(args.norm, date)
 			except FileNotFoundError as e:
-				print(algo.time_stamp() + 'No data for prior date: {}'.format(date))
-				# print(algo.time_stamp() + 'Error: {}'.format(repr(e)))
+				print(time_stamp() + 'No data for prior date: {}'.format(date))
+				# print(time_stamp() + 'Error: {}'.format(repr(e)))
 		print('-' * DISPLAY_WIDTH)
 		ledger.print_bs() # Display final bs
 		t0_end = time.perf_counter()
-		print(algo.time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
+		print(time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:
 		algo.main(args.norm)

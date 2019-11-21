@@ -25,7 +25,7 @@ MAX_CORPS = 2
 MAX_HOURS = 12
 WORK_DAY = 8
 INIT_PRICE = 10.0
-INIT_CAPITAL = 2000
+INIT_CAPITAL = 25000 # args.capital * 0.1 * (1/args.population)
 EXPLORE_TIME = 400
 PAY_PERIODS = 32
 GESTATION = 2
@@ -878,7 +878,7 @@ class World:
 		tmp_prices = self.prices.reset_index()
 		tmp_prices['date'] = self.now
 		self.hist_prices = pd.concat([self.hist_prices, tmp_prices])
-		self.hist_prices = self.hist_prices.dropna()
+		# self.hist_prices = self.hist_prices.dropna()
 		self.set_table(self.hist_prices, 'hist_prices')
 		# Track historical demand
 		tmp_demand = self.demand.copy(deep=True)#.reset_index()
@@ -887,6 +887,7 @@ class World:
 		self.set_table(self.hist_demand, 'hist_demand')
 		# print('\nHist Demand: \n{}'.format(self.hist_demand))
 		# Track historical hours and needs
+		# print('Entities: \n{}'.format(self.entities))
 		tmp_hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
 		tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id'])
 		tmp_hist_hours['date'] = self.now
@@ -2446,7 +2447,7 @@ class Entity:
 				if v: print('Reset hours for {} from {} to {}.'.format(individual.name, individual.hours, orig_hours[individual.name]))
 				individual.hours = orig_hours[individual.name]
 			print('{} cannot produce {} {} at this time. The max possible is: {}\n'.format(self.name, qty, item, max_qty_possible))
-			print('Hours reset:')
+			print(time_stamp() + 'Hours reset on {}:'.format(world.now))
 			for individual in world.gov.get(Individual):
 				print('{} Hours: {}'.format(individual.name, individual.hours))
 			print()
@@ -5753,7 +5754,7 @@ class Individual(Entity):
 						qty_avail = qty_wanted # Prevent purchase for 0 qty
 					qty_purchase = min(qty_wanted, qty_avail)
 					# TODO Is the above needed?
-					print('Satisfy need by purchasing: {} {}'.format(qty_purchase, item_choosen))
+					print('\nSatisfy need by purchasing: {} {}'.format(qty_purchase, item_choosen))
 					outcome = self.purchase(item_choosen, qty_purchase)
 					ledger.set_entity(self.entity_id)
 					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])

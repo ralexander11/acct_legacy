@@ -36,9 +36,12 @@ class Trading(object):
 		self.config = self.load_config()
 		self.token = self.config['api_token']
 		if os.path.exists('../market_data/data/'):
+		# if os.path.exists('../market_data/test_data/'):
 			self.data_location = '../market_data/data/'
+			# self.data_location = '../market_data/test_data/'
 		else:
 			self.data_location = 'market_data/data/'
+			# self.data_location = 'market_data/test_data/'
 		self.ledger = ledger
 		# self.gl = ledger.gl
 		self.ledger_name = ledger.ledger_name
@@ -97,7 +100,7 @@ class Trading(object):
 			try:
 				with open(infile, 'r') as f:
 					hist_df = pd.read_csv(f, index_col='symbol')
-					price = float(hist_df.at[symbol.upper(),'open']) # close for unrealized
+					price = float(hist_df.at[symbol.upper(),'latestPrice'])#'open']) # close for unrealized
 					if pd.isnull(price):
 						print('Price is blank for: '+ symbol + '\n')
 						return 0
