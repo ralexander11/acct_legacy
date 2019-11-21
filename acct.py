@@ -812,20 +812,22 @@ class Ledger:
 		# Create Balance Sheet dataframe to return
 		self.bs = pd.DataFrame(columns=['line_item','balance']) # TODO Make line_item the index
 
-		# TODO The below repeated sections can probably be handled more elegantly
+		# TODO The below repeated sections can probably be handled more elegantly. Maybe by putting the 5 account type lists in a list and using a double loop
 
 		asset_bal = 0
 		# if v: print('Asset Accounts: {}'.format(assets))
 		for acct in assets:
 			if v: print('Asset Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Asset Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Asset Credit Error: {} | {}'.format(e, repr(e)))
@@ -841,13 +843,15 @@ class Ledger:
 		for acct in liabilities:
 			if v: print('Liability Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Liabilities Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Liabilities Credit Error: {} | {}'.format(e, repr(e)))
@@ -861,13 +865,15 @@ class Ledger:
 		for acct in equity:
 			if v: print('Equity Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Equity Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Equity Credit Error: {} | {}'.format(e, repr(e)))
@@ -881,13 +887,15 @@ class Ledger:
 		for acct in revenues:
 			if v: print('Revenue Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Revenues Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Revenues Credit Error: {} | {}'.format(e, repr(e)))
@@ -901,13 +909,15 @@ class Ledger:
 		for acct in expenses:
 			if v: print('Expense Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Expenses Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Expenses Credit Error: {} | {}'.format(e, repr(e)))
@@ -958,8 +968,8 @@ class Ledger:
 		return qty_txns
 
 	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, credit=False, v=False):
-		# if items == 'Weaving':
-		# 	if v: print('Get Qty GL: \n{}'.format(self.gl))
+		if items == 'Rock':
+			if v: print('Get Qty GL: \n{}'.format(self.gl))
 		if not credit:
 			acct_side = 'debit_acct'
 		else:
@@ -1023,13 +1033,15 @@ class Ledger:
 						qty_txns = self.get_qty_txns(item, acct)
 						if v: print('QTY TXNs by entity: \n{}'.format(qty_txns))
 						try:
-							debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
+							debits = qty_txns.groupby(['debit_acct'])[['qty']].sum().loc[acct].values[0]
+							# debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
 							if v: print('Debits: \n{}'.format(debits))
 						except KeyError as e:
 							if v: print('Error Debits: {} | {}'.format(e, repr(e)))
 							debits = 0
 						try:
-							credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
+							credits = qty_txns.groupby(['credit_acct'])[['qty']].sum().loc[acct].values[0]
+							# credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
 							if v: print('Credits: \n{}'.format(credits))
 						except KeyError as e:
 							if v: print('Error Credits: {} | {}'.format(e, repr(e)))
@@ -1042,15 +1054,17 @@ class Ledger:
 					inventory['entity_id'] = pd.to_numeric(inventory['entity_id'])
 				else:
 					qty_txns = self.get_qty_txns(item, acct)
-					if v: print('QTY TXNs: \n{}'.format(qty_txns))
+					if v: print('Qty TXNs: \n{}'.format(qty_txns))
 					try:
-						debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
+						debits = qty_txns.groupby(['debit_acct'])[['qty']].sum().loc[acct].values[0]
+						# debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
 						if v: print('Debits: {}'.format(debits))
 					except KeyError as e:
 						if v: print('Error Debits: {} | {}'.format(e, repr(e)))
 						debits = 0
 					try:
-						credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
+						credits = qty_txns.groupby(['credit_acct'])[['qty']].sum().loc[acct].values[0]
+						# credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
 						if v: print('Credits: {}'.format(credits))
 					except KeyError as e:
 						if v: print('Error Credits: {} | {}'.format(e, repr(e)))

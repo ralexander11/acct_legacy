@@ -42,11 +42,9 @@ def delete_db(db_name=None):
 	db_path = 'db/'
 	if os.path.exists(db_path + db_name):
 		os.remove(db_path + db_name)
-		print(time_stamp() + 'Database file reset: {}'
-			.format(db_path + db_name))
+		print(time_stamp() + 'Database file reset: {}'.format(db_path + db_name))
 	else:
-		print(time_stamp() + 'The database file does not exist at {}.'
-			.format(db_path + db_name))
+		print(time_stamp() + 'The database file does not exist to be reset at: {}.'.format(db_path + db_name))
 
 econ_accts = [
 	('Cash','Asset'),
