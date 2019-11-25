@@ -329,7 +329,7 @@ class TradingAlgo(object):
 		#print('rank_day50: \n{}'.format(rank_day50))
 		return rank_day50
 
-	def rank_combined(self, assets, norm=False, date=None, v=False):
+	def rank_combined(self, assets, norm=False, date=None, tickers=None, v=False):
 		rank_wk52 = self.rank_wk52high(assets, norm, date)
 		rank_wk52 = rank_wk52.rank()
 		rank_wk52 = rank_wk52 / WK52_REDUCE # Now just a 1
@@ -339,10 +339,14 @@ class TradingAlgo(object):
 		if v: print('\nrank_day50: {}\n{}'.format(date, rank_day50.head(30)))
 		rank = rank_wk52.add(rank_day50, fill_value=0)
 		rank.sort_values(ascending=False, inplace=True)
+		if tickers is not None:
+			if not isinstance(tickers, (list, tuple)):
+				tickers = [tickers]
+			rank = rank.loc[rank.index.isin(tickers)]
 		if v: print('\nRank: {}\n{}'.format(date, rank.head(30)))
 		return rank
 
-	def rank_change_percent(self, assets, date=None):
+	def rank_change_percent(self, assets, date=None, tickers=None):
 		if date is not None:
 			date = self.get_next_day(date=date)
 		if date is None:
@@ -353,10 +357,19 @@ class TradingAlgo(object):
 			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 			# print('Path: {}'.format(path))
 		quote_df = self.combine_data.load_file(path)
+		if tickers is not None:
+			if not isinstance(tickers, (list, tuple)):
+				tickers = [tickers]
+			quote_df = quote_df.loc[quote_df.index.isin(tickers)]
 		# Filter as per available WealthSimple listing criteria
 		quote_df = quote_df.loc[(quote_df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (quote_df['week52High'] > 0.5) & (quote_df['avgTotalVolume'] > 50000)]
 		quote_df = quote_df[(quote_df.close <= assets)]
 		quote_df.sort_values(by='changePercent', ascending=False, inplace=True)
+		change = quote_df['changePercent'].iloc[0]
+		print('change: {}'.format(change))
+		if change <= 0:
+			quote_df = quote_df.iloc[0:0]
+			return quote_df
 		return quote_df
 
 	def buy_single(self, symbol, date=None):
@@ -405,26 +418,34 @@ class TradingAlgo(object):
 
 		capital = self.check_capital()
 		assets = self.ledger.balance_sheet(['Cash','Investments'])
-
-		# Trading Algo
-		# rank = self.rank_combined(assets, norm, date)
-		rank = self.rank_change_percent(assets, date)
-		print('Rank: \n{}'.format(rank[['changePercent','companyName','sector','primaryExchange','week52High','avgTotalVolume','date']].head()))
-
-		ticker = rank.index[0]
-		print('Ticker: {}'.format(ticker))
-		# portfolio = self.get_portfolio()
 		portfolio = self.ledger.get_qty(accounts=['Investments'])
 		# print('Portfolio: \n{}'.format(portfolio))
-		if not portfolio.empty:
-			if ticker == portfolio['item_id'].iloc[0]:#['symbol'][0]:
-				print('No change from {}.'.format(ticker))
-				self.trade.unrealized(date=date)
-				return
-			self.trade.unrealized(rvsl=True, date=date)
-			self.liquidate(portfolio, date)
-		capital = self.check_capital()
-		capital_remain, qty = self.buy_max(capital, ticker, date)
+
+		# Trading Algo
+		# rank = self.rank_combined(assets, norm, date)#, tickers=['TSLA','AAPL'])
+		rank = self.rank_change_percent(assets, date)#, tickers=['TSLA','AAPL'])
+
+		if not rank.empty:
+			try:
+				print('Rank: \n{}'.format(rank[['changePercent','companyName','sector','primaryExchange','week52High','avgTotalVolume','date']].head()))
+			except KeyError:
+				print('Rank: \n{}'.format(rank.head()))
+			ticker = rank.index[0]
+			print('Ticker: {}'.format(ticker))
+			# portfolio = self.get_portfolio()
+			if not portfolio.empty:
+				if ticker == portfolio['item_id'].iloc[0]:
+					print('No change from {}.'.format(ticker))
+					self.trade.unrealized(date=date)
+					return
+				self.trade.unrealized(rvsl=True, date=date)
+				self.liquidate(portfolio, date)
+			capital = self.check_capital()
+			capital_remain, qty = self.buy_max(capital, ticker, date)
+		else:
+			print('No securities have positive change. Will go cash.')
+			if not portfolio.empty:
+				self.liquidate(portfolio, date)
 
 		print('-' * DISPLAY_WIDTH)
 		self.ledger.print_bs()
