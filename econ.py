@@ -5754,7 +5754,7 @@ class Individual(Entity):
 						qty_avail = qty_wanted # Prevent purchase for 0 qty
 					qty_purchase = min(qty_wanted, qty_avail)
 					# TODO Is the above needed?
-					print('\nSatisfy need by purchasing: {} {}'.format(qty_purchase, item_choosen))
+					print('\nSatisfy {} need for {} by purchasing: {} {}'.format(need, self.name, qty_purchase, item_choosen))
 					outcome = self.purchase(item_choosen, qty_purchase)
 					ledger.set_entity(self.entity_id)
 					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])

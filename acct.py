@@ -1357,7 +1357,7 @@ class Ledger:
 
 	def reversal_entry(self, txn=None, date=None): # This func effectively deletes a transaction
 		if txn is None:
-			txn = input('Which txn_id to reverse? ')
+			txn = input('Which txn_id to reverse? ') # TODO Add check to ensure valid transaction number
 		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
 		cur = self.conn.cursor()
 		cur.execute(rvsl_query)
@@ -1375,8 +1375,7 @@ class Ledger:
 
 	def split(self, txn=None, debit_acct=None, credit_acct=None, amount=None, date=None):
 		if txn is None:
-			txn = input('Which txn_id to split? ')
-		self.reversal_entry(txn)
+			txn = input('Enter the transaction number to split: ')
 		split_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
 		cur = self.conn.cursor()
 		cur.execute(split_query)
@@ -1400,11 +1399,53 @@ class Ledger:
 		orig_split_entry = [ split[1], split[2], split[3], date, split[5], split[6], split[7], split[8] or '', split[9] or '', split[10], split[11], split[12] - split_amt ]
 		new_split_entry = [ split[1], split[2], split[3], date, split[5], split[6], split[7], split[8] or '', split[9] or '', debit_acct, credit_acct, split_amt ]
 		split_event = [orig_split_entry, new_split_entry]
+		self.reversal_entry(txn)
 		self.journal_entry(split_event)
+
+	def adjust(self, txn=None, price=None, qty=None):
+		if txn is None:
+			txn = input('Enter the transaction number to adjust: ') # TODO Add check to ensure valid transaction number
+		adj_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
+		cur = self.conn.cursor()
+		cur.execute(adj_query)
+		entry = cur.fetchone()
+		#print('Entry: \n{}'.format(entry))
+		if price is None:
+			while True:
+				try:
+					price = input('Enter the new price or hit enter if unchanged: ')
+					if price == '':
+						price = entry[8]
+					price = float(price)
+					break
+				except ValueError:
+					print('Not a valid entry. Must be a number.')
+					continue
+		if qty is None:
+			while True:
+				try:
+					qty = input('Enter the new qty or hit enter if unchanged: ')
+					if qty == '':
+						qty = entry[9]
+					qty = int(qty)
+					break
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+		if price and qty:	
+			amount = price * qty
+		else:
+			amount = entry[12]
+		adjusted_entry = [ entry[1], entry[2], entry[3], entry[4], entry[5], '[Adj]' + entry[6], entry[7], price or '', qty or '', entry[10], entry[11], amount ]
+		#print('Adjusted Entry: \n{}'.format(adjusted_entry))
+		adjusted_event = [adjusted_entry]
+		self.reversal_entry(txn)
+		self.journal_entry(adjusted_event)
+
 
 	def uncategorize(self, txn=None, debit_acct=None, credit_acct=None):
 		if txn is None:
-			txn = input('Enter the transaction number: ')
+			txn = input('Enter the transaction number to uncategorize: ') # TODO Add check to ensure valid transaction number
 		uncat_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
 		cur = self.conn.cursor()
 		cur.execute(uncat_query)
@@ -1712,6 +1753,8 @@ def main(conn=None, command=None, external=False):
 			ledger.reversal_entry()
 		elif command.lower() == 'split':
 			ledger.split()
+		elif command.lower() == 'adj':
+			ledger.adjust()
 		elif command.lower() == 'uncategorize':
 			ledger.uncategorize()
 			if args.command is not None: exit()
@@ -1823,6 +1866,7 @@ def main(conn=None, command=None, external=False):
 			commands = {
 				'split': 'Split a journal entry into more granular entries.',
 				'uncategorize': 'For journal entries that are uncategorized, assign them to a new account.',
+				'adj': 'Adjust a journal entry to change either the price or qty.',
 				'txn': 'Set the date to view the Balance Sheet up to.',
 				'starttxn': 'Set the start date to view the Income Statement from.',
 				'exportgl': 'Export the General Ledger to csv.',
