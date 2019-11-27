@@ -27,7 +27,7 @@ WORK_DAY = 8
 INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # args.capital * 0.1 * (1/args.population)
 EXPLORE_TIME = 400
-PAY_PERIODS = 32
+PAY_PERIODS = 2#32
 GESTATION = 2
 
 def time_stamp(offset=0):
@@ -2656,7 +2656,11 @@ class Entity:
 				# TODO Support other account types, such as for pollution
 				by_price = 0 #world.get_price(byproduct, self.entity_id)
 				byproduct_amt = float(byproduct_amt)
-				byproduct_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', desc, byproduct, by_price, byproduct_amt * qty, debit_acct, credit_acct, by_price * byproduct_amt * qty ]
+				if debit_acct == 'WIP Inventory': # TODO Proper accounting for polution
+					debit_acct_by = 'Inventory'
+				else:
+					debit_acct_by = 'Inventory'
+				byproduct_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', desc, byproduct, by_price, byproduct_amt * qty, debit_acct_by, credit_acct, by_price * byproduct_amt * qty ]
 				if byproduct_entry:
 					produce_event += [byproduct_entry]
 		qty_distribute = qty
@@ -3579,6 +3583,9 @@ class Entity:
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				if v: print('Wages Pay TXNs for job: {}\n{}'.format(job, job_wages_pay_txns))
 			pay_wages_event = []
+			ledger.set_entity(self.entity_id)
+			cash = ledger.balance_sheet(['Cash'])
+			ledger.reset()
 			for _, txn in job_wages_pay_txns.iterrows():
 				counterparty_id = txn['cp_id']
 				event_id = txn['event_id']
@@ -3587,16 +3594,19 @@ class Entity:
 				labour_hours = txn['qty']
 				wages_payable = txn['amount']
 				price = txn['price']
-				ledger.set_entity(self.entity_id)
-				cash = ledger.balance_sheet(['Cash'])
-				ledger.reset()
 				if cash >= wages_payable or counterparty.entity_id == self.entity_id:
 					wages_pay_entry = [ event_id, self.entity_id, counterparty.entity_id, world.now, '', job + ' wages paid', job, price, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
 					wages_chg_entry = [ event_id, counterparty.entity_id, self.entity_id, world.now, '', job + ' wages received', job, price, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
 					pay_wages_event += [wages_pay_entry, wages_chg_entry]
+					if counterparty.entity_id != self.entity_id:
+						cash -= wages_payable
 				else:
 					print('{} does not have enough cash to pay wages for {}\'s {} work. Cash: {}'.format(self.name, counterparty.name, job, cash))
 			ledger.journal_entry(pay_wages_event)
+			ledger.set_entity(self.entity_id)
+			cash = ledger.balance_sheet(['Cash'])
+			ledger.reset()
+			print('{} cash after {} wages paid: {}'.format(self.name, job, cash))
 
 	def check_wages(self, job):
 		# PAY_PERIODS = 32 #datetime.timedelta(days=32)
