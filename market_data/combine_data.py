@@ -8,33 +8,46 @@ pd.set_option('display.max_columns', 5)
 pd.set_option('display.max_rows', 20)
 
 class CombineData(object):
-	def __init__(self, date=None):
+	def __init__(self, data_location=None, date=None):
 		self.current_date = datetime.datetime.today().strftime('%Y-%m-%d')
 		self.date = date
+		self.data_location = data_location
+		if self.data_location is None:
+			self.data_location = '../market_data/data/'
+			# self.data_location = '../market_data/test_data/'
 
 	def load_file(self, infile):
 		with open(infile, 'r') as f:
 			df = pd.read_csv(f, index_col='symbol')
 			fname_date = os.path.basename(infile)[-14:-4]
-			#print(fname_date)
+			# print('fname_date:', fname_date)
 			df = df.assign(date=fname_date)
 			df = df.drop(['ZEXIT','ZIEXT','ZXIET','ZVZZT','ZWZZT','ZXZZT'], errors='ignore')
-			#print (df)
-			#print ('-' * DISPLAY_WIDTH)
+			# print(df.head())
+			#print('-' * DISPLAY_WIDTH)
 			return df
 
-	def load_data(self, end_point):
-		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/*.csv'
-		if not os.path.exists(path): # TODO Test this
-			print('Not Server')
-			path = 'data/' + end_point + '/*.csv'
-		#print(path)
+	def load_data(self, end_point, date=''):
+		dates = []
+		if date:
+			if isinstance(date, (list, tuple)):
+				dates = date
+				date = ''
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/*' + str(date) + '.csv'
+		if not os.path.exists(path):
+			# print('Not Server')
+			path = self.data_location + end_point + '/*' + str(date) + '.csv'
+		# print('Path:', path)
+		files = glob.glob(path)
+		if dates:
+			files = [[file for file in files if date in file] for date in dates]
+			files = [val for sublist in files for val in sublist]
+		# print('files:', files)
 		dfs = []
-		for fname in glob.glob(path):
-			#print (fname)
+		for fname in files:
 			load_df = self.load_file(fname)
 			dfs.append(load_df)
-		df = pd.concat(dfs)
+		df = pd.concat(dfs, sort=True) # Sort to suppress warning
 		df = df.set_index('date', append=True)
 		return df
 
@@ -46,10 +59,11 @@ class CombineData(object):
 		if date is None:
 			date = self.current_date
 		if merged is None:
-			quote_df = self.load_data('quote')
-			stats_df = self.load_data('stats')
+			quote_df = self.load_data('quote', date=date)
+			stats_df = self.load_data('stats', date=date)
 			merged = self.merge_data(quote_df, stats_df)
-		return merged.xs(date, level='date')
+		# return merged.xs(date, level='date')
+		return merged
 
 	def comp_filter(self, symbol, merged=None):
 		if merged is None:
@@ -81,9 +95,16 @@ class CombineData(object):
 		return self.iloc[:, -n:]
 
 if __name__ == '__main__':
-	combine_data = CombineData()
+	combine_data = CombineData(data_location='../../market_data/data/')
 	quote_df = combine_data.load_data('quote')
 	stats_df = combine_data.load_data('stats')
+
+	print('Company Filter:')
+	df = combine_data.comp_filter('tsla')
+	print(df)
+	df.to_csv('../data/' + 'tsla_quote.csv', date_format='%Y-%m-%d', index=True)
+	print('Saved')
+	exit()
 
 	#pd.DataFrame.front = front
 	#pd.DataFrame.back = back

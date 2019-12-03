@@ -1,10 +1,8 @@
 import acct
 import trade
-# from acct import Accounts
-# from acct import Ledger
-# from trade import Trading
 from market_data.market_data import MarketData
 from market_data.combine_data import CombineData
+from fut_price import get_price
 import pandas as pd
 import argparse
 import logging
@@ -21,7 +19,7 @@ pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_rows', 30)
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
-random.seed()
+random.seed(11)
 WK52_REDUCE = 1 #10
 
 def time_stamp(offset=0):
@@ -180,6 +178,25 @@ class TradingAlgo(object):
 		if self.check_holiday(next_day) is not None:
 			return self.get_next_day(next_day)
 		return next_day
+
+	def get_prior_day(self, date=None):
+		if date is not None:
+			# print('date: {} | Type: {}'.format(date, type(date)))
+			if isinstance(date, str):
+				current_date = datetime.datetime.strptime(date, '%Y-%m-%d')
+			else:
+				current_date = date
+		else:
+			current_date = datetime.datetime.today()
+		# print('current_date: {} | Type: {}'.format(current_date, type(current_date)))
+		prior_day = (current_date - datetime.timedelta(days=1))#.date()
+		if isinstance(prior_day, datetime.datetime):
+			prior_day = prior_day.date()
+		if self.check_weekend(prior_day) is not None:
+			return self.get_next_day(prior_day)
+		if self.check_holiday(prior_day) is not None:
+			return self.get_next_day(prior_day)
+		return prior_day
 
 	def get_symbols(self, flag, date=None):
 		if flag == 'iex' and date is None:
@@ -346,31 +363,80 @@ class TradingAlgo(object):
 		if v: print('\nRank: {}\n{}'.format(date, rank.head(30)))
 		return rank
 
-	def rank_change_percent(self, assets, date=None, tickers=None):
-		if date is not None:
-			date = self.get_next_day(date=date)
-		if date is None:
-			date = self.get_next_day()
+	def rank_change_percent(self, assets, date=None, tickers=None, predict=False):
+		fut_date = self.get_next_day()
 		end_point = 'quote'
-		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(fut_date)+'.csv'
 		if not os.path.exists(path):
-			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(fut_date)+'.csv'
 			# print('Path: {}'.format(path))
-		quote_df = self.combine_data.load_file(path)
+		if os.path.exists(path) and not predict:
+			quote_df = self.combine_data.load_file(path)
 		if tickers is not None:
 			if not isinstance(tickers, (list, tuple)):
 				tickers = [tickers]
-			quote_df = quote_df.loc[quote_df.index.isin(tickers)]
+			if not os.path.exists(path) or predict:
+				quote_dfs = []
+				for ticker in tickers:
+					quote_df = self.future_data(ticker, date=date)
+					quote_dfs.append(quote_df)
+				quote_df = pd.concat(quote_dfs)#, sort=True) # Sort to suppress warning
+			else:
+				quote_df = quote_df.loc[quote_df.index.isin(tickers)]
+		else:
+			print('Requires at least one ticker provided to predict the price.')
 		# Filter as per available WealthSimple listing criteria
-		quote_df = quote_df.loc[(quote_df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (quote_df['week52High'] > 0.5) & (quote_df['avgTotalVolume'] > 50000)]
-		quote_df = quote_df[(quote_df.close <= assets)]
+		try:
+			quote_df = quote_df.loc[(quote_df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (quote_df['week52High'] > 0.5) & (quote_df['avgTotalVolume'] > 50000)]
+			quote_df = quote_df[(quote_df.latestPrice <= assets)] #quote_df.close
+		except KeyError:
+			pass
 		quote_df.sort_values(by='changePercent', ascending=False, inplace=True)
 		change = quote_df['changePercent'].iloc[0]
-		print('change: {}'.format(change))
+		print('changePercent: {}'.format(change))
 		if change <= 0:
+			print('Rank: \n{}'.format(quote_df.head()))
 			quote_df = quote_df.iloc[0:0]
 			return quote_df
 		return quote_df
+
+	def future_data(self, ticker, date=None):
+		if date is None:
+			date = datetime.datetime.today()
+			date = datetime.datetime.strftime('%Y-%m-%d', date)
+		else:
+			# print('date: {} | {}'.format(date, type(date)))
+			if isinstance(date, datetime.datetime):
+				date = datetime.datetime.strftime('%Y-%m-%d', date)
+		dates = []
+		dates.append(date)
+		days = 2
+		date_prior = date
+		while len(dates) < days:
+			if isinstance(date_prior, str):
+				date_prior = datetime.datetime.strptime(date_prior, '%Y-%m-%d').date()
+			date_prior = date_prior - datetime.timedelta(days=1)
+			# date_prior = self.get_prior_day(date_prior)
+			# TODO Clean up file location logic
+			end_point = 'quote'
+			path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv'
+			if not os.path.exists(path):
+				path = trade.data_location + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv'
+			if not os.path.exists(path):
+				continue
+			dates.append(date_prior)
+		dates = [str(dt) for dt in dates]
+		print('dates:', dates)
+		df = combine_data.comp_filter(ticker, combine_data.date_filter(dates))
+		# print('Future Data Date: {} | {}'.format(date, type(date)))
+		# pred = 300.0
+		pred_price = get_price(df)
+		# print('pred_price:', pred_price)
+		prior = df.loc[str(date), 'latestPrice']
+		# print('prior:', prior)
+		pred_quote_df = pd.DataFrame(data={'symbol':[ticker], 'prediction':[pred_price], 'prior':[prior], 'changePercent':[(pred_price-prior)/prior]}, index=None).set_index('symbol')
+		# print('pred_quote_df:\n', pred_quote_df)
+		return pred_quote_df
 
 	def buy_single(self, symbol, date=None):
 		print(symbol)
@@ -390,6 +456,20 @@ class TradingAlgo(object):
 		for symbol, qty in portfolio.itertuples(index=False):
 			self.trade.sell_shares(symbol, qty, date)
 			print('Liquidated {} shares of {}.'.format(qty, symbol))
+
+	def rand_algo(self, tickers):
+		# rank = pd.DataFrame(columns=['symbol','chance'], index=None).set_index('symbol')
+		if not isinstance(tickers, (list, tuple)):
+			tickers = [tickers]
+		n = len(tickers)
+		for ticker in tickers:
+			# TODO Finish allowing multiple tickers
+			chance = random.randint(0, n)
+			if chance:
+				rank = pd.DataFrame(data={'symbol':[ticker], 'chance':[chance]}, columns=['symbol','chance'], index=None).set_index('symbol')
+				return rank
+			else:
+				return pd.DataFrame()
 
 	def main(self, norm=False, date=None):
 		t4_start = time.perf_counter()
@@ -422,8 +502,10 @@ class TradingAlgo(object):
 		# print('Portfolio: \n{}'.format(portfolio))
 
 		# Trading Algo
-		# rank = self.rank_combined(assets, norm, date)#, tickers=['TSLA','AAPL'])
-		rank = self.rank_change_percent(assets, date)#, tickers=['TSLA','AAPL'])
+		tickers = ['tsla'] #+ ['aapl']
+		# rank = self.rank_combined(assets, norm, date, tickers=tickers)
+		rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True)
+		# rank = self.rand_algo('tsla')
 
 		if not rank.empty:
 			try:
@@ -443,7 +525,7 @@ class TradingAlgo(object):
 			capital = self.check_capital()
 			capital_remain, qty = self.buy_max(capital, ticker, date)
 		else:
-			print('No securities have positive change. Will go cash.')
+			print('No securities have positive change. Will go cash only.')
 			if not portfolio.empty:
 				self.liquidate(portfolio, date)
 
@@ -474,8 +556,12 @@ if __name__ == '__main__':
 	ledger = acct.Ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	trade = trade.Trading(ledger, sim=args.simulation)
 	data = MarketData()
-	combine_data = CombineData()
+	combine_data = CombineData(trade.data_location)
 	algo = TradingAlgo(ledger, trade, combine_data)
+
+	# pred = algo.future_data('tsla', date='2018-09-21')
+	# print('pred:', pred)
+	# exit()
 
 	if trade.sim:
 		t0_start = time.perf_counter()

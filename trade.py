@@ -32,16 +32,18 @@ trade_accts = [
 	]
 
 class Trading(object):
-	def __init__(self, ledger, comm=0.0, sim=False, date=None):
+	def __init__(self, ledger, comm=0.0, sim=False, date=None, data_location=None):
 		self.config = self.load_config()
 		self.token = self.config['api_token']
-		# if os.path.exists('../market_data/data/'):
-		if os.path.exists('../market_data/test_data/'):
-			# self.data_location = '../market_data/data/'
-			self.data_location = '../market_data/test_data/'
-		else:
-			# self.data_location = 'market_data/data/'
-			self.data_location = 'market_data/test_data/'
+		self.data_location = data_location
+		if self.data_location is None:
+			if os.path.exists('../market_data/data/'):
+			# if os.path.exists('../market_data/test_data/'):
+				self.data_location = '../market_data/data/'
+				# self.data_location = '../market_data/test_data/'
+			else:
+				self.data_location = 'market_data/data/'
+				# self.data_location = 'market_data/test_data/'
 		self.ledger = ledger
 		# self.gl = ledger.gl
 		self.ledger_name = ledger.ledger_name
