@@ -640,7 +640,9 @@ class Ledger:
 		self.balance_sheet()
 		return self.start_txn
 
-	def reset(self):#, default=self.default):
+	def reset(self):
+		if self.default is not None and not isinstance(self.default, (list, tuple)):
+			self.default = [self.default]
 		self.entity = self.default
 		self.date = None
 		self.start_date = None

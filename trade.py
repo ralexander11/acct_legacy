@@ -37,13 +37,19 @@ class Trading(object):
 		self.token = self.config['api_token']
 		self.data_location = data_location
 		if self.data_location is None:
-			if os.path.exists('../market_data/data/'):
+			if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
+			# if os.path.exists('../market_data/data/'):
 			# if os.path.exists('../market_data/test_data/'):
-				self.data_location = '../market_data/data/'
+			# if os.path.exists('/Users/Robbie/Public/market_data/data/'):
+				# self.data_location = '../market_data/data/'
 				# self.data_location = '../market_data/test_data/'
+				# self.data_location = '/Users/Robbie/Public/market_data/data/'
+				print('Server')
+				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
 			else:
-				self.data_location = 'market_data/data/'
+				# self.data_location = 'market_data/data/'
 				# self.data_location = 'market_data/test_data/'
+				self.data_location = '/Users/Robbie/Public/market_data/data/'
 		self.ledger = ledger
 		# self.gl = ledger.gl
 		self.ledger_name = ledger.ledger_name
@@ -54,10 +60,10 @@ class Trading(object):
 		self.start_txn = ledger.start_txn # TODO May not be needed
 
 		self.comm = comm
-		if self.entity is not None:
-			cur = ledger.conn.cursor()
-			self.comm = cur.execute('SELECT comm FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-			cur.close()
+		# if self.entity is not None:
+		# 	cur = ledger.conn.cursor()
+		# 	self.comm = cur.execute('SELECT comm FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		# 	cur.close()
 		self.sim = sim
 		self.date = date
 
@@ -94,7 +100,7 @@ class Trading(object):
 				quote = json.loads(quote)
 				# print(quote)
 				name = quote['symbol']
-				price = float(quote['close'])
+				price = float(quote['latestPrice']) # 'close'
 				print('Price for {}: {}'.format(name, price))
 				return price
 		else:
@@ -131,7 +137,7 @@ class Trading(object):
 		# Check if there is enough capital
 		capital_accts = ['Cash','Chequing']
 		capital_bal = 0
-		capital_bal = self.ledger.balance_sheet(capital_accts)
+		capital_bal = self.ledger.balance_sheet(capital_accts)#, v=True)
 
 		if price * qty > capital_bal or price == 0:
 			logging.info('Buying ' + str(qty) + ' shares of ' + symbol + ' costs $' + str(round(price * qty, 2)) + '.')

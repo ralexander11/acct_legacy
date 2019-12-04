@@ -19,8 +19,8 @@ pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_rows', 30)
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
-random.seed(11)
-WK52_REDUCE = 1 #10
+# random.seed(11)
+WK52_REDUCE = 1 #10 # No longer needed
 
 def time_stamp(offset=0):
 	time_stamp = (datetime.datetime.now() + datetime.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
@@ -75,12 +75,12 @@ class TradingAlgo(object):
 		# Get entity settings for random trading parameters
 		if self.entity is None:
 			self.entity = 1
-		cur = ledger.conn.cursor()
-		self.min_qty = cur.execute('SELECT min_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		self.max_qty = cur.execute('SELECT max_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		self.liquidate_chance = cur.execute('SELECT liquidate_chance FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		self.ticker_source = cur.execute('SELECT ticker_source FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		cur.close()
+		# cur = ledger.conn.cursor()
+		# self.min_qty = cur.execute('SELECT min_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		# self.max_qty = cur.execute('SELECT max_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		# self.liquidate_chance = cur.execute('SELECT liquidate_chance FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		# self.ticker_source = cur.execute('SELECT ticker_source FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+		# cur.close()
 		self.sim = trade.sim
 		self.date = trade.date
 
@@ -96,7 +96,7 @@ class TradingAlgo(object):
 				print('Error loading yaml config: \n{}'.format(repr(e)))
 		return config
 
-	def check_weekend(self, date=None):
+	def check_weekend(self, date=None, v=True):
 		# Get the day of the week (Monday is 0)
 		if date is not None:
 			if not isinstance(date, str):
@@ -108,10 +108,10 @@ class TradingAlgo(object):
 
 		# Don't do anything on weekends
 		if weekday == 5 or weekday == 6:
-			print(time_stamp() + 'Today is a weekend.')
+			if v: print(time_stamp() + 'Today is a weekend. ({})'.format(date))
 			return weekday
 
-	def check_holiday(self, date=None):
+	def check_holiday(self, date=None, v=True):
 		# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
 		trade_holidays = [
 							'2018-01-01',
@@ -145,7 +145,7 @@ class TradingAlgo(object):
 			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
 		for holiday in trade_holidays:
 			if holiday == current_date:
-				print(time_stamp() + 'Today is a trade holiday.')
+				if v: print(time_stamp() + 'Today is a trade holiday. ({})'.format(date))
 				return holiday
 
 	def check_hours(self, begin_time=None, end_time=None, check_time=None):
@@ -193,9 +193,9 @@ class TradingAlgo(object):
 		if isinstance(prior_day, datetime.datetime):
 			prior_day = prior_day.date()
 		if self.check_weekend(prior_day) is not None:
-			return self.get_next_day(prior_day)
+			return self.get_prior_day(prior_day)
 		if self.check_holiday(prior_day) is not None:
-			return self.get_next_day(prior_day)
+			return self.get_prior_day(prior_day)
 		return prior_day
 
 	def get_symbols(self, flag, date=None):
@@ -233,6 +233,7 @@ class TradingAlgo(object):
 		capital_bal = 0
 		capital_bal = self.ledger.balance_sheet(capital_accts)
 		logging.info(capital_bal)
+		print('capital_bal:', capital_bal)
 		return capital_bal
 	
 	# Generates the trade details
@@ -423,6 +424,7 @@ class TradingAlgo(object):
 			if not os.path.exists(path):
 				path = trade.data_location + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv'
 			if not os.path.exists(path):
+				print('File does not exist for: {}'.format(path))
 				continue
 			dates.append(date_prior)
 		dates = [str(dt) for dt in dates]
@@ -430,7 +432,7 @@ class TradingAlgo(object):
 		df = combine_data.comp_filter(ticker, combine_data.date_filter(dates))
 		# print('Future Data Date: {} | {}'.format(date, type(date)))
 		# pred = 300.0
-		pred_price = get_price(df)
+		pred_price = get_price(df, ticker)
 		# print('pred_price:', pred_price)
 		prior = df.loc[str(date), 'latestPrice']
 		# print('prior:', prior)
@@ -461,17 +463,23 @@ class TradingAlgo(object):
 		# rank = pd.DataFrame(columns=['symbol','chance'], index=None).set_index('symbol')
 		if not isinstance(tickers, (list, tuple)):
 			tickers = [tickers]
-		n = len(tickers)
 		for ticker in tickers:
 			# TODO Finish allowing multiple tickers
-			chance = random.randint(0, n)
+			chance = random.randint(0, len(tickers))
 			if chance:
 				rank = pd.DataFrame(data={'symbol':[ticker], 'chance':[chance]}, columns=['symbol','chance'], index=None).set_index('symbol')
 				return rank
 			else:
 				return pd.DataFrame()
 
-	def main(self, norm=False, date=None):
+	def buy_hold(self, tickers):
+		if not isinstance(tickers, (list, tuple)):
+			tickers = [tickers]
+		for ticker in tickers:
+			rank = pd.DataFrame(data={'symbol':[ticker], 'chance':[1]}, columns=['symbol','chance'], index=None).set_index('symbol')
+			return rank
+
+	def main(self, norm=False, date=None, dates=None):
 		t4_start = time.perf_counter()
 		print('=' * DISPLAY_WIDTH)
 		print(time_stamp() + 'Sim date: {}'.format(date))
@@ -501,11 +509,18 @@ class TradingAlgo(object):
 		portfolio = self.ledger.get_qty(accounts=['Investments'])
 		# print('Portfolio: \n{}'.format(portfolio))
 
-		# Trading Algo
+		# Trading Algos
 		tickers = ['tsla'] #+ ['aapl']
-		# rank = self.rank_combined(assets, norm, date, tickers=tickers)
-		rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True)
-		# rank = self.rand_algo('tsla')
+		if args.mode == '1' or args.mode == 'hold':
+			rank = self.buy_hold(tickers)
+		if args.mode == '2' or args.mode == 'rand':
+			rank = self.rand_algo(tickers)
+		if args.mode == '3' or args.mode == 'pred_dir':
+			rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True)
+		if args.mode == '4' or args.mode == 'perf_dir':
+			rank = self.rank_change_percent(assets, date, tickers=tickers, predict=False)
+		if args.mode == '5' or args.mode == 'test':
+			rank = self.rank_combined(assets, norm, date, tickers=tickers)
 
 		if not rank.empty:
 			try:
@@ -514,26 +529,32 @@ class TradingAlgo(object):
 				print('Rank: \n{}'.format(rank.head()))
 			ticker = rank.index[0]
 			print('Ticker: {}'.format(ticker))
-			# portfolio = self.get_portfolio()
 			if not portfolio.empty:
 				if ticker == portfolio['item_id'].iloc[0]:
 					print('No change from {}.'.format(ticker))
 					self.trade.unrealized(date=date)
-					return
-				self.trade.unrealized(rvsl=True, date=date)
-				self.liquidate(portfolio, date)
-			capital = self.check_capital()
-			capital_remain, qty = self.buy_max(capital, ticker, date)
+					# self.ledger.print_bs()
+					# return
+				else:
+					self.trade.unrealized(rvsl=True, date=date)
+					self.liquidate(portfolio, date)
+					capital = self.check_capital()
+					capital_remain, qty = self.buy_max(capital, ticker, date)
+			else:
+				print('Setup initial portfolio.')
+				capital = self.check_capital()
+				capital_remain, qty = self.buy_max(capital, ticker, date)
 		else:
 			print('No securities have positive change. Will go cash only.')
 			if not portfolio.empty:
+				self.trade.unrealized(rvsl=True, date=date)
 				self.liquidate(portfolio, date)
 
 		print('-' * DISPLAY_WIDTH)
 		self.ledger.print_bs()
 		nav = self.ledger.balance_sheet()
 		portfolio = self.ledger.get_qty(accounts=['Investments'])
-		print('Portfolio End: \n{}'.format(portfolio))
+		print('Portfolio at End of Day: \n{}'.format(portfolio))
 		#ledger.bs_hist()
 		t4_end = time.perf_counter()
 		print(time_stamp() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
@@ -546,11 +567,17 @@ if __name__ == '__main__':
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
+	parser.add_argument('-m', '--mode', type=str, help='The name or number of the algo to run.')
 	parser.add_argument('-norm', '--norm', action="store_true", help='Normalize stock prices in algo rankings.')
+	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the trading sim!')
 	args = parser.parse_args()
 	if args.reset:
 		delete_db(args.database)
+	if args.seed:
+		random.seed(args.seed)
+	else:
+		random.seed()
 
 	accts = acct.Accounts(conn=args.database, standard_accts=trade_accts)
 	ledger = acct.Ledger(accts, ledger_name=args.ledger, entity=args.entity)
@@ -558,6 +585,9 @@ if __name__ == '__main__':
 	data = MarketData()
 	combine_data = CombineData(trade.data_location)
 	algo = TradingAlgo(ledger, trade, combine_data)
+
+	if args.entity:
+		ledger.default = args.entity
 
 	# pred = algo.future_data('tsla', date='2018-09-21')
 	# print('pred:', pred)
@@ -584,7 +614,7 @@ if __name__ == '__main__':
 			#print(deposit_capital)
 		for date in dates[1:]:
 			try:
-				algo.main(args.norm, date)
+				algo.main(args.norm, date, dates)
 			except FileNotFoundError as e:
 				print(time_stamp() + 'No data for prior date: {}'.format(date))
 				# print(time_stamp() + 'Error: {}'.format(repr(e)))
@@ -594,3 +624,5 @@ if __name__ == '__main__':
 		print(time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:
 		algo.main(args.norm)
+
+# 2019-05-07

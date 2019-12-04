@@ -120,7 +120,8 @@ def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=Fal
 			dataset = df.drop(drop_cols, axis=1)
 		except KeyError:
 			dataset = df
-		dataset = dataset[['changePercent', 'day50MovingAvg', 'latestPrice']]
+		cols = ['changePercent', 'day50MovingAvg', 'latestPrice']
+		dataset = dataset[cols]
 		if v: print(dataset)#.head())
 		for tar_col, col in enumerate(dataset.columns.values.tolist()):
 			if col == 'latestPrice':
@@ -139,7 +140,7 @@ def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=Fal
 		# features.plot(subplots=True)
 		# plt.show()
 	dataset = dataset.values
-	if v: print('dataset:\n', dataset)
+	# if v: print('dataset:\n', dataset)
 	if train:
 		TRAIN_SPLIT = int(len(dataset) * 0.7)
 	else:
@@ -155,6 +156,8 @@ def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=Fal
 			data_std = dataset[:TRAIN_SPLIT].std(axis=0)
 		if v: print('data_std: ', data_std)
 		dataset = (dataset - data_mean) / data_std
+		df_mean_std = pd.DataFrame(columns=cols, data=[data_mean, data_std], index=None)
+		if v: print('df_mean_std:\n', df_mean_std)
 	if v: print('dataset normalized[5]:\n', dataset[:5])
 	if v: print('target[5]:\n', (dataset[:, tar_col])[:5])
 	if v: print('target len:', len(dataset[:, 1]))
@@ -175,7 +178,7 @@ def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=Fal
 	if v: print('val_data:  ', val_data)
 	# if v: print('val_data len:\n', len(val_data))
 	# exit()
-	return train_data, val_data, x_train, tar_col, prior, data_mean, data_std
+	return train_data, val_data, x_train, tar_col, prior, data_mean, data_std, df_mean_std
 
 def create_model(x_train, v=False):
 	print('\nCreate model...')
@@ -247,7 +250,7 @@ def show_result(model, val_data, train_data, tar_col, data_mean, data_std, v=Fal
 	return pred_real, actual
 
 def pred_price(df, v=False):
-	train_data, val_data, x_train, tar_col, prior, data_mean, data_std = prep_data(df, norm=True, train=True, v=v)
+	train_data, val_data, x_train, tar_col, prior, data_mean, data_std, df_mean_std = prep_data(df, norm=True, train=True, v=v)
 	model = create_model(x_train=x_train, v=v)
 	# for x, y in val_data.take(1):
 	# 	pred = model.predict(x)
@@ -259,21 +262,34 @@ def pred_price(df, v=False):
 	pred, actual = show_result(model=model, val_data=val_data, train_data=train_data, tar_col=tar_col, data_mean=data_mean, data_std=data_std, v=v)
 	if data_mean is not None:
 		prior = (prior * data_std[tar_col]) + data_mean[tar_col]
-	return pred, prior, actual, model
+	return pred, prior, actual, model, df_mean_std
 
-def get_price(df):
-	filepath = 'misc/models/first_model'
+def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None):
+	if path is None:
+		path = 'misc/models/'
+	filepath = path + ticker + '_model'
+	if not os.path.exists(filepath):
+		predictions = main(ticker, v=False)
+		with pd.option_context('display.max_columns', None):
+			print('predictions:\n', predictions)
 	model = tf.keras.models.load_model(filepath, custom_objects=None, compile=True)
-	tar_col = 2
-	data_mean = np.array([-9.13595506e-04, 3.12953240e+02, 3.20234298e+02])
-	data_std  = np.array([0.03989934, 15.55258081, 28.74704487])
-	# data = prep_data(df, data_mean, data_std, train=True, v=False)[0]
-	x_data = df[['changePercent', 'day50MovingAvg', 'latestPrice']]
-	y_data = df[['latestPrice']].values[1]
+	data_path = filepath + '/assets/' + ticker + '_mean_std.csv'
+	with open(data_path, 'r') as f:
+		df_mean_std = pd.read_csv(f, index_col=None)
+	cols = df_mean_std.columns.values.tolist()
+	for tar_col, col in enumerate(cols):
+		if col == 'latestPrice':
+			break # TODO Maybe handle if value is not present
+	if tar_col is None:
+		tar_col = 2
+	if data_mean is None:
+		data_mean = np.array(df_mean_std.iloc[0])
+	if data_std is None:
+		data_std = np.array(df_mean_std.iloc[1])
+	x_data = df[cols]
+	y_data = np.array([df.iloc[:, tar_col].values[1]])
 	x_data = np.array([x_data.values])
-	# print('x_data:\n', x_data)
 	x_data_norm = (x_data - data_mean) / data_std
-	# print('x_data_norm:\n', x_data_norm)
 	data = tf.data.Dataset.from_tensor_slices((x_data_norm, y_data))
 	data = data.batch(BATCH_SIZE).repeat()
 	# print('data:\n', data)
@@ -292,20 +308,21 @@ def main(tickers=None, v=True):
 			tickers = [str(tickers)]
 		for ticker in tickers:
 			df = combine_data.comp_filter(ticker)
-			pred, prior, actual, model = pred_price(df, v=v)
+			pred, prior, actual, model, df_mean_std = pred_price(df, v=v)
 			predictions = predictions.append({'ticker':ticker, 'prediction':pred, 'prior':prior, 'changePercent':(pred-prior)/prior, 'actual':actual, 'actual_changePer':(actual-prior)/prior}, ignore_index=True)
+			filepath = 'misc/models/' + ticker + '_model'
+			tf.keras.models.save_model(model, filepath, overwrite=True, include_optimizer=True, save_format=None, signatures=None, options=None)
+			df_mean_std.to_csv('misc/models/' + ticker + '_model/assets/' + ticker + '_mean_std.csv', date_format='%Y-%m-%d', index=False)
 	else:
 		pred, prior, actual = pred_price(csv_path, v=v)
 		predictions = predictions.append({'ticker':None, 'prediction':pred, 'prior':None, 'changePercent':None, 'actual':None, 'actual_changePer':None}, ignore_index=True)
-	filepath = 'misc/models/first_model'
-	tf.keras.models.save_model(model, filepath, overwrite=True, include_optimizer=True, save_format=None, signatures=None, options=None)
 	return predictions
 
 
 if __name__ == '__main__':
-	pred = main(['tsla','aapl'])
+	predictions = main(['tsla','aapl'])
 	with pd.option_context('display.max_columns', None):
-		print('predictions:\n', pred)
+		print('predictions:\n', predictions)
 
 
 
