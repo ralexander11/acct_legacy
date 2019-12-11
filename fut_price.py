@@ -4,11 +4,19 @@
 from market_data.combine_data import CombineData
 
 import tensorflow as tf
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+
+server = False
+if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
+	server = True
+
+if not server:
+	import matplotlib as mpl
+	import matplotlib.pyplot as plt
+	mpl.rcParams['figure.figsize'] = (8, 6)
+	mpl.rcParams['axes.grid'] = False
 
 v = True
 DISPLAY_WIDTH = 98
@@ -21,8 +29,6 @@ HISTORY_SIZE = 2 #720
 TARGET_SIZE = 0 #72
 STEP = 1 #6
 tf.random.set_seed(13)
-mpl.rcParams['figure.figsize'] = (8, 6)
-mpl.rcParams['axes.grid'] = False
 
 # Download data
 # zip_path = tf.keras.utils.get_file(origin='https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip', fname='jena_climate_2009_2016.csv.zip', extract=True)
@@ -265,13 +271,15 @@ def pred_price(df, v=False):
 	return pred, prior, actual, model, df_mean_std
 
 def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None):
+	print('Predict price for {}.'.format(ticker))
+	ticker = ticker.lower()
 	if path is None:
 		path = 'misc/models/'
 	filepath = path + ticker + '_model'
 	if not os.path.exists(filepath):
 		predictions = main(ticker, v=False)
 		with pd.option_context('display.max_columns', None):
-			print('predictions:\n', predictions)
+			print('Predictions:\n', predictions)
 	model = tf.keras.models.load_model(filepath, custom_objects=None, compile=True)
 	data_path = filepath + '/assets/' + ticker + '_mean_std.csv'
 	with open(data_path, 'r') as f:
@@ -307,6 +315,7 @@ def main(tickers=None, v=True):
 		if not isinstance(tickers, (list, tuple)):
 			tickers = [str(tickers)]
 		for ticker in tickers:
+			ticker = ticker.lower()
 			df = combine_data.comp_filter(ticker)
 			pred, prior, actual, model, df_mean_std = pred_price(df, v=v)
 			predictions = predictions.append({'ticker':ticker, 'prediction':pred, 'prior':prior, 'changePercent':(pred-prior)/prior, 'actual':actual, 'actual_changePer':(actual-prior)/prior}, ignore_index=True)

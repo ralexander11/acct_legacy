@@ -1106,7 +1106,12 @@ class Ledger:
 
 	def get_entity(self):
 		if self.entity is None:
-			entity = [1]
+			if self.default is None:
+				entity = [1]
+			elif isinstance(self.default, int):
+				entity = self.default
+			else:
+				entity = [1]
 		else:
 			entity = self.entity # TODO Long term solution
 		return entity
@@ -1771,7 +1776,7 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'inv':
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				print(ledger.get_qty(by_entity=True, v=True))
+				print(ledger.get_qty(by_entity=True))#, v=True))
 			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()

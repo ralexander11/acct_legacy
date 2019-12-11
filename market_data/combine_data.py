@@ -13,12 +13,23 @@ class CombineData(object):
 		self.date = date
 		self.data_location = data_location
 		if self.data_location is None:
-			self.data_location = '../market_data/data/'
-			# self.data_location = '../market_data/test_data/'
+			if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
+				print('Server')
+				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
+			else:
+				# self.data_location = '../market_data/data/'
+				# self.data_location = '../market_data/test_data/'
+				self.data_location = '/Users/Robbie/Public/market_data/data/'
 
 	def load_file(self, infile):
 		with open(infile, 'r') as f:
-			df = pd.read_csv(f, index_col='symbol')
+			try:
+				df = pd.read_csv(f, index_col='symbol')
+				# df = pd.read_csv(f, header=None, index_col=None, skiprows=1)
+				# df = df.drop(labels=0, axis=1)
+			except pd.errors.EmptyDataError:
+				print('Empty file:', infile)
+				return
 			fname_date = os.path.basename(infile)[-14:-4]
 			# print('fname_date:', fname_date)
 			df = df.assign(date=fname_date)
@@ -46,6 +57,8 @@ class CombineData(object):
 		dfs = []
 		for fname in files:
 			load_df = self.load_file(fname)
+			if load_df is None:
+				continue
 			dfs.append(load_df)
 		df = pd.concat(dfs, sort=True) # Sort to suppress warning
 		df = df.set_index('date', append=True)
@@ -70,7 +83,9 @@ class CombineData(object):
 			quote_df = self.load_data('quote')
 			stats_df = self.load_data('stats')
 			merged = self.merge_data(quote_df, stats_df)
-		return merged.xs(symbol.upper())#, level='symbol')
+		merged = merged.xs(symbol.upper())
+		merged['symbol'] = symbol
+		return merged
 
 	def data_point(self, field, merged=None):
 		if merged is None:
@@ -95,26 +110,49 @@ class CombineData(object):
 		return self.iloc[:, -n:]
 
 if __name__ == '__main__':
-	combine_data = CombineData(data_location='../../market_data/data/')
+	# combine_data = CombineData(data_location='../../market_data/test_data/')
+	combine_data = CombineData(data_location='/Users/Robbie/Public/market_data/data/')
 	quote_df = combine_data.load_data('quote')
 	stats_df = combine_data.load_data('stats')
+	# df = pd.read_csv('/Users/Robbie/Documents/Development/Python/acct/data/all_tickers.csv')
+	# df_inv = pd.read_csv('/Users/Robbie/Documents/Development/Python/acct/data/all_inv_tickers.csv')
+	# print('df 1:\n', df.head())
+	# df_inv = df_inv.squeeze()
+	# print('df_inv:\n', df_inv.head())
+	# df = df.loc[~df['symbol'].isin(df_inv)]
+	# df.to_csv('../data/' + 'reduced_tickers.csv', date_format='%Y-%m-%d', index=True)
+	# print('df 2:\n', df.head())
+	# exit()
+	# df = combine_data.load_data('invalid_tickers')
+	# df = pd.Series(df[1].unique())
+	# df.to_csv('../data/' + 'all_inv_tickers.csv', date_format='%Y-%m-%d', index=True)
+	# print(df.head())
+	# exit()
 
-	print('Company Filter:')
-	df = combine_data.comp_filter('tsla')
-	print(df)
-	df.to_csv('../data/' + 'tsla_quote.csv', date_format='%Y-%m-%d', index=True)
-	print('Saved')
-	exit()
+	# print('Company Filter:')
+	# df = combine_data.comp_filter('tsla')
+	# print(df)
+	# df.to_csv('../data/' + 'tsla_quote.csv', date_format='%Y-%m-%d', index=True)
+	# print('Saved')
+	# exit()
 
 	#pd.DataFrame.front = front
 	#pd.DataFrame.back = back
 	
 	# TODO Add command line functions
 
-	result = combine_data.merge_data(quote_df, stats_df)
+	df = combine_data.merge_data(quote_df, stats_df)
+	# Filter as per available WealthSimple listing criteria
+	df = df.loc[(df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (df['week52High'] > 0.5) & (df['avgTotalVolume'] > 50000)]
 	print('Full:')
-	print(result)
-	print('-' * DISPLAY_WIDTH)
+	print(df.head())
+	# df.to_csv('../data/' + 'full_data.csv', date_format='%Y-%m-%d', index=True)
+	# df = df.reset_index()
+	# tickers = pd.Series(df.symbol.unique())
+	# tickers.to_csv('../data/' + 'all_tickers.csv', date_format='%Y-%m-%d', index=True)
+	# print(tickers.head())
+	# print('-' * DISPLAY_WIDTH)
+	exit()
 
 	print('Date Filter:')
 	print(combine_data.date_filter('2018-05-11'))
