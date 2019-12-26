@@ -39,7 +39,7 @@ class MarketData(object):
 				print('Error loading yaml config: \n{}'.format(repr(e)))
 		return config
 
-	def check_weekend(self, date=None):
+	def check_weekend(self, date=None, v=True):
 		# Get the day of the week (Monday is 0)
 		if date is not None:
 			weekday = datetime.datetime.strptime(date, '%Y-%m-%d').weekday()
@@ -47,23 +47,38 @@ class MarketData(object):
 			weekday = datetime.datetime.today().weekday()
 		# Don't do anything on weekends
 		if weekday == 5 or weekday == 6:
-			print(self.time_stamp() + 'Today is a weekend.')
+			if v: print(self.time_stamp() + 'Today is a weekend.')
 			return weekday
 
-	def get_symbols(self, flag):
+	def get_symbols(self, flag='iex', exchanges=None):
+		if exchanges is None:
+			exchanges = ['iex']
 		if flag == 'iex':
-			# 'https://api.iextrading.com/1.0/ref-data/symbols' # Old url
-			symbols_url = 'https://cloud.iexapis.com/stable/ref-data/iex/symbols'
-			symbols_url = symbols_url + '?token=' + self.token
-			symbols = pd.read_json(symbols_url, typ='frame', orient='records')
-			symbols_list = symbols['symbol'].tolist()
-			#print(len(symbols_list))
-			symbols_list = ','.join(symbols_list)
-			symbols_dict = {}
-			symbols_dict['symbols'] = symbols_list
-			#print(symbols_list)
-			#print(len(symbols_list))
-			#print(symbols)
+			symbols_array = []
+			exchanges += ['tse','tsx']
+			for exchange in exchanges:
+				print('Getting data from exchange: {}'.format(exchange))
+				if exchange == 'iex':
+					exchange_url = ''
+				else:
+					exchange_url = 'exchange/'
+				base_url = 'https://cloud.iexapis.com/stable/ref-data/'
+				symbols_url = base_url + exchange_url + exchange + '/symbols'
+				symbols_url = symbols_url + '?token=' + self.token
+				symbols = pd.read_json(symbols_url, typ='frame', orient='records')
+				# symbols.to_csv(exchange + '.csv') # Temp
+				# symbols = symbols.drop_duplicates(subset='symbol', keep='first')
+				symbols_array.append(symbols)
+				symbols_list = []
+				# symbols_list = symbols['symbol'].tolist()
+				#print(len(symbols_list))
+				# symbols_list = ','.join(symbols_list)
+				symbols_dict = {}
+				# symbols_dict['symbols'] = symbols_list
+				#print(symbols_list)
+				#print(len(symbols_list))
+				#print(symbols)
+			symbols = pd.concat(symbols_array, sort=True) # Sort to suppress warning
 			outfile = flag + '_tickers' + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv'
 			symbols.to_csv(self.save_location + 'tickers/' + outfile)
 			return symbols, symbols_list, symbols_dict
@@ -95,6 +110,24 @@ class MarketData(object):
 			#print(len(symbols_list))
 			return symbols, symbols_list, symbols_dict
 
+		base_dir = '../data/'
+		if '.csv' in flag:
+			symbols = pd.read_csv(base_dir + flag, header=None)
+			if 'symbol' in symbols.columns.values.tolist(): # TODO This is not possible with header=None
+				symbols = symbols['symbol'].unique().tolist()
+			else:
+				symbols = symbols.iloc[:,0].unique().tolist()
+			print('Number of tickers: {}'.format(len(symbols)))
+			return symbols
+		elif '.xls' in flag:
+			symbols = pd.read_excel(base_dir + flag, index_col=None)
+			if 'symbol' in symbols.columns.values.tolist():
+				symbols = symbols['symbol'].unique().tolist()
+			else:
+				symbols = symbols.iloc[:,0].unique().tolist()
+			print('Number of tickers: {}'.format(len(symbols)))
+			return symbols
+
 	# /stock/market/batch?symbols=
 
 	def get_data(self, symbols, end_point='quote'):
@@ -102,6 +135,8 @@ class MarketData(object):
 		url = 'https://cloud.iexapis.com/stable/stock/'
 		dfs = []
 		invalid_tickers = []
+		print('Number of symbols:', len(symbols['symbol']))
+		# print('symbols:\n', symbols)
 		for symbol in symbols['symbol']: #tqdm(symbols['symbol']):
 			try:
 				s = pd.read_json(url + symbol + '/' + end_point + '?token=' + self.token, typ='series', orient='index')
@@ -113,7 +148,7 @@ class MarketData(object):
 			except Exception as e:
 				# print('Error: {}'.format(repr(e)))
 				invalid_tickers.append(symbol)
-		data_feed = pd.concat(dfs, verify_integrity=True, sort=True)
+		data_feed = pd.concat(dfs, sort=True)#, verify_integrity=True)
 		#print(data_feed)
 		#print('-' * DISPLAY_WIDTH)
 		return data_feed, invalid_tickers
@@ -201,6 +236,50 @@ class MarketData(object):
 		error_df.to_csv(path)
 		print(self.time_stamp() + 'Invalid tickers file saved to: {}'.format(path))
 
+	def get_hist_prices(self, dates, tickers=None, save=True, v=True):
+		if tickers is None:
+			tickers = self.get_symbols('ws_tickers.csv')#[0]['symbol']
+		if isinstance(tickers, str):
+			tickers = [x.strip() for x in tickers.split(',')]
+		if not '.csv' in dates:
+			if not isinstance(dates, (list, tuple)):
+				dates = [x.strip() for x in dates.split(',')]
+		else:
+			dates = pd.read_csv(dates, header=None)
+			dates = dates.iloc[:,0].tolist()
+			# print(dates)
+		base_url = 'https://cloud.iexapis.com/stable/stock/'
+		prices = []
+		# print('Number of tickers:', len(tickers))
+		for ticker in tickers:
+			for date in dates:
+				if isinstance(date, str):
+					date = time.strptime(date, '%Y-%m-%d')
+				date = time.strftime('%Y%m%d', date)
+				print(self.time_stamp() + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
+				try:
+					result = pd.read_json(base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
+				except:
+					print('Error: ' + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
+					continue
+				# print(result)
+				if result.empty:
+					price = np.nan
+				else:
+					price = result['close'].values[0]
+				if isinstance(date, str):
+					date = time.strptime(date, '%Y%m%d')
+				date = time.strftime('%Y-%m-%d', date)
+				prices.append([ticker.upper(), date, price])
+			prices_save = pd.DataFrame(prices, columns=['symbol', 'date', 'hist_close'])
+			# if v: print(data.time_stamp() + 'Historical Prices:\n', prices)
+			if save:
+				# path = self.save_location + 'hist_prices/' + ticker + '_hist_prices_' + date + '.csv'
+				path = self.save_location + 'hist_prices/all_hist_prices.csv'
+				print('Saved: ', path)
+				prices_save.to_csv(path, index=False)
+		return prices_save
+
 if __name__ == '__main__':
 	t0_start = time.perf_counter()
 	data = MarketData()
@@ -208,6 +287,14 @@ if __name__ == '__main__':
 	print('=' * DISPLAY_WIDTH)
 	print(data.time_stamp() + 'Getting data from: {}'.format(source))
 	print('-' * DISPLAY_WIDTH)
+
+	hist_price_test = False
+	if hist_price_test:
+		tickers = None #['aapl']
+		# dates = ['2019-05-22', '2019-05-23']
+		dates = '../data/missing_dates.csv'
+		data.get_hist_prices(dates, tickers)
+		exit()
 
 	symbols_test = False
 	if symbols_test:
@@ -235,7 +322,8 @@ if __name__ == '__main__':
 
 	# Don't do anything on weekends
 	if data.check_weekend() is not None:
-		exit()
+		pass
+		# exit()
 
 	symbols = data.get_symbols(source)[0]
 	end_points = ['quote', 'stats'] #['company','financials','earnings','peers']
@@ -252,3 +340,6 @@ if __name__ == '__main__':
 			continue
 	t0_end = time.perf_counter()
 	print(data.time_stamp() + 'Finished getting market data! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
+
+
+# nohup /home/robale5/miniconda3/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/missing01.log 2>&1 &

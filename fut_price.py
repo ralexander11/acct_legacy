@@ -7,6 +7,9 @@ import tensorflow as tf
 import numpy as np
 import os
 import pandas as pd
+import gc
+
+# tf.compat.v1.disable_eager_execution()
 
 server = False
 if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
@@ -29,6 +32,7 @@ HISTORY_SIZE = 2 #720
 TARGET_SIZE = 0 #72
 STEP = 1 #6
 tf.random.set_seed(13)
+DATA_NEEDED = 100
 
 # Download data
 # zip_path = tf.keras.utils.get_file(origin='https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip', fname='jena_climate_2009_2016.csv.zip', extract=True)
@@ -270,16 +274,24 @@ def pred_price(df, v=False):
 		prior = (prior * data_std[tar_col]) + data_mean[tar_col]
 	return pred, prior, actual, model, df_mean_std
 
-def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None):
-	print('Predict price for {}.'.format(ticker))
+def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None, merged_data=None, train=True):
+	print('Predict price for ticker: {}'.format(ticker))
 	ticker = ticker.lower()
 	if path is None:
 		path = 'misc/models/'
+		# path = '~/Public/models/'
 	filepath = path + ticker + '_model'
+	print('model_path:', filepath)
 	if not os.path.exists(filepath):
-		predictions = main(ticker, v=False)
-		with pd.option_context('display.max_columns', None):
-			print('Predictions:\n', predictions)
+		if train:
+			predictions = main(ticker, merged_data=merged_data, v=False)
+			with pd.option_context('display.max_columns', None):
+				print('Predictions:\n', predictions)
+			if predictions is None:
+				tf.keras.backend.clear_session()
+				return
+		else:
+			return
 	model = tf.keras.models.load_model(filepath, custom_objects=None, compile=True)
 	data_path = filepath + '/assets/' + ticker + '_mean_std.csv'
 	with open(data_path, 'r') as f:
@@ -298,6 +310,7 @@ def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None
 	y_data = np.array([df.iloc[:, tar_col].values[1]])
 	x_data = np.array([x_data.values])
 	x_data_norm = (x_data - data_mean) / data_std
+	x_data_norm = x_data_norm.astype(np.float64)
 	data = tf.data.Dataset.from_tensor_slices((x_data_norm, y_data))
 	data = data.batch(BATCH_SIZE).repeat()
 	# print('data:\n', data)
@@ -306,9 +319,13 @@ def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None
 		price = model.predict(x)
 	price = price[0][0]
 	price = (price * data_std[tar_col]) + data_mean[tar_col]
+	# Test to clean up memory
+	del model
+	gc.collect()
+	tf.keras.backend.clear_session()
 	return price
 
-def main(tickers=None, v=True):
+def main(tickers=None, merged_data=None, v=True):
 	combine_data = CombineData()
 	predictions = pd.DataFrame(columns=['ticker','prediction','prior','changePercent','actual','actual_changePer'])
 	if tickers is not None:
@@ -316,7 +333,21 @@ def main(tickers=None, v=True):
 			tickers = [str(tickers)]
 		for ticker in tickers:
 			ticker = ticker.lower()
-			df = combine_data.comp_filter(ticker)
+			merged = 'merged.csv'
+			# print(combine_data.data_location + merged)
+			if merged_data is not None:
+				df = combine_data.comp_filter(ticker, merged_data)
+				if df.shape[0] < DATA_NEEDED:
+					return
+			elif os.path.exists(combine_data.data_location + merged):
+				print('Merged data exists.')
+				merged_data = pd.read_csv(combine_data.data_location + merged)
+				merged_data = merged_data.set_index(['symbol','date'])
+				df = combine_data.comp_filter(ticker, merged_data) # TODO Don't load each time, keep in memory
+			else:
+				print('Saving down merged data.')
+				df = combine_data.comp_filter(ticker, save=True)
+			print('Creating model to predict price for {}.'.format(ticker))
 			pred, prior, actual, model, df_mean_std = pred_price(df, v=v)
 			predictions = predictions.append({'ticker':ticker, 'prediction':pred, 'prior':prior, 'changePercent':(pred-prior)/prior, 'actual':actual, 'actual_changePer':(actual-prior)/prior}, ignore_index=True)
 			filepath = 'misc/models/' + ticker + '_model'
@@ -333,9 +364,11 @@ if __name__ == '__main__':
 	with pd.option_context('display.max_columns', None):
 		print('predictions:\n', predictions)
 
-
+# Redo models: fb, snap, crm, ttd, grpn
 
 # predictions:
 #    ticker  prediction   prior  changePercent  actual  actual_changePer
 # 0   tsla  305.790849  307.51      -0.005591  305.80         -0.005561
 # 1   aapl  178.330856  174.28       0.023243  170.97         -0.018992
+
+# export PATH=/home/pi/miniconda3:$PATH

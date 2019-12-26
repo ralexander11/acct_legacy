@@ -49,7 +49,7 @@ class Trading(object):
 			else:
 				# self.data_location = 'market_data/data/'
 				# self.data_location = 'market_data/test_data/'
-				self.data_location = '/Users/Robbie/Public/market_data/test_data/'
+				self.data_location = '/Users/Robbie/Public/market_data/new/data/'
 		self.ledger = ledger
 		# self.gl = ledger.gl
 		self.ledger_name = ledger.ledger_name

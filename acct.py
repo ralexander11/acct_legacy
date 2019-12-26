@@ -970,8 +970,8 @@ class Ledger:
 		return qty_txns
 
 	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, credit=False, v=False):
-		if items == 'Rock':
-			if v: print('Get Qty GL: \n{}'.format(self.gl))
+		# if items == 'Rock':
+		# 	if v: print('Get Qty GL: \n{}'.format(self.gl))
 		if not credit:
 			acct_side = 'debit_acct'
 		else:

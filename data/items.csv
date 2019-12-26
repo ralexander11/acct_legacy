@@ -1,6 +1,7 @@
 item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,usage_req,use_amount,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer
 Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Study,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Job,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Buildings,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -14,12 +15,11 @@ Government,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Governmental,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Environment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Arable Land,None,None,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Forest,None,None,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Rocky Land,None,None,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Mountain,None,None,None,Rocky Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Study,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Land,None,None,None,None,None,400,100001,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Arable Land,None,None,None,Land,None,400,150001,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Forest,None,None,None,Land,None,400,10001,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Rocky Land,None,None,None,Land,None,400,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Mountain,None,None,None,Rocky Land,None,400,11,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Lumberjack,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Miner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Forage,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -39,14 +39,13 @@ Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 0.1",None,None,None,None,N
 #Forge,None,None,continuous,Equipment,"Rock, Wood","30, 5",None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,Blacksmith
 Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Water Well,None,None,continuous,Equipment,"Rock, Wood","100, 20",4,None,None,None,None,None,None,30,ticks,None,None,None,100,None,None,Well
-Water,None,None,None,Subscription,"Land, Water Well","1, 1",None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Well
+Water,None,None,None,Subscription,"Land, Water Well","1, 1",None,None,None,Thirst,100,None,None,None,None,None,None,None,None,None,None,Well
 Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,"100, 200","usage, ticks",None,None,None,20,None,None,Carpenter
 #Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 #Haircut,None,None,None,Service,Barber,1,None,None,None,Hygiene,100,None,None,None,None,None,None,None,None,None,None,Barber Shop
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Harvest Guild
 Manager,None,None,None,Job,Reading,1,2000,"Paper","1",None,None,None,None,None,None,None,None,None,None,None,None,None
-#Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,50,ticks,None,None,None,50,None,None,Blacksmith
-#Bank,None,None,None,Governmental,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,50,usage,None,None,None,50,None,None,Blacksmith
 University,None,None,None,Non-Profit,"University Campus","1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
@@ -77,3 +76,4 @@ Robot Lumberjack,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith 
 Robot Miner,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,Miner,1,200,usage,None,None,None,10000,None,None,Blacksmith
 3D Printer,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,Carpenter,1,200,usage,None,None,None,10000,None,None,Blacksmith
 Robot Blacksmither,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 400, 800",12,None,None,None,None,Blacksmither,1,1000,usage,None,None,None,10000,None,None,Blacksmith
+House,None,None,continuous,Buildings,"Time, Land, Wood, Rock","3, 100, 200, 100",5,None,None,Shelter,100,None,None,10000,ticks,None,None,None,1000,None,None,Construction Company

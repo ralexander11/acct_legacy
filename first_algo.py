@@ -63,26 +63,31 @@ class TradingAlgo(object):
 		self.token = self.config['api_token']
 		self.data_location = trade.data_location
 		print('Data Location: {}'.format(self.data_location))
+		# print('New db: {}'.format(new_db))
 		self.ledger = ledger
 		self.trade = trade
-		self.ledger_name = trade.ledger_name
-		self.entity = trade.entity
-		self.date = trade.date
-		self.start_date = trade.start_date
-		self.txn = trade.txn
 		self.combine_data = combine_data
-
-		# Get entity settings for random trading parameters
+		self.entity = trade.entity
 		if self.entity is None:
 			self.entity = 1
-		# cur = ledger.conn.cursor()
-		# self.min_qty = cur.execute('SELECT min_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		# self.max_qty = cur.execute('SELECT max_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		# self.liquidate_chance = cur.execute('SELECT liquidate_chance FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		# self.ticker_source = cur.execute('SELECT ticker_source FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
-		# cur.close()
 		self.sim = trade.sim
-		self.date = trade.date
+		if new_db or args.reset:
+			self.quote_df = None
+			self.ledger_name = trade.ledger_name # TODO Not used
+			self.date = trade.date # TODO Not used
+			self.start_date = trade.start_date # TODO Not used
+			self.txn = trade.txn # TODO Not used
+
+			# Get entity settings for random trading parameters
+			# cur = ledger.conn.cursor()
+			# self.min_qty = cur.execute('SELECT min_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+			# self.max_qty = cur.execute('SELECT max_qty FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+			# self.liquidate_chance = cur.execute('SELECT liquidate_chance FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+			# self.ticker_source = cur.execute('SELECT ticker_source FROM entities WHERE entity_id = ' + str(self.entity) + ';').fetchone()[0]
+			# cur.close()
+		else:
+			print(time_stamp() + 'Resuming from: {}'.format(args.database))
+			self.quote_df = self.get_table('quote_df')
 
 	def load_config(self, file='config.yaml'):
 		config = None
@@ -95,6 +100,53 @@ class TradingAlgo(object):
 			except yaml.YAMLError as e:
 				print('Error loading yaml config: \n{}'.format(repr(e)))
 		return config
+
+	def clear_tables(self, tables=None):
+		if tables is None:
+			tables = [
+				'gen_ledger',
+				'entities',
+				'items'
+			]
+		cur = ledger.conn.cursor()
+		for table in tables:
+			clear_table_query = '''
+				DELETE FROM ''' + table + ''';
+			'''
+			try:
+				cur.execute(clear_table_query)
+				print('Clear ' + table + ' table.')
+			except:
+				continue
+		ledger.conn.commit()
+		cur.close()
+		#print('Clear tables.')
+
+	def set_table(self, table, table_name, v=False):
+		if v: print('Orig set table: {}\n{}'.format(table_name, table))
+		if not isinstance(table, (pd.DataFrame, pd.Series)):
+			if not isinstance(table, (list, tuple)):
+				table = [table]
+			table = pd.DataFrame(data=table, index=None)
+			if v: print('Singleton set table: {}\n{}'.format(table_name, table))
+		try:
+			table = table.reset_index()
+			if v: print('Reset Index - set table: {}\n{}'.format(table_name, table))
+		except ValueError as e:
+			print('Set table error: {}'.format(repr(e)))
+		table.to_sql(table_name, ledger.conn, if_exists='replace', index=False)
+		if v: print('Final set table: {}\n{}'.format(table_name, table))
+		return table
+
+	def get_table(self, table_name, v=False):
+		tmp = pd.read_sql_query('SELECT * FROM ' + table_name + ';', ledger.conn)
+		if v: print('Get table tmp: \n{}'.format(tmp))
+		index = tmp.columns[0]
+		if v: print('Index: {}'.format(index))
+		table = pd.read_sql_query('SELECT * FROM ' + table_name + ';', ledger.conn, index_col=index)
+		table.index.name = None
+		if v: print('Get table: {}\n{}'.format(table_name, table))
+		return table
 
 	def check_weekend(self, date=None, v=True):
 		# Get the day of the week (Monday is 0)
@@ -113,7 +165,7 @@ class TradingAlgo(object):
 
 	def check_holiday(self, date=None, v=True):
 		# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
-		trade_holidays = [
+		us_trade_holidays = [
 							'2018-01-01',
 							'2018-01-15',
 							'2018-02-19',
@@ -123,7 +175,6 @@ class TradingAlgo(object):
 							'2018-09-03',
 							'2018-11-22',
 							'2018-12-25',
-							'2018-05-26',
 							'2019-01-01',
 							'2019-01-21',
 							'2019-02-18',
@@ -143,7 +194,7 @@ class TradingAlgo(object):
 				current_date = date
 		else:
 			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
-		for holiday in trade_holidays:
+		for holiday in us_trade_holidays:
 			if holiday == current_date:
 				if v: print(time_stamp() + 'Today is a trade holiday. ({})'.format(date))
 				return holiday
@@ -199,37 +250,52 @@ class TradingAlgo(object):
 		return prior_day
 
 	def get_symbols(self, flag, date=None):
+		base_dir = '/Users/Robbie/Documents/Development/Python/acct/data/'
 		if '.csv' in flag:
-			symbols = pd.read_csv('/Users/Robbie/Documents/Development/Python/acct/data/' + flag)
-			symbols = symbols.values.tolist()
-			symbols = [item for sublist in symbols for item in sublist]
-
+			symbols = pd.read_csv(base_dir + flag, header=None)
+			if 'symbol' in symbols.columns.values.tolist(): # TODO This is not possible with header=None
+				symbols = symbols['symbol'].unique().tolist()
+			else:
+				symbols = symbols.iloc[:,0].unique().tolist()
+			print('Number of tickers: {}'.format(len(symbols)))
+			return symbols
+		elif '.xls' in flag:
+			symbols = pd.read_excel(base_dir + flag, index_col=None)
+			if 'symbol' in symbols.columns.values.tolist():
+				symbols = symbols['symbol'].unique().tolist()
+			else:
+				symbols = symbols.iloc[:,0].unique().tolist()
+			print('Number of tickers: {}'.format(len(symbols)))
+			return symbols
 		elif flag == 'iex' and date is None:
 			# symbols_url = 'https://api.iextrading.com/1.0/ref-data/symbols'
 			symbols_url = 'https://cloud.iexapis.com/stable/ref-data/iex/symbols'
 			symbols_url = symbols_url + '?token=' + self.token
 			symbols = pd.read_json(symbols_url, typ='frame', orient='records')
 			symbols = symbols.sample(frac=1).reset_index(drop=True) #Randomize list
-
+			print('Number of tickers: {}'.format(len(symbols)))
+			return symbols
 		elif flag == 'iex' and date is not None:
 			path = self.data_location + 'tickers/iex_tickers_'
 			infile = path + date + '.csv'
-			with open(infile, 'r') as f:
-				symbols = pd.read_csv(f)
-
+			# with open(infile, 'r') as f:
+			symbols = pd.read_csv(f)
+			print('Number of tickers: {}'.format(len(symbols)))
+			return symbols
 		elif flag == 'sp500':
 			sp500_url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
 			symbols = pd.read_html(sp500_url, header=0)
 			symbols = symbols[0]
 			symbols.columns = ['symbol','security','sec_filings','sector','sub_sector','address','date_added','cik','founded']
 			#print(symbols['symbols'])
-			# return symbols
-
+			print('Number of tickers: {}'.format(len(symbols)))
+			return symbols
 		else:
 			if not isinstance(flag, (list, tuple)):
 				flag = [x.strip() for x in flag.split(',')]
 			symbols = flag
-		return symbols
+			print('Number of tickers: {}'.format(len(symbols)))
+			return symbols
 
 	# Check how much capital is available
 	def check_capital(self, capital_accts=None):
@@ -287,12 +353,12 @@ class TradingAlgo(object):
 	# Sell randomly from a random subset of positions
 	def random_sell(self, portfolio, date=None):
 		print(time_stamp() + 'Randomly selling from {} securities.'.format(len(portfolio)))
-		t1_start = time.perf_counter()
+		t1a_start = time.perf_counter()
 		for count, symbol in enumerate(portfolio['symbol'][:random.randint(1,len(portfolio))]):
 			logging.debug('Selling shares of: {}'.format(symbol))
 			self.trade.sell_shares(*self.get_trade(symbol, portfolio), date)
-		t1_end = time.perf_counter()
-		print(time_stamp() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1_end - t1_start) / 60))
+		t1a_end = time.perf_counter()
+		print(time_stamp() + 'Done randomly selling {} securities in: {:,.2f} min.'.format(count, (t1a_end - t1a_start) / 60))
 
 	# First algo functions
 	def rank_wk52high(self, assets, norm=False, date=None): # TODO Make this able to be a percentage change calc
@@ -372,11 +438,12 @@ class TradingAlgo(object):
 		print('\nRank: {}\n{}'.format(date, rank.head()))
 		return rank
 
-	def rank_change_percent(self, assets, date=None, tickers=None, predict=False):
+	def rank_change_percent(self, assets, date=None, tickers=None, predict=False, train=False):
+		t1_start = time.perf_counter()
 		if predict:
-			print('\nRunning predict future direction algo.')
+			print('\n' + time_stamp() + 'Running predict future direction algo.')
 		else:
-			print('\nRunning known future direction algo.')
+			print('\n' + time_stamp() + 'Running known future direction algo.')
 		fut_date = self.get_next_day(date)
 		end_point = 'quote'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(fut_date)+'.csv'
@@ -384,27 +451,54 @@ class TradingAlgo(object):
 			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(fut_date)+'.csv'
 			# print('Path: {}'.format(path))
 		if os.path.exists(path) and not predict and tickers is None:
-			quote_df = combine_data.load_file(path)
+			quote_df = combine_data.load_file(path) # TODO Cache data
+		elif not os.path.exists(path) and not predict:
+			print(time_stamp() + 'Cannot get known future price.')
+			return pd.DataFrame()
 		if tickers is not None:
 			if not isinstance(tickers, (list, tuple)):
 				tickers = [tickers]
 			quote_dfs = []
 			if not os.path.exists(path) or predict:
-				for ticker in tickers:
-					quote_df = self.future_data(ticker, date=date)
+				if train:
+					merged = 'merged.csv'
+					if os.path.exists(combine_data.data_location + merged):
+						print(time_stamp() + 'Merged data exists outer.')
+						merged_data = pd.read_csv(combine_data.data_location + merged)
+						merged_data = merged_data.set_index(['symbol','date'])
+				else:
+					merged_data = None
+				if algo.quote_df is not None:
+					quote_df = algo.quote_df.copy(deep=True)
+					quote_dfs.append(algo.quote_df)
+					k = tickers.index(algo.quote_df.index[-1])
+					tickers = tickers[k+1:]
+				for i, ticker in enumerate(tickers, 1):
+					# print('ticker:', ticker)
+					if isinstance(ticker, float): # xlsx causes last ticker to be nan
+						continue
+					quote_df = self.future_data(ticker, date=date, merged_data=merged_data, train=train)
+					print(time_stamp() + 'Done predicting price for: {} ({} / {}) {:.0f}%'.format(ticker, i, len(tickers), (i/len(tickers)*100)))
 					if quote_df is None:
 						continue
 					quote_dfs.append(quote_df)
-					print('quote_df:\n', quote_df)
+					print('Prediction:\n', quote_df)
+					quote_df = pd.concat(quote_dfs)#, sort=True) # Sort to suppress warning
+					self.set_table(quote_df, 'quote_df')
+					# quote_df.to_csv('data/result.csv') # For testing, tabbed above line
 				quote_df = pd.concat(quote_dfs)#, sort=True) # Sort to suppress warning
+				self.set_table(quote_df, 'quote_df')
+				algo.quote_df = None
 			else:
-				for ticker in tickers:
-					quote_df = combine_data.comp_filter(ticker, combine_data.date_filter(fut_date))
-					quote_dfs.append(quote_df)
-				quote_df = pd.concat(quote_dfs).reset_index().set_index('symbol')
+				# for ticker in tickers:
+					# quote_df = combine_data.comp_filter(ticker, combine_data.date_filter(fut_date))
+					# quote_dfs.append(quote_df)
+				quote_df = combine_data.comp_filter(tickers, combine_data.date_filter(fut_date)).set_index('symbol')
+				# quote_df = pd.concat(quote_dfs).reset_index().set_index('symbol')
+				# print('quote_df known:\n', quote_df)
 				# quote_df = quote_df.loc[quote_df.index.isin(tickers)]
 		else:
-			print('Requires at least one ticker provided to predict the price.')
+			print(time_stamp() + 'Requires at least one ticker provided to predict the price.')
 		# Filter as per available WealthSimple listing criteria
 		try:
 			quote_df_tmp = quote_df.loc[(quote_df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (quote_df['week52High'] > 0.5) & (quote_df['avgTotalVolume'] > 50000)]
@@ -415,17 +509,31 @@ class TradingAlgo(object):
 			quote_df = quote_df_tmp	
 		quote_df.sort_values(by='changePercent', ascending=False, inplace=True)
 		change = quote_df['changePercent'].iloc[0]
-		print('changePercent: {}'.format(change))
+		print('greatest_changePercent: {}'.format(change))
+		t1_end = time.perf_counter()
+		print(time_stamp() + 'Done ranking {} securities by change percentage in: {:,.2f} min.'.format(quote_df.shape[0], (t1_end - t1_start) / 60))
 		if change <= 0:
-			print('Rank: \n{}'.format(quote_df.head()))
+			print('No Positive Change Rank: \n{}'.format(quote_df.head()))
 			quote_df = quote_df.iloc[0:0]
 			return quote_df
 		return quote_df
 
-	def future_data(self, ticker, date=None):
+	def future_data(self, ticker, date=None, merged_data=None, train=True):
+		t2_start = time.perf_counter()
 		if date is None:
 			date = datetime.datetime.today()
-			date = datetime.datetime.strftime('%Y-%m-%d', date)
+			if date.weekday() == 0:
+				delta = 3
+			# elif date.weekday() == 1:
+			# 	delta = 1#2
+			else:
+				delta = 0#1
+			date = date - datetime.timedelta(days=delta) # TODO Test support for Mondays and Tuesdays
+			date = date.date()
+			if isinstance(date, datetime.datetime):
+				date = datetime.datetime.strftime('%Y-%m-%d', date)
+			print(time_stamp() + 'Date Inner 1: {}'.format(date))
+			self.set_table(date, 'date')
 		else:
 			# print('date: {} | {}'.format(date, type(date)))
 			if isinstance(date, datetime.datetime):
@@ -452,20 +560,41 @@ class TradingAlgo(object):
 		dates = [str(dt) for dt in dates]
 		print('dates:', dates)
 		try:
-			df = combine_data.comp_filter(ticker, combine_data.date_filter(dates))
+			if not trade.sim:
+				df1 = combine_data.comp_filter(ticker, combine_data.date_filter(dates[1:]))
+				ticker_df = pd.DataFrame([ticker], columns=['symbol'])
+				df2 = data.get_data(ticker_df, 'quote')[0]
+				df2['symbol'] = ticker.upper()
+				# cols = df2.columns.values.tolist()
+				# cols.insert(0, cols.pop(cols.index('symbol')))
+				# df2 = df2[cols]
+				df2['day50MovingAvg'] = ((df1['day50MovingAvg'].values[0] * 49) + df2['latestPrice']) / 50
+				df2['date'] = dates[0]
+				df2.set_index('date', inplace=True)
+				df = pd.concat([df1, df2], sort=True)
+				# print('df:\n', df[['symbol','day50MovingAvg','changePercent','latestPrice']])
+			else:
+				df = combine_data.comp_filter(ticker, combine_data.date_filter(dates))
 		except KeyError as e:
-			print('No data for {} on: {}'.format(ticker, dates))
+			print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
+			return
+		if df.empty:
+			print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
 			return
 		# print('Future Data Date: {} | {}'.format(date, type(date)))
 		# pred = 300.0
-		pred_price = get_price(df, ticker)
+		pred_price = get_price(df, ticker, merged_data=merged_data, train=train)
+		if pred_price is None:
+			return
 		# print('pred_price:', pred_price)
 		prior = df.loc[str(date), 'latestPrice']
 		# print('prior:', prior)
 		change = (pred_price-prior)/prior
 		pred_quote_df = pd.DataFrame(data={'symbol':[ticker], 'prediction':[pred_price], 'prior':[prior], 'changePercent':[(pred_price-prior)/prior]}, index=None).set_index('symbol')
 		# print('pred_quote_df:\n', pred_quote_df)
-		print('changePercent:', change)
+		print('changePercent {}: {}'.format(ticker, change))
+		t2_end = time.perf_counter()
+		print(time_stamp() + 'Done predicting price for: {} in: {:,.0f} sec'.format(ticker, (t2_end - t2_start))) # {:,.2f}
 		return pred_quote_df
 
 	def buy_single(self, symbol, date=None):
@@ -475,6 +604,8 @@ class TradingAlgo(object):
 
 	def buy_max(self, capital, symbol, date=None):
 		price = self.trade.get_price(symbol, date=date)
+		if not price:
+			return None, None
 		qty = capital // price
 		if qty == 0:
 			return capital, qty
@@ -492,7 +623,7 @@ class TradingAlgo(object):
 		if not isinstance(tickers, (list, tuple)):
 			tickers = [tickers]
 		rank = pd.DataFrame(columns=['symbol','chance'], index=None)
-		print('tickers:', tickers)
+		# print('tickers:', tickers)
 		choice = 0
 		for ticker in tickers:
 			chance = random.randint(0, 1)
@@ -512,15 +643,33 @@ class TradingAlgo(object):
 		rank = pd.DataFrame(columns=['symbol','alloc'], index=None)
 		# print('tickers:', tickers)
 		for i, ticker in enumerate(tickers, 1):
+			if len(tickers) > 1000:
+				ticker = 'spy'
 			rank = rank.append({'symbol':ticker, 'alloc':i}, ignore_index=True)
 			# rank = rank.sample(frac=1)
 			rank = rank.set_index('symbol')
 			return rank
 
-	def main(self, norm=False, date=None, dates=None, n=1, adv=False):
+	def main(self, date=None, dates=None, norm=False, n=1, adv=False):
 		t4_start = time.perf_counter()
+		if date is None:
+			date = datetime.datetime.today()
+			# if date.weekday() == 0:
+			# 	delta = 2#3
+			# elif date.weekday() == 1:
+			# 	delta = 1#2
+			# else:
+			# 	delta = 0#1
+			# date = date - datetime.timedelta(days=delta)
+			date = date.date()
+			if isinstance(date, datetime.datetime):
+				date = datetime.datetime.strftime('%Y-%m-%d', date)
+		self.set_table(date, 'date')
 		print('=' * DISPLAY_WIDTH)
-		print(time_stamp() + 'Sim date: {}'.format(date))
+		if trade.sim:
+			print(time_stamp() + 'Sim Date: {}'.format(date))
+		else:
+			print(time_stamp() + 'Date: {}'.format(date))
 		print ('-' * DISPLAY_WIDTH)
 
 		if adv:
@@ -550,6 +699,7 @@ class TradingAlgo(object):
 				self.ledger.reset()
 
 			capital = self.check_capital()
+			print('Capital for entity {}: {}'.format(e, capital))
 			assets = self.ledger.balance_sheet(['Cash','Investments'])
 			portfolio = self.ledger.get_qty(accounts=['Investments'])
 			# print('Portfolio: \n{}'.format(portfolio))
@@ -563,10 +713,10 @@ class TradingAlgo(object):
 				rank = self.buy_hold(tickers)
 			if args.mode == '2' or e == 2 or args.mode == 'rand':
 				rank = self.rand_algo(tickers)
-			if args.mode == '3' or e == 3 or args.mode == 'pred_dir':
-				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True)
-			if args.mode == '4' or e == 4 or args.mode == 'perf_dir':
+			if args.mode == '3' or e == 3 or args.mode == 'perf_dir':
 				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=False)
+			if args.mode == '4' or e == 4 or args.mode == 'pred_dir':
+				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True)
 			# if args.mode == '5' or e == 5 or args.mode == 'test':
 			# 	rank = self.rank_combined(assets, norm, date, tickers=tickers)
 		
@@ -615,12 +765,16 @@ if __name__ == '__main__':
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
-	parser.add_argument('-m', '--mode', type=str, help='The name or number of the algo to run.')
+	parser.add_argument('-m', '--mode', type=str, default='all', help='The name or number of the algo to run.')
 	parser.add_argument('-norm', '--norm', action="store_true", help='Normalize stock prices in algo rankings.')
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the trading sim!')
 	parser.add_argument('-t', '--tickers', type=str, help='A list of tickers to consider.')
 	args = parser.parse_args()
+	new_db = True
+	# print('Existing DB Check: {}'.format(os.path.exists('db/' + args.database)))
+	if os.path.exists('db/' + args.database):
+		new_db = False
 	if args.reset:
 		delete_db(args.database)
 	if args.seed:
@@ -638,20 +792,19 @@ if __name__ == '__main__':
 	if args.entity:
 		ledger.default = args.entity
 	if args.tickers:
-		if '.csv' not in args.tickers:
-			args.tickers = [x.strip() for x in tickers.split(',')]
+		if '.csv' not in args.tickers and '.xls' not in args.tickers:
+			args.tickers = [x.strip() for x in args.tickers.split(',')]
 		else:
 			args.tickers = algo.get_symbols(args.tickers)
-
-	# pred = algo.future_data('tsla', date='2018-09-21')
-	# print('pred:', pred)
+	# print('args.tickers:', args.tickers)
+	# result = algo.future_data('scor', '2018-05-09')
 	# exit()
 
 	if trade.sim:
 		t0_start = time.perf_counter()
 		cap = args.capital
 		if cap is None:
-			cap = float(10000)
+			cap = float(1000)
 		print(time_stamp() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
 		data_path = algo.data_location + 'quote/*.csv'
 		dates = []
@@ -662,17 +815,22 @@ if __name__ == '__main__':
 		print(dates)
 		print(time_stamp() + 'Number of Days: {}'.format(len(dates)))
 		# print(accts.coa)
-		if algo.check_capital() == 0:
-			n = 1
-			if args.mode == 'all':
-				n = 5
+		n = 1
+		if args.mode == 'all':
+			n = 4
+		if algo.check_capital(['Cash','Chequing','Investments']) == 0:
 			for entity in range(1, n+1):
 				deposit_capital = [ [ledger.get_event(), entity, '', trade.trade_date(dates[0]), '', 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
 				ledger.journal_entry(deposit_capital)
 				#print(deposit_capital)
-		for date in dates[1:]:
+		if not new_db and not args.reset:
+			date = algo.get_table('date').values[0][0]
+			date_index = dates.index(date)
+			dates = dates[date_index-1:]
+		for date in dates[1:]: # Data window is 2 days back
+			algo.set_table(date, 'date')
 			try:
-				algo.main(args.norm, date, dates, n=n)
+				algo.main(date, dates, args.norm, n=n)
 			except FileNotFoundError as e:
 				print(time_stamp() + 'No data for prior date: {}'.format(date))
 				# print(time_stamp() + 'Error: {}'.format(repr(e)))
@@ -681,6 +839,21 @@ if __name__ == '__main__':
 		t0_end = time.perf_counter()
 		print(time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:
-		algo.main(args.norm)
+		date = None # '2019-12-26' # 
+		cap = args.capital
+		if cap is None:
+			cap = float(1000)
+		n = 1
+		if args.mode == 'all':
+			n = 4
+		if algo.check_capital(['Cash','Chequing','Investments']) == 0:
+			for entity in range(1, n+1):
+				deposit_capital = [ [ledger.get_event(), entity, '', trade.trade_date(date), '', 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
+				ledger.journal_entry(deposit_capital)
+		if not new_db and not args.reset:
+			date = algo.get_table('date').values[0][0]
+		algo.main(norm=args.norm, date=date, n=n)
 
-# 2019-05-07
+# python first_algo.py -db first36.db -s 11 -sim -t ws_tickers.xlsx
+
+# python first_algo.py -db trade02.db -s 11 -t ws_tickers.csv -r

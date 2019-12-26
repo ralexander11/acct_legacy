@@ -33,7 +33,7 @@ class CombineData(object):
 			fname_date = os.path.basename(infile)[-14:-4]
 			# print('fname_date:', fname_date)
 			df = df.assign(date=fname_date)
-			df = df.drop(['ZEXIT','ZIEXT','ZXIET','ZVZZT','ZWZZT','ZXZZT'], errors='ignore')
+			df = df.drop(['ZEXIT','ZIEXT','ZXIET','ZVZZT','ZWZZT','ZXZZT','NONE','NAN','TRUE','FALSE'], errors='ignore')
 			# print(df.head())
 			#print('-' * DISPLAY_WIDTH)
 			return df
@@ -78,13 +78,33 @@ class CombineData(object):
 		# return merged.xs(date, level='date')
 		return merged
 
-	def comp_filter(self, symbol, merged=None):
+	def comp_filter(self, symbol, merged=None, flatten=False, save=False):
 		if merged is None:
 			quote_df = self.load_data('quote')
 			stats_df = self.load_data('stats')
 			merged = self.merge_data(quote_df, stats_df)
-		merged = merged.xs(symbol.upper())
-		merged['symbol'] = symbol
+		# print('merged:\n', merged)
+		if save:
+			merged.to_csv(self.data_location + 'merged.csv')
+			print('Saved merged data!\n{}'.format(merged.head()))
+		if isinstance(symbol, str):
+			symbol = [symbol.upper()]
+		else:
+			if isinstance(symbol[-1], float): # xlsx causes last ticker to be nan
+				symbol = symbol[:-2]
+			symbol = list(map(str.upper, symbol))
+		# merged = merged.xs(symbol)
+		merged = merged.reset_index(level='symbol')
+		merged = merged.loc[merged['symbol'].isin(symbol)]
+		# merged = merged.loc[merged.index.isin(symbol, level='symbol')]
+		# if isinstance(symbol, str):
+		# 	merged['symbol'] = symbol
+		if flatten:
+			merged = merged.set_index('symbol', append=True)
+			# merged.columns = merged.columns.swaplevel(0, 1)
+			merged = merged.unstack(level='symbol')
+			# merged.columns = ['_'.join(c) for c in merged.columns]
+			merged.columns = ['_'.join(reversed(c)) for c in merged.columns]
 		return merged
 
 	def data_point(self, field, merged=None):
@@ -109,30 +129,48 @@ class CombineData(object):
 	def back(self, n):
 		return self.iloc[:, -n:]
 
+	def fill_missing(self, missing, merged=None):
+		if isinstance(missing, str):
+			if '.csv' in missing:
+				print('Loading missing data from:', missing)
+				missing = pd.read_csv(missing)
+		merged_file = 'aapl_tsla_quote.csv'#'merged.csv'
+		if merged is None and os.path.exists(self.data_location + merged_file):
+			print('Merged data exists at:', self.data_location)
+			merged = pd.read_csv(self.data_location + merged_file)
+			merged = merged.set_index(['symbol','date'])
+		missing = missing.set_index(['symbol','date'])
+		merged = merged.join(missing, how='outer')
+		merged.loc[merged['close'].isna(),'close'] = merged['hist_close']
+		# merged.loc[merged['day50MovingAvg'].isna(),'day50MovingAvg'] = merged['close'].rolling(50, min_periods=1).mean()
+		# merged.loc[merged['day50MovingAvg'].isna(),'day50MovingAvg'] = ((merged['day50MovingAvg'].shift(1) * 49) + merged['close']) / 50
+		merged['day50MovingAvg'].fillna((((merged['day50MovingAvg'].shift(1) * 49) + merged['close']) / 50), inplace=True)
+		result = ((merged['day50MovingAvg'].shift(1) * 49) + merged['close']) / 50
+		# print('result:\n', result)
+		merged.loc[merged['changePercent'].isna(),'changePercent'] = merged['close'].pct_change()
+		merged = merged.drop('hist_close', axis=1)
+
+		merged.dropna(subset=['close'], inplace=True)
+		while merged['day50MovingAvg'].isnull().values.any():
+			merged['day50MovingAvg'].fillna((((merged['day50MovingAvg'].shift(1) * 49) + merged['close']) / 50), inplace=True)
+		# with pd.option_context('display.max_rows', None):
+		# 	print(merged[['day50MovingAvg','changePercent','close',]])#.head(20))
+		return merged
+
 if __name__ == '__main__':
 	# combine_data = CombineData(data_location='../../market_data/test_data/')
 	combine_data = CombineData(data_location='/Users/Robbie/Public/market_data/data/')
-	quote_df = combine_data.load_data('quote')
-	stats_df = combine_data.load_data('stats')
-	# df = pd.read_csv('/Users/Robbie/Documents/Development/Python/acct/data/all_tickers.csv')
-	# df_inv = pd.read_csv('/Users/Robbie/Documents/Development/Python/acct/data/all_inv_tickers.csv')
-	# print('df 1:\n', df.head())
-	# df_inv = df_inv.squeeze()
-	# print('df_inv:\n', df_inv.head())
-	# df = df.loc[~df['symbol'].isin(df_inv)]
-	# df.to_csv('../data/' + 'reduced_tickers.csv', date_format='%Y-%m-%d', index=True)
-	# print('df 2:\n', df.head())
-	# exit()
-	# df = combine_data.load_data('invalid_tickers')
-	# df = pd.Series(df[1].unique())
-	# df.to_csv('../data/' + 'all_inv_tickers.csv', date_format='%Y-%m-%d', index=True)
-	# print(df.head())
-	# exit()
+	# quote_df = combine_data.load_data('quote')
+	# stats_df = combine_data.load_data('stats')
+
+	df = combine_data.fill_missing('../data/aapl_hist_prices_2019-05-27.csv')
+	# with pd.option_context('display.max_rows', None):
+	print('final:\n', df[['day50MovingAvg','changePercent','close',]])
+	exit()
 
 	# print('Company Filter:')
-	# df = combine_data.comp_filter('tsla')
-	# print(df)
-	# df.to_csv('../data/' + 'tsla_quote.csv', date_format='%Y-%m-%d', index=True)
+	# df = combine_data.comp_filter(['tsla','aapl'])
+	# df.to_csv('../data/' + 'aapl_tsla_quote.csv', date_format='%Y-%m-%d', index=True)
 	# print('Saved')
 	# exit()
 
@@ -143,15 +181,15 @@ if __name__ == '__main__':
 
 	df = combine_data.merge_data(quote_df, stats_df)
 	# Filter as per available WealthSimple listing criteria
-	df = df.loc[(df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (df['week52High'] > 0.5) & (df['avgTotalVolume'] > 50000)]
+	# df = df.loc[(df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (df['week52High'] > 0.5) & (df['avgTotalVolume'] > 50000)]
 	print('Full:')
 	print(df.head())
 	# df.to_csv('../data/' + 'full_data.csv', date_format='%Y-%m-%d', index=True)
-	# df = df.reset_index()
-	# tickers = pd.Series(df.symbol.unique())
-	# tickers.to_csv('../data/' + 'all_tickers.csv', date_format='%Y-%m-%d', index=True)
-	# print(tickers.head())
-	# print('-' * DISPLAY_WIDTH)
+	df = df.reset_index()
+	tickers = pd.Series(df.symbol.unique())
+	tickers.to_csv('../data/' + 'all_tickers.csv', date_format='%Y-%m-%d', index=True)
+	print(tickers.head())
+	print('-' * DISPLAY_WIDTH)
 	exit()
 
 	print('Date Filter:')
