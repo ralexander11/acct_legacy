@@ -19,7 +19,7 @@ Land,None,None,None,None,None,400,100001,None,None,None,None,None,None,None,None
 Arable Land,None,None,None,Land,None,400,150001,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Forest,None,None,None,Land,None,400,10001,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Rocky Land,None,None,None,Land,None,400,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Mountain,None,None,None,Rocky Land,None,400,11,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Mountain,None,None,None,Land,None,400,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Lumberjack,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Miner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Forage,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -27,9 +27,9 @@ Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,
 Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Harvester,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Berries,None,None,None,Commodity,"Land, Forage","10, 8",None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Individual
+#Berries,None,None,None,Commodity,"Land, Forage","10, 8",None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Individual
 Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water","8, 400, 0.1, 1",None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,Farm
-Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,Farm
+#Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,Farm
 Plow,None,None,start,Equipment,"Metal Working, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 10, 20",12,None,None,None,None,Cultivator,0.5,"10,100","usage, ticks",None,None,None,100,None,None,Blacksmith
 Basket,None,None,start,Equipment,"Weaving","20",12,None,None,None,None,Forage,0.5,"50,2000","usage, ticks",None,None,None,100,None,None,Individual
 Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 0.1",None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,Lumbermill
@@ -46,7 +46,7 @@ Toy,None,None,continuous,Equipment,Wood,10,None,None,None,Fun,10,None,None,"100,
 Harvest,None,None,None,Service,Harvester,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Harvest Guild
 Manager,None,None,None,Job,Reading,1,2000,"Paper","1",None,None,None,None,None,None,None,None,None,None,None,None,None
 Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,50,usage,None,None,None,50,None,None,Blacksmith
-University,None,None,None,Non-Profit,"University Campus","1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+University,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Metal Working,None,None,None,Technology,"Time, Anvil","20, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Blacksmith
@@ -63,9 +63,10 @@ Anvil,None,None,continuous,Equipment,"Time, Rock","2, 50",1,None,None,None,None,
 Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","100","ticks",None,None,None,100,None,None,Blacksmith
 #Hydroponics,None,None,continuous,Equipment,"Engineer, Wood, Rock","6, 100, 40",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","100","ticks",None,None,None,100,None,None,Blacksmith
 Math,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
-Armour,None,None,continuous,Equipment,"Rock","10",1,None,None,None,None,None,None,"100","ticks",None,None,None,100,None,None,Blacksmith
+Sword,None,None,continuous,Equipment,"Rock","10",1,None,None,None,None,None,None,"100, 1000","usage, equipped",None,100,None,10,None,None,Blacksmith
+Armour,None,None,continuous,Equipment,"Rock","10",1,None,None,None,None,None,None,"100","equipped",None,None,None,100,None,None,Blacksmith
 Engineer,None,None,None,Labour,"Electronics, Blacksmither","1, 10",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-University Campus,None,None,continuous,Buildings,"Time, Land, Wood, Rock","2, 100, 100, 60",10,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
+University Campus,None,None,continuous,Buildings,"Land, Wood, Rock","100, 100, 100",10,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
 #Electronics,None,None,None,Education,"Study","16",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
 Electronics,None,None,None,Education,"Study, University Campus","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Shares,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -76,4 +77,4 @@ Robot Lumberjack,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith 
 Robot Miner,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,Miner,1,200,usage,None,None,None,10000,None,None,Blacksmith
 3D Printer,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,Carpenter,1,200,usage,None,None,None,10000,None,None,Blacksmith
 Robot Blacksmither,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 400, 800",12,None,None,None,None,Blacksmither,1,1000,usage,None,None,None,10000,None,None,Blacksmith
-House,None,None,continuous,Buildings,"Time, Land, Wood, Rock","3, 100, 200, 100",5,None,None,Shelter,100,None,None,10000,ticks,None,None,None,1000,None,None,Construction Company
+#House,None,None,continuous,Buildings,"Time, Land, Wood, Rock","3, 100, 200, 100",5,None,None,Shelter,100,None,None,10000,ticks,None,None,None,1000,None,None,Construction Company
