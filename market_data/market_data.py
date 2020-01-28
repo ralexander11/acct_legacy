@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import datetime
+import argparse
 import time
 import os
 import urllib
@@ -22,9 +23,11 @@ class MarketData(object):
 		if not os.path.isdir(self.save_location):
 			print('Not Server')
 			self.save_location = 'data/'
-	
-	def time_stamp(self):
-		time_stamp = datetime.datetime.now().strftime('[%Y-%b-%d %I:%M:%S %p] ')
+
+	def time_stamp(self, offset=0):
+		if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
+			offset = 4
+		time_stamp = (datetime.datetime.now() + datetime.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
 		return time_stamp
 
 	def load_config(self, file='config.yaml'):
@@ -111,6 +114,8 @@ class MarketData(object):
 			return symbols, symbols_list, symbols_dict
 
 		base_dir = '../data/'
+		if os.path.exists('/home/robale5/becauseinterfaces.com/acct/data/'):
+			base_dir = '/home/robale5/becauseinterfaces.com/acct/data/'
 		if '.csv' in flag:
 			symbols = pd.read_csv(base_dir + flag, header=None)
 			if 'symbol' in symbols.columns.values.tolist(): # TODO This is not possible with header=None
@@ -127,15 +132,21 @@ class MarketData(object):
 				symbols = symbols.iloc[:,0].unique().tolist()
 			print('Number of tickers: {}'.format(len(symbols)))
 			return symbols
+		else:
+			if not isinstance(flag, (list, tuple)):
+				flag = [x.strip() for x in flag.split(',')]
+			symbols = flag
+			print('Number of tickers: {}'.format(len(symbols)))
+			return symbols
 
 	# /stock/market/batch?symbols=
 
-	def get_data(self, symbols, end_point='quote'):
+	def get_data(self, symbols, end_point='quote', v=True):
 		# url = 'https://api.iextrading.com/1.0/stock/' # New url
 		url = 'https://cloud.iexapis.com/stable/stock/'
 		dfs = []
 		invalid_tickers = []
-		print('Number of symbols:', len(symbols['symbol']))
+		if v: print('Number of symbols:', len(symbols['symbol']))
 		# print('symbols:\n', symbols)
 		for symbol in symbols['symbol']: #tqdm(symbols['symbol']):
 			try:
@@ -148,7 +159,10 @@ class MarketData(object):
 			except Exception as e:
 				# print('Error: {}'.format(repr(e)))
 				invalid_tickers.append(symbol)
-		data_feed = pd.concat(dfs, sort=True)#, verify_integrity=True)
+		if dfs:
+			data_feed = pd.concat(dfs, sort=True)#, verify_integrity=True)
+		else:
+			data_feed = pd.DataFrame()
 		#print(data_feed)
 		#print('-' * DISPLAY_WIDTH)
 		return data_feed, invalid_tickers
@@ -238,7 +252,7 @@ class MarketData(object):
 
 	def get_hist_prices(self, dates, tickers=None, save=True, v=True):
 		if tickers is None:
-			tickers = self.get_symbols('ws_tickers.csv')#[0]['symbol']
+			tickers = self.get_symbols('ws_tickers.csv')
 		if isinstance(tickers, str):
 			tickers = [x.strip() for x in tickers.split(',')]
 		if not '.csv' in dates:
@@ -260,8 +274,14 @@ class MarketData(object):
 				try:
 					result = pd.read_json(base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
 				except:
-					print('Error: ' + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
-					continue
+					try:
+						result = pd.read_json(base_url + ticker + '-ct' + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
+					except:
+						try:
+							result = pd.read_json(base_url + ticker + '-cv' + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
+						except:
+							print('Error: ' + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
+							continue
 				# print(result)
 				if result.empty:
 					price = np.nan
@@ -275,35 +295,50 @@ class MarketData(object):
 			# if v: print(data.time_stamp() + 'Historical Prices:\n', prices)
 			if save:
 				# path = self.save_location + 'hist_prices/' + ticker + '_hist_prices_' + date + '.csv'
-				path = self.save_location + 'hist_prices/all_hist_prices.csv'
-				print('Saved: ', path)
+				path = self.save_location + 'hist_prices/new_hist_prices.csv'
+				print(self.time_stamp() + 'Saved: ', path)
 				prices_save.to_csv(path, index=False)
 		return prices_save
 
 if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-t', '--tickers', type=str, help='The flag or tickers for which data to pull.')
+	parser.add_argument('-d', '--dates', type=str, help='The dates for when to pull data.')
+	parser.add_argument('-e', '--end_points', type=str, help='The end points to pull data.')
+	parser.add_argument('-m', '--mode', type=str, help='The name of the mode to pull data.')
+	args = parser.parse_args()
 	t0_start = time.perf_counter()
 	data = MarketData()
-	source = 'iex' # input('Which ticker source? ').lower() # TODO Add support for argparse
+	if args.tickers is None:
+		source = 'iex' # input('Which ticker source? ').lower() # TODO Add support for argparse
+	else:
+		source = args.tickers
+	if args.dates is not None:
+		dates = args.dates
+		if not isinstance(dates, (list, tuple)):
+			dates = [x.strip() for x in dates.split(',')]
+	if args.end_points:
+		args.end_points = [x.strip() for x in args.end_points.split(',')]
 	print('=' * DISPLAY_WIDTH)
 	print(data.time_stamp() + 'Getting data from: {}'.format(source))
+	if args.mode is not None:
+		print(data.time_stamp() + 'Under mode: {}'.format(args.mode))
 	print('-' * DISPLAY_WIDTH)
 
-	hist_price_test = False
-	if hist_price_test:
-		tickers = None #['aapl']
-		# dates = ['2019-05-22', '2019-05-23']
-		dates = '../data/missing_dates.csv'
-		data.get_hist_prices(dates, tickers)
+	if args.mode == 'hist':
+		# tickers = None #['aapl']
+		# dates = ['2020-01-22']#, '2020-01-23']
+		if args.dates is None:
+			dates = '../data/missing_dates.csv'	
+		data.get_hist_prices(dates, args.tickers)
 		exit()
 
-	symbols_test = False
-	if symbols_test:
+	if args.mode == 'symbols':
 		symbols = data.get_symbols(source)[0]
 		print('Number of Symbols: {}'.format(len(symbols)))
 		exit()
 
-	batch_test = False
-	if batch_test:
+	if args.mode == 'batch':
 		t0_start = time.perf_counter()
 		symbols_list = data.get_symbols(source)[2]
 		batch_data = data.get_batch(symbols_list)
@@ -311,8 +346,7 @@ if __name__ == '__main__':
 		print(data.time_stamp() + 'Finished getting batch prices! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 		exit()
 
-	dividends_test = False
-	if dividends_test:
+	if args.mode == 'divs':
 		end_points = ['dividends/5y']
 		for end_point in end_points: 
 			div_data, div_invalid_tickers = data.dividends(symbols, end_point)
@@ -320,13 +354,14 @@ if __name__ == '__main__':
 			data.save_errors(div_invalid_tickers)
 		exit()
 
-	# Don't do anything on weekends
+	# Didn't do anything on weekends previously
 	if data.check_weekend() is not None:
 		pass
 		# exit()
 
 	symbols = data.get_symbols(source)[0]
-	end_points = ['quote', 'stats'] #['company','financials','earnings','peers']
+	if args.end_points is None:
+		end_points = ['quote', 'stats'] #['company','financials','earnings','peers']
 	for end_point in end_points:
 		try:
 			print(data.time_stamp() + 'Getting data from ' + source + ' for end point: ' + end_point)
@@ -342,4 +377,7 @@ if __name__ == '__main__':
 	print(data.time_stamp() + 'Finished getting market data! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 
 
-# nohup /home/robale5/miniconda3/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/missing01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/missing01.log 2>&1 &
+
+# crontab schedule
+# 20 18 * * *

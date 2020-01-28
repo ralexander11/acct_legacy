@@ -92,7 +92,7 @@ class Trading(object):
 			try:
 				raw_quote = urllib.request.urlopen(request_str).read()
 			except Exception as e:
-				logging.warning('Error getting price for {} via: \n{}'.format(symbol, request_str))
+				logging.warning('Error getting price for {}.'.format(symbol))
 				logging.warning(repr(e))
 				return 0
 			else:
@@ -275,12 +275,11 @@ class Trading(object):
 			return
 
 		for index, item in inv.iterrows():
-			logging.debug(item.iloc[0])
-			symbol = item.iloc[0]
+			symbol = item.loc['item_id']
 			price = self.get_price(symbol, date=date)
 			if price == 0:
 				return symbol
-			qty = item.iloc[1]
+			qty = item.loc['qty']
 			market_value = qty * price
 			hist_cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 			unrealized_gain = None

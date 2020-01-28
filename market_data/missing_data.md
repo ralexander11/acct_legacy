@@ -43,6 +43,9 @@ Not resolved.
 2019-12-21
 Not resolved.
 
+2020-01-22
+Not resolved.
+
 #Extra Data
 
 ##Market Data
@@ -64,3 +67,5 @@ Not resolved.
 2018-06-17
 2018-06-23
 2018-06-30
+
+# Changed data pull time to 9:20 pm on 2020-01-24

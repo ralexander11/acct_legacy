@@ -2,7 +2,7 @@ import acct
 import trade
 from market_data.market_data import MarketData
 from market_data.combine_data import CombineData
-from fut_price import get_price
+from fut_price import get_price#, convert_lite
 import pandas as pd
 import argparse
 import logging
@@ -23,6 +23,8 @@ logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='
 WK52_REDUCE = 1 #10 # No longer needed
 
 def time_stamp(offset=0):
+	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
+		offset = 4
 	time_stamp = (datetime.datetime.now() + datetime.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
 	return time_stamp
 
@@ -251,6 +253,8 @@ class TradingAlgo(object):
 
 	def get_symbols(self, flag, date=None):
 		base_dir = '/Users/Robbie/Documents/Development/Python/acct/data/'
+		if not os.path.exists(base_dir):
+			base_dir = '/home/robale5/becauseinterfaces.com/acct/data/'
 		if '.csv' in flag:
 			symbols = pd.read_csv(base_dir + flag, header=None)
 			if 'symbol' in symbols.columns.values.tolist(): # TODO This is not possible with header=None
@@ -474,6 +478,7 @@ class TradingAlgo(object):
 					k = tickers.index(algo.quote_df.index[-1])
 					tickers = tickers[k+1:]
 				for i, ticker in enumerate(tickers, 1):
+					time.sleep(args.delay/6)
 					# print('ticker:', ticker)
 					if isinstance(ticker, float): # xlsx causes last ticker to be nan
 						continue
@@ -482,7 +487,7 @@ class TradingAlgo(object):
 					if quote_df is None:
 						continue
 					quote_dfs.append(quote_df)
-					print('Prediction:\n', quote_df)
+					print(time_stamp() + 'Prediction:\n', quote_df)
 					quote_df = pd.concat(quote_dfs)#, sort=True) # Sort to suppress warning
 					self.set_table(quote_df, 'quote_df')
 					# quote_df.to_csv('data/result.csv') # For testing, tabbed above line
@@ -508,6 +513,7 @@ class TradingAlgo(object):
 		if not quote_df_tmp.empty:
 			quote_df = quote_df_tmp	
 		quote_df.sort_values(by='changePercent', ascending=False, inplace=True)
+		self.set_table(quote_df, 'quote_df')
 		change = quote_df['changePercent'].iloc[0]
 		print('greatest_changePercent: {}'.format(change))
 		t1_end = time.perf_counter()
@@ -518,7 +524,7 @@ class TradingAlgo(object):
 			return quote_df
 		return quote_df
 
-	def future_data(self, ticker, date=None, merged_data=None, train=True):
+	def future_data(self, ticker, date=None, merged_data=None, train=False):
 		t2_start = time.perf_counter()
 		if date is None:
 			date = datetime.datetime.today()
@@ -562,8 +568,14 @@ class TradingAlgo(object):
 		try:
 			if not trade.sim:
 				df1 = combine_data.comp_filter(ticker, combine_data.date_filter(dates[1:]))
+				if df1.empty:
+					print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
+					return
 				ticker_df = pd.DataFrame([ticker], columns=['symbol'])
-				df2 = data.get_data(ticker_df, 'quote')[0]
+				df2 = data.get_data(ticker_df, 'quote', v=False)[0]
+				if df2.empty:
+					print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
+					return
 				df2['symbol'] = ticker.upper()
 				# cols = df2.columns.values.tolist()
 				# cols.insert(0, cols.pop(cols.index('symbol')))
@@ -614,7 +626,7 @@ class TradingAlgo(object):
 		return capital, qty
 
 	def liquidate(self, portfolio, date=None):
-		for symbol, qty in portfolio.itertuples(index=False):
+		for symbol, account, qty in portfolio.itertuples(index=False):
 			self.trade.sell_shares(symbol, qty, date)
 			print('Liquidated {} shares of {}.'.format(qty, symbol))
 
@@ -654,13 +666,6 @@ class TradingAlgo(object):
 		t4_start = time.perf_counter()
 		if date is None:
 			date = datetime.datetime.today()
-			# if date.weekday() == 0:
-			# 	delta = 2#3
-			# elif date.weekday() == 1:
-			# 	delta = 1#2
-			# else:
-			# 	delta = 0#1
-			# date = date - datetime.timedelta(days=delta)
 			date = date.date()
 			if isinstance(date, datetime.datetime):
 				date = datetime.datetime.strftime('%Y-%m-%d', date)
@@ -693,6 +698,7 @@ class TradingAlgo(object):
 		# 		return
 
 		for e in range(1, n+1):
+			time.sleep(args.delay)
 			if n > 1:
 				print('\nAlgo Entity:', e)
 				self.ledger.default = e
@@ -716,14 +722,14 @@ class TradingAlgo(object):
 			if args.mode == '3' or e == 3 or args.mode == 'perf_dir':
 				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=False)
 			if args.mode == '4' or e == 4 or args.mode == 'pred_dir':
-				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True)
+				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True, train=args.train)
 			# if args.mode == '5' or e == 5 or args.mode == 'test':
 			# 	rank = self.rank_combined(assets, norm, date, tickers=tickers)
 		
 			if not rank.empty:
 				try:
-					print('Rank: \n{}'.format(rank[['changePercent','companyName','sector','primaryExchange','week52High','avgTotalVolume','date']].head()))
-				except KeyError:
+					print('Rank: \n{}'.format(rank[['changePercent','sector','primaryExchange','week52High','avgTotalVolume']].head()))#,'companyName','date'
+				except KeyError as e:
 					print('Rank: \n{}'.format(rank.head()))
 				ticker = rank.index[0]
 				print('Ticker: {}'.format(ticker))
@@ -760,16 +766,19 @@ class TradingAlgo(object):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
+	parser.add_argument('-db', '--database', type=str, default='trade01.db', help='The name of the database file.')
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
+	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
 	parser.add_argument('-m', '--mode', type=str, default='all', help='The name or number of the algo to run.')
 	parser.add_argument('-norm', '--norm', action="store_true", help='Normalize stock prices in algo rankings.')
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the trading sim!')
-	parser.add_argument('-t', '--tickers', type=str, help='A list of tickers to consider.')
+	parser.add_argument('-t', '--tickers', type=str, default='ws_tickers.csv', help='A list of tickers to consider.')
+	parser.add_argument('-n', '--train_new', action='store_false', help='Train a new model if existing model is not found.')
+	parser.add_argument('-a', '--train', action='store_true', help='Train all new models.')
 	args = parser.parse_args()
 	new_db = True
 	# print('Existing DB Check: {}'.format(os.path.exists('db/' + args.database)))
@@ -777,6 +786,7 @@ if __name__ == '__main__':
 		new_db = False
 	if args.reset:
 		delete_db(args.database)
+		new_db = True
 	if args.seed:
 		random.seed(args.seed)
 	else:
@@ -791,6 +801,10 @@ if __name__ == '__main__':
 
 	if args.entity:
 		ledger.default = args.entity
+	if args.train_new:
+		print(time_stamp() + 'Will train new models if they don\'t already exist.')
+	if args.train:
+		print(time_stamp() + 'Will train all new models.')
 	if args.tickers:
 		if '.csv' not in args.tickers and '.xls' not in args.tickers:
 			args.tickers = [x.strip() for x in args.tickers.split(',')]
@@ -798,6 +812,7 @@ if __name__ == '__main__':
 			args.tickers = algo.get_symbols(args.tickers)
 	# print('args.tickers:', args.tickers)
 	# result = algo.future_data('scor', '2018-05-09')
+	# convert_lite(args.tickers)
 	# exit()
 
 	if trade.sim:
@@ -806,13 +821,15 @@ if __name__ == '__main__':
 		if cap is None:
 			cap = float(1000)
 		print(time_stamp() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
+		if (args.delay is not None) and (args.delay != 0):
+			print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))
 		data_path = algo.data_location + 'quote/*.csv'
 		dates = []
 		for fname in glob.glob(data_path):
 			fname_date = os.path.basename(fname)[-14:-4]
 			dates.append(fname_date)
 		dates.sort()
-		print(dates)
+		# print(dates)
 		print(time_stamp() + 'Number of Days: {}'.format(len(dates)))
 		# print(accts.coa)
 		n = 1
@@ -857,3 +874,11 @@ if __name__ == '__main__':
 # python first_algo.py -db first36.db -s 11 -sim -t ws_tickers.xlsx
 
 # python first_algo.py -db trade02.db -s 11 -t ws_tickers.csv -r
+# python first_algo.py -db first01.db -s 11 -t ws_tickers.csv -r
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/first_algo.py -db first01.db -s 11 -t tsla -sim >> /home/robale5/becauseinterfaces.com/acct/logs/first01.log 2>&1
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/first_algo.py -db trade01.db -s 11 -a >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1
+
+# crontab schedule
+# 00 07 * * *

@@ -1008,9 +1008,9 @@ class Ledger:
 			accounts = [x.strip() for x in accounts.split(',')]
 		accounts = list(filter(None, accounts))
 		if by_entity:
-			inventory = pd.DataFrame(columns=['entity_id','item_id','qty'])
+			inventory = pd.DataFrame(columns=['entity_id','item_id','account','qty'])
 		else:
-			inventory = pd.DataFrame(columns=['item_id','qty'])
+			inventory = pd.DataFrame(columns=['item_id','account','qty'])
 		if single_item:
 			total_qty = 0
 		for acct in accounts:
@@ -1050,7 +1050,8 @@ class Ledger:
 							credits = 0
 						qty = round(debits - credits, 0)
 						if v: print('QTY: {}\n'.format(qty))
-						inventory = inventory.append({'entity_id':entity_id, 'item_id':item, 'qty':qty}, ignore_index=True)
+						inventory = inventory.append({'entity_id':entity_id, 'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
+						inventory = inventory.sort_values(by='entity_id', ascending=True)
 						#if v: print(inventory)
 						self.reset()
 					inventory['entity_id'] = pd.to_numeric(inventory['entity_id'])
@@ -1076,7 +1077,7 @@ class Ledger:
 					if single_item:
 						total_qty += int(qty)
 					else:
-						inventory = inventory.append({'item_id':item, 'qty':qty}, ignore_index=True)
+						inventory = inventory.append({'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
 						#if v: print(inventory)
 		if single_item and not by_entity:
 			if v: print('Return Total Qty: ', total_qty)

@@ -5,8 +5,9 @@ from market_data.combine_data import CombineData
 
 import tensorflow as tf
 import numpy as np
-import os
 import pandas as pd
+import argparse
+import os
 import gc
 
 # tf.compat.v1.disable_eager_execution()
@@ -192,6 +193,8 @@ def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=Fal
 
 def create_model(x_train, v=False):
 	print('\nCreate model...')
+	if x_train.size == 0:
+		return
 	if v: print(x_train.shape)
 	if v: print(x_train.shape[-2:])
 	if v: print()
@@ -262,6 +265,8 @@ def show_result(model, val_data, train_data, tar_col, data_mean, data_std, v=Fal
 def pred_price(df, v=False):
 	train_data, val_data, x_train, tar_col, prior, data_mean, data_std, df_mean_std = prep_data(df, norm=True, train=True, v=v)
 	model = create_model(x_train=x_train, v=v)
+	if model is None:
+		return None, None, None, None, None
 	# for x, y in val_data.take(1):
 	# 	pred = model.predict(x)
 	# 	print('\npred shape:', pred.shape)
@@ -274,16 +279,18 @@ def pred_price(df, v=False):
 		prior = (prior * data_std[tar_col]) + data_mean[tar_col]
 	return pred, prior, actual, model, df_mean_std
 
-def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None, merged_data=None, train=True):
+def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None, merged_data=None, new_train=True, train=False):#, lite=False):
 	print('Predict price for ticker: {}'.format(ticker))
 	ticker = ticker.lower()
 	if path is None:
-		path = 'misc/models/'
-		# path = '~/Public/models/'
+		path = '/home/robale5/becauseinterfaces.com/acct/misc/models/'
+		if not os.path.exists(path):
+			path = 'misc/models/'
+			# path = '~/Public/models/'
 	filepath = path + ticker + '_model'
 	print('model_path:', filepath)
-	if not os.path.exists(filepath):
-		if train:
+	if not os.path.exists(filepath) or train:# and not lite:
+		if new_train or train:
 			predictions = main(ticker, merged_data=merged_data, v=False)
 			with pd.option_context('display.max_columns', None):
 				print('Predictions:\n', predictions)
@@ -291,7 +298,11 @@ def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None
 				tf.keras.backend.clear_session()
 				return
 		else:
+			print('No model for {}.'.format(ticker))
 			return
+	# if lite:
+	# 	import tflite_runtime.interpreter as tflite
+	# 	interpreter = tflite.Interpreter(model_path=filepath)
 	model = tf.keras.models.load_model(filepath, custom_objects=None, compile=True)
 	data_path = filepath + '/assets/' + ticker + '_mean_std.csv'
 	with open(data_path, 'r') as f:
@@ -325,6 +336,29 @@ def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None
 	tf.keras.backend.clear_session()
 	return price
 
+def convert_lite(tickers=None, model=None, save=True):
+	if tickers is None:
+		ticker =['tsla'] # For testing
+	if not isinstance(tickers, (list, tuple)):
+		tickers = [tickers]
+	for ticker in tickers:
+		ticker = ticker.lower()
+		path = 'misc/models/'
+		# path = '~/Public/models/'
+		filepath = path + ticker + '_model'
+		print('model_path:', filepath)
+		model = tf.keras.models.load_model(filepath, custom_objects=None, compile=True)
+		print('\nmodel:', model)
+		converter = tf.lite.TFLiteConverter.from_keras_model(model)
+		print('\nconverter:', converter)
+		tflite_model = converter.convert() # KeyError here
+		print('\ntflite_model:', tflite_model)
+		if save:
+			save_filepath = 'misc/models_lite/' + ticker + '_model'
+			tf.keras.models.save_model(tflite_model, save_filepath, overwrite=True, include_optimizer=True, save_format=None, signatures=None, options=None)
+			print('Model saved to:', save_filepath)
+	return tflite_model
+
 def main(tickers=None, merged_data=None, v=True):
 	combine_data = CombineData()
 	predictions = pd.DataFrame(columns=['ticker','prediction','prior','changePercent','actual','actual_changePer'])
@@ -349,17 +383,25 @@ def main(tickers=None, merged_data=None, v=True):
 				df = combine_data.comp_filter(ticker, save=True)
 			print('Creating model to predict price for {}.'.format(ticker))
 			pred, prior, actual, model, df_mean_std = pred_price(df, v=v)
+			if pred is None:
+				return
 			predictions = predictions.append({'ticker':ticker, 'prediction':pred, 'prior':prior, 'changePercent':(pred-prior)/prior, 'actual':actual, 'actual_changePer':(actual-prior)/prior}, ignore_index=True)
 			filepath = 'misc/models/' + ticker + '_model'
 			tf.keras.models.save_model(model, filepath, overwrite=True, include_optimizer=True, save_format=None, signatures=None, options=None)
 			df_mean_std.to_csv('misc/models/' + ticker + '_model/assets/' + ticker + '_mean_std.csv', date_format='%Y-%m-%d', index=False)
 	else:
-		pred, prior, actual = pred_price(csv_path, v=v)
+		pred, prior, actual, model, df_mean_std = pred_price(csv_path, v=v)
+		if pred is None:
+			return
 		predictions = predictions.append({'ticker':None, 'prediction':pred, 'prior':None, 'changePercent':None, 'actual':None, 'actual_changePer':None}, ignore_index=True)
 	return predictions
 
 
 if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-t', '--train', action='store_true', help='Train a new model if existing model is not found.')
+	args = parser.parse_args()
+
 	predictions = main(['tsla','aapl'])
 	with pd.option_context('display.max_columns', None):
 		print('predictions:\n', predictions)
@@ -371,4 +413,9 @@ if __name__ == '__main__':
 # 0   tsla  305.790849  307.51      -0.005591  305.80         -0.005561
 # 1   aapl  178.330856  174.28       0.023243  170.97         -0.018992
 
-# export PATH=/home/pi/miniconda3:$PATH
+
+# ('AZZ', '2019-05-01') 44.14423 <class 'str'>
+# ('AZZ', '2019-05-02') 44.13875 <class 'float'>
+
+# ('AXS-D', '2019-12-10') 25.28 <class 'float'>
+# ('AXS-D', '2019-12-11') 25.28 <class 'str'>
