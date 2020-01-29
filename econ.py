@@ -626,7 +626,7 @@ class World:
 			return cur_price
 		if new: # Base case
 			item_type = world.get_item_type(item)
-			if item_type in ['Education', 'Technology'] or item == 'Study':
+			if item_type in ['Education', 'Technology'] or item == 'Study' or item == 'Research':
 				return 0.0
 			print('No price seen for {} yet. Will use global default: {}'.format(item, INIT_PRICE))
 			return INIT_PRICE
@@ -3873,7 +3873,7 @@ class Entity:
 			ledger.set_entity(self.entity_id)
 			cash = ledger.balance_sheet(['Cash'])
 			ledger.reset()
-			if job != 'Study':
+			if job != 'Study' and job != 'Research':
 				print('{} cash after {} wages paid: {}'.format(self.name, job, cash))
 
 	def check_wages(self, job):
@@ -3918,6 +3918,9 @@ class Entity:
 		if job == 'Study': # TODO Fix how Study works to use WIP system
 			desc_exp = 'Record study hours'
 			desc_rev = 'Record study hours'
+		if job == 'Research':
+			desc_exp = 'Record research hours'
+			desc_rev = 'Record research hours'
 		if wage is None:
 			wage = world.get_price(job, counterparty.entity_id)
 		if counterparty == self:
@@ -3941,11 +3944,11 @@ class Entity:
 				return
 			if buffer:
 				print('{} hired {} as a {} for {} hours.'.format(self.name, counterparty.name, job, hours_worked))
-				if job != 'Study':
+				if job != 'Study' and job != 'Research':
 					counterparty.adj_price(job, labour_hours, direction='up_low')
 				return accru_wages_event
 			ledger.journal_entry(accru_wages_event)
-			if job != 'Study':
+			if job != 'Study' and job != 'Research':
 				counterparty.adj_price(job, labour_hours, direction='up_low')
 			counterparty.set_hours(hours_worked)
 		else:

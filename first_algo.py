@@ -5,12 +5,13 @@ from market_data.combine_data import CombineData
 from fut_price import get_price#, convert_lite
 import pandas as pd
 import argparse
-import logging
 import datetime
+import logging
 import random
 import time
 import yaml
 import glob, os
+import itertools
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', DISPLAY_WIDTH)
@@ -491,6 +492,8 @@ class TradingAlgo(object):
 					quote_df = pd.concat(quote_dfs)#, sort=True) # Sort to suppress warning
 					self.set_table(quote_df, 'quote_df')
 					# quote_df.to_csv('data/result.csv') # For testing, tabbed above line
+				if not quote_dfs:
+					return pd.DataFrame()
 				quote_df = pd.concat(quote_dfs)#, sort=True) # Sort to suppress warning
 				self.set_table(quote_df, 'quote_df')
 				algo.quote_df = None
@@ -498,22 +501,25 @@ class TradingAlgo(object):
 				# for ticker in tickers:
 					# quote_df = combine_data.comp_filter(ticker, combine_data.date_filter(fut_date))
 					# quote_dfs.append(quote_df)
-				quote_df = combine_data.comp_filter(tickers, combine_data.date_filter(fut_date)).set_index('symbol')
+				quote_df = combine_data.comp_filter(tickers, combine_data.date_filter(str(fut_date))).set_index('symbol')
 				# quote_df = pd.concat(quote_dfs).reset_index().set_index('symbol')
 				# print('quote_df known:\n', quote_df)
 				# quote_df = quote_df.loc[quote_df.index.isin(tickers)]
 		else:
 			print(time_stamp() + 'Requires at least one ticker provided to predict the price.')
 		# Filter as per available WealthSimple listing criteria
-		try:
-			quote_df_tmp = quote_df.loc[(quote_df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (quote_df['week52High'] > 0.5) & (quote_df['avgTotalVolume'] > 50000)]
-			quote_df_tmp = quote_df[(quote_df.latestPrice <= assets)]
-		except KeyError:
-			quote_df_tmp = quote_df
-		if not quote_df_tmp.empty:
-			quote_df = quote_df_tmp	
+		# try:
+		# 	quote_df_tmp = quote_df.loc[(quote_df['primaryExchange'].isin(['New York Stock Exchange','Nasdaq Global Select'])) & (quote_df['week52High'] > 0.5) & (quote_df['avgTotalVolume'] > 50000)]
+		# 	quote_df_tmp = quote_df[(quote_df.latestPrice <= assets)]
+		# except KeyError:
+		# 	quote_df_tmp = quote_df
+		# if not quote_df_tmp.empty:
+		# 	quote_df = quote_df_tmp
+		if quote_df.empty:
+			return pd.DataFrame()
 		quote_df.sort_values(by='changePercent', ascending=False, inplace=True)
-		self.set_table(quote_df, 'quote_df')
+		if predict:
+			self.set_table(quote_df, 'quote_df')
 		change = quote_df['changePercent'].iloc[0]
 		print('greatest_changePercent: {}'.format(change))
 		t1_end = time.perf_counter()
@@ -621,7 +627,7 @@ class TradingAlgo(object):
 		qty = capital // price
 		if qty == 0:
 			return capital, qty
-		capital = self.trade.buy_shares(symbol, qty, date)
+		capital = self.trade.buy_shares(symbol, qty, price, date)
 		print('Purchased {} shares of {} for {} each.'.format(qty, symbol, price))
 		return capital, qty
 
@@ -697,6 +703,15 @@ class TradingAlgo(object):
 		# 		print(time_stamp() + 'Not within trading hours.')
 		# 		return
 
+		# Trading Algos
+		if args.tickers:
+			tickers = args.tickers
+		else:
+			tickers = ['tsla'] + ['aapl'] #+ ['voo'] + ['ivv']
+		if args.mode == 'each':
+			tickers_repeated = list(itertools.chain.from_iterable([ticker, ticker, ticker, ticker] for ticker in args.tickers))
+
+		count = 1
 		for e in range(1, n+1):
 			time.sleep(args.delay)
 			if n > 1:
@@ -709,22 +724,23 @@ class TradingAlgo(object):
 			assets = self.ledger.balance_sheet(['Cash','Investments'])
 			portfolio = self.ledger.get_qty(accounts=['Investments'])
 			# print('Portfolio: \n{}'.format(portfolio))
+			if args.mode == 'each':
+				tickers = tickers_repeated[e-1]
+				# print('Tickers:', tickers)
 
-			# Trading Algos
-			if args.tickers:
-				tickers = args.tickers
-			else:
-				tickers = ['tsla'] + ['aapl'] #+ ['voo'] + ['ivv']
-			if args.mode == '1' or (e == 1 and args.mode == 'all') or args.mode == 'hold':
+			if args.mode == '1' or (e == 1 and (args.mode == 'all' or args.mode == 'each')) or args.mode == 'hold' or count == 1:
 				rank = self.buy_hold(tickers)
-			if args.mode == '2' or e == 2 or args.mode == 'rand':
+			if args.mode == '2' or e == 2 or args.mode == 'rand' or count == 2:
 				rank = self.rand_algo(tickers)
-			if args.mode == '3' or e == 3 or args.mode == 'perf_dir':
+			if args.mode == '3' or e == 3 or args.mode == 'perf_dir' or count == 3:
 				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=False)
-			if args.mode == '4' or e == 4 or args.mode == 'pred_dir':
+			if args.mode == '4' or e == 4 or args.mode == 'pred_dir' or count == 4:
 				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True, train=args.train)
 			# if args.mode == '5' or e == 5 or args.mode == 'test':
 			# 	rank = self.rank_combined(assets, norm, date, tickers=tickers)
+			count += 1
+			if count > 4:
+				count = 1
 		
 			if not rank.empty:
 				try:
@@ -772,7 +788,7 @@ if __name__ == '__main__':
 	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
-	parser.add_argument('-m', '--mode', type=str, default='all', help='The name or number of the algo to run.')
+	parser.add_argument('-m', '--mode', type=str, default='all', help='The name or number of the algo to run. Or each to run each ticker separately')
 	parser.add_argument('-norm', '--norm', action="store_true", help='Normalize stock prices in algo rankings.')
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the trading sim!')
@@ -835,6 +851,9 @@ if __name__ == '__main__':
 		n = 1
 		if args.mode == 'all':
 			n = 4
+		elif args.mode == 'each':
+			n = len(args.tickers) * 4
+			print('Mode: {} | Number of entities: {}'.format(args.mode, n))
 		if algo.check_capital(['Cash','Chequing','Investments']) == 0:
 			for entity in range(1, n+1):
 				deposit_capital = [ [ledger.get_event(), entity, '', trade.trade_date(dates[0]), '', 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
@@ -863,6 +882,9 @@ if __name__ == '__main__':
 		n = 1
 		if args.mode == 'all':
 			n = 4
+		elif args.mode == 'each':
+			n = len(args.tickers) * 4
+			print('Mode: {} | Number of entities: {}'.format(args.mode, n))
 		if algo.check_capital(['Cash','Chequing','Investments']) == 0:
 			for entity in range(1, n+1):
 				deposit_capital = [ [ledger.get_event(), entity, '', trade.trade_date(date), '', 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
@@ -879,6 +901,8 @@ if __name__ == '__main__':
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/first_algo.py -db first01.db -s 11 -t tsla -sim >> /home/robale5/becauseinterfaces.com/acct/logs/first01.log 2>&1
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/first_algo.py -db trade01.db -s 11 -a >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/first_algo.py -db test01.db -s 11 -m each -sim -t us_tickers.csv >> /home/robale5/becauseinterfaces.com/acct/logs/test01.log 2>&1
 
 # crontab schedule
 # 00 07 * * *

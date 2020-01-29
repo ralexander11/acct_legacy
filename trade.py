@@ -126,13 +126,14 @@ class Trading(object):
 		com = self.comm
 		return com
 
-	def buy_shares(self, symbol, qty=None, date=None):
+	def buy_shares(self, symbol, qty=None, price=None, date=None):
 		if qty == None:
 			qty = int(input('How many shares? '))
 		if self.sim:
 			if date is None:
 				date = input('Enter a date as format yyyy-mm-dd: ')
-		price = self.get_price(symbol, date=date)
+		if price is None:
+			price = self.get_price(symbol, date=date)
 
 		# Check if there is enough capital
 		capital_accts = ['Cash','Chequing']

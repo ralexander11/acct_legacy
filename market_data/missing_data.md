@@ -68,4 +68,6 @@ Not resolved.
 2018-06-23
 2018-06-30
 
+# Started pulling Canadian data on 2020-01-19
+
 # Changed data pull time to 9:20 pm on 2020-01-24

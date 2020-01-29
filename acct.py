@@ -1615,12 +1615,31 @@ class Ledger:
 			print('Historical Cost Case | Three for {} {}: {}'.format(qty, item, amount))
 			return amount
 
-	def bs_hist(self): # TODO Optimize this so it does not recalculate each time
-		gl_entities = pd.unique(self.gl['entity_id'])
-		logging.info(gl_entities)
-		dates = pd.unique(self.gl['date'])
-		logging.info(dates)
+	def latest_date(self):
+		result = self.gl['date'].max()
+		print('Latest Date:', result)
+		return result
 
+	def bs_hist(self, entities=None, dates=None, v=True): # TODO Optimize this so it does not recalculate each time
+		dates = ['2020-05-21']
+		if entities is None:
+			entities = pd.unique(self.gl['entity_id'])
+		else:
+			if not isinstance(entities, (list, tuple)):
+				if isinstance(entities, str):
+					entities = [x.strip() for x in entities.split(',')]
+				else:
+					entities = [entities]
+		if v: print('Number of entities: {}'.format(len(entities)))
+		if dates is None:
+			dates = pd.unique(self.gl['date'])
+		else:
+			if not isinstance(dates, (list, tuple)):
+				if isinstance(dates, str):
+					dates = [x.strip() for x in dates.split(',')]
+				else:
+					dates = [dates]
+		if v: print('Number of dates: {}'.format(len(dates)))
 		cur = self.conn.cursor()
 		create_bs_hist_query = '''
 			CREATE TABLE IF NOT EXISTS hist_bs (
@@ -1639,13 +1658,12 @@ class Ledger:
 			'''
 		cur.execute(create_bs_hist_query)
 		cur.execute('DELETE FROM hist_bs')
-		for entity in gl_entities:
-			logging.info(entity)
+		for entity in entities:
+			# if v: print('Entity:', entity)
 			self.set_entity(entity)
 			for date in dates:
-				logging.info(entity)
 				self.set_date(date)
-				logging.info(date)
+				if v: print('Entity: {} | Date: {}'.format(entity, date))
 				self.balance_sheet()
 				self.bs.set_index('line_item', inplace=True)
 				col0 = str(entity)
@@ -1658,7 +1676,6 @@ class Ledger:
 				col7 = self.bs.loc['Equity+NI+Liab.:'][0]
 				col8 = self.bs.loc['Balance Check:'][0]
 				col9 = self.bs.loc['Net Asset Value:'][0]
-				
 				data = (date,col0,col1,col2,col3,col4,col5,col6,col7,col8,col9)
 				logging.info(data)
 				cur.execute('INSERT INTO hist_bs VALUES (?,?,?,?,?,?,?,?,?,?,?)', data)
@@ -1666,19 +1683,21 @@ class Ledger:
 		cur.execute('PRAGMA database_list')
 		db_path = cur.fetchall()[0][-1]
 		db_name = db_path.rsplit('/', 1)[-1]
+		if v: print('DB Name:', db_name)
 		cur.close()
-
 		self.hist_bs = pd.read_sql_query('SELECT * FROM hist_bs;', self.conn, index_col=['date','entity'])
 		return self.hist_bs, db_name
 
 		# TODO Add function to book just the current days bs to hist_bs
 
-	def print_hist(self):
+	def print_hist(self, save=True, v=True):
 		db_name = self.bs_hist()[1]
 		path = 'data/bs_hist_' + db_name[:-3] + '.csv'
-		self.hist_bs.to_csv(path, index=True)
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
-			print(self.hist_bs)
+		if save:
+			self.hist_bs.to_csv(path, index=True)
+		if v:
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None): # To display all the rows
+				print(self.hist_bs)
 		print('File saved to: {}'.format(path))
 		print('-' * DISPLAY_WIDTH)
 		return self.hist_bs
@@ -1799,6 +1818,8 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'hist':
 			ledger.print_hist()
+		elif command.lower() == 'latestdate':
+			ledger.latest_date()
 			if args.command is not None: exit()
 		elif command.lower() == 'entities':
 			accts.print_entities()

@@ -60,7 +60,7 @@ class MarketData(object):
 			symbols_array = []
 			exchanges += ['tse','tsx']
 			for exchange in exchanges:
-				print('Getting data from exchange: {}'.format(exchange))
+				# print('Getting data from exchange: {}'.format(exchange))
 				if exchange == 'iex':
 					exchange_url = ''
 				else:
@@ -250,18 +250,20 @@ class MarketData(object):
 		error_df.to_csv(path)
 		print(self.time_stamp() + 'Invalid tickers file saved to: {}'.format(path))
 
-	def get_hist_prices(self, dates, tickers=None, save=True, v=True):
+	def get_hist_prices(self, dates, tickers=None, save=False, v=True):
 		if tickers is None:
-			tickers = self.get_symbols('ws_tickers.csv')
+			tickers = 'ws_tickers.csv'
+		if '.csv' in tickers:
+			tickers = self.get_symbols(tickers)
 		if isinstance(tickers, str):
 			tickers = [x.strip() for x in tickers.split(',')]
 		if not '.csv' in dates:
 			if not isinstance(dates, (list, tuple)):
 				dates = [x.strip() for x in dates.split(',')]
 		else:
-			dates = pd.read_csv(dates, header=None)
+			dates = pd.read_csv('../data/' + dates, header=None)
 			dates = dates.iloc[:,0].tolist()
-			# print(dates)
+		print('Number of dates:', len(dates))
 		base_url = 'https://cloud.iexapis.com/stable/stock/'
 		prices = []
 		# print('Number of tickers:', len(tickers))
@@ -280,22 +282,24 @@ class MarketData(object):
 						try:
 							result = pd.read_json(base_url + ticker + '-cv' + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
 						except:
-							print('Error: ' + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
+							print(self.time_stamp() + 'Error: ' + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
 							continue
-				# print(result)
+				# if v: print('Result:\n', result)
 				if result.empty:
-					price = np.nan
-				else:
-					price = result['close'].values[0]
+					continue
 				if isinstance(date, str):
 					date = time.strptime(date, '%Y%m%d')
 				date = time.strftime('%Y-%m-%d', date)
-				prices.append([ticker.upper(), date, price])
-			prices_save = pd.DataFrame(prices, columns=['symbol', 'date', 'hist_close'])
-			# if v: print(data.time_stamp() + 'Historical Prices:\n', prices)
+				result['symbol'] = ticker.upper()
+				prices.append(result)
+			prices_save = pd.concat(prices, sort=True)
+			prices_save = prices_save[['symbol', 'date', 'close', 'changePercent', 'change', 'changeOverTime', 'high', 'low', 'open', 'volume', 'uClose', 'uHigh', 'uLow', 'uOpen', 'uVolume', 'label']]
+			# if v: print(self.time_stamp() + 'Historical Prices:\n', prices_save)
 			if save:
-				# path = self.save_location + 'hist_prices/' + ticker + '_hist_prices_' + date + '.csv'
-				path = self.save_location + 'hist_prices/new_hist_prices.csv'
+				if len(tickers) == 1 and len(dates) == 1:
+					path = self.save_location + 'hist_prices/' + str(tickers) + '_hist_prices_' + str(dates) + '.csv'
+				else:
+					path = self.save_location + 'hist_prices/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_hist_prices_' + str(dates[0]) + '_to_' + str(dates[-1]) + '.csv'
 				print(self.time_stamp() + 'Saved: ', path)
 				prices_save.to_csv(path, index=False)
 		return prices_save
@@ -306,17 +310,20 @@ if __name__ == '__main__':
 	parser.add_argument('-d', '--dates', type=str, help='The dates for when to pull data.')
 	parser.add_argument('-e', '--end_points', type=str, help='The end points to pull data.')
 	parser.add_argument('-m', '--mode', type=str, help='The name of the mode to pull data.')
+	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	args = parser.parse_args()
 	t0_start = time.perf_counter()
 	data = MarketData()
 	if args.tickers is None:
-		source = 'iex' # input('Which ticker source? ').lower() # TODO Add support for argparse
+		source = 'iex' # input('Which ticker source? ').lower()
 	else:
 		source = args.tickers
-	if args.dates is not None:
+	if args.dates is not None and not '.csv' in args.dates:
 		dates = args.dates
 		if not isinstance(dates, (list, tuple)):
 			dates = [x.strip() for x in dates.split(',')]
+	else:
+		dates = args.dates
 	if args.end_points:
 		args.end_points = [x.strip() for x in args.end_points.split(',')]
 	print('=' * DISPLAY_WIDTH)
@@ -325,12 +332,14 @@ if __name__ == '__main__':
 		print(data.time_stamp() + 'Under mode: {}'.format(args.mode))
 	print('-' * DISPLAY_WIDTH)
 
-	if args.mode == 'hist':
+	if args.mode == 'missing':
 		# tickers = None #['aapl']
 		# dates = ['2020-01-22']#, '2020-01-23']
 		if args.dates is None:
-			dates = '../data/missing_dates.csv'	
-		data.get_hist_prices(dates, args.tickers)
+			dates = '../data/missing_dates.csv'
+		else:
+			dates = args.dates
+		data.get_hist_prices(dates, args.tickers, save=args.save)
 		exit()
 
 	if args.mode == 'symbols':
@@ -378,6 +387,10 @@ if __name__ == '__main__':
 
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/missing01.log 2>&1 &
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -t cdn_tickers.csv -d all_dates.csv -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing05.log 2>&1 &
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing06.log 2>&1 &
 
 # crontab schedule
 # 20 18 * * *

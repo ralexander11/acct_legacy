@@ -7,6 +7,7 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 import argparse
+import datetime
 import os
 import gc
 
@@ -39,6 +40,12 @@ DATA_NEEDED = 100
 # zip_path = tf.keras.utils.get_file(origin='https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip', fname='jena_climate_2009_2016.csv.zip', extract=True)
 # csv_path, _ = os.path.splitext(zip_path)
 csv_path = 'data/jena_climate_2009_2016.csv'
+
+def time_stamp(offset=0):
+	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
+		offset = 4
+	time_stamp = (datetime.datetime.now() + datetime.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
+	return time_stamp
 
 def create_time_steps(length):
 	time_steps = []
@@ -114,7 +121,7 @@ def multivariate_data(dataset, target, start_index, end_index, history_size, tar
 def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=False):
 	# TODO Maybe make data_mean, data_std instance variables
 	print('-' * DISPLAY_WIDTH)
-	print('Prep data...')
+	print(time_stamp() + 'Prep data...')
 	if not isinstance(path, str):
 		df = path
 		df = df.dropna(subset=['iexLastUpdated']) # TODO Do this when train=True?
@@ -192,7 +199,7 @@ def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=Fal
 	return train_data, val_data, x_train, tar_col, prior, data_mean, data_std, df_mean_std
 
 def create_model(x_train, v=False):
-	print('\nCreate model...')
+	print('\n' + time_stamp() + 'Create model...')
 	if x_train.size == 0:
 		return
 	if v: print(x_train.shape)
@@ -207,7 +214,7 @@ def create_model(x_train, v=False):
 	return model
 
 def train_model(model, train_data, val_data, v=False):
-	print('\nTrain model...')
+	print('\n' + time_stamp() + 'Train model...')
 	history = model.fit(train_data, epochs=EPOCHS, steps_per_epoch=EVALUATION_INTERVAL, validation_data=val_data, validation_steps=50)
 	return history
 
@@ -280,7 +287,7 @@ def pred_price(df, v=False):
 	return pred, prior, actual, model, df_mean_std
 
 def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None, merged_data=None, new_train=True, train=False):#, lite=False):
-	print('Predict price for ticker: {}'.format(ticker))
+	print(time_stamp() + 'Predict price for ticker: {}'.format(ticker))
 	ticker = ticker.lower()
 	if path is None:
 		path = '/home/robale5/becauseinterfaces.com/acct/misc/models/'
@@ -288,12 +295,12 @@ def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None
 			path = 'misc/models/'
 			# path = '~/Public/models/'
 	filepath = path + ticker + '_model'
-	print('model_path:', filepath)
+	# print('model_path:', filepath)
 	if not os.path.exists(filepath) or train:# and not lite:
 		if new_train or train:
 			predictions = main(ticker, merged_data=merged_data, v=False)
 			with pd.option_context('display.max_columns', None):
-				print('Predictions:\n', predictions)
+				print(time_stamp() + 'Predictions:\n', predictions)
 			if predictions is None:
 				tf.keras.backend.clear_session()
 				return
@@ -356,7 +363,7 @@ def convert_lite(tickers=None, model=None, save=True):
 		if save:
 			save_filepath = 'misc/models_lite/' + ticker + '_model'
 			tf.keras.models.save_model(tflite_model, save_filepath, overwrite=True, include_optimizer=True, save_format=None, signatures=None, options=None)
-			print('Model saved to:', save_filepath)
+			print(time_stamp() + 'Model saved to:', save_filepath)
 	return tflite_model
 
 def main(tickers=None, merged_data=None, v=True):
@@ -374,12 +381,12 @@ def main(tickers=None, merged_data=None, v=True):
 				if df.shape[0] < DATA_NEEDED:
 					return
 			elif os.path.exists(combine_data.data_location + merged):
-				print('Merged data exists.')
+				print(time_stamp() + 'Merged data exists.')
 				merged_data = pd.read_csv(combine_data.data_location + merged)
 				merged_data = merged_data.set_index(['symbol','date'])
 				df = combine_data.comp_filter(ticker, merged_data) # TODO Don't load each time, keep in memory
 			else:
-				print('Saving down merged data.')
+				print(time_stamp() + 'Saving down merged data.')
 				df = combine_data.comp_filter(ticker, save=True)
 			print('Creating model to predict price for {}.'.format(ticker))
 			pred, prior, actual, model, df_mean_std = pred_price(df, v=v)
@@ -404,7 +411,7 @@ if __name__ == '__main__':
 
 	predictions = main(['tsla','aapl'])
 	with pd.option_context('display.max_columns', None):
-		print('predictions:\n', predictions)
+		print(time_stamp() + 'predictions:\n', predictions)
 
 # Redo models: fb, snap, crm, ttd, grpn
 
