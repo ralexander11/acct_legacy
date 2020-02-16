@@ -6,6 +6,7 @@ import time
 import os
 import urllib
 import yaml
+# import combine_data
 #import urllib.request
 #from tqdm import tqdm
 
@@ -19,7 +20,6 @@ class MarketData(object):
 		self.config = self.load_config()
 		self.token = self.config['api_token']
 		self.save_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
-
 		if not os.path.isdir(self.save_location):
 			print('Not Server')
 			self.save_location = 'data/'
@@ -140,9 +140,12 @@ class MarketData(object):
 			return symbols
 
 	# /stock/market/batch?symbols=
-
+	# TODO Load as plain json then make df in one shot
 	def get_data(self, symbols, end_point='quote', v=True):
 		# url = 'https://api.iextrading.com/1.0/stock/' # New url
+		if isinstance(symbols, str):
+			symbols = [x.strip() for x in symbols.split(',')]
+			symbols = pd.DataFrame(symbols, columns=['symbol'])
 		url = 'https://cloud.iexapis.com/stable/stock/'
 		dfs = []
 		invalid_tickers = []
@@ -155,6 +158,8 @@ class MarketData(object):
 				if 'symbol' not in df.columns:
 					df['symbol'] = symbol
 				df = df.set_index('symbol')
+				if pd.isna(df.iloc[0,0]):
+					raise ValueError('{} giving null response.'.format(symbol))
 				dfs.append(df)
 			except Exception as e:
 				# print('Error: {}'.format(repr(e)))
@@ -263,16 +268,16 @@ class MarketData(object):
 		else:
 			dates = pd.read_csv('../data/' + dates, header=None)
 			dates = dates.iloc[:,0].tolist()
-		print('Number of dates:', len(dates))
+		if v: print('Number of dates:', len(dates))
 		base_url = 'https://cloud.iexapis.com/stable/stock/'
 		prices = []
-		# print('Number of tickers:', len(tickers))
+		# if v: print('Number of tickers:', len(tickers))
 		for ticker in tickers:
 			for date in dates:
 				if isinstance(date, str):
 					date = time.strptime(date, '%Y-%m-%d')
 				date = time.strftime('%Y%m%d', date)
-				print(self.time_stamp() + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
+				if v: print(self.time_stamp() + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
 				try:
 					result = pd.read_json(base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
 				except:
@@ -292,24 +297,123 @@ class MarketData(object):
 				date = time.strftime('%Y-%m-%d', date)
 				result['symbol'] = ticker.upper()
 				prices.append(result)
-			prices_save = pd.concat(prices, sort=True)
-			prices_save = prices_save[['symbol', 'date', 'close', 'changePercent', 'change', 'changeOverTime', 'high', 'low', 'open', 'volume', 'uClose', 'uHigh', 'uLow', 'uOpen', 'uVolume', 'label']]
-			# if v: print(self.time_stamp() + 'Historical Prices:\n', prices_save)
-			if save:
-				if len(tickers) == 1 and len(dates) == 1:
-					path = self.save_location + 'hist_prices/' + str(tickers) + '_hist_prices_' + str(dates) + '.csv'
-				else:
-					path = self.save_location + 'hist_prices/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_hist_prices_' + str(dates[0]) + '_to_' + str(dates[-1]) + '.csv'
-				print(self.time_stamp() + 'Saved: ', path)
-				prices_save.to_csv(path, index=False)
+		prices_save = pd.concat(prices, sort=True)
+		# prices_save = prices_save[['symbol', 'date', 'close', 'changePercent', 'change', 'changeOverTime', 'high', 'low', 'open', 'volume', 'uClose', 'uHigh', 'uLow', 'uOpen', 'uVolume', 'label']]
+		# if v: print(self.time_stamp() + 'Historical Prices:\n', prices_save)
+		if save:
+			if len(tickers) == 1 and len(dates) == 1:
+				path = self.save_location + 'hist_prices/' + str(tickers[0]) + '_hist_prices_' + str(dates) + '.csv'
+			else:
+				path = self.save_location + 'hist_prices/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_hist_prices_' + str(dates[0]) + '_to_' + str(dates[-1]) + '.csv'
+			print(self.time_stamp() + 'Saved: ', path)
+			prices_save.to_csv(path, index=False)
 		return prices_save
+
+	def get_hist_price2(self, data=None, save=False, v=True):
+		if data is None:
+			data = 'all_miss_fields.csv'
+		if '.csv' in data:
+			print(self.time_stamp() + 'Reading data from: data/{}'.format(data))
+			data = pd.read_csv('data/' + data)
+		base_url = 'https://cloud.iexapis.com/stable/stock/'
+		prices = []
+		if v: print('Number of ticker-dates:', len(data))
+		for i, row in data.iterrows():
+			ticker = row['symbol']
+			date = row['date']
+			if isinstance(date, str):
+				date = time.strptime(date, '%Y-%m-%d')
+			date = time.strftime('%Y%m%d', date)
+			if v: print(self.time_stamp() + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
+			try:
+				result = pd.read_json(base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
+			except:
+				try:
+					result = pd.read_json(base_url + ticker + '-ct' + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
+				except:
+					try:
+						result = pd.read_json(base_url + ticker + '-cv' + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
+					except:
+						print(self.time_stamp() + 'Error: ' + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
+						continue
+			# if v: print('Result:\n', result)
+			if result.empty:
+				continue
+			if isinstance(date, str):
+				date = time.strptime(date, '%Y%m%d')
+			date = time.strftime('%Y-%m-%d', date)
+			result['symbol'] = ticker.upper()
+			prices.append(result)
+			if i % 10000 == 0:
+				prices_save = pd.concat(prices, sort=True)
+				# prices_save = prices_save[['symbol', 'date', 'close', 'changePercent', 'change', 'changeOverTime', 'high', 'low', 'open', 'volume', 'uClose', 'uHigh', 'uLow', 'uOpen', 'uVolume', 'label']]
+				# if v: print(self.time_stamp() + 'Historical Prices:\n', prices_save)
+				if save:
+					tickers = data['symbol'].values.tolist()
+					dates = data['date'].values.tolist()
+					if len(tickers) == 1 and len(dates) == 1:
+						path = self.save_location + 'hist_prices/' + str(tickers[0]) + '_hist_prices_' + str(dates) + '.csv'
+					else:
+						path = self.save_location + 'hist_prices/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_hist_prices_' + str(dates[0]) + '_to_' + str(dates[-1]) + '.csv'
+					# path = self.save_location + 'hist_prices2.csv'
+					print(self.time_stamp() + 'Saved: ', path)
+					prices_save.to_csv(path, index=False)
+		prices_save = pd.concat(prices, sort=True)
+		# prices_save = prices_save[['symbol', 'date', 'close', 'changePercent', 'change', 'changeOverTime', 'high', 'low', 'open', 'volume', 'uClose', 'uHigh', 'uLow', 'uOpen', 'uVolume', 'label']]
+		# if v: print(self.time_stamp() + 'Historical Prices:\n', prices_save)
+		if save:
+			tickers = data['symbol'].values.tolist()
+			dates = data['date'].values.tolist()
+			if len(tickers) == 1 and len(dates) == 1:
+				path = self.save_location + 'hist_prices/' + str(tickers[0]) + '_hist_prices_' + str(dates) + '.csv'
+			else:
+				path = self.save_location + 'hist_prices/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_hist_prices_' + str(dates[0]) + '_to_' + str(dates[-1]) + '.csv'
+			# path = self.save_location + 'hist_prices2.csv'
+			print(self.time_stamp() + 'Saved: ', path)
+			prices_save.to_csv(path, index=False)
+		return prices_save
+
+	def get_financials(self, tickers=None, save=False, v=False):
+		# WARNING! Data weight is 5000 per call
+		if tickers is None:
+			# tickers = 'ws_tickers.csv'
+			tickers = 'tsla'
+		if '.csv' in tickers:
+			tickers = self.get_symbols(tickers)
+		if isinstance(tickers, str):
+			tickers = [x.strip() for x in tickers.split(',')]
+		base_url = 'https://cloud.iexapis.com/stable/time-series/REPORTED_FINANCIALS/'
+		financials = []
+		for ticker in tickers:
+			try:
+				result = pd.read_json(base_url + ticker + '?token=' + self.token, orient='index')
+			except:
+				print(self.time_stamp() + 'Error: ' + base_url + ticker + '?token=TOKEN')
+				continue
+			if result.empty:
+				continue
+			result.reset_index(inplace=True)
+			result['symbol'] = ticker.upper()
+			# if v: print('result:\n', result)
+			financials.append(result)
+			financials_save = pd.concat(financials, sort=True)
+			if v: print('financials_save:\n', financials_save)
+			if save:
+				if len(tickers) == 1:
+					path = self.save_location + 'financials/' + str(tickers[0]) + '_financials.csv'
+				else:
+					path = self.save_location + 'financials/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_financials.csv'
+				print(self.time_stamp() + 'Saved: ', path)
+				financials_save.to_csv(path, index=False)
+		return financials_save
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-t', '--tickers', type=str, help='The flag or tickers for which data to pull.')
 	parser.add_argument('-d', '--dates', type=str, help='The dates for when to pull data.')
 	parser.add_argument('-e', '--end_points', type=str, help='The end points to pull data.')
-	parser.add_argument('-m', '--mode', type=str, help='The name of the mode to pull data.')
+	parser.add_argument('-m', '--mode', type=str, help='The name of the mode to pull data: missing, financials, divs, symbols, batch')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	args = parser.parse_args()
 	t0_start = time.perf_counter()
@@ -333,13 +437,22 @@ if __name__ == '__main__':
 	print('-' * DISPLAY_WIDTH)
 
 	if args.mode == 'missing':
-		# tickers = None #['aapl']
+		# args.tickers = None #['aapl']
 		# dates = ['2020-01-22']#, '2020-01-23']
 		if args.dates is None:
 			dates = '../data/missing_dates.csv'
 		else:
 			dates = args.dates
 		data.get_hist_prices(dates, args.tickers, save=args.save)
+		exit()
+
+	if args.mode == 'missing2':
+		data.get_hist_price2(save=args.save)
+		exit()
+
+	if args.mode == 'financials':
+		# args.tickers = ['aapl']
+		data.get_financials(args.tickers, save=args.save)
 		exit()
 
 	if args.mode == 'symbols':
@@ -390,7 +503,7 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -t cdn_tickers.csv -d all_dates.csv -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing05.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing06.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing2 -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing09.log 2>&1 &
 
 # crontab schedule
 # 20 18 * * *

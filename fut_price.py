@@ -127,17 +127,14 @@ def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=Fal
 		df = df.dropna(subset=['iexLastUpdated']) # TODO Do this when train=True?
 		# with pd.option_context('display.max_columns', None):
 		# 	print(df)#.head())
-		datetime_cols = ['closeTime', 'delayedPriceTime', 'extendedPriceTime', 'iexLastUpdated', 'latestTime', 'latestUpdate', 'openTime', 'exDividendDate', 'latestEPSDate', 'shortDate']
+		datetime_cols = ['closeTime', 'delayedPriceTime', 'extendedPriceTime', 'iexLastUpdated', 'latestTime', 'latestUpdate', 'openTime', 'exDividendDate', 'latestEPSDate', 'shortDate', 'lastTradeTime']
 		all_zeros_cols = ['iexAskPrice', 'iexAskSize', 'iexBidPrice', 'iexBidSize', 'dividendRate', 'dividendYield', 'peRatioHigh', 'peRatioLow']
 		categorical_data_cols = ['calculationPrice', 'companyName_x', 'latestSource', 'companyName_y', 'primaryExchange', 'sector']
 		all_nan_cols = ['askPrice', 'askSize', 'bidPrice', 'bidSize', 'EPSSurpriseDollar', 'returnOnCapital']
 		has_nan_cols = ['insiderPercent', 'priceToBook']
 		unsure_cols = ['institutionPercent']
 		drop_cols = datetime_cols + all_zeros_cols + categorical_data_cols + all_nan_cols + has_nan_cols + unsure_cols
-		try:
-			dataset = df.drop(drop_cols, axis=1)
-		except KeyError:
-			dataset = df
+		dataset = df.drop(drop_cols, axis=1, errors='ignore')
 		cols = ['changePercent', 'day50MovingAvg', 'latestPrice']
 		dataset = dataset[cols]
 		if v: print(dataset)#.head())
@@ -149,7 +146,7 @@ def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=Fal
 		# plt.show()
 		# exit()
 
-	else:
+	else: # From an example in the documentation
 		df = pd.read_csv(path)
 		dataset = df[['p (mbar)', 'T (degC)', 'rho (g/m**3)']]
 		dataset.index = df['Date Time']
@@ -393,7 +390,9 @@ def main(tickers=None, merged_data=None, v=True):
 			if pred is None:
 				return
 			predictions = predictions.append({'ticker':ticker, 'prediction':pred, 'prior':prior, 'changePercent':(pred-prior)/prior, 'actual':actual, 'actual_changePer':(actual-prior)/prior}, ignore_index=True)
-			filepath = 'misc/models/' + ticker + '_model'
+			path = '/home/robale5/becauseinterfaces.com/acct/misc/models/'
+			if not os.path.exists(path):
+				filepath = 'misc/models/' + ticker + '_model'
 			tf.keras.models.save_model(model, filepath, overwrite=True, include_optimizer=True, save_format=None, signatures=None, options=None)
 			df_mean_std.to_csv('misc/models/' + ticker + '_model/assets/' + ticker + '_mean_std.csv', date_format='%Y-%m-%d', index=False)
 	else:

@@ -95,6 +95,7 @@ econ_accts = [
 	('Fire Worker','Info'),
 	('Start Job','Info'),
 	('Quit Job','Info'),
+	('Subscription Available','Info'),
 	('Subscription Info','Info'),
 	('Order Subscription','Info'),
 	('Sell Subscription','Info'),
@@ -1456,10 +1457,13 @@ class Entity:
 		# check to ensure entity has item they are using. And if attacking making sure it is equipped
 		# item_type = world.get_item_type(item)
 		ledger.set_entity(self.entity_id)
-		item_qty = ledger.get_qty(accounts=['Equipment', 'Equipped'], items=item)
+		item_qty = ledger.get_qty(accounts=['Equipment', 'Equipment In Use', 'Equipped'], items=item)
 		ledger.reset()
 		if item_qty == 0:
-			print('{} does not have {} item to attack {}\'s {} with.'.format(self.name, item, counterparty.name, target))
+			if counterparty is None:
+				print('{} does not have {} item to use.'.format(self.name, item))
+			else:
+				print('{} does not have {} item to attack {}\'s {} with.'.format(self.name, item, counterparty.name, target))
 			return
 		incomplete, use_event, time_required, max_qty_possible = self.fulfill(item, qty=uses, reqs='usage_req', amts='use_amount', check=check)
 		# TODO Maybe book journal entries within function and add buffer argument
@@ -4305,7 +4309,7 @@ class Entity:
 		serv_prices = {k:world.get_price(item, k) for k in producer_entities}
 		if not serv_prices:
 			incomplete, entries, time_required, max_qty_possible = self.fulfill(item, qty=1, man=self.user, check=True)
-			if not incomplete:
+			if not incomplete and self.user:
 				counterparty = self
 			else:
 				for indiv in factory.get(Individual):
@@ -6255,6 +6259,7 @@ class Individual(Entity):
 				ledger.reset()
 				if subscription_state:
 					self.needs[need]['Current Need'] = self.needs[need]['Max Need']
+					print('{} need satisfied with {} and set to max value.'.format(need, item_choosen))
 				else:
 					# counterparty = self.subscription_counterparty(item_choosen) # TODO Move this into order_subscription()
 					# if counterparty is None:
@@ -6944,6 +6949,4 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup python -u /home/pi/dev/acct/first_algo.py -db trade01.db -s 11 >> /home/pi/dev/acct/logs/trade01.log 2>&1 &
-
-# python first_algo.py -db trade01.db -s 11 -t tsla -r
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/robale5/becauseinterfaces.com/acct/logs/econ01.log 2>&1 &

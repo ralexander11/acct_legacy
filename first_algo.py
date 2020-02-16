@@ -90,7 +90,11 @@ class TradingAlgo(object):
 			# cur.close()
 		else:
 			print(time_stamp() + 'Resuming from: {}'.format(args.database))
-			self.quote_df = self.get_table('quote_df')
+			try:
+				self.quote_df = self.get_table('quote_df')
+			except Exception as e:
+				print(time_stamp() + 'Less than one full day completed.')
+				self.quote_df = pd.DataFrame()
 
 	def load_config(self, file='config.yaml'):
 		config = None
@@ -103,27 +107,6 @@ class TradingAlgo(object):
 			except yaml.YAMLError as e:
 				print('Error loading yaml config: \n{}'.format(repr(e)))
 		return config
-
-	def clear_tables(self, tables=None):
-		if tables is None:
-			tables = [
-				'gen_ledger',
-				'entities',
-				'items'
-			]
-		cur = ledger.conn.cursor()
-		for table in tables:
-			clear_table_query = '''
-				DELETE FROM ''' + table + ''';
-			'''
-			try:
-				cur.execute(clear_table_query)
-				print('Clear ' + table + ' table.')
-			except:
-				continue
-		ledger.conn.commit()
-		cur.close()
-		#print('Clear tables.')
 
 	def set_table(self, table, table_name, v=False):
 		if v: print('Orig set table: {}\n{}'.format(table_name, table))
@@ -476,7 +459,10 @@ class TradingAlgo(object):
 				if algo.quote_df is not None:
 					quote_df = algo.quote_df.copy(deep=True)
 					quote_dfs.append(algo.quote_df)
-					k = tickers.index(algo.quote_df.index[-1])
+					try:
+						k = tickers.index(algo.quote_df.index[-1])
+					except (IndexError, ValueError) as e:
+						k = -1
 					tickers = tickers[k+1:]
 				for i, ticker in enumerate(tickers, 1):
 					time.sleep(args.delay/6)
@@ -601,7 +587,11 @@ class TradingAlgo(object):
 			return
 		# print('Future Data Date: {} | {}'.format(date, type(date)))
 		# pred = 300.0
-		pred_price = get_price(df, ticker, merged_data=merged_data, train=train)
+		try:
+			pred_price = get_price(df, ticker, merged_data=merged_data, train=train)
+		except Exception as e:
+			print(time_stamp() + 'Error getting price for {}: {}\n{}'.format(ticker, repr(e), df))
+			return
 		if pred_price is None:
 			return
 		# print('pred_price:', pred_price)
@@ -668,8 +658,8 @@ class TradingAlgo(object):
 			rank = rank.set_index('symbol')
 			return rank
 
-	def main(self, date=None, dates=None, norm=False, n=1, adv=False):
-		t4_start = time.perf_counter()
+	def main(self, date=None, dates=None, norm=False, n=1, first=False, adv=False, tmp_n=None):
+		t3_start = time.perf_counter()
 		if date is None:
 			date = datetime.datetime.today()
 			date = date.date()
@@ -711,8 +701,14 @@ class TradingAlgo(object):
 		if args.mode == 'each':
 			tickers_repeated = list(itertools.chain.from_iterable([ticker, ticker, ticker, ticker] for ticker in args.tickers))
 
-		count = 1
 		for e in range(1, n+1):
+			if tmp_n is not None and first:
+				e = e + tmp_n-1
+				if e > len(tickers_repeated):
+					break
+			count = e % 4
+			if count == 0:
+				count = 4
 			time.sleep(args.delay)
 			if n > 1:
 				print('\nAlgo Entity:', e)
@@ -726,21 +722,28 @@ class TradingAlgo(object):
 			# print('Portfolio: \n{}'.format(portfolio))
 			if args.mode == 'each':
 				tickers = tickers_repeated[e-1]
-				# print('Tickers:', tickers)
+				# print('Tickers: {} | count: {}'.format(tickers, count))
 
 			if args.mode == '1' or (e == 1 and (args.mode == 'all' or args.mode == 'each')) or args.mode == 'hold' or count == 1:
 				rank = self.buy_hold(tickers)
+				algo_type = 'hold'
 			if args.mode == '2' or e == 2 or args.mode == 'rand' or count == 2:
 				rank = self.rand_algo(tickers)
+				algo_type = 'rand'
 			if args.mode == '3' or e == 3 or args.mode == 'perf_dir' or count == 3:
 				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=False)
+				algo_type = 'perf'
 			if args.mode == '4' or e == 4 or args.mode == 'pred_dir' or count == 4:
 				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True, train=args.train)
+				algo_type = 'pred'
 			# if args.mode == '5' or e == 5 or args.mode == 'test':
 			# 	rank = self.rank_combined(assets, norm, date, tickers=tickers)
-			count += 1
-			if count > 4:
-				count = 1
+
+			self.entities = accts.get_entities()
+			if e not in self.entities.index:
+				name = tickers + '-' + algo_type
+				entity_data = [[name, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]] # Note: The 2nd to 5th values are for another program as well as the 6th to 19th values
+				accts.add_entity(entity_data)#, v=True)
 		
 			if not rank.empty:
 				try:
@@ -776,8 +779,10 @@ class TradingAlgo(object):
 			portfolio = self.ledger.get_qty(accounts=['Investments'])
 			print('Portfolio at End of Day: \n{}'.format(portfolio))
 			#ledger.bs_hist()
-			t4_end = time.perf_counter()
-			print(time_stamp() + 'Done trading! It took {:,.2f} min.'.format((t4_end - t4_start) / 60))
+
+		t3_end = time.perf_counter()
+		print(time_stamp() + 'Done trading for {}. It took {:,.2f} min.'.format(date, (t3_end - t3_start) / 60))
+		first = False
 		return nav
 
 if __name__ == '__main__':
@@ -803,6 +808,7 @@ if __name__ == '__main__':
 	if args.reset:
 		delete_db(args.database)
 		new_db = True
+	# print('New DB:', new_db)
 	if args.seed:
 		random.seed(args.seed)
 	else:
@@ -815,6 +821,8 @@ if __name__ == '__main__':
 	combine_data = CombineData(trade.data_location)
 	algo = TradingAlgo(ledger, trade, combine_data)
 
+	if new_db:
+		accts.clear_tables(v=True)
 	if args.entity:
 		ledger.default = args.entity
 	if args.train_new:
@@ -854,19 +862,31 @@ if __name__ == '__main__':
 		elif args.mode == 'each':
 			n = len(args.tickers) * 4
 			print('Mode: {} | Number of entities: {}'.format(args.mode, n))
+		# print('Capital: {}'.format(algo.check_capital(['Cash','Chequing','Investments'])))
 		if algo.check_capital(['Cash','Chequing','Investments']) == 0:
 			for entity in range(1, n+1):
 				deposit_capital = [ [ledger.get_event(), entity, '', trade.trade_date(dates[0]), '', 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
 				ledger.journal_entry(deposit_capital)
 				#print(deposit_capital)
 		if not new_db and not args.reset:
+			if not algo.quote_df.empty:
+				ticker = algo.quote_df.index[0]#['symbol']
+				if args.mode == 'each':
+					tickers_repeated = list(itertools.chain.from_iterable([ticker, ticker, ticker, ticker] for ticker in args.tickers))
+				# TODO Only assumes it stopped during the 4th algo
+				tmp_n = tickers_repeated.index(ticker)+1 + 3 + 4
+			else:
+				tmp_n = 4
 			date = algo.get_table('date').values[0][0]
 			date_index = dates.index(date)
 			dates = dates[date_index-1:]
-		for date in dates[1:]: # Data window is 2 days back
+		else:
+			tmp_n = None
+		first = True
+		for date in dates[1:]: # TODO Data window is 2 days back, but this should be general
 			algo.set_table(date, 'date')
 			try:
-				algo.main(date, dates, args.norm, n=n)
+				algo.main(date, dates, args.norm, n=n, first=first, tmp_n=tmp_n)
 			except FileNotFoundError as e:
 				print(time_stamp() + 'No data for prior date: {}'.format(date))
 				# print(time_stamp() + 'Error: {}'.format(repr(e)))
@@ -891,7 +911,7 @@ if __name__ == '__main__':
 				ledger.journal_entry(deposit_capital)
 		if not new_db and not args.reset:
 			date = algo.get_table('date').values[0][0]
-		algo.main(norm=args.norm, date=date, n=n)
+		algo.main(norm=args.norm, date=date, n=n, first=new_db)
 
 # python first_algo.py -db first36.db -s 11 -sim -t ws_tickers.xlsx
 
@@ -906,3 +926,5 @@ if __name__ == '__main__':
 
 # crontab schedule
 # 00 07 * * *
+
+# nohup python first_algo.py -db test01.db -s 11 -m each -sim -t us_tickers.csv

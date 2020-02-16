@@ -193,8 +193,8 @@ class Accounts:
 		cur = self.conn.cursor()
 		cur.execute(create_entities_query)
 		for entity in default_entities:
-				print('Entities table created.')
-				cur.execute(entity)
+			print('Entities table created.')
+			cur.execute(entity)
 		self.conn.commit()
 		cur.close()
 
@@ -282,8 +282,8 @@ class Accounts:
 		cur = self.conn.cursor()
 		cur.execute(create_items_query)
 		for item in default_item:
-				print('Items table created.')
-				cur.execute(item)
+			print('Items table created.')
+			cur.execute(item)
 		self.conn.commit()
 		cur.close()
 
@@ -325,7 +325,7 @@ class Accounts:
 		self.refresh_accts()
 		self.drop_dupe_accts()
 
-	def add_entity(self, entity_data=None): # TODO Cleanup and make nicer
+	def add_entity(self, entity_data=None, v=False): # TODO Cleanup and make nicer
 		cur = self.conn.cursor()
 		if entity_data is None:
 			name = input('Enter the entity name: ')
@@ -358,6 +358,10 @@ class Accounts:
 			
 		else:
 			for entity in entity_data:
+				try:
+					entity = entity + ([None] * (19 - len(entity)))
+				except TypeError:
+					pass
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
 				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
@@ -365,6 +369,7 @@ class Accounts:
 		self.conn.commit()
 		entity_id = cur.lastrowid
 		cur.close()
+		if v: print('Entity Added: {}'.format(entity_id))
 		return entity_id
 
 	def add_item(self, item_data=None): # TODO Cleanup and make nicer
@@ -402,12 +407,39 @@ class Accounts:
 			
 		else:
 			for item in item_data:
+				try:
+					item = item + ([None] * (23 - len(item)))
+				except TypeError:
+					pass
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
 				insert_sql = 'INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, item)
 
 		self.conn.commit()
 		cur.close()
+
+	def clear_tables(self, tables=None, v=False):
+		if tables is None:
+			tables = [
+				'gen_ledger',
+				'entities',
+				'items'
+			]
+		if not isinstance(tables, (list, tuple)):
+			tables = [x.strip() for x in tables.split(',')]
+		cur = self.conn.cursor()
+		for table in tables:
+			clear_table_query = '''
+				DELETE FROM ''' + table + ''';
+			'''
+			try:
+				cur.execute(clear_table_query)
+				if v: print('Cleared ' + table + ' table.')
+			except:
+				continue
+		self.conn.commit()
+		cur.close()
+		return tables
 
 	def load_csv(self, infile=None):
 		if infile is None:
@@ -1620,8 +1652,14 @@ class Ledger:
 		print('Latest Date:', result)
 		return result
 
-	def bs_hist(self, entities=None, dates=None, v=True): # TODO Optimize this so it does not recalculate each time
-		dates = ['2020-05-21']
+	def latest_item(self):
+		result = self.gl['item_id'].iloc[-1]
+		print('Latest Item:', result)
+		return result
+
+	def bs_hist(self, dates=None, entities=None, v=True): # TODO Optimize this so it does not recalculate each time
+		if entities == '':
+			entities = None
 		if entities is None:
 			entities = pd.unique(self.gl['entity_id'])
 		else:
@@ -1631,6 +1669,8 @@ class Ledger:
 				else:
 					entities = [entities]
 		if v: print('Number of entities: {}'.format(len(entities)))
+		if dates == '':
+			dates = None
 		if dates is None:
 			dates = pd.unique(self.gl['date'])
 		else:
@@ -1690,9 +1730,13 @@ class Ledger:
 
 		# TODO Add function to book just the current days bs to hist_bs
 
-	def print_hist(self, save=True, v=True):
-		db_name = self.bs_hist()[1]
-		path = 'data/bs_hist_' + db_name[:-3] + '.csv'
+	def print_hist(self, dates=None, save=True, v=True):
+		db_name = self.bs_hist(dates=dates)[1]
+		if dates is None:
+			dates = ['']
+		if isinstance(dates, str):
+			dates = [x.strip() for x in dates.split(',')]
+		path = 'data/bs_hist_' + db_name[:-3] + '_' + str(dates[-1]) + '.csv'
 		if save:
 			self.hist_bs.to_csv(path, index=True)
 		if v:
@@ -1817,9 +1861,12 @@ def main(conn=None, command=None, external=False):
 			ledger.reset()
 			if args.command is not None: exit()
 		elif command.lower() == 'hist':
-			ledger.print_hist()
+			dates = input('Which date or press enter for all dates? ')
+			ledger.print_hist(dates=dates, v=False)
 		elif command.lower() == 'latestdate':
 			ledger.latest_date()
+		elif command.lower() == 'latestitem':
+			ledger.latest_item()
 			if args.command is not None: exit()
 		elif command.lower() == 'entities':
 			accts.print_entities()
