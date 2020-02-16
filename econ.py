@@ -141,7 +141,7 @@ class World:
 		self.factory = factory
 		# print('New db: {}'.format(new_db))
 		if new_db or args.reset:
-			self.clear_tables()
+			accts.clear_tables(v=True)
 			print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Create World ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 			self.now = datetime.datetime(1986,10,1).date() # TODO Make start_date constant
 			self.set_table(self.now, 'date')
@@ -354,27 +354,6 @@ class World:
 		print()
 		self.cols = ledger.gl.columns.values.tolist()
 		print(self.cols) # For verbosity
-
-	def clear_tables(self, tables=None):
-		if tables is None:
-			tables = [
-				'gen_ledger',
-				'entities',
-				'items'
-			]
-		cur = ledger.conn.cursor()
-		for table in tables:
-			clear_table_query = '''
-				DELETE FROM ''' + table + ''';
-			'''
-			try:
-				cur.execute(clear_table_query)
-				print('Clear ' + table + ' table.')
-			except:
-				continue
-		ledger.conn.commit()
-		cur.close()
-		#print('Clear tables.')
 
 	def set_table(self, table, table_name, v=False):
 		if v: print('Orig set table: {}\n{}'.format(table_name, table))
@@ -867,9 +846,13 @@ class World:
 
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		t7_start = time.perf_counter()
-		 # TODO Fix assuming all individuals have the same needs
-		for need in self.global_needs:
-			for individual in factory.get(Individual):
+		for individual in factory.get(Individual):
+			priority_needs = {}
+			for need in individual.needs:
+				priority_needs[need] = individual.needs[need]['Current Need']
+			priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
+			priority_needs = collections.OrderedDict(priority_needs)
+			for need in priority_needs:
 				#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
 				if not individual.user:
 					individual.threshold_check(need)
@@ -1462,13 +1445,14 @@ class Entity:
 			print('{} does not have enough {} available to use.'.format(self.name, item))
 
 	def use_item(self, item, uses=1, counterparty=None, target=None, buffer=False, check=False):
-		usable = world.items.loc[item, 'metric']
-		if not usable:
-			print('{} is not usable. {}'.format(item, usable))
-			return []
-		elif 'usage' not in usable:
-			print('{} is not usable. {}'.format(item, usable))
-			return []
+		# usable = world.items.loc[item, 'metric']
+		# if not usable:
+		# 	print('{} is not usable. {}'.format(item, usable))
+		# 	return []
+		# elif 'usage' not in usable: # TODO This does not work with Water Well
+		# 	print('{} is not usable. {}'.format(item, usable))
+		# 	return []
+
 		# check to ensure entity has item they are using. And if attacking making sure it is equipped
 		# item_type = world.get_item_type(item)
 		ledger.set_entity(self.entity_id)
@@ -2683,10 +2667,10 @@ class Entity:
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, man=False, buffer=False, v=False):
 		if not self.user:
 			if isinstance(self, Individual):
-				pass
-				# item_type = world.get_item_type(item)
-				# if item_type == 'Education':
-				# 	pass
+				# pass
+				item_type = world.get_item_type(item)
+				if item_type == 'Education':
+					pass
 			elif item not in self.produces: # TODO Should this be kept long term?
 				return [], False
 		incomplete, produce_event, time_required, max_qty_possible = self.fulfill(item, qty, man=man)
@@ -6234,18 +6218,25 @@ class Individual(Entity):
 				if need_item == need:
 					break
 			satisfy_rates = [x.strip() for x in item_row['satisfy_rate'].split(',')]
-			satisfy_rate = satisfy_rates[i]
+			satisfy_rate = float(satisfy_rates[i])
 			need_satisfy_rate.append(satisfy_rate)
 		need_satisfy_rate = pd.Series(need_satisfy_rate)
 		#print('Need Satisfy Rate: \n{}'.format(need_satisfy_rate))
 		items_info = items_info.assign(need_satisfy_rate=need_satisfy_rate.values)
-		# TODO Add price column
-
-		# TODO Divided need_satisfy_rate by price
+		# Add price column and use min price of all entities for now
+		item_prices = []
+		for item, _ in items_info.iterrows():
+			min_price = world.prices.loc[world.prices.index == item].min()['price']
+			if pd.isna(min_price):
+				min_price = INIT_PRICE
+			item_prices.append(min_price)
+		item_prices = pd.Series(item_prices)
+		items_info = items_info.assign(price=item_prices.values)
+		price_rate = items_info['need_satisfy_rate'] / items_info['price']
+		items_info = items_info.assign(price_rate=price_rate.values)
+		items_info = items_info.sort_values(by='price_rate', ascending=False)
 		# print('Items Info: \n{}'.format(items_info))
-		# exit()
-
-		items_info = items_info.sort_values(by='need_satisfy_rate', ascending=False)
+		# items_info = items_info.sort_values(by='need_satisfy_rate', ascending=False) # Old method os sorting
 		items_info.reset_index(inplace=True)
 		# If first item is not available, try the next one
 		for index, item in items_info.iterrows():
