@@ -1104,10 +1104,10 @@ class Ledger:
 					except KeyError as e:
 						if v: print('Error Credits: {} | {}'.format(e, repr(e)))
 						credits = 0
-					qty = round(debits - credits, 0)
+					qty = debits - credits
 					if v: print('QTY: {}\n'.format(qty))
 					if single_item:
-						total_qty += int(qty)
+						total_qty += qty
 					else:
 						inventory = inventory.append({'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
 						#if v: print(inventory)
@@ -1652,6 +1652,11 @@ class Ledger:
 		print('Latest Date:', result)
 		return result
 
+	def oldest_date(self):
+		result = self.gl['date'].min()
+		print('Oldest Date:', result)
+		return result
+
 	def latest_item(self):
 		result = self.gl['item_id'].iloc[-1]
 		print('Latest Item:', result)
@@ -1865,6 +1870,8 @@ def main(conn=None, command=None, external=False):
 			ledger.print_hist(dates=dates, v=False)
 		elif command.lower() == 'latestdate':
 			ledger.latest_date()
+		elif command.lower() == 'oldestdate':
+			ledger.oldest_date()
 		elif command.lower() == 'latestitem':
 			ledger.latest_item()
 			if args.command is not None: exit()

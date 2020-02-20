@@ -49,7 +49,7 @@ Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,
 University,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
-Metal Working,None,None,None,Technology,"Time, Anvil","20, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Blacksmith
+Metal Working,None,None,None,Technology,"Time, Anvil","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Blacksmith
 Blacksmith Shop,None,None,continuous,Buildings,"Time, Land, Wood, Rock","2, 100, 100, 60",10,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
 Blacksmither,None,None,None,Labour,Strength,1,2000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Strength,None,None,None,Education,"Time, Rock","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
@@ -60,12 +60,14 @@ Super Food,None,None,None,Commodity,"Time, Super Tech, Arable Land, Cultivator, 
 Super Tech,None,None,None,Technology,"Time, Wire, Wood","20, 200, 400",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Well
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Anvil,None,None,continuous,Equipment,"Time, Rock","2, 50",1,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,Blacksmith
-Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","100","ticks",None,None,None,100,None,None,Blacksmith
-#Hydroponics,None,None,continuous,Equipment,"Engineer, Wood, Rock","6, 100, 40",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","100","ticks",None,None,None,100,None,None,Blacksmith
+#Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","100","ticks",None,None,None,100,None,None,Blacksmith
+Hydroponics,None,None,continuous,Equipment,"Engineer, Wood, Rock","6, 100, 40",200,None,None,None,None,"Growing, Arable land","0.25, 0.75","100","ticks",None,None,None,100,None,None,Blacksmith
 Math,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Sword,None,None,continuous,Equipment,"Rock","10",1,None,None,None,None,None,None,"100, 1000","usage, equipped",None,100,None,10,None,None,Blacksmith
-Armour,None,None,continuous,Equipment,"Rock","10",1,None,None,None,None,None,None,"100","equipped",None,None,None,100,None,None,Blacksmith
-Engineer,None,None,None,Labour,"Electronics, Blacksmither","1, 10",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Armour,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Leather Armour,None,None,continuous,Armour,"Leather","1",1,None,None,None,None,None,None,"100","equipped",None,None,None,50,None,None,Blacksmith
+Metal Armour,None,None,continuous,Armour,"Rock","10",1,None,None,None,None,None,None,"100","equipped",None,None,None,100,None,None,Blacksmith
+Engineer,None,None,None,Labour,"Electronics, Blacksmither","1, 1",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 University Campus,None,None,continuous,Buildings,"Land, Wood, Rock","100, 100, 100",10,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
 #Electronics,None,None,None,Education,"Study","16",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
 Electronics,None,None,None,Education,"Study, University Campus","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
@@ -78,3 +80,11 @@ Robot Miner,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop,
 3D Printer,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,Carpenter,1,200,usage,None,None,None,10000,None,None,Blacksmith
 Robot Blacksmither,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Rock, Wood","1, 1, 1, 12, 100, 400, 800",12,None,None,None,None,Blacksmither,1,1000,usage,None,None,None,10000,None,None,Blacksmith
 #House,None,None,continuous,Buildings,"Time, Land, Wood, Rock","3, 100, 200, 100",5,None,None,Shelter,100,None,None,10000,ticks,None,None,None,1000,None,None,Construction Company
+Fresh Water,None,None,None,Commodity,"Land, Labour","1, 2",None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Individual
+Rancher,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Cow,"Land, Labour","100, 40",animal,Equipment,"Land, Rancher, Cow","10, 10, 2",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
+Milk,None,None,None,Commodity,"Cow, Rancher","1, 1",None,None,None,"Thirst, Hunger","2, 3",None,None,None,None,None,None,None,None,None,None,Ranch
+Gestation,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Beef Cow,"Land, Labour","100, 1",animal,Commodity,"Gestation, Land, Rancher, Beef Cow","1, 10, 1, 2",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
+Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,Ranch
+Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,Ranch
