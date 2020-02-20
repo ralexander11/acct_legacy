@@ -184,10 +184,15 @@ class CombineData(object):
 		if isinstance(merged, str):
 			if '.csv' in merged:
 				# if merged is None and os.path.exists(self.data_location + merged_file):
-				print(time_stamp() + 'Merged data exists at:', self.data_location + merged)
-				merged = pd.read_csv(self.data_location + merged)
+				if os.path.exists(self.data_location + merged):
+					print(time_stamp() + 'Merged data exists at:', self.data_location + merged)
+					merged = pd.read_csv(self.data_location + merged)
+				else:
+					print(time_stamp() + 'Merged data does not exists at:', self.data_location + merged)
+					merged = self.merge_data(save=save)
 		if merged is None:
-			merged = self.merge_data()
+			print(time_stamp() + 'Creating merged data at:', self.data_location)
+			merged = self.merge_data(save=save)
 		merged['date'] = pd.to_datetime(merged['date'])
 		df = merged.set_index(['symbol','date'])
 		df['sector'] = df['sector'].astype(str)
@@ -344,7 +349,7 @@ class CombineData(object):
 			display_dates = ['2019-09-13','2019-09-16','2019-10-01']
 			# if v: print(time_stamp() + 'missing_merged:\n', df.loc[df.index.get_level_values('date').isin(display_dates)])
 		if save:
-			filename = 'all_hist_prices_new4'
+			filename = 'miss'
 			path = 'data/' + filename + '_merged.csv'
 			df.to_csv(path, date_format='%Y-%m-%d', index=True)
 			print(time_stamp() + 'Saved merged missing data to: {}'.format(path))
@@ -392,7 +397,8 @@ if __name__ == '__main__':
 
 	if args.mode == 'missing':
 		merged = 'merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
-		missing = 'a_to_zyne_hist_prices_2018-05-22_to_2020-01-22.csv'
+		missing = 'AGR_to_ZZZD-CT_hist_prices_2019-09-11_to_2020-02-10.csv'
+		# 'a_to_zyne_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'aapl_to_aapl_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'a_to_zzz-ct_hist_prices_2018-05-22_to_2020-01-22' #'all_hist_prices'
 		df = combine_data.fill_missing(missing, merged, save=args.save, v=True)
@@ -475,4 +481,4 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/combine01.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/fix01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/fix02.log 2>&1 &

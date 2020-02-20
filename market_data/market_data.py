@@ -311,7 +311,7 @@ class MarketData(object):
 
 	def get_hist_price2(self, data=None, save=False, v=True):
 		if data is None:
-			data = 'all_miss_fields.csv'
+			data = 'all_miss_fields02.csv'
 		if '.csv' in data:
 			print(self.time_stamp() + 'Reading data from: data/{}'.format(data))
 			data = pd.read_csv('data/' + data)
@@ -324,7 +324,7 @@ class MarketData(object):
 			if isinstance(date, str):
 				date = time.strptime(date, '%Y-%m-%d')
 			date = time.strftime('%Y%m%d', date)
-			if v: print(self.time_stamp() + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
+			if v: print(self.time_stamp() + '[' + str(i) + '] ' + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
 			try:
 				result = pd.read_json(base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
 			except:
@@ -338,6 +338,7 @@ class MarketData(object):
 						continue
 			# if v: print('Result:\n', result)
 			if result.empty:
+				print(self.time_stamp() + '[' + str(i) + '] ' + 'Empty: ' + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
 				continue
 			if isinstance(date, str):
 				date = time.strptime(date, '%Y%m%d')
@@ -391,6 +392,7 @@ class MarketData(object):
 				print(self.time_stamp() + 'Error: ' + base_url + ticker + '?token=TOKEN')
 				continue
 			if result.empty:
+				print(self.time_stamp() + 'Empty: ' + base_url + ticker + '?token=TOKEN')
 				continue
 			result.reset_index(inplace=True)
 			result['symbol'] = ticker.upper()
@@ -498,12 +500,11 @@ if __name__ == '__main__':
 	t0_end = time.perf_counter()
 	print(data.time_stamp() + 'Finished getting market data! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 
+# crontab schedule
+# 20 18 * * *
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/missing01.log 2>&1 &
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -t cdn_tickers.csv -d all_dates.csv -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing05.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing2 -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing09.log 2>&1 &
-
-# crontab schedule
-# 20 18 * * *
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing2 -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing10.log 2>&1 &
