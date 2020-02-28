@@ -67,10 +67,11 @@ Sword,None,None,continuous,Equipment,"Rock","10",1,None,None,None,None,None,None
 Armour,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Leather Armour,None,None,continuous,Armour,"Leather","1",1,None,None,None,None,None,None,"100","equipped",None,None,None,50,None,None,Blacksmith
 Metal Armour,None,None,continuous,Armour,"Rock","10",1,None,None,None,None,None,None,"100","equipped",None,None,None,100,None,None,Blacksmith
-Engineer,None,None,None,Labour,"Electronics, Blacksmither","1, 1",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-University Campus,None,None,continuous,Buildings,"Land, Wood, Rock","100, 100, 100",10,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
-#Electronics,None,None,None,Education,"Study","16",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
-Electronics,None,None,None,Education,"Study, University Campus","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+#Engineer,None,None,None,Labour,"Electronics Class, Blacksmither","16, 1",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Engineer,None,None,None,Labour,"Electronics Class","16",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+University Campus,None,None,continuous,Buildings,"University, Land, Wood, Rock","100, 100, 100",10,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,"Construction Company, University"
+Electronics Class,None,None,None,Education,"Study","1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, University"
+#Electronics Class,None,None,None,Education,"Study, University Campus","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
 Shares,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Init Capital,0,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
@@ -82,9 +83,9 @@ Robot Blacksmither,None,None,start,Equipment,"Electricity, Super Tech, Blacksmit
 #House,None,None,continuous,Buildings,"Time, Land, Wood, Rock","3, 100, 200, 100",5,None,None,Shelter,100,None,None,10000,ticks,None,None,None,1000,None,None,Construction Company
 Fresh Water,None,None,None,Commodity,"Land, Labour","1, 2",None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Individual
 Rancher,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Cow,"Land, Labour","100, 40",animal,Equipment,"Land, Rancher, Cow","10, 10, 2",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
+Cow,"Land, Rancher","100, 40",animal,Equipment,"Land, Rancher, Cow","10, 1, 2",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
 Milk,None,None,None,Commodity,"Cow, Rancher","1, 1",None,None,None,"Thirst, Hunger","2, 3",None,None,None,None,None,None,None,None,None,None,Ranch
 Gestation,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Beef Cow,"Land, Labour","100, 1",animal,Commodity,"Gestation, Land, Rancher, Beef Cow","1, 10, 1, 2",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
+Beef Cow,"Land, Rancher","100, 1",animal,Commodity,"Gestation, Land, Rancher, Beef Cow","1, 10, 1, 2",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
 Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,Ranch
 Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,Ranch
