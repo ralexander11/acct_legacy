@@ -110,7 +110,7 @@ class CombineData(object):
 				filename = self.data_location + 'merged_' + str(dates[0]) + '.csv'
 			else:
 				filename = self.data_location + 'merged_' + str(dates[0]) + '_to_' + str(dates[-1]) + '.csv'
-			merged.to_csv(filename)
+			merged.to_csv(filename, index=True)
 			print(time_stamp() + 'Saved data filtered for dates: {}\nTo: {}'.format(dates, filename))
 		return merged
 
@@ -193,6 +193,7 @@ class CombineData(object):
 		if merged is None:
 			print(time_stamp() + 'Creating merged data at:', self.data_location)
 			merged = self.merge_data(save=save)
+		merged.reset_index(inplace=True)
 		merged['date'] = pd.to_datetime(merged['date'])
 		df = merged.set_index(['symbol','date'])
 		df['sector'] = df['sector'].astype(str)
@@ -358,7 +359,7 @@ class CombineData(object):
 	def find_missing(self, data=None, dates_only=False, save=False, v=False):
 		if data is None:
 			missing = None
-			merged = None #'merged.csv'
+			merged = 'merged.csv' # None #
 			data = self.fill_missing(missing, merged)
 		if isinstance(data, str):
 			if '.csv' in data:
@@ -366,14 +367,14 @@ class CombineData(object):
 				data = pd.read_csv(self.data_location + data)
 		df = data[['symbol','date','close','high','low','open','latestVolume','change','changePercent']]
 		df = df[df.isnull().values.any(axis=1)]
-		if v: print('Number of missing ticker-dates:', len(df))
+		print('Number of missing ticker-dates:', len(df))
 		if dates_only:
 			df = df['date'].unique()
 			df.sort()
 		with pd.option_context('display.max_columns', None, 'display.max_rows', None):
 			if v: print(time_stamp() + 'Found Missing Fields: {}\n{}'.format(len(df), df))
 		if save:
-			filename = 'all_miss_fields.csv'
+			filename = 'new_miss_fields.csv'
 			path = 'data/' + filename
 			df.to_csv(path, date_format='%Y-%m-%d', index=True)
 			print(time_stamp() + 'Saved found missing fields to: {}'.format(path))
@@ -405,7 +406,7 @@ if __name__ == '__main__':
 		exit()
 
 	if args.mode == 'find':
-		data = 'all_hist_prices_new4_merged.csv'
+		data = 'miss_merged.csv' # None # 'all_hist_prices_new4_merged.csv'
 		df = combine_data.find_missing(data, save=args.save, v=False)
 		exit()
 
