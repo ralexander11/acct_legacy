@@ -1383,10 +1383,10 @@ class Ledger:
 		except Exception as e:
 			print('Error: {}'.format(e))
 
-	def remove_entries(self, txns=None):
+	def remove_entries(self, txns=None): # TODO Don't keep this long term, only use rvsl instead
 		if txns is None:
 			txns = []
-			txns = txns.append(input('Which transaction ID would you like to remove? '))
+			txns.append(input('Which transaction ID would you like to remove? '))
 		cur = self.conn.cursor()
 		for txn in txns:
 			cur.execute('DELETE FROM '+ self.ledger_name +' WHERE txn_id=?', (txn,))
@@ -1395,23 +1395,27 @@ class Ledger:
 		print('Removed {} entries.'.format(len(txns)))
 		self.refresh_ledger()
 
-	def reversal_entry(self, txn=None, date=None): # This func effectively deletes a transaction
-		if txn is None:
-			txn = input('Which txn_id to reverse? ') # TODO Add check to ensure valid transaction number
-		rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
+	def reversal_entry(self, txns=None, date=None): # This func effectively deletes a transaction
+		if txns is None:
+			txns = []
+			txns.append(input('Which txn_id to reverse? ')) # TODO Add check to ensure valid transaction number
 		cur = self.conn.cursor()
-		cur.execute(rvsl_query)
-		rvsl = cur.fetchone()
-		logging.debug('rvsl: {}'.format(rvsl))
-		cur.close()
-		if '[RVSL]' in rvsl[4]:
-			print('Cannot reverse a reversal. Enter a new entry instead.')
-			return
-		if date is None: # rvsl[7] or np.nan
-			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
-			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-		rvsl_entry = [[ rvsl[1], rvsl[2], rvsl[3], date, rvsl[5], '[RVSL]' + rvsl[6], rvsl[7], rvsl[8] or '', rvsl[9] or '', rvsl[11], rvsl[10], rvsl[12] ]]
-		self.journal_entry(rvsl_entry)
+		rvsl_event = []
+		for txn in txns:
+			rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
+			cur.execute(rvsl_query)
+			rvsl = cur.fetchone()
+			logging.debug('rvsl: {}'.format(rvsl))
+			if '[RVSL]' in rvsl[6]:
+				print('Cannot reverse a reversal for txn_id: {}. Enter a new entry instead.'.format(txn))
+				continue
+			if date is None: # rvsl[7] or np.nan
+				date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
+				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
+			rvsl_entry = [ rvsl[1], rvsl[2], rvsl[3], date, rvsl[5], '[RVSL] ' + rvsl[6], rvsl[7], rvsl[8] or '' if rvsl[8] != 0 else rvsl[8], rvsl[9] or '' if rvsl[9] != 0 else rvsl[9], rvsl[11], rvsl[10], rvsl[12] ]
+			rvsl_event += [rvsl_entry]
+			cur.close()
+		self.journal_entry(rvsl_event)
 
 	def split(self, txn=None, debit_acct=None, credit_acct=None, amount=None, date=None):
 		if txn is None:
@@ -1436,20 +1440,28 @@ class Ledger:
 		if date is None:
 			date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 			date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
-		orig_split_entry = [ split[1], split[2], split[3], date, split[5], split[6], split[7], split[8] or '', split[9] or '', split[10], split[11], split[12] - split_amt ]
-		new_split_entry = [ split[1], split[2], split[3], date, split[5], split[6], split[7], split[8] or '', split[9] or '', debit_acct, credit_acct, split_amt ]
+		orig_split_entry = [ split[1], split[2], split[3], date, split[5], split[6], split[7], split[8] or '' if split[8] != 0 else split[8], split[9] or '' if split[9] != 0 else split[9], split[10], split[11], split[12] - split_amt ]
+		new_split_entry = [ split[1], split[2], split[3], date, split[5], split[6], split[7], split[8] or '' if split[8] != 0 else split[8], split[9] or '' if split[9] != 0 else split[9], debit_acct, credit_acct, split_amt ]
 		split_event = [orig_split_entry, new_split_entry]
 		self.reversal_entry(txn)
 		self.journal_entry(split_event)
 
-	def adjust(self, txn=None, price=None, qty=None):
+	def adjust(self, txn=None, price=None, qty=None, item=None):
 		if txn is None:
 			txn = input('Enter the transaction number to adjust: ') # TODO Add check to ensure valid transaction number
-		adj_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
+		adj_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = ' + txn + ';' # TODO Use gl dataframe
 		cur = self.conn.cursor()
 		cur.execute(adj_query)
 		entry = cur.fetchone()
-		#print('Entry: \n{}'.format(entry))
+		print('Entry to Adjust: \n{}'.format(entry))
+		# If at least one parameter is provided, don't ask for the others
+		if price is not None or qty is not None or item is not None:
+			if price is None:
+				price = entry[8]
+			if qty is None:
+				qty = entry[9]
+			if item is None:
+				item = entry[7]
 		if price is None:
 			while True:
 				try:
@@ -1472,11 +1484,22 @@ class Ledger:
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
 					continue
-		if price and qty:	
+		if item is None:
+			while True:
+				try:
+					item = input('Enter the new item or hit enter if unchanged: ')
+					if item == '':
+						item = entry[7]
+					item = str(item)
+					break
+				except ValueError:
+					print('Not a valid entry. Try again.')
+					continue
+		if price is not None and qty is not None:
 			amount = price * qty
 		else:
 			amount = entry[12]
-		adjusted_entry = [ entry[1], entry[2], entry[3], entry[4], entry[5], '[Adj]' + entry[6], entry[7], price or '', qty or '', entry[10], entry[11], amount ]
+		adjusted_entry = [ entry[1], entry[2], entry[3], entry[4], entry[5], '[Adj] ' + entry[6], item, price or '' if price != 0 else price, qty or '' if qty != 0 else qty, entry[10], entry[11], amount ]
 		#print('Adjusted Entry: \n{}'.format(adjusted_entry))
 		adjusted_event = [adjusted_entry]
 		self.reversal_entry(txn)

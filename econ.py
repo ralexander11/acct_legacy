@@ -300,10 +300,16 @@ class World:
 					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
 			corps = self.entities.loc[self.entities['entity_type'] == 'Corporation']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			# 	print('Corporations: \n{}'.format(corps))	
+			# 	print('Corporations: \n{}'.format(corps))
 			for index, corp in corps.iterrows():
 				legal_form = self.org_type(corp['name'])
 				factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), corp['auth_shares'], corp['entity_id'])
+			nonprofs = self.entities.loc[self.entities['entity_type'] == 'NonProfit']
+			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 	print('Corporations: \n{}'.format(nonprofs))	
+			for index, nonprof in nonprofs.iterrows():
+				legal_form = self.org_type(nonprof['name'])
+				factory.create(legal_form, nonprof['name'], nonprof['outputs'], int(nonprof['government']), nonprof['auth_shares'], nonprof['entity_id'])
 			self.prices = self.get_table('prior_prices')
 			try: # TODO Remove error checking because of legacy db files
 				self.hist_prices = self.get_table('hist_prices')
@@ -2122,6 +2128,8 @@ class Entity:
 				capacity = world.items.loc[req_item, 'capacity']
 				if capacity is None or pd.isna(capacity):
 					capacity = 1
+				if 'animal' in item_freq and 'animal' in req_freq:
+					capacity = 1
 				capacity = float(capacity)
 				print('{} requires {} {} equipment (Capacity: {}) to produce {} {} and has: {}'.format(self.name, req_qty, req_item, capacity, qty, item, equip_qty))
 				price = world.get_price(req_item, self.entity_id)
@@ -2143,11 +2151,25 @@ class Entity:
 							result = self.purchase(req_item, required_qty)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
 							req_time_required = False
 							if not result:
-								if 'animal' in item_freq and 'animal' in req_freq:
+								if 'animal' in item_freq and 'animal' in req_freq and (equip_qty == 0 or equip_qty == 1):
 									required_qty = 1
 									print('{} will attempt to catch remaining {} {} in the wild.'.format(self.name, required_qty, req_item))
 									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, reqs='int_rate_fix', amts='int_rate_var', debit_acct='Equipment') # TODO This is a bit hackey
+									equip_qty += req_max_qty_possible
+									if not req_incomplete:
+										if equip_qty < 2:
+											incomplete = True
+											max_qty_possible = 0
+										continue
+									else:
+										if req_max_qty_possible == 0:
+											incomplete = True
+											max_qty_possible = 0
+											continue
+										req_qty = req_max_qty_possible
 								else:
+									if 'animal' in item_freq and 'animal' in req_freq and incomplete:
+										continue
 									print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
 									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment')#, buffer=True)
 							if not result or req_time_required:
@@ -2328,6 +2350,9 @@ class Entity:
 					result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, reqs='int_rate_fix', amts='int_rate_var') # TODO This is a bit hackey
 					material_qty_held += req_max_qty_possible
 					if not req_incomplete:
+						if material_qty_held < 2:
+							incomplete = True
+							max_qty_possible = 0
 						continue
 					else:
 						if req_max_qty_possible == 0:
@@ -2351,7 +2376,7 @@ class Entity:
 						return self.fulfill(item, max_qty_possible, man=man)
 					print('{} {} is greater than or equal to the whole qty of {}. Max Qty Possible: {}'.format(qty, item, whole_qty, max_qty_possible))
 				qty_needed = max((req_qty * (1 - modifier) * qty) - material_qty_held, 0)
-				if 'animal' in req_freq:
+				if 'animal' in req_freq and 'animal' not in item_freq:
 					qty_needed = max((req_qty * (1 - modifier) * qty) - material_qty_held + 2, 0)
 				print('material_qty_held: {} | req_qty: {} | modifier: {} | qty: {} | qty_needed: {}'.format(material_qty_held, req_qty, modifier, qty, qty_needed))
 				if qty_needed > 0:
@@ -2380,6 +2405,9 @@ class Entity:
 								print('{} will attempt to catch remaining {} {} in the wild.'.format(self.name, qty_needed, req_item))
 								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, reqs='int_rate_fix', amts='int_rate_var') # TODO This is a bit hackey
 								if not req_incomplete:
+									if material_qty_held < 2:
+										incomplete = True
+										max_qty_possible = 0
 									continue
 								else:
 									if req_max_qty_possible == 0:
@@ -3144,6 +3172,8 @@ class Entity:
 			world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 			world.set_table(world.demand, 'demand')
 			print('{} exists on the demand table exactly for {} will drop index items {}.'.format(item, self.name, to_drop))
+			with pd.option_context('display.max_rows', None):
+				print('World Demand: {} \n{}'.format(world.now, world.demand))
 		to_drop = []
 		# if orig_qty != qty and qty != 0:
 		# 	print('World Demand: \n{}'.format(world.demand))
@@ -3161,6 +3191,8 @@ class Entity:
 			world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 			world.set_table(world.demand, 'demand')
 			print('{} exists on the demand table will drop index items {}.'.format(item, to_drop))
+			with pd.option_context('display.max_rows', None):
+				print('World Demand: {} \n{}'.format(world.now, world.demand))
 		if orig_qty != qty and qty != 0:
 			print('Partially Fulfilled Qty for: {} | Orig Qty: {} | Qty Produced: {}'.format(item, orig_qty, qty))
 			# print('World Demand Changed: \n{}'.format(world.demand))
@@ -3332,7 +3364,7 @@ class Entity:
 						delay = 0
 						hours = None
 					if hours:# is not None:
-						job = world.delay.loc[world.delay['txn_id'] == index, 'job'].values[0]
+						job = world.delay.loc[world.delay['txn_id'] == index, 'job'].values[0] # TODO Test items requiring lots of labour for more than one job
 						if v: print('WIP Partial Job: {}'.format(job))
 						partial_index = world.delay.loc[world.delay['txn_id'] == index].index.tolist()[0]
 						if v: print('Partial Index: {}'.format(partial_index))
@@ -3343,7 +3375,9 @@ class Entity:
 							print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
 							continue
 						else:
-							world.delay.at[partial_index, 'hours'] -= partial_work_event[-1][8]
+							work_df = pd.DataFrame(partial_work_event, columns=world.cols)
+							hours_worked = work_df.loc[(work_df['item_id'] == job) & (work_df['debit_acct'] == 'Wages Expense')]['qty'].sum()
+							world.delay.at[partial_index, 'hours'] -= hours_worked #partial_work_event[-1][8]
 							if world.delay.at[partial_index, 'hours'] != 0:
 								world.delay.at[partial_index, 'delay'] += 1 # TODO This may not be needed with hours == 0 check below
 							if v: print('World Delay Adj: \n{}'.format(world.delay))
@@ -3651,6 +3685,8 @@ class Entity:
 								world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 								world.set_table(world.demand, 'demand')
 								print('{} dropped {} [{}] Subscription from the demand table for {}. To Drop: {}'.format(self.name, item, demand_index, corp.name, to_drop))
+								with pd.option_context('display.max_rows', None):
+									print('World Demand: {} \n{}'.format(world.now, world.demand))
 							return
 				corp = self.incorporate(name=ticker, item=item)
 				# TODO Have the demand table item cleared when entity gets the subscription
@@ -3659,6 +3695,8 @@ class Entity:
 					world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
 					world.set_table(world.demand, 'demand')
 					print('{} dropped {} [{}] Subscription from the demand table for {}.'.format(self.name, item, demand_index, corp.name))
+					with pd.option_context('display.max_rows', None):
+						print('World Demand: {} \n{}'.format(world.now, world.demand))
 				return corp
 
 	def tech_motivation(self):
@@ -3884,25 +3922,27 @@ class Entity:
 				print('Error: Retrying demand check of {} for qty of 1 (instead of {}) due to labour constraint. {}'.format(item, qty, repr(e)))
 				print('Error: index {} | outcome: {} | to_drop: {} World Demand:\n{}'.format(index, outcome, to_drop, world.demand))
 			if v: print('Second Demand Check Outcome: {} \n{}'.format(time_required, outcome))
-			if outcome:
-				qty = max_qty_possible
-				# if item_type == 'Education':
-				# 	edu_hours = int(math.ceil(qty - MAX_HOURS))
-				# 	#print('Edu Hours: {} | {}'.format(edu_hours, index))
-				# 	if edu_hours > 0:
-				# 		world.demand.at[index, 'qty'] = edu_hours
-				# 		world.set_table(world.demand, 'demand')
-				# 	#print('Demand After: \n{}'.format(world.demand))
-				if item_type == 'Technology':
-					return
-				else:
-					try:
-						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
-						world.set_table(world.demand, 'demand')
-					except KeyError as e:
-						#print('Error: {}'.format(repr(e)))
-						pass
-					print('{} removed from demand list for {} units by {}.\n'.format(item, qty, self.name)) # TODO Fix this when only possible qty is produced
+			# if outcome:
+			# 	qty = max_qty_possible
+			# 	# if item_type == 'Education':
+			# 	# 	edu_hours = int(math.ceil(qty - MAX_HOURS))
+			# 	# 	#print('Edu Hours: {} | {}'.format(edu_hours, index))
+			# 	# 	if edu_hours > 0:
+			# 	# 		world.demand.at[index, 'qty'] = edu_hours
+			# 	# 		world.set_table(world.demand, 'demand')
+			# 	# 	#print('Demand After: \n{}'.format(world.demand))
+			# 	if item_type == 'Technology':
+			# 		return
+			# 	else:
+			# 		try:
+			# 			world.demand = world.demand.drop(to_drop).reset_index(drop=True) # TODO This was causing items to be removed twice in error
+			# 			world.set_table(world.demand, 'demand')
+			# 		except KeyError as e:
+			# 			#print('Error: {}'.format(repr(e)))
+			# 			pass
+			# 		print('{} removed from demand list for {} units by {}.\n'.format(item, qty, self.name)) # TODO Fix this when only possible qty is produced
+			# 		with pd.option_context('display.max_rows', None):
+			# 			print('World Demand: {} \n{}'.format(world.now, world.demand))
 
 	def check_optional(self):
 		if self.produces is None:
@@ -4089,7 +4129,7 @@ class Entity:
 			# Get list of jobs
 			# TODO Get list of jobs that have accruals only
 			ledger.set_entity(self.entity_id)
-			wages_payable_list = ledger.get_qty(accounts=['Wages Expense'])
+			wages_payable_list = ledger.get_qty(accounts=['Wages Payable'])
 			ledger.reset()
 			if v: print('Wages Payable List: \n{}'.format(wages_payable_list))
 			jobs = wages_payable_list['item_id']
@@ -4136,35 +4176,36 @@ class Entity:
 			if job != 'Study' and job != 'Research':
 				print('{} cash after {} wages paid: {}'.format(self.name, job, cash))
 
-	def check_wages(self, job):
+	def check_wages(self, job, v=False):
 		# PAY_PERIODS = 32 #datetime.timedelta(days=32)
+		if v: print('{} pay_periods: {}'.format(self.name, PAY_PERIODS))
 		ledger.set_entity(self.entity_id)
 		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of Wages Payable txns
 		payable = ledger.gl[(ledger.gl['credit_acct'] == 'Wages Payable') & (~ledger.gl['event_id'].isin(rvsl_txns))]
-		#print('Payable: \n{}'.format(payable))
+		if v: print('Payable: \n{}'.format(payable))
 		paid = ledger.gl[(ledger.gl['debit_acct'] == 'Wages Payable') & (~ledger.gl['event_id'].isin(rvsl_txns))]
-		#print('Paid: \n{}'.format(paid))
+		if v: print('Paid: \n{}'.format(paid))
 		ledger.reset()
 		if not payable.empty:
 			latest_payable = payable['date'].iloc[-1]
 			latest_payable = datetime.datetime.strptime(latest_payable, '%Y-%m-%d').date()
-			#print('Latest Payable: \n{}'.format(latest_payable))
+			if v: print('Latest Payable: \n{}'.format(latest_payable))
 		else:
 			latest_payable = 0
 		if not paid.empty:
 			latest_paid = paid['date'].iloc[-1]
 			latest_paid = datetime.datetime.strptime(latest_paid, '%Y-%m-%d').date()
-			#print('Latest Paid: \n{}'.format(latest_paid))
+			if v: print('Latest Paid: \n{}'.format(latest_paid))
 		else:
 			latest_paid = 0
 			return True
-		#print('Latest Payable: \n{}'.format(latest_payable))
-		#print('Latest Paid: \n{}'.format(latest_paid))
+		if v: print('Latest Payable: \n{}'.format(latest_payable))
+		if v: print('Latest Paid: \n{}'.format(latest_paid))
 		last_paid = latest_payable - latest_paid
 		if isinstance(last_paid, datetime.timedelta):
 			last_paid = last_paid.days
-		#print('Last Paid: \n{}'.format(last_paid))
+		if v: print('Last Paid: \n{}'.format(last_paid))
 		if last_paid < PAY_PERIODS:
 			return True
 
@@ -6326,6 +6367,8 @@ class Individual(Entity):
 			world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 			world.set_table(world.demand, 'demand')
 			print('{} removed {} indexes for items from demand list.\n'.format(self.name, to_drop))
+			with pd.option_context('display.max_rows', None):
+				print('World Demand: {} \n{}'.format(world.now, world.demand))
 
 		# Quit any current jobs
 		ledger.set_entity(self.entity_id)

@@ -70,7 +70,7 @@ Metal Armour,None,None,continuous,Armour,"Rock","10",1,None,None,None,None,None,
 #Engineer,None,None,None,Labour,"Electronics Class, Blacksmither","16, 1",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Engineer,None,None,None,Labour,"Electronics Class","16",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 University Campus,None,None,continuous,Buildings,"University, Land, Wood, Rock","100, 100, 100",10,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,"University"
-Electronics Class,None,None,None,Education,"Study","1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, University"
+Electronics Class,None,None,None,Education,"Study","1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"University"
 #Electronics Class,None,None,None,Education,"Study, University Campus","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
 Shares,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
