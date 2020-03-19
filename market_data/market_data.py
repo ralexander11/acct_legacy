@@ -255,7 +255,7 @@ class MarketData(object):
 		error_df.to_csv(path)
 		print(self.time_stamp() + 'Invalid tickers file saved to: {}'.format(path))
 
-	def get_hist_prices(self, dates, tickers=None, save=False, v=True):
+	def get_hist_prices2(self, dates, tickers=None, save=False, v=True):
 		if tickers is None:
 			tickers = 'ws_tickers.csv'
 		if '.csv' in tickers:
@@ -309,9 +309,9 @@ class MarketData(object):
 			prices_save.to_csv(path, index=False)
 		return prices_save
 
-	def get_hist_price2(self, data=None, save=False, v=True):
+	def get_hist_price(self, data=None, save=False, v=True):
 		if data is None:
-			data = 'all_miss_fields02.csv'
+			data = 'ws_new_miss_fields.csv'
 		if '.csv' in data:
 			print(self.time_stamp() + 'Reading data from: data/{}'.format(data))
 			data = pd.read_csv('data/' + data)
@@ -439,17 +439,17 @@ if __name__ == '__main__':
 	print('-' * DISPLAY_WIDTH)
 
 	if args.mode == 'missing':
+		data.get_hist_price(save=args.save)
+		exit()
+
+	if args.mode == 'missing2':
 		# args.tickers = None #['aapl']
 		# dates = ['2020-01-22']#, '2020-01-23']
 		if args.dates is None:
 			dates = '../data/missing_dates.csv'
 		else:
 			dates = args.dates
-		data.get_hist_prices(dates, args.tickers, save=args.save)
-		exit()
-
-	if args.mode == 'missing2':
-		data.get_hist_price2(save=args.save)
+		data.get_hist_prices2(dates, args.tickers, save=args.save)
 		exit()
 
 	if args.mode == 'financials':
@@ -507,4 +507,4 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -t cdn_tickers.csv -d all_dates.csv -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing05.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing2 -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing10.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing11.log 2>&1 &
