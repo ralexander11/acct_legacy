@@ -371,7 +371,7 @@ def main(tickers=None, merged_data=None, v=True):
 			tickers = [str(tickers)]
 		for ticker in tickers:
 			ticker = ticker.lower()
-			merged = 'merged.csv'
+			merged = 'merged_final.csv'
 			# print(combine_data.data_location + merged)
 			if merged_data is not None:
 				df = combine_data.comp_filter(ticker, merged_data)

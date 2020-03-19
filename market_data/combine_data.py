@@ -196,6 +196,7 @@ class CombineData(object):
 		merged.reset_index(inplace=True)
 		merged['date'] = pd.to_datetime(merged['date'])
 		df = merged.set_index(['symbol','date'])
+		df = df.drop(['hist_close','hist_changePercent','hist_change','hist_changeOverTime','hist_high','hist_low','hist_open','hist_volume','hist_label','uClose','uHigh','uLow','uOpen'], axis=1, errors='ignore')
 		df['sector'] = df['sector'].astype(str)
 		df['latestEPSDate'] = df['latestEPSDate'].astype(str)
 		df['nextEarningsDate'] = df['nextEarningsDate'].astype(str)
@@ -223,10 +224,8 @@ class CombineData(object):
 			print(time_stamp() + 'Merging missing data.')
 			missing['date'] = pd.to_datetime(missing['date'])
 			missing = missing.set_index(['symbol','date'])
-			# print(missing)
 			# with pd.option_context('display.max_rows', None):
-			# 	print(missing.dtypes)
-			# df = df.join(missing, how='outer')
+			# 	print(missing)
 			df = df.merge(missing, how='outer', on=['symbol','date'])
 		mask = df.index.duplicated(keep='first')
 		# print('mask:\n', mask)
@@ -350,7 +349,7 @@ class CombineData(object):
 			display_dates = ['2019-09-13','2019-09-16','2019-10-01']
 			# if v: print(time_stamp() + 'missing_merged:\n', df.loc[df.index.get_level_values('date').isin(display_dates)])
 		if save:
-			filename = 'miss'
+			filename = 'fill_ws_miss'
 			path = 'data/' + filename + '_merged.csv'
 			df.to_csv(path, date_format='%Y-%m-%d', index=True)
 			print(time_stamp() + 'Saved merged missing data to: {}'.format(path))
@@ -374,7 +373,7 @@ class CombineData(object):
 		with pd.option_context('display.max_columns', None, 'display.max_rows', None):
 			if v: print(time_stamp() + 'Found Missing Fields: {}\n{}'.format(len(df), df))
 		if save:
-			filename = 'new_miss_fields.csv'
+			filename = 'ws_new_miss_fields.csv'
 			path = 'data/' + filename
 			df.to_csv(path, date_format='%Y-%m-%d', index=True)
 			print(time_stamp() + 'Saved found missing fields to: {}'.format(path))
@@ -396,9 +395,10 @@ if __name__ == '__main__':
 		data_location = '/Users/Robbie/Public/market_data/new/data/'
 	combine_data = CombineData(data_location=data_location)
 
-	if args.mode == 'missing':
-		merged = 'merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
-		missing = 'AGR_to_ZZZD-CT_hist_prices_2019-09-11_to_2020-02-10.csv'
+	if args.mode == 'fill':
+		merged = 'ws_miss_merged.csv' #'merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
+		missing = 'A_to_ZZZ-CT_hist_prices_2019-08-26_to_2020-02-19.csv'
+		# 'AGR_to_ZZZD-CT_hist_prices_2019-09-11_to_2020-02-10.csv'
 		# 'a_to_zyne_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'aapl_to_aapl_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'a_to_zzz-ct_hist_prices_2018-05-22_to_2020-01-22' #'all_hist_prices'
@@ -406,7 +406,7 @@ if __name__ == '__main__':
 		exit()
 
 	if args.mode == 'find':
-		data = 'miss_merged.csv' # None # 'all_hist_prices_new4_merged.csv'
+		data = 'ws_miss_merged.csv' # None # 'all_hist_prices_new4_merged.csv'
 		df = combine_data.find_missing(data, save=args.save, v=False)
 		exit()
 
@@ -482,4 +482,4 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/combine01.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/fix02.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m fill -s >> /home/robale5/becauseinterfaces.com/acct/logs/fill03.log 2>&1 &

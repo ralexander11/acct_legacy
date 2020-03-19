@@ -449,7 +449,7 @@ class TradingAlgo(object):
 			quote_dfs = []
 			if not os.path.exists(path) or predict:
 				if train:
-					merged = 'merged.csv'
+					merged = 'merged_final.csv'
 					if os.path.exists(combine_data.data_location + merged):
 						print(time_stamp() + 'Merged data exists outer.')
 						merged_data = pd.read_csv(combine_data.data_location + merged)

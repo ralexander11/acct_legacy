@@ -189,6 +189,7 @@ class Accounts:
 					'Labour'
 				);
 			'''] # TODO Rename outputs to produces
+			# TODO Add field for currency and accounting framework
 
 		cur = self.conn.cursor()
 		cur.execute(create_entities_query)
@@ -304,17 +305,32 @@ class Accounts:
 		self.refresh_accts()
 
 	def add_acct(self, acct_data=None, v=False):
+		if acct_data:
+			if isinstance(acct_data, pd.DataFrame):
+				acct_data = acct_data.values.tolist()
+			elif isinstance(acct_data, pd.Series):
+				acct_data = [acct_data.tolist()]
+			elif isinstance(acct_data, str):
+				acct_data = [[x.strip() for x in acct_data.split(',')]]
+			elif not isinstance(acct_data[0], (list, tuple)):
+				acct_data = [acct_data]
 		cur = self.conn.cursor()
 		if acct_data is None:
 			account = input('Enter the account name: ')
 			child_of = input('Enter the parent account: ')
+			# order = 
+			# non_cash = 
+			# cash_cat = 
 			if child_of not in self.coa.index:
 				print('\n' + child_of + ' is not a valid account.')
 				return
 			details = (account, child_of)
 			cur.execute('INSERT INTO accounts VALUES (?,?)', details)
 		else:
-			for acct in acct_data: # TODO Turn this into a list comprehension
+			for acct in acct_data: # TODO Maybe turn this into a list comprehension
+				if len(acct) == 2:
+					pass # Convert to new style
+
 				account = str(acct[0])
 				child_of = str(acct[1])
 				if v: print(acct)
@@ -1161,6 +1177,8 @@ class Ledger:
 				journal_data = journal_data.values.tolist()
 			elif isinstance(journal_data, pd.Series):
 				journal_data = [journal_data.tolist()]
+			elif isinstance(journal_data, str):
+				journal_data = [[x.strip() for x in journal_data.split(',')]]
 			elif not isinstance(journal_data[0], (list, tuple)):
 				journal_data = [journal_data]
 		cur = self.conn.cursor()
@@ -1686,6 +1704,7 @@ class Ledger:
 		return result
 
 	def bs_hist(self, dates=None, entities=None, v=True): # TODO Optimize this so it does not recalculate each time
+	# nohup python -u acct.py -db test01.db -c hist >> logs/hist_test01.log 2>&1
 		if entities == '':
 			entities = None
 		if entities is None:
@@ -1697,6 +1716,9 @@ class Ledger:
 				else:
 					entities = [entities]
 		if v: print('Number of entities: {}'.format(len(entities)))
+		if dates is None:
+			dates = input('Which date or press enter for all dates? ')
+			# dates = ['2019-05-27']
 		if dates == '':
 			dates = None
 		if dates is None:
@@ -1850,10 +1872,13 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'rvsl':
 			ledger.reversal_entry()
+			if args.command is not None: exit()
 		elif command.lower() == 'split':
 			ledger.split()
+			if args.command is not None: exit()
 		elif command.lower() == 'adj':
 			ledger.adjust()
+			if args.command is not None: exit()
 		elif command.lower() == 'uncategorize':
 			ledger.uncategorize()
 			if args.command is not None: exit()
@@ -1889,12 +1914,15 @@ def main(conn=None, command=None, external=False):
 			ledger.reset()
 			if args.command is not None: exit()
 		elif command.lower() == 'hist':
-			dates = input('Which date or press enter for all dates? ')
+			dates = ['2019-05-27']
 			ledger.print_hist(dates=dates, v=False)
+			if args.command is not None: exit()
 		elif command.lower() == 'latestdate':
 			ledger.latest_date()
+			if args.command is not None: exit()
 		elif command.lower() == 'oldestdate':
 			ledger.oldest_date()
+			if args.command is not None: exit()
 		elif command.lower() == 'latestitem':
 			ledger.latest_item()
 			if args.command is not None: exit()
@@ -1915,10 +1943,13 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'loaditems':
 			accts.load_items()
+			if args.command is not None: exit()
 		elif command.lower() == 'table':
 			accts.print_table()
+			if args.command is not None: exit()
 		elif command.lower() == 'exporttable':
 			accts.export_table()
+			if args.command is not None: exit()
 
 		elif command.lower() == 'db':
 			if args.database is not None:
