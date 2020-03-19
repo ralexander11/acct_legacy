@@ -28,7 +28,7 @@ PAY_PERIODS = 2
 GESTATION = 2
 MAX_CORPS = 0#2
 INIT_PRICE = 10.0
-INIT_CAPITAL = 25000 # TODO Make dynamic with arg.parse
+INIT_CAPITAL = 25000 # Not used
 EXPLORE_TIME = 400
 USE_PIN = False
 
@@ -263,6 +263,7 @@ class World:
 				if not any(n <= 0 for n in current_need_all):
 					alive_individuals.append(row)
 			self.population = len(alive_individuals)
+			self.start_capital = args.capital / args.population
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Items Config: \n{}'.format(self.items))
 			self.entities = accts.get_entities().reset_index()
@@ -306,7 +307,7 @@ class World:
 				factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), corp['auth_shares'], corp['entity_id'])
 			nonprofs = self.entities.loc[self.entities['entity_type'] == 'NonProfit']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			# 	print('Corporations: \n{}'.format(nonprofs))	
+			# 	print('Non-Profits: \n{}'.format(nonprofs))	
 			for index, nonprof in nonprofs.iterrows():
 				legal_form = self.org_type(nonprof['name'])
 				factory.create(legal_form, nonprof['name'], nonprof['outputs'], int(nonprof['government']), nonprof['auth_shares'], nonprof['entity_id'])
@@ -659,8 +660,8 @@ class World:
 				self.gov = gov
 				self.gov.bank.print_money(args.capital)
 				for individual in self.gov.get(Individual):
-					capital = args.capital / self.population
-					individual.loan(amount=capital)
+					self.start_capital = args.capital / self.population
+					individual.loan(amount=self.start_capital, roundup=False)
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 
@@ -709,9 +710,9 @@ class World:
 			t3_1_end = time.perf_counter()
 			print(time_stamp() + '3.1: Dep check took {:,.2f} sec for {}.'.format((t3_1_end - t3_1_start), entity.name, entity.entity_id))
 			t3_2_start = time.perf_counter()
-			entity.wip_check()
+			entity.repay_loans()
 			t3_2_end = time.perf_counter()
-			print(time_stamp() + '3.2: WIP check took {:,.2f} sec for {}.'.format((t3_2_end - t3_2_start), entity.name, entity.entity_id))
+			print(time_stamp() + '3.2: Dbt check took {:,.2f} sec for {}.'.format((t3_2_end - t3_2_start), entity.name, entity.entity_id))
 			t3_3_start = time.perf_counter()
 			entity.check_interest()
 			t3_3_end = time.perf_counter()
@@ -728,6 +729,10 @@ class World:
 			entity.pay_wages()
 			t3_6_end = time.perf_counter()
 			print(time_stamp() + '3.6: Wag check took {:,.2f} sec for {}.'.format((t3_6_end - t3_6_start), entity.name, entity.entity_id))
+			t3_7_start = time.perf_counter()
+			entity.wip_check()
+			t3_7_end = time.perf_counter()
+			print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
 		t3_end = time.perf_counter()
 		print(time_stamp() + '3: Entity check took {:,.2f} min.'.format((t3_end - t3_start) / 60))
 		print()
@@ -1186,7 +1191,22 @@ class Entity:
 		ledger.reset()
 		if cash >= (qty * price) or counterparty.entity_id == self.entity_id:
 			#print('Transact Item Type: {}'.format(item_type))
-			if (qty <= qty_avail or item_type == 'Service' or item_type == 'Education'):
+			qty_possible = qty
+		else:
+			try:
+				qty_possible = math.floor(cash / price) # Will buy what can be afforded
+			except ZeroDivisionError as e:
+				qty_possible = qty
+			if qty_possible != 0 and price != 0:
+				print('{} does not have enough cash to purchase {} units of {} for {} each. Cash: {} | Qty Possible: {}'.format(self.name, qty, item, price, cash, qty_possible))
+		if qty_possible != 0:
+			qty = qty_possible
+			if qty > qty_avail or item_type == 'Service' or item_type == 'Education': # Will buy what is available
+				if item_type != 'Service' and item_type != 'Education':
+					qty = qty_avail
+				if qty_avail != 0:
+					print('{} does not have enough {} on hand to sell {} units of {}. Qty on hand: {}'.format(self.name, item, qty, item, qty_avail))
+			if ((qty <= qty_avail and qty_avail != 0) or item_type == 'Service' or item_type == 'Education'):
 				if item_type is not None and item_type != 'Service' and item_type != 'Education':
 					print('{} transacted with {} for {} {}'.format(self.name, counterparty.name, qty, item))
 					ledger.set_entity(counterparty.entity_id)
@@ -1219,10 +1239,12 @@ class Entity:
 					counterparty.adj_price(item, qty, direction='up')
 					return purchase_event, cost
 			else:
-				print('{} does not have enough {} on hand to sell {} units of {}.'.format(self.name, item, qty, item))
+				print('{} does not have enough {} on hand to sell {} units of {}. Qty on hand: {}'.format(self.name, item, qty, item, qty_avail))
 				return purchase_event, cost
 		else:
-			print('{} does not have enough cash to purchase {} units of {}.'.format(self.name, qty, item))
+			# qty_possible = math.floor(cash / price)
+			print('{} does not have enough cash to purchase {} units of {} for {} each. Cash: {} | Qty Possible: {}'.format(self.name, qty, item, price, cash, qty_possible))
+			self.loan(amount=((qty * price) - cash), item='Credit Line 5')
 			cost = True
 			# counterparty.adj_price(item, qty, direction='down')
 			return purchase_event, cost
@@ -1427,7 +1449,7 @@ class Entity:
 				gift_event = [giftee_entry, giftor_entry]
 				ledger.journal_entry(gift_event)
 			else:
-				print('{} does not have enough cash to gift ${} to {}.'.format(self.name, qty, counterparty.name))
+				print('{} does not have enough cash to gift ${} to {}. Cash: {}'.format(self.name, qty, counterparty.name, cash))
 		else:
 			# TODO Fix accounting to not be at cost
 			price = 1
@@ -1976,8 +1998,8 @@ class Entity:
 					if max_qty_possible < 0:
 						print('Negative max_qty_possible: {} | qty: {}'.format(max_qty_possible, qty))
 						max_qty_possible = 0
-				# if max_qty_possible < qty: # TODO Handle in similar way for commodities and other item types?
-				# 	incomplete = True
+				if max_qty_possible == 0: # TODO Handle in similar way for commodities and other item types?
+					incomplete = True
 				print('Land Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty)) # TODO Show the max possible above qty requested
 				if (time_required or item_type == 'Buildings' or item_type == 'Equipment') and not incomplete: # TODO Handle land in use during one tick
 					entries = self.in_use(req_item, req_qty * (1-modifier) * qty, price=price, buffer=True) # TODO Verify qty passed
@@ -2424,7 +2446,8 @@ class Entity:
 							if req_time_required:
 								print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
 							incomplete = True
-							# max_qty_possible = 0
+							if 'animal' in item_freq and 'animal' in req_freq:
+								max_qty_possible = 0 # TODO Test if this causes issues for non-animals
 					else:
 						incomplete = True
 				# ledger.set_entity(self.entity_id)
@@ -2444,11 +2467,11 @@ class Entity:
 				material_qty = ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=True)
 				print('Item: {} | qty: {} | req_item: {} | req_qty: {} | material_qty: {} | modifier: {} | max_qty_possible: {}'.format(item, qty, req_item, req_qty, material_qty, modifier, max_qty_possible))
 				try:
-					if 'animal' in req_freq and material_qty < 2:
+					if 'animal' in req_freq and material_qty <= 2:
 						max_qty_possible = 0
 						constraint_qty = 0
 						incomplete = True
-						self.item_demanded(req_item, 2 - material_qty)
+						self.item_demanded(req_item, 3 - material_qty)
 					else:
 						constraint_qty = math.floor(material_qty / (req_qty * (1-modifier)))
 						max_qty_possible = min(constraint_qty, max_qty_possible)
@@ -2497,7 +2520,7 @@ class Entity:
 				# TODO Add support for capacity to Subscriptions
 				# TODO Add check to ensure payment has been made recently (maybe on day of)
 				subscription_state = ledger.get_qty(items=req_item, accounts=['Subscription Info'])
-				print('{} requires {} {} subscription to produce {} {} and has: {}'.format(self.name, req_qty * (1-modifier) * qty, req_item, qty, item, subscription_state))
+				print('{} requires {} subscription to produce {} {} and has: {}'.format(self.name, req_item, qty, item, subscription_state))
 				if not subscription_state:
 					print('{} does not have {} subscription active. Will attempt to activate it.'.format(self.name, req_item))
 					if not man:
@@ -4168,7 +4191,8 @@ class Entity:
 					if counterparty.entity_id != self.entity_id:
 						cash -= wages_payable
 				else:
-					print('{} does not have enough cash to pay wages for {}\'s {} work. Cash: {}'.format(self.name, counterparty.name, job, cash))
+					print('{} does not have enough cash to pay {} in wages for {}\'s {} work. Cash: {}'.format(self.name, wages_payable, counterparty.name, job, cash))
+					self.loan(amount=(wages_payable - cash), item='Credit Line 5')
 			ledger.journal_entry(pay_wages_event)
 			ledger.set_entity(self.entity_id)
 			cash = ledger.balance_sheet(['Cash'])
@@ -4595,7 +4619,8 @@ class Entity:
 			return True
 		else:
 			if not incomplete:
-				print('{} does not have enough cash to pay for {} salary. Cash: {}'.format(self.name, job, cash))
+				print('{} does not have enough cash to pay {} for {} salary. Cash: {}'.format(self.name, (salary * labour_hours), job, cash))
+				self.loan(amount=((salary * labour_hours) - cash), item='Credit Line 5')
 			else:
 				print('{} cannot fulfill the requirements to keep {} working.'.format(self.name, job))
 			if not first:
@@ -4678,7 +4703,8 @@ class Entity:
 			ledger.journal_entry(order_subscription_event)
 			return True #TODO Make return order_subscription_event
 		else:
-			print('{} does not have enough cash to pay for {} subscription. Cash: {}'.format(self.name, item, cash))
+			print('{} does not have enough cash to pay {} for {} subscription. Cash: {}'.format(self.name, price, item, cash))
+			self.loan(amount=(price - cash), item='Credit Line 5')
 			#self.item_demanded(item, qty, cost=True) # TODO Decide how to handle
 			counterparty.adj_price(item, qty=1, direction='down')
 
@@ -4757,7 +4783,8 @@ class Entity:
 						self.address_need(need)
 			else:
 				if not incomplete:
-					print('{} does not have enough cash to pay for {} subscription. Cash: {}'.format(self.name, item, cash))
+					print('{} does not have enough cash to pay {} for {} subscription. Cash: {}'.format(self.name, price, item, cash))
+					self.loan(amount=(price - cash), item='Credit Line 5')
 				else:
 					print('{} cannot fulfill the requirements to keep {} subscription.'.format(self.name, item))
 				if not first:
@@ -4795,7 +4822,7 @@ class Entity:
 		ledger.reset()
 		if cash >= amount:
 			# TODO Possibly reverse accounts if all money is deposited with the bank at initiation and loans are given
-			deposit_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Deposit cash', '', '', '', 'Cash', 'Cash', amount ]
+			deposit_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Deposit cash', '', '', '', 'Cash', 'Cash', amount ] # This entry isn't needed but could be implied
 			bank_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Cash deposit', '', '', '', 'Cash', 'Deposits', amount ]
 			deposit_event = [deposit_entry, bank_entry]
 			ledger.journal_entry(deposit_event)
@@ -4821,29 +4848,77 @@ class Entity:
 		else:
 			print('{} does not have {} to withdraw from {}. Cash held in bank: {}'.format(self.name, amount, counterparty.name, cash))
 
-	def loan(self, amount, counterparty=None, item=None):
+	def allow_loan(self, counterparty, amount=None):
+		# TODO Fully implement this
+		ledger.set_entity(self.entity_id)
+		debt = ledger.balance_sheet(['Loan'])
+		ledger.reset()
+		if debt <= world.start_capital * 2:
+			return True
+		else:
+			return False
+
+	def loan(self, amount=1000, counterparty=None, item=None, roundup=True):
+		# TODO Maybe remove default amount
+		if roundup:
+			if amount < 1000:
+				amount = 1000
+			else:
+				amount = int(round(amount + 499.9, -3))
 		if item is None:
 			item = 'Init Capital'
 		if counterparty is None:
 			counterparty = world.gov.bank
 		if counterparty is None:
 			print('{} has not founded their central bank yet. Incorporate a Bank to do so.'.format(world.gov))
+			return
+		if not counterparty.allow_loan(self, amount):
 			return
 		ledger.set_entity(counterparty.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
 		qty = 1
 		if cash >= amount:
-			loan_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Loan cash', item, '', '', 'Cash', 'Loan', amount ]
-			lend_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Lend cash', item, '', '', 'Loans Receivable', 'Cash', amount ]
-			loan_event = [loan_entry, lend_entry]
+			event = ledger.get_event() # To give both entries the same event_id # TODO Do this for other entries
+			lend_entry = [ event, counterparty.entity_id, self.entity_id, world.now, '', 'Lend cash', item, 1, amount, 'Loans Receivable', 'Cash', amount ]
+			loan_entry = [ event, self.entity_id, counterparty.entity_id, world.now, '', 'Loan cash', item, 1, amount, 'Cash', 'Loan', amount ] # TODO Rename to: Borrow cash?
+			loan_event = [lend_entry, loan_entry]
 			ledger.journal_entry(loan_event)
 			self.deposit(amount, counterparty)
 			return loan_event
 		else:
 			print('{} does not have {} to loan to {}. Cash held by bank: {}'.format(counterparty.name, amount, self.name, cash))
 
-	def repay(self, amount, counterparty=None, item=None):
+	def repay_loans(self, v=True):
+		# TODO Improve this
+		if self.user:
+			return
+		ledger.set_entity(self.entity_id)
+		debts = ledger.get_qty(accounts=['Loan'], credit=True)
+		# ledger.reset()
+		other_debts = debts.loc[debts['item_id'] != 'Init Capital']
+		# ledger.set_entity(self.entity_id)
+		cash = ledger.balance_sheet(['Cash'])
+		ledger.reset()
+		if not debts.empty:
+			if v: print('{} has {} cash to repay debts:\n{}'.format(self.name, cash, debts))
+			# if v: print('{} has {} cash to repay other_debts:\n{}'.format(self.name, cash, other_debts))
+		if not other_debts.empty:
+			if cash >= 1000: # TODO Fix hardcoding
+				debt_item = other_debts.loc[0, 'item_id']
+				amount = -(other_debts.loc[0, 'qty'])
+				amount = min(amount, 1000)
+				self.repay(amount, item=debt_item)
+		if cash >= world.start_capital + 1000: # 251000:
+			init_debts = debts.loc[debts['item_id'] == 'Init Capital']
+			if not init_debts.empty:
+				debt_item = init_debts.loc[0, 'item_id']
+				amount = -(init_debts.loc[0, 'qty'])
+				amount = min(amount, 1000)
+				self.repay(amount, item=debt_item)
+
+	def repay(self, amount=1000, counterparty=None, item=None):
+		# TODO Maybe remove default amount
 		if item is None:
 			item = 'Init Capital'
 		if counterparty is None:
@@ -4856,42 +4931,56 @@ class Entity:
 		ledger.reset()
 		qty = 1
 		if cash >= amount:
-			loan_repay_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Repay loan', item, '', '', 'Loan', 'Cash', amount ]
-			lend_repay_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Lend repayment', item, '', '', 'Cash', 'Loans Receivable', amount ]
+			event = ledger.get_event() # To give both entries the same event_id
+			loan_repay_entry = [ event, self.entity_id, counterparty.entity_id, world.now, '', 'Repay loan', item, 1, amount, 'Loan', 'Cash', amount ]
+			lend_repay_entry = [ event, counterparty.entity_id, self.entity_id, world.now, '', 'Loan repayment', item, 1, amount, 'Cash', 'Loans Receivable', amount ]
 			loan_repay_event = [loan_repay_entry, lend_repay_entry]
 			ledger.journal_entry(loan_repay_event)
 			return loan_repay_event
 		else:
-			print('{} does not have {} to repay loan to {}. Cash held by bank: {}'.format(self.name, amount, counterparty.name, cash))
+			print('{} does not have {} to repay loan to {}. Cash held: {}'.format(self.name, amount, counterparty.name, cash))
 
-	def check_interest(self, item=None):
-		if item is None:
-			item = 'Init Capital'
-		ledger.set_entity(self.entity_id)
-		loan_bal = -(ledger.balance_sheet(['Loan']))
-		ledger.reset()
-		if loan_bal:
-			print('{}: Loan Balance: {}'.format(self.name, loan_bal))
-			# TODO Return bs of items with balance for given accounts
-			counterparty = world.gov.bank
-			int_rate_fix = world.items.loc[item, 'int_rate_fix']
-			int_rate_var_check = world.items.loc[item, 'int_rate_var']
-			if int_rate_var_check is not None:
-				int_rate_var = world.gov.bank.interest_rate
-				print('Central Bank Interest Rate: {}'.format(int_rate_var))
-			else:
-				int_rate_var = 0 # TODO Add var int logic and support
-			rate = int_rate_fix + int_rate_var
-			if not rate:
-				return
-			freq = world.items.loc[item, 'freq'] # TODO Add frequency logic
-			period = 1 / freq
-			int_amount = round(loan_bal * rate * period, 2)
-			int_exp_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Interest expense for {}'.format(item), '', '', '', 'Interest Expense', 'Cash', int_amount ]
-			int_rev_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Interest income from {}'.format(item), '', '', '', 'Cash', 'Interest Income', int_amount ]
-			# TODO Add bank interest revenue entry
-			int_exp_event = [int_exp_entry, int_rev_entry]
-			ledger.journal_entry(int_exp_event)
+	def check_interest(self, items=None):
+		if items is None:
+			items = world.items.loc[world.items['child_of'] == 'Loan'].index.tolist()
+		if isinstance(items, str):
+			items = [x.strip() for x in items.split(',')]
+		for item in items:
+			ledger.set_entity(self.entity_id)
+			loan_bal = -(ledger.balance_sheet(['Loan'], item=item))
+			ledger.reset()
+			if loan_bal:
+				print('{}: Loan Balance: {}'.format(self.name, loan_bal))
+				# TODO Return bs of items with balance for given accounts
+				counterparty = world.gov.bank
+				int_rate_fix = world.items.loc[item, 'int_rate_fix']
+				int_rate_var_check = world.items.loc[item, 'int_rate_var']
+				if int_rate_var_check is not None:
+					int_rate_var = world.gov.bank.interest_rate
+					print('Central Bank Interest Rate: {}'.format(int_rate_var))
+				else:
+					int_rate_var = 0 # TODO Add var int logic and support
+				rate = int_rate_fix + int_rate_var
+				if not rate:
+					return
+				freq = world.items.loc[item, 'freq'] # TODO Add frequency logic
+				period = 1 / freq
+				int_amount = round(loan_bal * rate * period, 2)
+				int_exp_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Interest expense for {}'.format(item), '', '', '', 'Interest Expense', 'Cash', int_amount ]
+				int_rev_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Interest income from {}'.format(item), '', '', '', 'Cash', 'Interest Income', int_amount ]
+				# TODO Add bank interest revenue entry
+				int_exp_event = [int_exp_entry, int_rev_entry]
+				ledger.journal_entry(int_exp_event)
+
+	def bankruptcy(self):
+		pass
+		# TODO Check for outstanding debts
+		# TODO Check when last interest payment was made
+		# TODO If it is greater than some timespan then enter bankruptcy
+		# TODO Write off all debt
+		# TODO Transfer all cash and assets to debtors
+		# TODO Set all assets for sale
+		# TODO In future transfer all assets proportionately
 
 	def depreciation_check(self, items=None): # TODO Add support for explicitly provided items
 		if items is None:
@@ -5863,7 +5952,7 @@ class Entity:
 					if amount <= 0:
 						continue
 					break
-			self.loan(amount, counterparty, item=None)
+			self.loan(amount, counterparty, item=None, roundup=False)
 		elif command.lower() == 'repay':
 			counterparty = world.gov.bank
 			while True:
@@ -6751,7 +6840,10 @@ class Environment(Entity):
 				accts.add_entity(entity_data)
 				self.entity_id = entity_id
 		else:
-			self.entity_id = entity_id
+			if entity_id is None:
+				self.entity_id = accts.add_entity(entity_data)
+			else:
+				self.entity_id = entity_id
 		self.name = name
 		self.government = None
 		self.user = None
@@ -6851,7 +6943,7 @@ class Corporation(Organization):
 		ledger.reset()
 		#print('{} cash: {}'.format(self.name, cash))
 		if cash < total_shares * div_rate:
-			print('{} does not have enough cash to pay dividend at a rate of {}.'.format(self.name, div_rate))
+			print('{} does not have enough cash to pay dividend at a rate of {}. Cash: {}'.format(self.name, div_rate, cash))
 			return
 		div_event = []
 		for index, shareholder in shareholders.iterrows():
@@ -6909,7 +7001,10 @@ class Government(Organization):
 				accts.add_entity(entity_data)
 				self.entity_id = entity_id
 		else:
-			self.entity_id = entity_id
+			if entity_id is None:
+				self.entity_id = accts.add_entity(entity_data)
+			else:
+				self.entity_id = entity_id
 		self.name = name
 		if user == 'True' or user == '1' or user == 1:
 			user = True
@@ -6974,7 +7069,10 @@ class Governmental(Organization):
 				accts.add_entity(entity_data)
 				self.entity_id = entity_id
 		else:
-			self.entity_id = entity_id
+			if entity_id is None:
+				self.entity_id = accts.add_entity(entity_data)
+			else:
+				self.entity_id = entity_id
 		self.name = name
 		self.government = government
 		self.user = None
@@ -7008,7 +7106,10 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 				accts.add_entity(entity_data)
 				self.entity_id = entity_id
 		else:
-			self.entity_id = entity_id
+			if entity_id is None:
+				self.entity_id = accts.add_entity(entity_data)
+			else:
+				self.entity_id = entity_id
 		self.name = name
 		self.government = government
 		if user is None:
@@ -7064,7 +7165,10 @@ class NonProfit(Organization):
 				accts.add_entity(entity_data)
 				self.entity_id = entity_id
 		else:
-			self.entity_id = entity_id
+			if entity_id is None:
+				self.entity_id = accts.add_entity(entity_data)
+			else:
+				self.entity_id = entity_id
 		self.name = name
 		self.government = government
 		self.user = None
