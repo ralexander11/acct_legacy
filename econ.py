@@ -455,7 +455,7 @@ class World:
 		if v: print(self.now)
 		return self.now
 
-	def get_hours(self, computers=True):
+	def get_hours(self, computers=True, v=False):
 		self.hours = collections.OrderedDict()
 		if computers:
 			entities = world.gov.get(Individual)
@@ -463,6 +463,10 @@ class World:
 			entities = world.gov.get(Individual, computers=computers)
 		for individual in entities:
 			self.hours[individual.name] = individual.hours
+		if v:
+			print('Current entity hours:')
+			for entity_name, hours in self.hours.items():
+				print('{} | Hours: {}'.format(entity_name, hours))
 		return self.hours
 
 	def check_end(self, v=False):
@@ -566,7 +570,7 @@ class World:
 				print('{} | User: {}'.format(entity, entity.user))
 			while True:
 				try:
-					selection = input('Enter an entity ID number of an Individual or Government: ')
+					selection = input('Enter an entity ID number of an Individual or Government to toggle whether it is user controlled: ')
 					if selection == '':
 						return
 					selection = int(selection)
@@ -586,6 +590,7 @@ class World:
 				else:
 					if not target.user:
 						citizen.user = not citizen.user
+		# TODO Update entities table in db
 		return target
 
 	def get_price(self, item, entity_id=None):
@@ -762,6 +767,7 @@ class World:
 				print('Checking player auto produce queue.')
 				for entity in player.get():
 					entity.auto_produce()
+				world.get_hours(v=True)
 				while True:#sum(self.get_hours(computers=False).values()) > 0:
 					if self.selection is None:
 						user_entities = player.get(Individual, computers=False)
@@ -2173,7 +2179,7 @@ class Entity:
 							result = self.purchase(req_item, required_qty)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
 							req_time_required = False
 							if not result:
-								if 'animal' in item_freq and 'animal' in req_freq and (equip_qty == 0 or equip_qty == 1):
+								if 'animal' in item_freq and 'animal' in req_freq and (equip_qty == 0 or equip_qty == 1) and not man:
 									required_qty = 1
 									print('{} will attempt to catch remaining {} {} in the wild.'.format(self.name, required_qty, req_item))
 									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, reqs='int_rate_fix', amts='int_rate_var', debit_acct='Equipment') # TODO This is a bit hackey
@@ -2362,7 +2368,7 @@ class Entity:
 					pass
 				material_qty_held = ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=True)
 
-				if 'animal' in item_freq and 'animal' in req_freq and (material_qty_held == 0 or material_qty_held == 1):
+				if 'animal' in item_freq and 'animal' in req_freq and (material_qty_held == 0 or material_qty_held == 1) and not man:
 					# qty_needed = max((req_qty * (1 - modifier) * qty) - material_qty_held, 0)
 					if material_qty_held == 1:
 						qty_needed = 1
@@ -2421,7 +2427,7 @@ class Entity:
 								qty_needed = max(qty_needed - purchased_qty, 0)
 						req_time_required = False
 						if not result or partial_qty:
-							if 'animal' in item_freq and 'animal' in req_freq and (material_qty_held + purchased_qty) < 2:
+							if 'animal' in item_freq and 'animal' in req_freq and (material_qty_held + purchased_qty) < 2 and not man:
 								# if incomplete:
 								# 	continue
 								print('{} will attempt to catch remaining {} {} in the wild.'.format(self.name, qty_needed, req_item))
@@ -5834,6 +5840,11 @@ class Entity:
 			except AttributeError as e:
 				print('Only Individuals can give birth, but a {} is selected.'.format(self.__class__.__name__))
 				print('Error: {}'.format(repr(e)))
+		elif command.lower() == 'divorce':
+			if not isinstance(self, Individual):
+				print('{} is not an Individual and unable to divorce their parents.'.format(self.name))
+				return
+			self.divorce()
 		elif command.lower() == 'dividend':
 			if not isinstance(self, Corporation):
 				print('{} is not a Corporation and unable to pay dividends.'.format(self.name))
@@ -5969,6 +5980,8 @@ class Entity:
 						continue
 					break
 			self.repay(amount, counterparty, item=None)
+		elif command.lower() == 'hours':
+			world.get_hours(v=True)
 		elif command.lower() == 'land':
 			world.unused_land()
 		elif command.lower() == 'map':
@@ -6131,6 +6144,7 @@ class Entity:
 				'productivity': 'See a list of all requirements that can be made more productive by other items.',
 				'incorp': 'Incorporate a company to produce items.',
 				'raisecap': 'Sell additional shares in the Corporation.',
+				'hours': 'See hours available for each entity.',
 				'land': 'See land available to claim.',
 				'map': 'See all land in existence.',
 				'claimland': 'Claim land for free, but it must be defended.',
@@ -6172,6 +6186,7 @@ class Entity:
 				'repay': 'Repay cash borrowed from the bank.',
 				'adjrate': 'Adjust central bank interest rate.',
 				'price': 'Set the price of items.',
+				'divorce': 'Divorce parents to be treated like a founder.',
 				'user': 'Toggle selected entity between user or computer control.',
 				'superselect': 'Select any entity, including computer users.',
 				'acctmore': 'View more commands for the accounting system.',
@@ -6394,6 +6409,9 @@ class Individual(Entity):
 				counterparty = self
 			else:
 				counterparty = individuals[-1]
+		elif not isinstance(counterparty, Individual):
+			print('{} can only give birth with Individuals and {} is a {}.'.format(self.name, counterparty.name, type(counterparty).__name__))
+			return
 		# TODO Use get relatives function to check if counterparty is external, if so cannot get cash from them or maybe use them
 		gift_event = []
 		ledger.set_entity(self.entity_id)
@@ -6447,6 +6465,22 @@ class Individual(Entity):
 		print('\nPerson-' + str(last_entity_id + 1) + ' is born!')
 		ledger.journal_entry(gift_event)
 		self.pregnant = GESTATION
+
+	def divorce(self, parents=(None, None), v=True):
+		orig_parents = self.parents
+		self.parents = parents
+		cur = ledger.conn.cursor()
+		set_parents_query = '''
+			UPDATE entities
+			SET parents = ?
+			WHERE entity_id = ?;
+		'''
+		values = (str(self.parents), self.entity_id)
+		cur.execute(set_parents_query, values)
+		ledger.conn.commit()
+		cur.close()
+		if v: print('{} set parents to be {} from {}. User status: {}'.format(self.name, self.parents, orig_parents, self.user))
+		return self.parents
 
 	def inheritance(self, counterparty=None):
 		# Remove any items that exist on the demand table for this entity
