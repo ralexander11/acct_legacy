@@ -1219,7 +1219,7 @@ class Entity:
 					print('{} getting historical cost of {} {}.'.format(counterparty.name, qty, item))
 					cost_amt = ledger.hist_cost(qty, item, 'Inventory')#, v=True)
 					ledger.reset()
-					# purchase_event += counterparty.release(item, purchase_event, qty=qty) # TODO Needs to be tested further
+					purchase_event += counterparty.release(item, purchase_event, qty=qty) # TODO Needs to be tested further
 					#print('Cost: {}'.format(cost_amt))
 					avg_price = cost_amt / qty
 					cogs_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, avg_price, qty, 'Cost of Goods Sold', acct_sell, cost_amt ]
@@ -1345,7 +1345,7 @@ class Entity:
 		else:
 			global_qty = global_inv['qty'].sum()
 		wip_global_qty = ledger.get_qty(items=item, accounts=wip_acct)
-		print('{} wants {} {} | Available for sale: {} | WIP: {}'.format(self.name, qty, item, global_qty, wip_global_qty))
+		print('{} wants to purchase {} {} | Available for sale: {} | WIP: {}'.format(self.name, qty, item, global_qty, wip_global_qty))
 
 		# Check which entity has the goods for the cheapest
 		if item_type == 'Service':
@@ -1400,6 +1400,12 @@ class Entity:
 				else:
 					price = world.get_price(item, counterparty.entity_id)
 				#print('Purchase QTY: {}'.format(purchase_qty))
+				# Fulfill for Land, Buildings, and Equipment
+				incomplete, in_use_event, time_required, max_qty_possible = self.fulfill(item, qty=purchase_qty, in_use=True)
+				result += in_use_event
+				if incomplete:
+					print('{} cannot purchase {} {} because it does not meet the requirements to hold it.'.format(self.name, purchase_qty, item))
+					break
 				result_tmp, cost = self.transact(item, price=price, qty=purchase_qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, buffer=buffer)
 				if not result_tmp:
 					break
@@ -1443,6 +1449,7 @@ class Entity:
 			print('{} does not have {} {} to put up for sale. Qty on hand: {}'.format(self.name, qty, item, qty_on_hand))
 
 	def gift(self, item, qty, counterparty, account=None):
+		gift_event = []
 		if item == 'Cash':
 			price = 1
 			# TODO Check if enough cash
@@ -1452,7 +1459,7 @@ class Entity:
 			if cash >= price * qty:
 				giftee_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Cash gift received from {}'.format(self.name), '', '', '', 'Cash', 'Gift', price * qty ]
 				giftor_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Cash gift given to {}'.format(counterparty.name), '', '', '', 'Gift Expense', 'Cash', price * qty ]
-				gift_event = [giftee_entry, giftor_entry]
+				gift_event += [giftee_entry, giftor_entry]
 				ledger.journal_entry(gift_event)
 			else:
 				print('{} does not have enough cash to gift ${} to {}. Cash: {}'.format(self.name, qty, counterparty.name, cash))
@@ -1465,40 +1472,24 @@ class Entity:
 			qty_held = ledger.get_qty(item, account)
 			ledger.reset()
 			if qty_held >= qty:
+				incomplete, in_use_event, time_required, max_qty_possible = counterparty.fulfill(item, qty=qty, in_use=True)
+				gift_event += in_use_event
+				if incomplete:
+					print('{} does not have the ability to receive {} {} as a gift from {}.'.format(counterparty.name, qty, item, self.name))
+					return
 				ledger.set_entity(self.entity_id)
 				print('{} getting historical cost of {} {} to gift.'.format(self.name, qty, item))
 				cost_amt = ledger.hist_cost(qty, item, 'Inventory')#, v=True)
 				ledger.reset()
 				giftee_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Gift received from {}'.format(self.name), item, cost_amt / qty, qty, account, 'Gift', cost_amt ]
 				giftor_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Gift given to {}'.format(counterparty.name), item, cost_amt / qty, qty, 'Gift Expense', account, cost_amt ]
-				gift_event = [giftee_entry, giftor_entry]
+				gift_event += [giftee_entry, giftor_entry]
 				ledger.journal_entry(gift_event)
 			else:
 				print('{} does not have enough {} to gift {} units to {}.'.format(self.name, item, qty, counterparty.name))
 
-	def release2(self, item, event=None, qty=None, date=None):
-		# TODO Use this with Sales transactions and Derecognition events
-		if event is None:
-			event = []
-		if date is None and qty is not None:
-			ledger.set_entity(self.entity_id)
-			remaining_txn = ledger.hist_cost(qty, item, 'Inventory', remaining_txn=True)#, v=True)
-			ledger.reset()
-			date = remaining_txn['date'].iloc[0]
-		# print('date:', date)
-		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
-		# Undo "in use" entries for related items
-		release_txns = ledger.gl[(ledger.gl['credit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-		# print('Release TXNs: \n{}'.format(release_txns))
-		in_use_txns = ledger.gl[(ledger.gl['debit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['date'] <= date) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # Ensure only captures related items, perhaps using date as a filter
-		# print('In Use TXNs: \n{}'.format(in_use_txns))
-		for index, in_use_txn in in_use_txns.iterrows():
-			release_entry = [ in_use_txn[0], in_use_txn[1], in_use_txn[2], world.now, in_use_txn[4], in_use_txn[6] + ' released', in_use_txn[6], in_use_txn[7], in_use_txn[8], in_use_txn[10], in_use_txn[9], in_use_txn[11] ]
-			event += [release_entry]
-			# ledger.journal_entry(release_event)
-		return event
-
-	def release(self, item, event=None, qty=1, modifier=0, date=None):
+	def release(self, item, event=None, qty=1, event_id=None, v=True):
+		if v: print('{} release for {} x {}.'.format(self.name, item, qty))
 		if event is None:
 			event = []
 		item_info = world.items.loc[item]
@@ -1507,15 +1498,57 @@ class Entity:
 		if item_info[reqs] is None or item_info[amts] is None:
 			return event
 		requirements = [x.strip() for x in item_info[reqs].split(',')]
-		amounts = [x.strip() for x in item_info[amts].split(',')]
-		amounts = list(map(float, amounts))
-		for i, requirement in enumerate(requirements):
-			requirement_type = world.get_item_type(requirement)
-			if requirement_type == 'Land' or requirement_type == 'Buildings' or requirement_type == 'Equipment':
-				req_qty = amounts[i] * qty * (1-modifier) # TODO Support modifiers
-				req_price = world.get_price(requirement, self.entity_id) # TODO Use price from entry
-				release_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Release ' + requirement + ' used by ' + item, requirement, req_price, req_qty, requirement_type, requirement_type + ' In Use', req_price * req_qty ]
+		req_types = [world.get_item_type(x) for x in requirements]
+		if v: print('Requirement types for {}: {}'.format(item, req_types))
+		if not any(x in req_types for x in ['Land', 'Buildings', 'Equipment']):
+			# if v: print('No Land, Buildings, or Equipment required for {}.'.format(item))
+			return event
+		freq = item_info['freq']
+		if freq is None:
+			freq = []
+		if 'prod_only' in freq:
+			return event
+		# 'animal' not in item_info['freq'] and
+		ledger.set_entity(self.entity_id)
+		if event_id is None:
+			try:
+				event_ids = ledger.hist_cost(qty, item, acct='Inventory', event_id=True)
+			except IndexError as e:
+				item_type = world.get_item_type(item)
+				event_ids = ledger.hist_cost(qty, item, acct=item_type, event_id=True)
+			if event_ids.empty:
+				return event
+			if v: print('event_ids:\n', event_ids)
+		for _, row in event_ids.iterrows():
+			event_id = row['event_id']
+			if row['qty'] < row['avail_qty']:
+				if v: print('qty:', row['qty'])
+				if v: print('avail_qty:', row['avail_qty'])
+			if v: print('in_use event_id:', event_id)
+			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+			# if v: print('RVSL TXNs:\n{}'.format(rvsl_txns))
+			release_txns = ledger.gl[(ledger.gl['credit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))] # TODO Is this needed?
+			if v: print('Release TXNs:\n{}'.format(release_txns))
+			in_use_txns = ledger.gl[(ledger.gl['debit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			if v: print('In Use TXNs:\n{}'.format(in_use_txns))
+			for _, in_use_txn in in_use_txns.iterrows():
+				# Check to ensure not releasing more than currently held
+				print('in_use acct: {}'.format(in_use_txn[9]))
+				qty_held = ledger.get_qty(in_use_txn[6], in_use_txn[9])
+				amount_held = ledger.balance_sheet(in_use_txn[9], in_use_txn[6])
+				if qty_held < in_use_txn[8]:
+					print('{} only has {} instead of {}.'.format(self.name, qty_held, in_use_txn[8]))
+					qty = qty_held
+				else:
+					qty = in_use_txn[8]
+				if amount_held < in_use_txn[11]:
+					print('{} only has {} balance instead of {}.'.format(self.name, amount_held, in_use_txn[11]))
+					amount = amount_held
+				else:
+					amount = in_use_txn[11]
+				release_entry = [ in_use_txn[0], in_use_txn[1], in_use_txn[2], world.now, in_use_txn[4], in_use_txn[6] + ' released', in_use_txn[6], in_use_txn[7], qty, in_use_txn[10], in_use_txn[9], amount_held ]
 				event += [release_entry]
+		ledger.reset()
 		return event
 
 	def consume(self, item, qty, need=None, buffer=False):
@@ -1529,7 +1562,7 @@ class Entity:
 		print('{} holds {} qty of {} and is looking to consume {} units.'.format(self.name, qty_held, item, qty))
 		if qty_held >= qty:
 			print('{} consumes: {} {}'.format(self.name, qty, item))
-			# consume_event += self.release(item, consume_event, qty=qty)
+			consume_event += self.release(item, consume_event, qty=qty)
 			ledger.set_entity(self.entity_id)
 			print('{} getting historical cost of {} {}.'.format(self.name, qty, item))
 			cost = ledger.hist_cost(qty, item, 'Inventory')#, v=True)
@@ -1849,7 +1882,7 @@ class Entity:
 			return modifier, equip_info
 		return None, None
 
-	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, v=False): # TODO Maybe add buffer=True
+	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, in_use=False, v=False): # TODO Maybe add buffer=True
 		if v: print('{} fulfill {} x {}. Partial: {} | Check: {}'.format(self.name, item, qty, partial, check))
 		try:
 			if not self.gl_tmp.empty:
@@ -1903,6 +1936,10 @@ class Entity:
 				req_freq = [x.strip() for x in req_freq.split(',')]
 			else:
 				req_freq = []
+			if in_use:
+				if req_item_type not in ['Land', 'Buildings', 'Equipment'] or 'animal' in req_freq:
+					continue
+				if v: print('In Use fulfill for {} requirement: {}'.format(item, requirement))
 
 			if req_item_type == 'Time' and partial is None:
 				# TODO Consider how Equipment could reduce time requirements
@@ -2177,6 +2214,7 @@ class Entity:
 						if not man:
 							# Attempt to purchase before producing self if makes sense
 							result = self.purchase(req_item, required_qty)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
+							# if v: print('Equip Purchase Result:', result)
 							req_time_required = False
 							if not result:
 								if 'animal' in item_freq and 'animal' in req_freq and (equip_qty == 0 or equip_qty == 1) and not man:
@@ -2198,6 +2236,8 @@ class Entity:
 								else:
 									if 'animal' in item_freq and 'animal' in req_freq and incomplete:
 										continue
+									elif 'animal' in item_freq and 'animal' in req_freq:# and equip_qty - equip_qty_wip <= 3: # TODO Test if this is needed for large amounts
+										required_qty = max(math.floor((equip_qty - equip_qty_wip) / 2), 1)
 									print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
 									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment')#, buffer=True)
 							if not result or req_time_required:
@@ -2678,7 +2718,7 @@ class Entity:
 						# else:
 						print('{} to produce {} {} requires {} labour for {} hours.'.format(self.name, qty, item, req_item, required_hours))
 						if qty == 1 and item_type != 'Service': # TODO Maybe support WIP Services
-							if man and not wip_choice and partial is None:
+							if man and not wip_choice and partial is None and not incomplete:
 								while True:
 									choice = input('Should {} ({} hours available) work on the {} over multiple days? [Y/n]: '.format(self.name, self.hours, item))
 									if choice == '':
@@ -2699,6 +2739,9 @@ class Entity:
 							if man and isinstance(self, Individual):
 								if self.hours > 0:
 									while True:
+										if incomplete:
+											required_hours = 0
+											break
 										try:
 											required_hours = input('Enter the amount of hours to hire {} ({} hours available) to work on {}: '.format(self.name, self.hours, item))
 											if required_hours == '':
@@ -3450,14 +3493,20 @@ class Entity:
 					if partial_index is not None: # TODO Capture additional labour costs in finished WIP entry
 						world.delay = world.delay.drop([partial_index]).reset_index(drop=True)
 					# Undo "in use" entries for related items
-					release_txns = ledger.gl[(ledger.gl['credit_acct'] == 'Equipment In Use') & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-					# print('Release TXNs: \n{}'.format(release_txns))
-
-					in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'Equipment In Use') & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['date'] <= wip_lot[3]) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # Ensure only captures related items, perhaps using date as a filter
-					# print('In Use TXNs: \n{}'.format(in_use_txns))
-					for index, in_use_txn in in_use_txns.iterrows():
-						release_entry = [ in_use_txn[0], in_use_txn[1], in_use_txn[2], world.now, in_use_txn[4], in_use_txn[6] + ' released', in_use_txn[6], in_use_txn[7], in_use_txn[8], in_use_txn[10], in_use_txn[9], in_use_txn[11] ]
-						release_event = [release_entry]
+					freq = world.items.loc[item]['freq']
+					if freq is None:
+						freq = []
+					if 'prod_only' in freq:
+						release_event = []
+						# release_txns = ledger.gl[(ledger.gl['credit_acct'] == 'Equipment In Use') & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))] # TODO Not used anymore
+						release_txns = ledger.gl[(ledger.gl['credit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+						# print('Release TXNs: \n{}'.format(release_txns))
+						in_use_txns = ledger.gl[(ledger.gl['debit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == wip_lot[0]) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+						# in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'Equipment In Use') & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['date'] <= wip_lot[3]) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # TODO Not used anymore # Ensure only captures related items, perhaps using date as a filter
+						# print('In Use TXNs: \n{}'.format(in_use_txns))
+						for index, in_use_txn in in_use_txns.iterrows():
+							release_entry = [ in_use_txn[0], in_use_txn[1], in_use_txn[2], world.now, in_use_txn[4], in_use_txn[6] + ' released', in_use_txn[6], in_use_txn[7], in_use_txn[8], in_use_txn[10], in_use_txn[9], in_use_txn[11] ]
+							release_event += [release_entry]
 						ledger.journal_entry(release_event)
 					# Book the entry to move from WIP to Inventory
 					if v: print('WIP account for {}: {}'.format(item, wip_lot[9]))
@@ -5172,7 +5221,7 @@ class Entity:
 					release_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Release ' + requirement + ' used by ' + item, requirement, req_price, req_qty, requirement_type, requirement_type + ' In Use', req_price * req_qty ]
 					derecognition_event += [release_entry]
 
-			# derecognition_event += self.release(item, derecognition_event, qty=qty)
+			derecognition_event += self.release(item, derecognition_event, qty=qty)
 			# TODO Check if item is In Use
 			derecognition_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accumulated Depreciation', 'Equipment', asset_bal ]
 			overage_entry = []
@@ -7420,4 +7469,4 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ02.db -s 11 -p 4 >> /home/robale5/becauseinterfaces.com/acct/logs/econ02.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ04.db -s 11 -p 4 >> /home/robale5/becauseinterfaces.com/acct/logs/econ04.log 2>&1 &

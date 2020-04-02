@@ -828,6 +828,8 @@ class Ledger:
 			# credit_accts = pd.unique(self.gl['credit_acct'])
 			# accounts = sorted(list(set(debit_accts) | set(credit_accts)))
 			accounts = np.unique(self.gl[['debit_acct', 'credit_acct']].values).tolist()
+		elif isinstance(accounts, str):
+			accounts = [x.strip() for x in accounts.split(',')]
 		account_details = []
 
 		# Create a list of tuples for all the accounts with their fundamental accounting element (asset,liab,eq,rev,exp)
@@ -1553,7 +1555,7 @@ class Ledger:
 		self.refresh_ledger()
 		return new_entry
 
-	def hist_cost(self, qty=None, item=None, acct=None, remaining_txn=False, avg_cost=False, v=False):
+	def hist_cost(self, qty=None, item=None, acct=None, remaining_txn=False, event_id=False, avg_cost=False, v=False):
 		v2 = False
 		if qty is None:
 			qty = int(input('Enter quantity: '))
@@ -1643,14 +1645,16 @@ class Ledger:
 			amount = 0
 			if qty <= avail_qty: # Case when first available lot covers the need
 				if v2: print('Hist Qty: {}'.format(qty))
-				price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[qty]})
+				price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']], 'qty':[qty], 'avail_qty':[max(avail_qty, 0)], 'event_id':self.gl.loc[start_index]['event_id']})
 				if price_chart.shape[0] >= 2:
 					print('Historical Cost Price Chart: \n{}'.format(price_chart))
+				if event_id:
+					return price_chart
 				amount = price_chart.price.dot(price_chart.qty)
 				print('Historical Cost Case | One for {} {}: {}'.format(qty, item, amount))
 				return amount
 
-			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']],'qty':[max(avail_qty, 0)]}) # Create a list of lots with associated price
+			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']], 'qty':[max(avail_qty, 0)], 'avail_qty':[max(avail_qty, 0)], 'event_id':self.gl.loc[start_index]['event_id']}) # Create a list of lots with associated price
 			qty = qty - avail_qty # Sell the remainder of first lot of unsold items
 			if v2: print('Historical Cost Price Chart Start: \n{}'.format(price_chart))
 			if v2: print('Qty Left to be Sold First: {}'.format(qty))
@@ -1669,14 +1673,16 @@ class Ledger:
 				if v: print('Qty Left to be Sold 1: {}'.format(qty))
 				if v: print('Current TXN Qty: {} | {}'.format(qty_txns_gl.loc[current_index]['qty'], self.gl.loc[current_index]['qty']))
 				if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
-					price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(qty, 0)}, ignore_index=True)
+					price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(qty, 0), 'avail_qty':self.gl.loc[current_index]['qty'], 'event_id':self.gl.loc[current_index]['event_id']}, ignore_index=True)
 					if price_chart.shape[0] >= 2:
 						print('Historical Cost Price Chart: \n{}'.format(price_chart))
+					if event_id:
+						return price_chart
 					amount = price_chart.price.dot(price_chart.qty) # Take dot product
 					print('Historical Cost Case | Two for {} {}: {}'.format(qty, item, amount))
 					return amount
 				
-				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0)}, ignore_index=True)
+				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0), 'avail_qty':self.gl.loc[current_index]['qty'], 'event_id':self.gl.loc[current_index]['event_id']}, ignore_index=True)
 				qty = qty - self.gl.loc[current_index]['qty']
 				if v: print('Qty Left to be Sold 2: {}'.format(qty))
 				count += 1
@@ -1684,6 +1690,8 @@ class Ledger:
 
 			if price_chart.shape[0] >= 2:
 				print('Historical Cost Price Chart: \n{}'.format(price_chart))
+			if event_id:
+				return price_chart
 			amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
 			print('Historical Cost Case | Three for {} {}: {}'.format(qty, item, amount))
 			return amount
