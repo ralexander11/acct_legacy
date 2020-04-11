@@ -125,6 +125,8 @@ class Accounts:
 			CREATE TABLE IF NOT EXISTS ''' + self.entities_table_name + ''' (
 				entity_id INTEGER PRIMARY KEY,
 				name text,
+				currency text,
+				framework text,
 				comm real DEFAULT 0,
 				min_qty INTEGER DEFAULT 1,
 				max_qty INTEGER DEFAULT 100,
@@ -148,6 +150,8 @@ class Accounts:
 		default_entities = ['''
 			INSERT INTO ''' + self.entities_table_name + ''' (
 				name,
+				currency,
+				framework,
 				comm,
 				min_qty,
 				max_qty,
@@ -169,6 +173,8 @@ class Accounts:
 				)
 				VALUES (
 					'Person001',
+					'CAD',
+					'IFRS',
 					0.0,
 					1,
 					100,
@@ -211,6 +217,8 @@ class Accounts:
 				requirements text,
 				amount text,
 				capacity integer,
+				hold_req text,
+				hold_amount text,
 				usage_req text,
 				use_amount text,
 				satisfies text,
@@ -238,6 +246,8 @@ class Accounts:
 				requirements,
 				amount,
 				capacity,
+				hold_req,
+				hold_amount,
 				usage_req,
 				use_amount,
 				satisfies,
@@ -261,6 +271,8 @@ class Accounts:
 					'loan',
 					'Bank',
 					'1',
+					NULL,
+					NULL,
 					NULL,
 					NULL,
 					NULL,
@@ -345,6 +357,8 @@ class Accounts:
 		cur = self.conn.cursor()
 		if entity_data is None:
 			name = input('Enter the entity name: ')
+			currency = input('Enter the currency code for the entity: ')
+			framework = input('Enter the accounting framework for the entity: ')
 			comm = input('Enter the commission amount: ')
 			min_qty = 1 # TODO Remove parameters related to random algo
 			max_qty = 100 # TODO Remove parameters related to random algo
@@ -369,8 +383,8 @@ class Accounts:
 			if int_rate == '' or int_rate == 'None' or int_rate is None:
 				int_rate = np.nan
 
-			details = (name,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,int_rate,outputs)
-			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (name,currency,framework,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,int_rate,outputs)
+			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
@@ -379,7 +393,7 @@ class Accounts:
 				except TypeError:
 					pass
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()
@@ -399,27 +413,29 @@ class Accounts:
 			# if child_of not in self.coa.index: # TODO Ensure item always points to an existing item
 			# 	print('\n' + child_of + ' is not a valid account.')
 			# 	return
-			requirements = input('Enter the requirments to produce the item as a list: ')
-			amount = input('Enter a value for the amount of each requirement as a list: ')
+			requirements = input('Enter the list of requirments to produce the item: ')
+			amount = input('Enter the list of values for the amounts of each requirements: ')
 			capacity = input('Enter the capacity amount if there is one: ')
-			usage_req = input('Enter the requirements to use the item as a list: ')
-			use_amount = input('Enter a value for the amount of each requirement to use the item as list: ')
-			satisfies = input('Enter the needs the item satisfies as a list: ')
-			satisfy_rate = input('Enter the rate the item satisfies the needs as a list: ')
-			productivity = input('Enter the requirements the item makes more efficient as a list: ')
-			efficiency = input('Enter the ratio that the requirement is reduced by as a list: ')
+			hold_req = input('Enter the list of requirements to hold the item: ')
+			hold_amount = input('Enter the list of values for the amount of each requirement to hold the item: ')
+			usage_req = input('Enter the list of requirements to use the item: ')
+			use_amount = input('Enter the list of values for the amount of each requirement to use the item: ')
+			satisfies = input('Enter the list of needs the item satisfies: ')
+			satisfy_rate = input('Enter the list of satisfy rates for the item: ')
+			productivity = input('Enter the list of requirements the item makes more efficient: ')
+			efficiency = input('Enter the list of ratios that the requirements are made more efficient by: ')
 			metric = input('Enter either "ticks" or "units" for how the lifespan is measured: ')
 			lifespan = input('Enter how long the item lasts: ')
-			dmg_types = input('Enter the types of damage (if any) the item can inflict as a list: ')
-			dmg = input('Enter the amounts of damage (if any) the item can inflict as a list: ')
-			res_types = input('Enter the types of damage resilience (if any) the item has as a list: ')
-			res = input('Enter the amounts of damage resilience (if any) the item has as a list: ')
-			byproduct = input('Enter the byproducts created (if any) when this item is produced as a list: ')
-			byproduct_amt = input('Enter the amount of byproducts created (if any) when this item is produced as a list: ')
+			dmg_types = input('Enter the list of types of damage (if any) the item can inflict: ')
+			dmg = input('Enter the list of amounts of damage (if any) the item can inflict: ')
+			res_types = input('Enter the list of types of damage resilience (if any) the item has: ')
+			res = input('Enter the list of amounts of damage resilience (if any) the item has: ')
+			byproduct = input('Enter the list of byproducts created (if any) when this item is produced: ')
+			byproduct_amt = input('Enter the list of amount of byproducts created (if any) when this item is produced: ')
 			producer = input('Enter the producer of the item: ')
 
-			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,usage_req,use_amount,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer)
-			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer)
+			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for item in item_data:
@@ -428,7 +444,7 @@ class Accounts:
 				except TypeError:
 					pass
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
-				insert_sql = 'INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, item)
 
 		self.conn.commit()
@@ -604,7 +620,8 @@ class Ledger:
 				entity_id integer NOT NULL,
 				cp_id integer NOT NULL,
 				date date NOT NULL,
-				location text,
+				post_date datetime NOT NULL,
+				loc text,
 				description text,
 				item_id text,
 				price real,
@@ -1183,6 +1200,7 @@ class Ledger:
 				journal_data = [[x.strip() for x in journal_data.split(',')]]
 			elif not isinstance(journal_data[0], (list, tuple)):
 				journal_data = [journal_data]
+		post_date = datetime.datetime.utcnow() # TODO Finish this
 		cur = self.conn.cursor()
 		if journal_data is None: # Manually enter a journal entry
 			event = input('Enter an optional event_id: ')
@@ -1246,9 +1264,10 @@ class Ledger:
 			if price == '':
 				price = np.nan
 
-			values = (event, entity, cp, date, loc, desc, item, price, qty, debit, credit, amount)
+			values = (event, entity, cp, date, loc, desc, item, price, qty, debit, credit, amount) # So the print looks nicer
 			print(values)
-			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?)', values)
+			values = (event, entity, cp, date, post_date, loc, desc, item, price, qty, debit, credit, amount)
+			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)', values)
 
 		else: # Create journal entries by passing data to the function
 			for je in journal_data:
@@ -1293,9 +1312,10 @@ class Ledger:
 				if price == '':
 					price = np.nan
 
-				values = (event, entity, cp, date, loc, desc, item, price, qty, debit, credit, amount)
+				values = (event, entity, cp, date, loc, desc, item, price, qty, debit, credit, amount) # So the print looks nicer
 				print(values)
-				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?)', values)
+				values = (event, entity, cp, date, post_date, loc, desc, item, price, qty, debit, credit, amount)
+				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)', values)
 
 		self.conn.commit()
 		txn_id = cur.lastrowid
