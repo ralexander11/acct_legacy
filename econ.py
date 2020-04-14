@@ -1224,18 +1224,18 @@ class Entity:
 					ledger.set_entity(counterparty.entity_id)
 					print('{} getting historical cost of {} {}.'.format(counterparty.name, qty, item))
 					cost_amt = ledger.hist_cost(qty, item, 'Inventory')#, v=True)
-					ledger.reset()
-					purchase_event = counterparty.release(purchase_event, item, qty=qty) # TODO Needs to be tested further
 					#print('Cost: {}'.format(cost_amt))
+					ledger.reset()
+					purchase_event += counterparty.release(item, qty=qty) # TODO Needs to be tested further
 					avg_price = cost_amt / qty
 					cogs_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, avg_price, qty, 'Cost of Goods Sold', acct_sell, cost_amt ]
 					sale_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_rev, price * qty ]
 					purchase_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
 					purchase_event += [cogs_entry, sale_entry, purchase_entry]
-					if buffer:
-						counterparty.adj_price(item, qty, direction='up')
-						return purchase_event, cost
-					ledger.journal_entry(purchase_event)
+					# if buffer:
+					# 	counterparty.adj_price(item, qty, direction='up')
+					# 	return purchase_event, cost
+					# ledger.journal_entry(purchase_event)
 					counterparty.adj_price(item, qty, direction='up')
 					return purchase_event, cost
 				else:
@@ -1244,10 +1244,10 @@ class Entity:
 					sell_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_sell, price * qty ]
 					purchase_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
 					purchase_event += [sell_entry, purchase_entry]
-					if buffer:
-						counterparty.adj_price(item, qty, direction='up')
-						return purchase_event, cost
-					ledger.journal_entry(purchase_event)
+					# if buffer:
+					# 	counterparty.adj_price(item, qty, direction='up')
+					# 	return purchase_event, cost
+					# ledger.journal_entry(purchase_event)
 					counterparty.adj_price(item, qty, direction='up')
 					return purchase_event, cost
 			else:
@@ -1256,8 +1256,10 @@ class Entity:
 		else:
 			# qty_possible = math.floor(cash / price)
 			print('{} does not have enough cash to purchase {} units of {} for {} each. Cash: {} | Qty Possible: {}'.format(self.name, qty, item, price, cash, qty_possible))
-			self.loan(amount=((qty * price) - cash), item='Credit Line 5')
 			cost = True
+			result = self.loan(amount=((qty * price) - cash), item='Credit Line 5')
+			if result is False:
+				self.bankruptcy()
 			# counterparty.adj_price(item, qty, direction='down')
 			return purchase_event, cost
 
@@ -1427,7 +1429,11 @@ class Entity:
 						pass
 					else:
 						self.item_demanded(item, qty_wanted - purchased_qty)
-		#print('Purchase Result: {} {} \n{}'.format(qty, item, result))
+		# print('Purchase Result: {} {} \n{}'.format(qty, item, result))
+		if buffer:
+			return result
+		else:
+			ledger.journal_entry(result)
 		return result
 
 	def sale(self, item, qty):
@@ -1494,22 +1500,21 @@ class Entity:
 			else:
 				print('{} does not have enough {} to gift {} units to {}.'.format(self.name, item, qty, counterparty.name))
 
-	def release(self, event=None, item=None, qty=1, event_id=None, reqs='hold_req', amts='hold_amount', v=False):
+	def release(self, item=None, qty=1, event_id=None, reqs='hold_req', amts='hold_amount', v=False):
 		if v: print('{} release for {} x {}.'.format(self.name, item, qty))
-		if event is None:
-			event = []
+		release_event = []
 		if item is not None:
 			item_info = world.items.loc[item]
 			# reqs = 'requirements' #'usage_req' #
 			# amts = 'amount' #'use_amount' #
 			if item_info[reqs] is None or item_info[amts] is None:
-				return event
+				return release_event
 			requirements = [x.strip() for x in item_info[reqs].split(',')]
 			req_types = [world.get_item_type(x) for x in requirements] # TODO This check might not be needed anymore
 			if v: print('Requirement types for {}: {}'.format(item, req_types))
 			if not any(x in req_types for x in ['Land', 'Buildings', 'Equipment']):
 				# if v: print('No Land, Buildings, or Equipment required for {}.'.format(item))
-				return event
+				return release_event
 			# freq = item_info['freq']
 			# if freq is None:
 			# 	freq = []
@@ -1522,7 +1527,7 @@ class Entity:
 				item_type = world.get_item_type(item)
 				event_ids = ledger.hist_cost(qty, item, acct=item_type, event_id=True)
 			if event_ids.empty:
-				return event
+				return release_event
 			if v: print('event_ids:\n', event_ids)
 		else:
 			if isinstance(event_id, int):
@@ -1539,12 +1544,26 @@ class Entity:
 			if v: print('in_use event_id:', event_id)
 			rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			# if v: print('RVSL TXNs:\n{}'.format(rvsl_txns))
-			release_txns = ledger.gl[(ledger.gl['credit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))] # TODO Is this needed?
+			release_txns = ledger.gl[(ledger.gl['credit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))] # TODO Is this needed?
 			if v: print('Release TXNs:\n{}'.format(release_txns))
-			in_use_txns = ledger.gl[(ledger.gl['debit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-			if v: print('In Use TXNs:\n{}'.format(in_use_txns))
+			in_use_txns = ledger.gl[(ledger.gl['debit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			# & (~ledger.gl['event_id'].isin(release_txns['event_id'])) # TODO Is this needed?
+
+			matches = []
 			for _, in_use_txn in in_use_txns.iterrows():
 				# if v: print('In Use TXN:\n{}'.format(in_use_txn))
+
+				match = False
+				for _, release_txn in release_txns.iterrows():
+					if release_txn['txn_id'] in matches:
+						continue
+					if in_use_txn['qty'] == release_txn['qty'] & in_use_txn['item_id'] == release_txn['item_id']:
+						matches.append(release_txn['txn_id'])
+						match = True
+						break
+				if match:
+					continue
+
 				# Check to ensure not releasing more than currently held
 				if v: print('in_use acct: {}'.format(in_use_txn['debit_acct']))
 				qty_held = ledger.get_qty(in_use_txn['item_id'], in_use_txn['debit_acct'])
@@ -1559,12 +1578,14 @@ class Entity:
 					amount = amount_held
 				else:
 					amount = in_use_txn['amount']
+				if proportion != 1:
+					print('{} qty before proportion: {}'.format(in_use_txn['item_id'], qty))
 				qty = int(round(qty * proportion, 0))
 				release_entry = [ in_use_txn['event_id'], in_use_txn['entity_id'], in_use_txn['cp_id'], world.now, in_use_txn['loc'], in_use_txn['item_id'] + ' released', in_use_txn['item_id'], in_use_txn['price'], qty, in_use_txn['credit_acct'], in_use_txn['debit_acct'], amount_held ]
-				event += [release_entry]
+				release_event += [release_entry]
 		ledger.reset()
-		if v: print('final event:\n{}'.format(event))
-		return event
+		if v: print('final release event:\n{}'.format(release_event))
+		return release_event
 
 	def consume(self, item, qty, need=None, buffer=False):
 		# TODO Test release Land and Buildings
@@ -1577,7 +1598,7 @@ class Entity:
 		print('{} holds {} qty of {} and is looking to consume {} units.'.format(self.name, qty_held, item, qty))
 		if qty_held >= qty:
 			print('{} consumes: {} {}'.format(self.name, qty, item))
-			consume_event = self.release(consume_event, item, qty=qty)
+			consume_event += self.release(item, qty=qty)
 			ledger.set_entity(self.entity_id)
 			print('{} getting historical cost of {} {}.'.format(self.name, qty, item))
 			cost = ledger.hist_cost(qty, item, 'Inventory')#, v=True)
@@ -1596,11 +1617,11 @@ class Entity:
 			return consume_event
 
 	def in_use(self, item, qty=1, price=None, account=None, buffer=False):
+		if account is None:
+			account = world.get_item_type(item)
 		ledger.set_entity(self.entity_id)
 		qty_held = ledger.get_qty(items=item, accounts=[account])
 		ledger.reset()
-		if account is None:
-			account = world.get_item_type(item)
 		if qty_held >= qty or buffer:
 			if price is None:
 				ledger.set_entity(self.entity_id)
@@ -1621,6 +1642,8 @@ class Entity:
 				return True
 		else:
 			print('{} does not have enough {} available to use.'.format(self.name, item))
+
+	# entries = self.in_use(req_item, req_qty * (1-modifier) * qty, price=price, buffer=True)
 
 	def use_item(self, item, uses=1, counterparty=None, target=None, buffer=False, check=False):
 		# usable = world.items.loc[item, 'metric']
@@ -1778,6 +1801,7 @@ class Entity:
 					if orig_uses != uses:
 						print('{} could not use {} {} as requested; was used {} times.'.format(self.name, item, orig_uses, uses))
 				else:
+					print('{} could not use {} {} as requested.'.format(self.name, item, uses))
 					incomplete = True
 		if incomplete or check: # TODO Add check to depreciation() to exit early on this check
 			return
@@ -1897,15 +1921,13 @@ class Entity:
 			return modifier, equip_info
 		return None, None
 
-	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, v=False): # TODO Maybe add buffer=True
-		# if item == 'Cow':
-		# 	v = True
+	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, buffer=False, v=False): # TODO Maybe add buffer=True
 		if v: print('{} fulfill {} x {}. Partial: {} | Check: {} | Reqs: {}'.format(self.name, item, qty, partial, check, reqs))
 		try:
 			if not self.gl_tmp.empty:
 				ledger.gl = self.gl_tmp
 		except AttributeError as e:
-			pass
+			self.gl_tmp = pd.DataFrame(columns=world.cols)
 		incomplete = False
 		if qty == 0:
 			return None, [], None, 0
@@ -1922,7 +1944,8 @@ class Entity:
 		if partial is not None:
 			txn_id = world.delay.loc[partial, 'txn_id']
 			desc = ledger.gl.loc[txn_id, 'description']
-			if 'Capturing' or 'being caught' in desc:
+			if v: print('Partial description for txn_id {}: {}'.format(txn_id, desc))
+			if 'Capturing' in desc or 'being caught' in desc:
 				reqs = 'int_rate_fix'
 				amts = 'int_rate_var'
 		hours_deltas = collections.OrderedDict()
@@ -2020,7 +2043,6 @@ class Entity:
 					ledger.set_entity(self.entity_id)
 					if not entries:
 						entries = []
-						# incomplete = True # TODO This should not fail the entire production
 						modifier = 0
 					if entries is True:
 						entries = []
@@ -2030,16 +2052,11 @@ class Entity:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entry_df)
 						self.gl_tmp = ledger.gl.loc[ledger.gl['entity_id'] == self.entity_id]
-						# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 				else:
 					modifier = 0
-				try:
-					if not self.gl_tmp.empty:
-						# print('Tmp GL land: \n{}'.format(self.gl_tmp.tail()))
-						ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
-				except AttributeError as e:
-					# print('No Tmp GL Error land: {}'.format(repr(e)))
-					pass
+				if not self.gl_tmp.empty:
+					# if v: print('Tmp GL land: \n{}'.format(self.gl_tmp.tail()))
+					ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 				land = ledger.get_qty(items=req_item, accounts=['Land'])
 				print(f'{{}} requires {{}} {{}} to {action} {{}} {{}} and has: {{}}'.format(self.name, req_qty * (1-modifier) * qty, req_item, qty, item, land))
 				price = world.get_price(req_item, world.env.entity_id)
@@ -2049,36 +2066,39 @@ class Entity:
 						format(self.name, needed_qty, req_item, item))
 					# Attempt to purchase land
 					if not man:
-						result = self.purchase(req_item, needed_qty)
+						result = self.purchase(req_item, needed_qty, buffer=buffer)
+						if result:
+							price = price # TODO Handle price when purchasing land better
 						if not result:
 							ledger.set_entity(world.env.entity_id) # Only try to claim land that is remaining
-							try:
-								if not self.gl_tmp.empty:
-									ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == world.env.entity_id]
-							except AttributeError as e:
-								pass
+							if not self.gl_tmp.empty:
+								ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == world.env.entity_id]
 							land_avail = ledger.get_qty(items=req_item, accounts=['Land'])
 							# print('Land Available: {}'.format(land_avail))
 							ledger.reset()
 							ledger.set_entity(self.entity_id)
 							qty_claim = int(min(needed_qty, land_avail))
-							result = self.claim_land(qty_claim, item=req_item, price=price)#, buffer=True)
+							result = self.claim_land(qty_claim, item=req_item, price=price, buffer=buffer)
 							# print('Land Claim Result: \n{}'.format(result))
 							if not result:
 								incomplete = True
+						if result and buffer:
+							for entry in result:
+								entry_df = pd.DataFrame([entry], columns=world.cols)
+								ledger.gl = ledger.gl.append(entry_df)
+							self.gl_tmp = ledger.gl
+							# print('Tmp GL Land 2: \n{}'.format(self.gl_tmp.tail()))
 					else:
 						incomplete = True
-				try:
 					if not self.gl_tmp.empty and 'animal' not in item_freq: # TODO Look into this
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
+						test_gl_tmp = self.gl_tmp.loc[self.gl_tmp['post_date'].isna()] # TODO This works
+						# print('Test Post Date Filter: \n{}'.format(self.gl_tmp))
 						self.gl_tmp = ledger.gl.append(tmp_gl_tmp)
-						# print('Tmp GL Land: \n{}'.format(self.gl_tmp.tail()))
+						# print('Tmp GL Land 3: \n{}'.format(self.gl_tmp.tail()))
 						ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 					else:
 						ledger.set_entity(self.entity_id)
-				except AttributeError as e:
-					# print('No Tmp GL Error Land: {}'.format(repr(e)))
-					pass
 				land = ledger.get_qty(items=req_item, accounts=['Land'])
 				try:
 					constraint_qty = math.floor(land / (req_qty * (1-modifier)))
@@ -2098,20 +2118,25 @@ class Entity:
 				# if (reqs == 'hold_req' or time_required):# and not incomplete: # TODO Test is "not incomplete" is still needed here
 				# TODO Handle land in use during one tick
 				entries = self.in_use(req_item, req_qty * (1-modifier) * qty, price=price, buffer=True) # TODO Verify qty passed
-				#print('Land In Use Entries: \n{}'.format(entries))
+				# print('Land In Use Entries: \n{}'.format(entries))
 				if not entries:
 					entries = []
 					incomplete = True
 				else:
 					if reqs != 'hold_req' and not time_required:
 						hold_event_ids += [entry[0] for entry in entries]
+						print('hold_event_ids:', hold_event_ids)
 				event += entries
 				if entries:
+					if not self.gl_tmp.empty:
+						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
+						ledger.gl = ledger.gl.append(tmp_gl_tmp)
+						# print('Ledger Temp Before: \n{}'.format(ledger.gl.tail()))
 					for entry in entries:
 						entry_df = pd.DataFrame([entry], columns=world.cols)
 						ledger.gl = ledger.gl.append(entry_df)
 					self.gl_tmp = ledger.gl
-					# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+					# print('Ledger Temp New: \n{}'.format(ledger.gl.tail()))
 
 			elif req_item_type == 'Buildings' and partial is None:
 				in_use = False
@@ -2158,21 +2183,25 @@ class Entity:
 							print('{} does not have enough capacity in {} building and requires {}.'.format(self.name, req_item, required_qty))
 						if not man:
 							# Attempt to purchase before producing self if makes sense
-							result = self.purchase(req_item, required_qty)#, acct_buy='Buildings')#, wip_acct='Building Under Construction')
+							result = self.purchase(req_item, required_qty, buffer=buffer)#, acct_buy='Buildings')#, wip_acct='Building Under Construction')
 							req_time_required = False
 							if not result:
 								print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
-								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Buildings')#, buffer=True)
+								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Buildings', buffer=buffer)
 							if not result or req_time_required:
 								if req_time_required:
 									print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
 								incomplete = True
+							if result and buffer:
+								for entry in result:
+									entry_df = pd.DataFrame([entry], columns=world.cols)
+									ledger.gl = ledger.gl.append(entry_df)
+								self.gl_tmp = ledger.gl
 						else:
 							incomplete = True
 					else:
 						print('{} cannot complete {} now due to requiring time to produce {}.'.format(self.name, item, req_item))
 						incomplete = True
-				try:
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
 						self.gl_tmp = ledger.gl.append(tmp_gl_tmp)
@@ -2180,9 +2209,6 @@ class Entity:
 						ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 					else:
 						ledger.set_entity(self.entity_id)
-				except AttributeError as e:
-					# print('No Tmp GL Error Build: {}'.format(repr(e)))
-					pass
 				building = ledger.get_qty(items=req_item, accounts=['Buildings'])
 				try:
 					# Note: If capacity != 1 then req_qty should == 1
@@ -2215,6 +2241,10 @@ class Entity:
 							hold_event_ids += [entry[0] for entry in entries]
 					event += entries
 					if entries:
+						if not self.gl_tmp.empty:
+							tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
+							ledger.gl = ledger.gl.append(tmp_gl_tmp)
+							# print('Ledger Temp Before: \n{}'.format(ledger.gl.tail()))
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entry_df)
@@ -2230,6 +2260,10 @@ class Entity:
 						entries = []
 					event += entries
 					if entries:
+						if not self.gl_tmp.empty:
+							tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
+							ledger.gl = ledger.gl.append(tmp_gl_tmp)
+							# print('Ledger Temp Before: \n{}'.format(ledger.gl.tail()))
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entry_df)
@@ -2282,14 +2316,14 @@ class Entity:
 							print('{} does not have enough capacity on {} equipment and requires {}.'.format(self.name, req_item, required_qty))
 						if not man:
 							# Attempt to purchase before producing self if makes sense
-							result = self.purchase(req_item, required_qty)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
+							result = self.purchase(req_item, required_qty, buffer=buffer)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
 							# if v: print('Equip Purchase Result:', result)
 							req_time_required = False
 							if not result:
 								if 'animal' in item_freq and 'animal' in req_freq and equip_qty < 2 and not man:
 									required_qty = 1
 									print('{} will attempt to catch remaining {} {} in the wild.'.format(self.name, required_qty, req_item))
-									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, reqs='int_rate_fix', amts='int_rate_var', debit_acct='Equipment') # TODO This is a bit hackey
+									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, reqs='int_rate_fix', amts='int_rate_var', debit_acct='Equipment', buffer=buffer) # TODO This is a bit hackey
 									equip_qty += req_max_qty_possible
 									if not req_incomplete:
 										if equip_qty < 2:
@@ -2308,17 +2342,21 @@ class Entity:
 									elif 'animal' in item_freq and 'animal' in req_freq:# and equip_qty - equip_qty_wip <= 3: # TODO Test if this is needed for large amounts
 										required_qty = max(math.floor((equip_qty - equip_qty_wip) / 2), 1)
 									print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
-									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment')#, buffer=True)
+									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment', buffer=buffer)
 							if not result or req_time_required:
 								if req_time_required:
 									print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
 								incomplete = True
+							if result and buffer:
+								for entry in result:
+									entry_df = pd.DataFrame([entry], columns=world.cols)
+									ledger.gl = ledger.gl.append(entry_df)
+								self.gl_tmp = ledger.gl
 						else:
 							incomplete = True
 					else:
 						print('{} cannot complete {} now due to requiring time to produce {}.'.format(self.name, item, req_item))
 						incomplete = True
-				try:
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
 						self.gl_tmp = ledger.gl.append(tmp_gl_tmp)
@@ -2326,9 +2364,6 @@ class Entity:
 						ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 					else:
 						ledger.set_entity(self.entity_id)
-				except AttributeError as e:
-					# print('No Tmp GL Error Equip: {}'.format(repr(e)))
-					pass
 				equip_qty = ledger.get_qty(items=req_item, accounts=['Equipment'])
 				try:
 					# Note: If capacity != 1 then req_qty should == 1
@@ -2361,6 +2396,10 @@ class Entity:
 							hold_event_ids += [entry[0] for entry in entries]
 					event += entries
 					if entries:
+						if not self.gl_tmp.empty:
+							tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
+							ledger.gl = ledger.gl.append(tmp_gl_tmp)
+							# print('Ledger Temp Before: \n{}'.format(ledger.gl.tail()))
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entry_df)
@@ -2375,6 +2414,10 @@ class Entity:
 						entries = []
 					event += entries
 					if entries:
+						if not self.gl_tmp.empty:
+							tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
+							ledger.gl = ledger.gl.append(tmp_gl_tmp)
+							# print('Ledger Temp Before: \n{}'.format(ledger.gl.tail()))
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
 							ledger.gl = ledger.gl.append(entry_df)
@@ -3081,7 +3124,7 @@ class Entity:
 			if max_qty_possible and not man and not wip_choice and whole_qty <= max_qty_possible:
 				event = []
 				# print('tmp_gl before recur for item: {} \n{}'.format(item, self.gl_tmp))
-				self.gl_tmp = pd.DataFrame() # TODO Confirm this is needed
+				self.gl_tmp = pd.DataFrame(columns=world.cols) # TODO Confirm this is needed
 				print('{} will try again to produce {} but for {} units.'.format(self.name, item, max_qty_possible))
 				incomplete, event_max_possible, time_required, max_qty_possible = self.fulfill(item, max_qty_possible, man=man)
 				event += event_max_possible
@@ -3090,7 +3133,7 @@ class Entity:
 			world.set_table(world.delay, 'delay')
 			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
 			self.hold_event_ids += hold_event_ids
-		self.gl_tmp = pd.DataFrame()
+		self.gl_tmp = pd.DataFrame(columns=world.cols)
 		return incomplete, event, time_required, max_qty_possible
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, buffer=False, v=False):
@@ -3486,7 +3529,7 @@ class Entity:
 						if equip_requirement in items_continuous.index.values:
 							result = self.use_item(equip_requirement, check=check)
 							if not result and not check:
-								print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
+								print('{} WIP Progress for {} using equipment was not successfull.'.format(self.name, item))
 								if world.delay.empty:
 									world.delay = world.delay.append({'txn_id':index, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
 									world.set_table(world.delay, 'delay')
@@ -3596,33 +3639,30 @@ class Entity:
 				elif hours == 0:
 					hours = None
 				if date_done == world.now and (hours is None or hours is np.nan):
-					# Mark Land etc. as in use
-					hold_incomplete, in_use_event, hold_time_required, hold_max_qty_possible = self.fulfill(item, qty=qty, reqs='hold_req', amts='hold_amount')
+					# Undo "in use" entries for related items
+					release_event = []
+					release_event += self.release(item, event_id=wip_lot['event_id'], qty=qty, reqs='requirements', amts='amount')#, v=True)
+					if v: print('wip_check release_event:\n', release_event)
+
+					if release_event:
+						for entry in release_event:
+							entry_df = pd.DataFrame([entry], columns=world.cols)
+							ledger.gl = ledger.gl.append(entry_df)
+						self.gl_tmp = ledger.gl
+						# if v: print('tail:\n', self.gl_tmp.tail())
+
+					# Mark Land, Buildings, and Equipment as in use
+					hold_incomplete, in_use_event, hold_time_required, hold_max_qty_possible = self.fulfill(item, qty=qty, reqs='hold_req', amts='hold_amount', buffer=True)#, v=True)
+					ledger.reset()
 					if hold_incomplete:
-						print('{} cannot hold {} {} it produced over time.'.format(self.name, qty, item))
+						print('{} cannot hold {} {} that it produced over time.'.format(self.name, qty, item))
 						return
 					wip_event += in_use_event
 					if v: print('WIP is done for {} - Date Done: {} | Today is: {} | Hours: {}'.format(item, date_done, world.now, hours))
 					# if partial_complete:
 					if partial_index is not None: # TODO Capture additional labour costs in finished WIP entry
 						world.delay = world.delay.drop([partial_index]).reset_index(drop=True)
-					# Undo "in use" entries for related items
-
-					# # release_txns = ledger.gl[(ledger.gl['credit_acct'] == 'Equipment In Use') & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))] # TODO Not used anymore
-					# release_txns = ledger.gl[(ledger.gl['credit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-					# # print('Release TXNs: \n{}'.format(release_txns))
-					# in_use_txns = ledger.gl[(ledger.gl['debit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == wip_lot['event_id']) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))]
-					# # in_use_txns = ledger.gl[(ledger.gl['debit_acct'] == 'Equipment In Use') & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['date'] <= wip_lot['date']) & (~ledger.gl['event_id'].isin(release_txns['event_id'])) & (~ledger.gl['event_id'].isin(rvsl_txns))] # TODO Not used anymore # Ensure only captures related items, perhaps using date as a filter
-					# # print('In Use TXNs: \n{}'.format(in_use_txns))
-					# for index, in_use_txn in in_use_txns.iterrows():
-					# 	release_entry = [ in_use_txn['event_id'], in_use_txn['entity_id'], in_use_txn['cp_id'], world.now, in_use_txn['loc'], in_use_txn['item_id'] + ' released', in_use_txn['item_id'], in_use_txn['price'], in_use_txn['qty'], in_use_txn['credit_acct'], in_use_txn['debit_acct'], in_use_txn['amount'] ]
-					# 	release_event += [release_entry]
-
-					# Undo "in use" entries for related items
-					release_event = []
-					if v: print('wip_check release_event before:\n', release_event)
-					release_event = self.release(release_event, item, event_id=wip_lot['event_id'], qty=qty)
-					if v: print('wip_check release_event after:\n', release_event)
+					
 					ledger.journal_entry(release_event)
 
 					# Book the entry to move from WIP to Inventory
@@ -3660,7 +3700,7 @@ class Entity:
 		for event_id in self.hold_event_ids:
 			# print('event_id:', event_id)
 			# print('release_event before:\n', release_event)
-			release_event = self.release(release_event, event_id=event_id)
+			release_event += self.release(event_id=event_id)
 			# print('release_event:\n', release_event)
 			ledger.journal_entry(release_event)
 		self.hold_event_ids = []
@@ -3757,6 +3797,7 @@ class Entity:
 		desc_pur = ticker + ' shares purchased'
 		desc_sell = ticker + ' shares sold'
 		result, cost = self.transact(ticker, price, qty, counterparty, 'Investments', 'Shares', desc_pur=desc_pur, desc_sell=desc_sell)
+		ledger.journal_entry(result)
 		return result
 
 	# Allow individuals to incorporate organizations without human input
@@ -4378,7 +4419,9 @@ class Entity:
 						cash -= wages_payable
 				else:
 					print('{} does not have enough cash to pay {} in wages for {}\'s {} work. Cash: {}'.format(self.name, wages_payable, counterparty.name, job, cash))
-					self.loan(amount=(wages_payable - cash), item='Credit Line 5')
+					result = self.loan(amount=(wages_payable - cash), item='Credit Line 5')
+					if result is False:
+						self.bankruptcy()
 			ledger.journal_entry(pay_wages_event)
 			ledger.set_entity(self.entity_id)
 			cash = ledger.balance_sheet(['Cash'])
@@ -4806,7 +4849,9 @@ class Entity:
 		else:
 			if not incomplete:
 				print('{} does not have enough cash to pay {} for {} salary. Cash: {}'.format(self.name, (salary * labour_hours), job, cash))
-				self.loan(amount=((salary * labour_hours) - cash), item='Credit Line 5')
+				result = self.loan(amount=((salary * labour_hours) - cash), item='Credit Line 5')
+				if result is False:
+					self.bankruptcy()
 			else:
 				print('{} cannot fulfill the requirements to keep {} working.'.format(self.name, job))
 			if not first:
@@ -4890,7 +4935,9 @@ class Entity:
 			return True #TODO Make return order_subscription_event
 		else:
 			print('{} does not have enough cash to pay {} for {} subscription. Cash: {}'.format(self.name, price, item, cash))
-			self.loan(amount=(price - cash), item='Credit Line 5')
+			result = self.loan(amount=(price - cash), item='Credit Line 5')
+			if result is False:
+				self.bankruptcy()
 			#self.item_demanded(item, qty, cost=True) # TODO Decide how to handle
 			counterparty.adj_price(item, qty=1, direction='down')
 
@@ -4970,7 +5017,9 @@ class Entity:
 			else:
 				if not incomplete:
 					print('{} does not have enough cash to pay {} for {} subscription. Cash: {}'.format(self.name, price, item, cash))
-					self.loan(amount=(price - cash), item='Credit Line 5')
+					result = self.loan(amount=(price - cash), item='Credit Line 5')
+					if result is False:
+						self.bankruptcy()
 				else:
 					print('{} cannot fulfill the requirements to keep {} subscription.'.format(self.name, item))
 				if not first:
@@ -5059,7 +5108,7 @@ class Entity:
 			print('{} has not founded their central bank yet. Incorporate a Bank to do so.'.format(world.gov))
 			return
 		if not counterparty.allow_loan(self, amount):
-			return
+			return False
 		ledger.set_entity(counterparty.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
@@ -5134,6 +5183,7 @@ class Entity:
 		for item in items:
 			ledger.set_entity(self.entity_id)
 			loan_bal = -(ledger.balance_sheet(['Loan'], item=item))
+			cash = ledger.balance_sheet(['Cash'])
 			ledger.reset()
 			if loan_bal:
 				print('{}: Loan Balance: {}'.format(self.name, loan_bal))
@@ -5152,14 +5202,21 @@ class Entity:
 				freq = world.items.loc[item, 'freq'] # TODO Add frequency logic
 				period = 1 / freq
 				int_amount = round(loan_bal * rate * period, 2)
-				int_exp_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Interest expense for {}'.format(item), '', '', '', 'Interest Expense', 'Cash', int_amount ]
-				int_rev_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Interest income from {}'.format(item), '', '', '', 'Cash', 'Interest Income', int_amount ]
-				# TODO Add bank interest revenue entry
-				int_exp_event = [int_exp_entry, int_rev_entry]
-				ledger.journal_entry(int_exp_event)
+				if cash >= int_amount:
+					int_exp_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Interest expense for {}'.format(item), '', '', '', 'Interest Expense', 'Cash', int_amount ]
+					int_rev_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Interest income from {}'.format(item), '', '', '', 'Cash', 'Interest Income', int_amount ]
+					# TODO Add bank interest revenue entry
+					int_exp_event = [int_exp_entry, int_rev_entry]
+					ledger.journal_entry(int_exp_event)
+					return int_exp_event
+				else:
+					print('{} does not have {} to pay interest to {}. Cash held: {}'.format(self.name, int_amount, counterparty.name, cash))
+					result = self.loan(amount=(int_amount - cash), item='Credit Line 5')
+					if result is False:
+						self.bankruptcy()
 
 	def bankruptcy(self):
-		pass
+		print('{} has declared bankruptcy. (Not implemented yet)'.format(self.name))
 		# TODO Check for outstanding debts
 		# TODO Check when last interest payment was made
 		# TODO If it is greater than some timespan then enter bankruptcy
@@ -5352,7 +5409,7 @@ class Entity:
 					release_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Release ' + requirement + ' used by ' + item, requirement, req_price, req_qty, requirement_type, requirement_type + ' In Use', req_price * req_qty ]
 					derecognition_event += [release_entry]
 
-			derecognition_event = self.release(derecognition_event, item, qty=qty)
+			derecognition_event += self.release(item, qty=qty)
 			# TODO Check if item is In Use
 			derecognition_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accumulated Depreciation', 'Equipment', asset_bal ]
 			overage_entry = []
@@ -6143,7 +6200,7 @@ class Entity:
 					if amount <= 0:
 						continue
 					break
-			self.loan(amount, counterparty, item=None, roundup=False)
+			result = self.loan(amount, counterparty, item=None, roundup=False)
 		elif command.lower() == 'repay':
 			counterparty = world.gov.bank
 			while True:

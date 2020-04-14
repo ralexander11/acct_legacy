@@ -1037,7 +1037,7 @@ class Ledger:
 		return qty_txns
 
 	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, credit=False, v=False):
-		# if items == 'Rock':
+		# if items == 'Rocky Land':
 		# 	if v: print('Get Qty GL: \n{}'.format(self.gl))
 		if not credit:
 			acct_side = 'debit_acct'
@@ -1046,7 +1046,7 @@ class Ledger:
 		all_accts = False
 		single_item = False
 		no_item = False
-		if v: print('Items Given: {}'.format(items))
+		if v: print('Get Qty for Items Given: {}'.format(items))
 		if (items is None) or (items == '') or (not items):
 			items = None
 			no_item = True
@@ -1057,7 +1057,10 @@ class Ledger:
 		if items is not None and len(items) == 1:
 			single_item = True
 			if v: print('Single Item: {}'.format(single_item))
-		if (accounts is None) or (accounts == ''):
+		if isinstance(accounts, (list, tuple)):
+			if all([x is None for x in accounts]):
+				accounts = None
+		if accounts is None or accounts == '':
 			if v: print('No account given.')
 			all_accts = True
 			if no_item:
@@ -1579,6 +1582,7 @@ class Ledger:
 		v2 = False
 		if qty is None:
 			qty = int(input('Enter quantity: '))
+		# orig_qty = qty
 		if item is None:
 			item = input('Enter item: ')
 		if acct is None:
