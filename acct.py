@@ -639,6 +639,7 @@ class Ledger:
 
 	# @contextmanager
 	def set_entity(self, entity=None):
+		# TODO Maybe this can accept a GL and pass it to refresh_ledger() but use None as default
 		if entity is None:
 			self.entity = input('Enter an Entity ID: ')
 			if self.entity == '':
@@ -706,6 +707,7 @@ class Ledger:
 		return self.start_txn
 
 	def reset(self):
+		# TODO Maybe this can accept a GL and pass it to refresh_ledger() but use None as default
 		if self.default is not None and not isinstance(self.default, (list, tuple)):
 			self.default = [self.default]
 		self.entity = self.default
@@ -717,6 +719,7 @@ class Ledger:
 		self.balance_sheet() # TODO This makes things very inefficient
 
 	def refresh_ledger(self):
+		# TODO Maybe this can accept a GL and if it's None use self.gl
 		# print('Refreshing Ledger.')
 		self.gl = pd.read_sql_query('SELECT * FROM ' + self.ledger_name + ';', self.conn, index_col='txn_id')
 		if self.entity is not None:
