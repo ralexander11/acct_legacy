@@ -26,7 +26,7 @@ MAX_HOURS = 12
 WORK_DAY = 8
 PAY_PERIODS = 2
 GESTATION = 2
-MAX_CORPS = 0#2
+MAX_CORPS = 2
 INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
 EXPLORE_TIME = 400
@@ -837,16 +837,17 @@ class World:
 		with pd.option_context('display.max_rows', None):
 			print('World Demand Start: \n{}'.format(world.demand))
 		print()
-		individuals = itertools.cycle(factory.get(Individual, users=False))
-		for index, item in world.demand.iterrows():
-			# corp = None
-			# while corp is None: # Too slow
-			try:
-				individual = next(individuals)
-			except StopIteration:
-				break
-			print('Individual: {} | Hours: {} | Corp Check for Item: {}'.format(individual.name, individual.hours, item['item_id']))
-			corp = individual.corp_needed(item=item['item_id'], demand_index=index)
+		if not world.demand.empty:
+			individuals = itertools.cycle(factory.get(Individual, users=False))
+			for index, item in world.demand.iterrows():
+				# corp = None
+				# while corp is None: # Too slow
+				try:
+					individual = next(individuals)
+				except StopIteration:
+					break
+				print('Individual: {} | Hours: {} | Corp Check for Item: {}'.format(individual.name, individual.hours, item['item_id']))
+				corp = individual.corp_needed(item=item['item_id'], qty=item['qty'], demand_index=index)
 
 		t2_end = time.perf_counter()
 		print(time_stamp() + '2: Corp needed check took {:,.2f} min.'.format((t2_end - t2_start) / 60))
@@ -858,7 +859,7 @@ class World:
 		for entity in factory.get(users=False):
 			#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
 			entity.tech_motivation()
-			entity.set_price() # TODO Is this needed?
+			# entity.set_price() # TODO Is this needed?
 			entity.auto_produce()
 			entity.check_demand()
 			entity.check_inv()
@@ -1116,8 +1117,6 @@ class Entity:
 		return price
 
 	def set_price(self, item=None, qty=0, price=None, markup=0.1, at_cost=False):
-		if isinstance(self, Environment):
-			price = 0
 		if item is None: # TODO Look into why this is called in update_econ()
 			if self.produces is None:
 				print('{} produces no items.'.format(self.name))
@@ -1200,7 +1199,7 @@ class Entity:
 			world.set_table(world.prices, 'prices')
 			return low_price
 
-	def transact(self, item, price, qty, counterparty, acct_buy='Inventory', acct_sell='Inventory', acct_rev='Sales', desc_pur=None, desc_sell=None, item_type=None, buffer=False):
+	def transact(self, item, price, qty, counterparty, acct_buy='Inventory', acct_sell='Inventory', acct_rev='Sales', desc_pur=None, desc_sell=None, item_type=None, cash_used=0, buffer=False):
 		if qty == 0:
 			return [], False
 		purchase_event = []
@@ -1215,6 +1214,7 @@ class Entity:
 		ledger.set_entity(self.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
+		cash -= cash_used
 		#print('Cash: {}'.format(cash))
 		ledger.set_entity(counterparty.entity_id)
 		qty_avail = ledger.get_qty(items=item, accounts=[acct_sell])
@@ -1414,6 +1414,7 @@ class Entity:
 			result = []
 			cost = False
 			purchased_qty = 0
+			cash_used = 0
 			while qty > 0:
 				#print('Purchase Qty Loop: {} | {}'.format(qty, i))
 				try:
@@ -1447,9 +1448,10 @@ class Entity:
 					print('{} cannot purchase {} {} because it does not meet the requirements to hold it.'.format(self.name, purchase_qty, item))
 					break
 				result += in_use_event
-				result_tmp, cost = self.transact(item, price=price, qty=purchase_qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, buffer=buffer)
+				result_tmp, cost = self.transact(item, price=price, qty=purchase_qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, cash_used=cash_used, buffer=buffer)
 				if not result_tmp:
 					break
+				cash_used += result_tmp[-1][-1]
 				result += result_tmp
 				purchased_qty += purchase_qty
 				qty -= purchase_qty
@@ -3567,7 +3569,7 @@ class Entity:
 					if not world.delay.empty:
 						try:
 							delayed = world.delay.loc[world.delay['txn_id'] == index, 'delay'].values[0]
-						except:
+						except Exception as e:
 							delayed = None
 					if days_left < 0 and delayed is None:
 						continue
@@ -3931,14 +3933,12 @@ class Entity:
 			entity.set_hours(INC_TIME)
 		return corp
 
-	def corp_needed(self, item=None, need=None, ticker=None, demand_index=None):
+	def corp_needed(self, item=None, qty=0, need=None, ticker=None, demand_index=None, v=False):
 		# Choose the best item
-		#print('Need Demand: {}'.format(need))
 		if item is None and need is not None:
 			items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
 			if items_info.empty:
 				return
-
 			need_satisfy_rate = []
 			for index, item_row in items_info.iterrows():
 				needs = [x.strip() for x in item_row['satisfies'].split(',')]
@@ -3949,37 +3949,44 @@ class Entity:
 				satisfy_rate = satisfy_rates[i]
 				need_satisfy_rate.append(satisfy_rate)
 			need_satisfy_rate = pd.Series(need_satisfy_rate)
-			#print('Need Satisfy Rate: \n{}'.format(need_satisfy_rate))
+			# if v: print('Need Satisfy Rate: \n{}'.format(need_satisfy_rate))
 			items_info = items_info.assign(need_satisfy_rate=need_satisfy_rate.values)
-
 			items_info = items_info.sort_values(by='satisfy_rate', ascending=False).reset_index()
 			#items_info.reset_index(inplace=True)
 			item = items_info['item_id'].iloc[0]
-			#print('Item Choosen: {}'.format(item))
+			if v: print('Item Choosen: {}'.format(item))
 		if ticker is None and item is not None:
 			tickers = world.items.loc[item, 'producer']
 			if tickers is None:
 				return
 			if isinstance(tickers, str):
 				tickers = [x.strip() for x in tickers.split(',')]
-			# tickers = list(set(filter(None, tickers))) # Use set to ensure no dupes
 			tickers = list(collections.OrderedDict.fromkeys(filter(None, tickers)))
-			#print('Tickers: {}'.format(tickers))
+			# if v: print('Tickers: {}'.format(tickers))
+		elif ticker is not None:
+			if not isinstance(ticker, (list, tuple)):
+				tickers = [str(ticker)]
+			else:
+				tickers = str(ticker)
 			# TODO Recursively check required items and add their producers to the ticker list
 		# Check if item is produced or being produced
 		# TODO How to handle service qty check
-		qty = ledger.get_qty(item, ['Inventory','WIP Inventory'])
-		#print('QTY of {} existing: {}'.format(item, qty))
+		if item is not None:
+			item_type = world.get_item_type(item)
+			qty_exists = ledger.get_qty(item, ['Inventory','WIP Inventory'])
+			if v: print('QTY of {} existing: {}'.format(item, qty_exists))
+		else:
+			qty_exists = 0
 		# If not being produced incorporate and produce item
-		if qty == 0: # TODO Fix this for when Food stops being produced
+		if qty_exists <= qty: # TODO Fix this for when Food stops being produced
 			for ticker in tickers:
 				count = 0
-				#print('Ticker: {}'.format(ticker))
+				if v: print('Ticker: {}'.format(ticker))
 				if ticker == 'Individual':
-					#print('{} produced by individuals, no corporation needed.'.format(item))
+					# if v: print('{} produced by individuals, no corporation needed.'.format(item))
 					continue
 				for corp in world.gov.get([Corporation, NonProfit]): # TODO Check Non-Profits also
-					# print('Corp: {}'.format(corp))
+					# if v: print('Corp: {}'.format(corp))
 					if ticker == corp.name.split('-')[0]:
 						ledger.set_entity(corp.entity_id)
 						bankrupt = ledger.balance_sheet(['Write-off'])
@@ -3987,9 +3994,9 @@ class Entity:
 						ledger.reset()
 						if not bankrupt:
 							count += 1
+						if v: print('{} corp count: {}'.format(corp.name, count))
 						if count >= MAX_CORPS:
-							#print('{} {} corporation already exists.'.format(count, corp.name))
-							item_type = world.get_item_type(item)
+							if v: print('{} {} corporation already exists.'.format(count, corp.name))
 							if corp is not None and item_type == 'Subscription' and demand_index is not None:
 								to_drop = []
 								to_drop = world.demand.loc[world.demand['item_id'] == item].index.tolist()
@@ -4001,7 +4008,6 @@ class Entity:
 							return corp
 				corp = self.incorporate(name=ticker, item=item)
 				# TODO Have the demand table item cleared when entity gets the subscription
-				item_type = world.get_item_type(item)
 				if corp is not None and item_type == 'Subscription' and demand_index is not None:
 					world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
 					world.set_table(world.demand, 'demand')
@@ -6022,7 +6028,8 @@ class Entity:
 				try:
 					qty = input('Enter quantity of {} item to produce: '.format(item))
 					if qty == '':
-						return
+						qty = 1
+						# return
 					qty = int(qty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
@@ -7862,4 +7869,8 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ04.db -s 11 -p 4 >> /home/robale5/becauseinterfaces.com/acct/logs/econ04.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/robale5/becauseinterfaces.com/acct/logs/econ01.log 2>&1 &
+
+# nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
+
+# (python econ.py -s 11 -p 4 -r -t 10 && say done) || say error

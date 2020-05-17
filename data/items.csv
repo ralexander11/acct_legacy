@@ -91,3 +91,9 @@ Gestation,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,
 #Beef Cow,"Land, Rancher","100, 1",animal,Commodity,"Gestation, Land, Beef Cow, Rancher","1, 10, 2, 1",None,Land,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
 #Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,Ranch
 #Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,Ranch
+Factory,None,None,continuous,Buildings,"Land, Wood, Rock","100, 10, 6",100,Land,100,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
+Replicator,None,None,continuous,Equipment,"Factory, Wood, Rock","1, 10, 4",20,None,None,None,None,None,None,None,None,100,ticks,None,None,None,100,None,None,Blacksmith
+Widget,None,None,continuous,Components,"Replicator, Rock","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,Blacksmith
+Factory2,None,None,continuous,Buildings,"Land, Rock, Wood","1, 1, 1",1,Land,100,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
+Replicator2,None,None,continuous,Equipment,"Factory2, Wood, Rock","10, 10, 4",20,None,None,None,None,None,None,None,None,100,ticks,None,None,None,100,None,None,Blacksmith
+Widget2,None,None,continuous,Components,"Replicator2, Rock","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,Blacksmith

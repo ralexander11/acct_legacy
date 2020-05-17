@@ -22,7 +22,7 @@ class Accounts:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
 				self.website = True
 				logging.debug('Website: {}'.format(self.website))
-			except:
+			except Exception as e:
 				conn = sqlite3.connect('db/acct.db')
 				self.website = False
 				logging.debug('Website: {}'.format(self.website))
@@ -35,7 +35,7 @@ class Accounts:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/' + conn)
 				self.website = True
 				logging.debug('Website: {}'.format(self.website))
-			except:
+			except Exception as e:
 				conn = sqlite3.connect(conn)
 				self.website = False
 				logging.debug('Website: {}'.format(self.website))
@@ -45,7 +45,7 @@ class Accounts:
 		# 		conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
 		# 		self.website = True
 		# 		logging.debug('Website: {}'.format(self.website))
-		# 	except:
+		# 	except Exception as e:
 		# 		conn = sqlite3.connect('db/acct.db')
 		# 		self.website = False
 		# 		logging.debug('Website: {}'.format(self.website))
@@ -63,7 +63,7 @@ class Accounts:
 				self.items_table_name = 'items'
 			else:
 				self.items_table_name = items_table_name
-		except:
+		except Exception as e:
 			self.coa = None
 			self.create_accts(standard_accts)
 			# self.refresh_accts()
@@ -467,7 +467,7 @@ class Accounts:
 			try:
 				cur.execute(clear_table_query)
 				if v: print('Cleared ' + table + ' table.')
-			except:
+			except Exception as e:
 				continue
 		self.conn.commit()
 		cur.close()
@@ -1723,20 +1723,31 @@ class Ledger:
 			print('Historical Cost Case | Three for {} {}: {}'.format(qty, item, amount))
 			return amount
 
-	def latest_date(self):
+	def latest_date(self, v=True):
 		result = self.gl['date'].max()
-		print('Latest Date:', result)
+		if v: print('Latest Date:', result)
 		return result
 
-	def oldest_date(self):
+	def oldest_date(self, v=True):
 		result = self.gl['date'].min()
-		print('Oldest Date:', result)
+		if v: print('Oldest Date:', result)
 		return result
 
-	def latest_item(self):
+	def latest_item(self, v=True):
 		result = self.gl['item_id'].iloc[-1]
-		print('Latest Item:', result)
+		if v: print('Latest Item:', result)
 		return result
+
+	def duration(self, v=True):
+		earliest = self.gl['post_date'].min()
+		if v: print('Earliest:', earliest)
+		earliest = datetime.datetime.strptime(earliest, '%Y-%m-%d %H:%M:%S.%f')
+		latest = self.gl['post_date'].max()
+		if v: print('Latest:  ', latest)
+		latest = datetime.datetime.strptime(latest, '%Y-%m-%d %H:%M:%S.%f')
+		dur = latest - earliest
+		if v: print('Duration:', dur)
+		return dur
 
 	def bs_hist(self, dates=None, entities=None, v=True): # TODO Optimize this so it does not recalculate each time
 	# nohup python -u acct.py -db test01.db -c hist >> logs/hist_test01.log 2>&1
@@ -1960,6 +1971,9 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'latestitem':
 			ledger.latest_item()
+			if args.command is not None: exit()
+		elif command.lower() == 'dur':
+			ledger.duration()
 			if args.command is not None: exit()
 		elif command.lower() == 'entities':
 			accts.print_entities()
