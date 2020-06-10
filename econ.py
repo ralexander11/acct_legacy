@@ -1974,6 +1974,7 @@ class Entity:
 			return None, [], None, 0
 		event = []
 		hold_event_ids = []
+		prod_hold = []
 		wip_choice = False
 		time_required = False
 		time_check = False
@@ -2026,7 +2027,8 @@ class Entity:
 						# print('{} hold requirement in production requirement for {}.'.format(hold_requirement[0], item))
 						exists = True
 						# if hold_requirement[2] > requirement[2]:
-						requirements_details[j] = (requirement[0], requirement[1], hold_requirement[2]+requirement[2])
+						# requirements_details[j] = (requirement[0], requirement[1], requirement[2]+hold_requirement[2])
+						requirements_details[j] = (requirement[0], requirement[1], max(requirement[2], hold_requirement[2]))
 					if exists:
 						break
 				if not exists:
@@ -2262,12 +2264,15 @@ class Entity:
 				qty_to_use = 0
 				build_in_use = 0
 				if building != 0:
-					qty_to_use = int(min(building, int(math.ceil((qty * (1-modifier) * req_qty) / (building * capacity)))))
+					if capacity != 1:
+						qty_to_use = int(min(building, int(math.ceil((building * capacity) / (max_qty_possible * (1-modifier) * req_qty)))))
+					else:
+						qty_to_use = int(min(building, int(math.ceil((max_qty_possible * (1-modifier) * req_qty)))))
 					if capacity == 1:
 						in_use = True
 						build_in_use = qty_to_use
 					else:
-						build_in_use = int(math.floor((qty * (1-modifier) * req_qty) / (building * capacity)))
+						build_in_use = int(math.floor((max_qty_possible * (1-modifier) * req_qty) / (building * capacity)))
 						print('build_in_use:', build_in_use)
 						if build_in_use >= 1:
 							in_use = True
@@ -2281,7 +2286,9 @@ class Entity:
 					else:
 						if reqs != 'hold_req' and not time_required:
 							hold_event_ids += [entry[0] for entry in entries]
-							if v: print('{} building hold_event_ids: {}'.format(self.name, hold_event_ids))
+							if isinstance(self, Individual):
+								prod_hold += [entry[0] for entry in entries]
+							if v: print('{} building hold_event_ids: {} | {}'.format(self.name, hold_event_ids, prod_hold))
 					event += entries
 					if entries:
 						if not self.gl_tmp.empty:
@@ -2437,7 +2444,9 @@ class Entity:
 					else:
 						if reqs != 'hold_req' and not time_required:
 							hold_event_ids += [entry[0] for entry in entries]
-							if v: print('{} equip hold_event_ids: {}'.format(self.name, hold_event_ids))
+							if isinstance(self, Individual):
+								prod_hold += [entry[0] for entry in entries]
+							if v: print('{} equip hold_event_ids: {} | {}'.format(self.name, hold_event_ids, prod_hold))
 					event += entries
 					if entries:
 						if not self.gl_tmp.empty:
@@ -3177,7 +3186,8 @@ class Entity:
 			world.set_table(world.delay, 'delay')
 			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
 			self.hold_event_ids += hold_event_ids
-			print('{} Final self.hold_event_ids for {}: {} | {}'.format(self.name, item, self.hold_event_ids, hold_event_ids))
+			self.prod_hold += prod_hold
+			# print('{} Final self.hold_event_ids for {}: {} | {}'.format(self.name, item, self.hold_event_ids, hold_event_ids))
 		self.gl_tmp = pd.DataFrame(columns=world.cols)
 		return incomplete, event, time_required, max_qty_possible
 
@@ -3467,6 +3477,8 @@ class Entity:
 			if entry[0] != event_id:
 				if entry[0] in self.hold_event_ids:
 					self.hold_event_ids = [event_id if x == entry[0] else x for x in self.hold_event_ids]
+				if entry[0] in self.prod_hold:
+					self.prod_hold = [event_id if x == entry[0] else x for x in self.prod_hold]
 				print('{} Orig event_id: {} | New event_id: {} | {}'.format(self.name, entry[0], event_id, self.hold_event_ids))
 				entry[0] = event_id
 		ledger.journal_entry(produce_event)
@@ -3658,6 +3670,8 @@ class Entity:
 								if entry[0] != wip_lot['event_id']:
 									if entry[0] in self.hold_event_ids:
 										self.hold_event_ids = [wip_lot['event_id'] if x == entry[0] else x for x in self.hold_event_ids]
+									if entry[0] in self.prod_hold:
+										self.prod_hold = [wip_lot['event_id'] if x == entry[0] else x for x in self.prod_hold]
 									print('{} WIP Orig Partial event_id: {} | New Partial event_id: {} | {}'.format(self.name, entry[0], wip_lot['event_id'], self.hold_event_ids))
 									entry[0] = wip_lot['event_id']
 							ledger.journal_entry(partial_work_event)
@@ -3745,6 +3759,8 @@ class Entity:
 						if entry[0] != wip_lot['event_id']:
 							if entry[0] in self.hold_event_ids:
 								self.hold_event_ids = [wip_lot['event_id'] if x == entry[0] else x for x in self.hold_event_ids]
+							if entry[0] in self.prod_hold:
+								self.prod_hold = [wip_lot['event_id'] if x == entry[0] else x for x in self.prod_hold]
 							print('{} Orig WIP event_id: {} | New WIP event_id: {} | {}'.format(self.name, entry[0], wip_lot['event_id'], self.hold_event_ids))
 							entry[0] = wip_lot['event_id']
 					if v: print('WIP Event: \n{}'.format(wip_event))
@@ -3752,7 +3768,7 @@ class Entity:
 					if wip_event[-1][-3] == 'Inventory':
 						self.set_price(wip_lot['item_id'], wip_lot['qty'])
 
-	def release_check(self, v=True):
+	def release_check(self, v=False):
 		self.hold_event_ids = list(collections.OrderedDict.fromkeys(filter(None, self.hold_event_ids))) # Remove any dupes
 		if v: print('Release check for {}: {}'.format(self.name, self.hold_event_ids))
 		release_event = []
@@ -3762,6 +3778,28 @@ class Entity:
 			# if v: print('release_event:\n', release_event)
 		ledger.journal_entry(release_event)
 		self.hold_event_ids = []
+		self.hold_check()
+
+	def hold_check(self, v=False):
+		if not isinstance(self, Individual):
+			return
+		self.prod_hold = list(collections.OrderedDict.fromkeys(filter(None, self.prod_hold))) # Remove any dupes
+		if v: print('{} | {}'.format(self.name, self.prod_hold))
+		hold_event = []
+		for event_id in self.prod_hold:
+			if v: print('Hold check for event_id:', event_id)
+			entries = ledger.gl.loc[(ledger.gl['event_id'] == event_id) & ~(ledger.gl['debit_acct'].str.contains('In Use', na=False))]
+			# if v: print('entries:\n', entries)
+			for _, entry in entries.iterrows():
+				item = entry['item_id']
+				qty = entry['qty']
+				hold_incomplete, in_use_event, hold_time_required, hold_max_qty_possible = self.fulfill(item, qty=qty, reqs='hold_req', amts='hold_amount')
+				if hold_incomplete:
+					print('{} cannot hold {} {} it produced.'.format(self.name, item, qty)) # TODO Handle this condition somehow
+				hold_event += in_use_event
+			# if v: print('hold_event:\n', hold_event)
+		ledger.journal_entry(hold_event)
+		self.prod_hold = []
 
 	def check_inv(self, v=False):
 		if isinstance(self, Corporation):
@@ -6735,6 +6773,7 @@ class Individual(Entity):
 		self.hours = hours
 		self.pregnant = None
 		self.hold_event_ids = []
+		self.prod_hold = []
 		self.setup_needs(entity_data)
 		for need in self.needs:
 			print('{} {} need start: {}'.format(self.name, need, self.needs[need]['Current Need']))
