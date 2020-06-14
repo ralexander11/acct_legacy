@@ -479,9 +479,30 @@ class World:
 				print('{} | Hours: {}'.format(entity_name, hours))
 		return self.hours
 
-	def check_end(self, v=False):
+	def set_win(self, v=True):
+		self.tech_win = self.items.loc[self.items['child_of'] == 'Technology'].iloc[-1].name
+		if v: print('Tech win condition:', self.tech_win)
+
+	def check_end(self, adv=False, v=False):
+		if self.end:
+			return self.end
 		population = len(factory.registry[Individual])
 		if v: print('Population: {}'.format(population))
+		if adv:
+			pass
+		# Win conditions
+		# TODO If single gov or multi gov
+		# No other players alive
+		# If single gov, for each founder get all entities controlled
+			# Population of a certain size
+		# Get list of all corps controlled by above list
+			# Wealth of a certain amount
+			# Land held of a certain amount
+			# Certain wealth per capita reached
+		# Certain technology reached
+		# Certain item used
+		# Confirm if want to end sim, ability to keep playing save
+
 		industry = len(factory.registry[Corporation])
 		if v: print('Industry: {}'.format(industry))
 		if population <= 0:
@@ -683,8 +704,6 @@ class World:
 		if END_DATE is not None: # For debugging
 			if self.now >= datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
 				self.end = True
-		if self.end:
-			return
 		# Save prior days tables: entities, prices, demand, delay, produce_queue
 		self.prior_entities = self.entities
 		self.set_table(self.prior_entities, 'prior_entities')
@@ -696,13 +715,14 @@ class World:
 		self.set_table(self.prior_delay, 'prior_delay')
 		self.prior_produce_queue = self.produce_queue
 		self.set_table(self.prior_produce_queue, 'prior_produce_queue')
+		if self.check_end():
+			return
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Econ Updated ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		self.entities = accts.get_entities().reset_index()
 		#prices_disp = self.entities[['entity_id','name']].merge(self.prices.reset_index(), on=['entity_id']).set_index('item_id')
 		print('Population: {}'.format(len(factory.registry[Individual])))
 		print('Industry: {}'.format(len(factory.registry[Corporation])))
-		# self.check_end()
 		for individual in factory.get(Individual):
 			individual.reset_hours()
 		self.prices = self.prices.sort_values(['entity_id'], na_position='first')
@@ -917,8 +937,6 @@ class World:
 		for typ in factory.registry.keys():
 			for entity in factory.get(typ):
 				entity.release_check()
-		if self.check_end():
-			return
 		print()
 		for typ in factory.registry.keys():
 			for entity in factory.get(typ):
@@ -6372,11 +6390,34 @@ class Entity:
 			except AttributeError as e:
 				print('Only Individuals can give birth, but a {} is selected.'.format(self.__class__.__name__))
 				print('Error: {}'.format(repr(e)))
-		elif command.lower() == 'divorce':
+		elif command.lower() == 'emance':
 			if not isinstance(self, Individual):
-				print('{} is not an Individual and unable to divorce their parents.'.format(self.name))
+				print('{} is not an Individual and unable to be emancipated from their parents.'.format(self.name))
 				return
-			self.divorce()
+			self.emancipation()
+		elif command.lower() == 'changegov':
+			if isinstance(self, Government):
+				print('{} is a Govnernment and cannot change change allegiance.'.format(self.name))
+				return
+			while True:
+				try:
+					gov_id = input('Enter an entity ID for another Government: ')
+					if gov_id == '':
+						return
+					gov_id = int(gov_id)
+				except ValueError:
+					print('"{}" is not a valid entry. Must be one of the following numbers: \n{}'.format(gov_id, factory.get(Government, ids=True)))
+					continue
+				if gov_id not in factory.get(Government, ids=True):
+					print('"{}" is not a valid entry. Must be one of the following numbers: \n{}'.format(gov_id, factory.get(Government, ids=True)))
+					continue
+				break
+			self.change_allegiance(gov_id)
+		elif command.lower() == 'foundgov':
+			if not isinstance(self, Individual):
+				print('{} is a {} and must be an Individual to found another Government.'.format(self.name, self.__class__.__name__))
+				return
+			self.found_gov()
 		elif command.lower() == 'dividend':
 			if not isinstance(self, Corporation):
 				print('{} is not a Corporation and unable to pay dividends.'.format(self.name))
@@ -6736,7 +6777,9 @@ class Entity:
 				'bankruptcy': 'Declare bankruptcy with the bank.',
 				'adjrate': 'Adjust central bank interest rate.',
 				'price': 'Set the price of items.',
-				'divorce': 'Divorce parents to be treated like a founder.',
+				'emance': 'Emancipation from parents to be treated like a founder.',
+				'changegov': 'Change which Government entity is subject to.',
+				'foundgov': 'Found a new Government.',
 				'user': 'Toggle selected entity between user or computer control.',
 				'superselect': 'Select any entity, including computer users.',
 				'acctmore': 'View more commands for the accounting system.',
@@ -6947,6 +6990,9 @@ class Individual(Entity):
 			self.pregnant = None
 
 	def birth(self, counterparty=None, amount_1=None, amount_2=None):
+		if self.dead:
+			print(f'{self.name} is dead and cannot give birth.')
+			return
 		if amount_1 is None and amount_2 is None:
 			amount_1 = INIT_CAPITAL / 2
 			amount_2 = INIT_CAPITAL / 2
@@ -7018,7 +7064,7 @@ class Individual(Entity):
 		ledger.journal_entry(gift_event)
 		self.pregnant = GESTATION
 
-	def divorce(self, parents=(None, None), v=True):
+	def emancipation(self, parents=(None, None), v=True):
 		orig_parents = self.parents
 		self.parents = parents
 		cur = ledger.conn.cursor()
@@ -7199,6 +7245,35 @@ class Individual(Entity):
 		else:
 			return entity.get_founder(entity.parents[0])
 			#, entity.get_founder(entity.parents[1])
+
+	def change_allegiance(self, gov_id):
+		orig_gov = factory.get_by_id(self.government)
+		gov = factory.get_by_id(gov_id)
+		if not isinstance(gov, Government):
+			print(f'{gov.name} is not a Government. It is a {gov.__class__.__name__}.')
+			return
+		cur = ledger.conn.cursor()
+		set_parents_query = '''
+			UPDATE entities
+			SET government = ?
+			WHERE entity_id = ?;
+		'''
+		values = (str(gov_id), self.entity_id)
+		cur.execute(set_parents_query, values)
+		ledger.conn.commit()
+		cur.close()
+		print(f'{self.name} switch allegiance from {orig_gov.name} to {gov.name}')
+		return gov
+
+	def found_gov(self):
+		print('current gov:', self.government)
+		self.emancipation()
+		world.entities = accts.get_entities()
+		last_entity_id = world.entities.reset_index()['entity_id'].max()
+		gov_id = last_entity_id + 1
+		factory.create(Government, 'Government-' + str(gov_id), items=None, user=self.user)
+		self.change_allegiance(gov_id)
+		return gov_id
 
 	def need_decay(self, need, decay_rate=1):
 		rand = 1
