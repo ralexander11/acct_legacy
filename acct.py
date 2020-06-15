@@ -134,6 +134,7 @@ class Accounts:
 				ticker_source text DEFAULT 'iex',
 				entity_type text,
 				government text,
+				founder text,
 				hours INTEGER,
 				needs text,
 				need_max INTEGER DEFAULT 100,
@@ -159,6 +160,7 @@ class Accounts:
 				ticker_source,
 				entity_type,
 				government,
+				founder,
 				hours,
 				needs,
 				need_max,
@@ -182,6 +184,7 @@ class Accounts:
 					'iex',
 					'Individual',
 					1,
+					4,
 					24,
 					'Hunger',
 					100,
@@ -366,6 +369,7 @@ class Accounts:
 			ticker_source = input('Enter the source for tickers: ')
 			entity_type = input('Enter the type of the entity: ')
 			government = input('Enter the ID for the government the entity belongs to: ')
+			founder = input('Enter the ID for the founder the entity belongs to: ')
 			hours = input('Enter the number of hours reminaing in their work day: ') # TODO Int validation
 			needs = input('Enter the needs of the entity as a list: ')
 			need_max = input('Enter the maximum need value as a list: ')
@@ -383,17 +387,17 @@ class Accounts:
 			if int_rate == '' or int_rate == 'None' or int_rate is None:
 				int_rate = np.nan
 
-			details = (name,currency,framework,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,int_rate,outputs)
-			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (name,currency,framework,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,founder,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,int_rate,outputs)
+			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
 				try:
-					entity = entity + ([None] * (19 - len(entity)))
+					entity = entity + ([None] * (22 - len(entity)))
 				except TypeError:
 					pass
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()
@@ -436,11 +440,11 @@ class Accounts:
 
 			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer)
 			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
-			
+
 		else:
 			for item in item_data:
 				try:
-					item = item + ([None] * (23 - len(item)))
+					item = item + ([None] * (25 - len(item)))
 				except TypeError:
 					pass
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))

@@ -30,7 +30,6 @@ MAX_CORPS = 2
 INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
 EXPLORE_TIME = 400
-USE_PIN = False
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -167,6 +166,9 @@ class World:
 			self.population = population
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Items Config: \n{}'.format(self.items))
+			if args.win:
+				self.win = True
+				self.set_win(v=True)
 			self.env = self.create_world(date=self.now)
 			self.setup_prices()
 			self.produce_queue = pd.DataFrame(columns=['item_id', 'entity_id','qty', 'freq', 'last'])
@@ -198,7 +200,7 @@ class World:
 						user_count -= 1
 					self.entities = accts.get_entities()
 					last_entity_id = self.entities.reset_index()['entity_id'].max()
-					factory.create(Individual, 'Person-' + str(last_entity_id + 1), self.indiv_items_produced, self.global_needs, gov.entity_id, user=user)
+					factory.create(Individual, 'Person-' + str(last_entity_id + 1), self.indiv_items_produced, self.global_needs, gov.entity_id, str(last_entity_id + 1), user=user)
 					entity = factory.get_by_id(last_entity_id + 1)
 					# self.prices = pd.concat([self.prices, entity.prices])
 			self.entities = accts.get_entities()
@@ -273,6 +275,10 @@ class World:
 			self.entities = accts.get_entities().reset_index()
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Loaded Entities: \n{}'.format(self.entities))
+			if args.win:
+				# TODO Have this load the win conditions
+				self.win = True
+				self.set_win(v=True)
 			envs = self.entities.loc[self.entities['entity_type'] == 'Environment']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Environments: \n{}'.format(envs))
@@ -302,19 +308,19 @@ class World:
 			for index, indiv in individuals.iterrows():
 				current_need_all = [int(float(x.strip())) for x in str(indiv['current_need']).split(',')]
 				if not any(n <= 0 for n in current_need_all):
-					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
+					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), int(indiv['founder']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
 			corps = self.entities.loc[self.entities['entity_type'] == 'Corporation']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Corporations: \n{}'.format(corps))
 			for index, corp in corps.iterrows():
 				legal_form = self.org_type(corp['name'])
-				factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), corp['auth_shares'], corp['entity_id'])
+				factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), int(corp['founder']), corp['auth_shares'], corp['entity_id'])
 			nonprofs = self.entities.loc[self.entities['entity_type'] == 'NonProfit']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Non-Profits: \n{}'.format(nonprofs))	
 			for index, nonprof in nonprofs.iterrows():
 				legal_form = self.org_type(nonprof['name'])
-				factory.create(legal_form, nonprof['name'], nonprof['outputs'], int(nonprof['government']), nonprof['auth_shares'], nonprof['entity_id'])
+				factory.create(legal_form, nonprof['name'], nonprof['outputs'], int(nonprof['government']), int(nonprof['founder']), nonprof['auth_shares'], nonprof['entity_id'])
 			self.prices = self.get_table('prior_prices')
 			try: # TODO Remove error checking because of legacy db files
 				self.hist_prices = self.get_table('hist_prices')
@@ -479,32 +485,103 @@ class World:
 				print('{} | Hours: {}'.format(entity_name, hours))
 		return self.hours
 
-	def set_win(self, v=True):
+	def set_win(self, v=False):
+		# TODO Make this user selectable and with dynamic defaults
 		self.tech_win = self.items.loc[self.items['child_of'] == 'Technology'].iloc[-1].name
 		if v: print('Tech win condition:', self.tech_win)
+		self.pop_win = 10
+		if v: print('Population win condition:', self.pop_win)
+		self.wealth_win = 1000000
+		if v: print('Wealth win condition:', self.wealth_win)
+		self.land_win = 100000
+		if v: print('Land win condition:', self.wealth_win)
 
 	def check_end(self, adv=False, v=False):
 		if self.end:
+			# TODO Report the values if time runs out
 			return self.end
 		population = len(factory.registry[Individual])
 		if v: print('Population: {}'.format(population))
-		if adv:
-			pass
-		# Win conditions
-		# TODO If single gov or multi gov
-		# No other players alive
-		# If single gov, for each founder get all entities controlled
-			# Population of a certain size
-		# Get list of all corps controlled by above list
-			# Wealth of a certain amount
-			# Land held of a certain amount
-			# Certain wealth per capita reached
-		# Certain technology reached
-		# Certain item used
-		# Confirm if want to end sim, ability to keep playing save
-
 		industry = len(factory.registry[Corporation])
 		if v: print('Industry: {}'.format(industry))
+		if self.win: # Win conditions
+			if len(factory.get(Government)) == 1: # TODO If single gov or multi gov
+				for indiv in factory.get(Individual):
+					if v: print(f'Checking win conditons for {indiv.name}.')
+					if indiv.parents[0] is None and indiv.parents[1] is None:
+						indiv.children = []
+						indiv.entities = []
+						# If single gov, for each founder get all entities controlled
+						for entity in factory.get([Individual]):
+							if entity.founder == indiv.founder:
+								indiv.children.append(entity.entity_id)
+						for entity in factory.get([Corporation, NonProfit]):
+							if entity.founder == indiv.founder:
+								indiv.entities.append(entity.entity_id)
+						indiv.entities += indiv.children
+						if v: print(f'Children for {indiv.name}: {indiv.children}')
+						if v: print(f'Entities for {indiv.name}: {indiv.entities}')
+						# Population of a certain size
+						if len(indiv.children) >= self.pop_win:
+							self.end = True
+						ledger.set_entity(indiv.entities)
+						indiv.total_nav = ledger.balance_sheet()
+						# Wealth of a certain amount
+						if indiv.total_nav >= self.wealth_win:
+							self.end = True
+						tech_win_status = ledger.get_qty(self.tech_win)
+						# Certain technology reached
+						if tech_win_status > 0:
+							self.end = True
+						# Land held of a certain amount
+						land_types = self.items.loc[self.items['child_of'] == 'Land'].index.values.tolist()
+						land_types.append('Land')
+						land_held = ledger.get_qty(land_types)
+						land_held = land_held['qty'].sum()
+						if land_held >= self.land_win:
+							self.end = True
+						ledger.reset()
+						if self.end:
+							print(f'{indiv.name} has won!')
+			else:
+				for gov in factory.get(Government):
+					gov.children = []
+					gov.entities = []
+					for entity in factory.get([Individual]):
+						if entity.government == gov.government:
+							gov.children.append(entity.entity_id)
+					for entity in factory.get([Corporation, NonProfit]):
+						if entity.government == gov.government:
+							gov.entities.append(entity.entity_id)
+					gov.entities += gov.children
+					if v: print(f'Children for {gov.name}: {gov.children}')
+					if v: print(f'Entities for {gov.name}: {gov.entities}')
+					# Population of a certain size
+					if len(gov.children) >= self.pop_win:
+						self.end = True
+					ledger.set_entity(gov.entities)
+					gov.total_nav = ledger.balance_sheet()
+					# Wealth of a certain amount
+					if gov.total_nav >= self.wealth_win:
+						self.end = True
+					tech_win_status = ledger.get_qty(self.tech_win)
+					# Certain technology reached
+					if tech_win_status > 0:
+						self.end = True
+					# Land held of a certain amount
+					land_types = self.items.loc[self.items['child_of'] == 'Land'].index.values.tolist()
+					land_types.append('Land')
+					land_held = ledger.get_qty(land_types)
+					land_held = land_held['qty'].sum()
+					if land_held >= self.land_win:
+						self.end = True
+					ledger.reset()
+					if self.end:
+						print(f'{gov.name} has won!')
+				# Certain wealth per capita reached
+				# Certain item used
+				# No other players alive
+				# Confirm if want to end sim, ability to keep playing save
 		if population <= 0:
 			print('Econ Sim ended due to human extinction.')
 			self.end = True
@@ -1999,6 +2076,8 @@ class Entity:
 		whole_qty = 1
 		if reqs == 'hold_req':
 			action = 'hold'
+		elif reqs == 'usage_req':
+			action = 'use'
 		else:
 			action = 'produce'
 		if partial is not None:
@@ -2120,7 +2199,7 @@ class Entity:
 					ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 				land = ledger.get_qty(items=req_item, accounts=['Land'])
 				qty_needed = req_qty * (1-modifier) * qty
-				print(f'{{}} requires {{}} {{}} to {action} {{}} {{}} and has: {{}}'.format(self.name, qty_needed, req_item, qty, item, land))
+				print(f'{self.name} requires {qty_needed} {req_item} to {action} {qty} {item} and has: {land}')
 				price = world.get_price(req_item, world.env.entity_id)
 				if land < qty_needed:
 					needed_qty = (req_qty * (1-modifier) * qty) - land
@@ -2229,9 +2308,9 @@ class Entity:
 				if capacity is None or pd.isna(capacity):
 					capacity = 1
 				capacity = float(capacity)
-				print('{} requires {} {} building (Capacity: {}) to produce {} {} and has: {}'.format(self.name, req_qty, req_item, capacity, qty, item, building))
+				qty_needed = qty * (1-modifier) * req_qty
+				print(f'{self.name} requires {req_qty} {req_item} building (Capacity: {capacity}) to {action} {qty} {item} and has: {building}')
 				price = world.get_price(req_item, self.entity_id)
-				qty_needed = qty * (1-modifier) * req_qty # TODO Should this be in the above print stmt?
 				if (building * capacity) < qty_needed:
 					ledger.reset()
 					building_wip = ledger.get_qty(items=req_item, accounts=['Building Under Construction'])
@@ -2370,9 +2449,9 @@ class Entity:
 				if 'animal' in item_freq and 'animal' in req_freq:
 					capacity = 1
 				capacity = float(capacity)
-				print('{} requires {} {} equipment (Capacity: {}) to produce {} {} and has: {}'.format(self.name, req_qty, req_item, capacity, qty, item, equip_qty))
-				price = world.get_price(req_item, self.entity_id)
 				qty_needed = qty * (1-modifier) * req_qty
+				print(f'{self.name} requires {req_qty} {req_item} equipment (Capacity: {capacity}) to {action} {qty} {item} and has: {equip_qty}')
+				price = world.get_price(req_item, self.entity_id)
 				if (equip_qty * capacity) < qty_needed: # TODO Test item with capacity
 					ledger.reset()
 					equip_qty_wip = ledger.get_qty(items=req_item, accounts=['WIP Equipment'])
@@ -2529,7 +2608,7 @@ class Entity:
 					pass
 				component_qty = ledger.get_qty(items=req_item, accounts=['Components'])
 				qty_needed = req_qty * (1-modifier) * qty
-				print('{} requires {} {} components to produce {} {} and has: {}'.format(self.name, qty_needed, req_item, qty, item, component_qty))
+				print(f'{self.name} requires {qty_needed} {req_item} components to {action} {qty} {item} and has: {component_qty}')
 				if component_qty < qty_needed:
 					print('{} does not have enough {} components. Will attempt to aquire some.'.format(self.name, req_item))
 					if not man:
@@ -2636,7 +2715,7 @@ class Entity:
 					# 	incomplete = True # So the animal isn't breed in same round it is captured
 
 				qty_needed = req_qty * (1 - modifier) * qty
-				print('{} requires {} {} commodity to produce {} {} and has: {}'.format(self.name, qty_needed, req_item, qty, item, material_qty_held))
+				print(f'{self.name} requires {qty_needed} {req_item} commodity to {action} {qty} {item} and has: {material_qty_held}')
 				if req_qty < 1 and req_qty > 0:
 					whole_qty = (1 / req_qty)
 					qty_ratio = math.ceil(qty / whole_qty)
@@ -2771,7 +2850,7 @@ class Entity:
 				# TODO Add check to ensure payment has been made recently (maybe on day of)
 				qty_needed = qty * req_qty
 				subscription_state = ledger.get_qty(items=req_item, accounts=['Subscription Info'])
-				print('{} requires {} {} subscription to produce {} {} and has: {}'.format(self.name, qty_needed, req_item, qty, item, subscription_state))
+				print(f'{self.name} requires {qty_needed} {req_item} subscription to {action} {qty} {item} and has: {subscription_state}')
 				if subscription_state < qty_needed:
 					qty_remain = qty_needed - subscription_state
 					print('{} does not have {} {} subscription active. Will attempt to activate {}.'.format(self.name, qty_needed, req_item, qty_remain))
@@ -2898,15 +2977,15 @@ class Entity:
 					# ledger.reset()
 					# ledger.set_entity(self.entity_id)
 
-					labour_required = (req_qty * (1-modifier) * qty)
+					labour_required = req_qty * (1-modifier) * qty
 					# Labourer does the amount they can, and get that value from the entries. Then add to the labour hours done and try again
 					if partial is not None:
 						print('Partial Labour Index: {}'.format(partial))
 						job = world.delay.loc[partial, 'job']
 						if req_item == job:
 							labour_required = world.delay.loc[partial, 'hours']
-							total_labour_required = (req_qty * (1-modifier) * qty)
-							print('{} requires {} {} labour to produce {} {} and has done: {}'.format(self.name, total_labour_required, req_item, qty, item, total_labour_required - labour_required))
+							total_labour_required = req_qty * (1-modifier) * qty
+							print(f'{self.name} requires {total_labour_required} {req_item} labour to {action} {qty} {item} and has done: {total_labour_required - labour_required}')
 							print('Partial Labour Remaining Hours: {}'.format(labour_required))
 					else:
 						print('{} requires {} {} labour to produce {} {}.'.format(self.name, labour_required, req_item, qty, item))
@@ -2922,7 +3001,7 @@ class Entity:
 						# 	counterparty = self
 						# 	entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, wage=0, buffer=True)
 						# else:
-						print('{} to produce {} {} requires {} labour for {} hours.'.format(self.name, qty, item, req_item, required_hours))
+						print(f'{self.name} to {action} {qty} {item} requires {req_item} labour for {required_hours} hours.')
 						if qty == 1 and item_type != 'Service' and reqs != 'hold_req': # TODO Maybe support WIP Services
 							if man and not wip_choice and partial is None and not incomplete:
 								while True:
@@ -3196,7 +3275,7 @@ class Entity:
 				if v: print('Reset hours for {} from {} to {}.'.format(individual.name, individual.hours, individual.hours+hours_deltas[individual.name]))
 				individual.set_hours(-hours_deltas[individual.name])
 			hold_event_ids = []
-			print('{} cannot produce {} {} at this time. The max possible is: {}\n'.format(self.name, qty, item, max_qty_possible))
+			print(f'{self.name} cannot {action} {qty} {item} at this time. The max possible is: {max_qty_possible}\n')
 			print(time_stamp() + 'Hours reset on {}:'.format(world.now))
 			for individual in world.gov.get(Individual):
 				print('{} Hours: {}'.format(individual.name, individual.hours))
@@ -3205,7 +3284,7 @@ class Entity:
 				event = []
 				# print('tmp_gl before recur for item: {} \n{}'.format(item, self.gl_tmp))
 				self.gl_tmp = pd.DataFrame(columns=world.cols) # TODO Confirm this is needed
-				print('{} will try again to produce {} but for {} units.'.format(self.name, item, max_qty_possible))
+				print(f'{self.name} will try again to {action} {item} but for {max_qty_possible} units.')
 				incomplete, event_max_possible, time_required, max_qty_possible = self.fulfill(item, max_qty_possible, man=man)
 				event += event_max_possible
 		else:
@@ -4014,7 +4093,7 @@ class Entity:
 		last_entity_id = entities.reset_index()['entity_id'].max()
 		name = name + '-' + str(last_entity_id + 1)
 		#print('Corp Name: \n{}'.format(name))
-		corp = factory.create(legal_form, name, items_produced, self.government, auth_qty)#, int(last_entity_id + 1))
+		corp = factory.create(legal_form, name, items_produced, self.government, self.founder, auth_qty)#, int(last_entity_id + 1))
 		# world.prices = pd.concat([world.prices, corp.prices])
 		world.items_map = world.items_map.append({'item_id':name, 'child_of':'Shares'}, ignore_index=True)
 		if name.split('-')[0] == 'Bank':
@@ -4119,7 +4198,7 @@ class Entity:
 		tech_info.reset_index(inplace=True)
 		#print('Tech Info: \n{}'.format(tech_info))
 		# ledger.reset()
-		for index, tech_row in tech_info.iterrows():
+		for _, tech_row in tech_info.iterrows():
 			tech = tech_row['item_id']
 			# print('Checking motivation for tech: {}'.format(tech))
 			if self.check_eligible(tech):
@@ -4127,7 +4206,7 @@ class Entity:
 				tech_done_status = ledger.get_qty(items=tech, accounts=['Technology'])
 				tech_research_status = ledger.get_qty(items=tech, accounts=['Researching Technology'])
 				tech_status = tech_done_status + tech_research_status
-				if tech_status == 0:
+				if tech_status == 0 or tech_row['freq'] == 'repeatable':
 					#print('Tech Needed: {}'.format(tech))
 					outcome = self.item_demanded(tech, qty=1)
 					if outcome:
@@ -6814,7 +6893,7 @@ class Entity:
 			return 'end'
 
 class Individual(Entity):
-	def __init__(self, name, items, needs, government, hours=12, current_need=None, parents=(None, None), user=None, entity_id=None):
+	def __init__(self, name, items, needs, government, founder, hours=12, current_need=None, parents=(None, None), user=None, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
 		if isinstance(parents, str):
 			parents = parents.replace('(', '').replace(')', '')
@@ -6840,7 +6919,7 @@ class Individual(Entity):
 		needs = ', '.join(needs)
 
 		# Note: The 2nd to 5th values are for another program
-		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, hours, needs, max_need, decay_rate, threshold, current_need, str(parents), user, None, None, items) ] # TODO Maybe add dead or active bool field
+		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, hours, needs, max_need, decay_rate, threshold, current_need, str(parents), user, None, None, items) ] # TODO Maybe add dead or active bool field
 		# print('Entity Data: {}'.format(entity_data))
 
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -6857,6 +6936,7 @@ class Individual(Entity):
 				self.entity_id = entity_id
 		self.name = name
 		self.government = government
+		self.founder = founder
 		if user is None:
 			gov = factory.get_by_id(self.government)
 			if gov is None:
@@ -6923,11 +7003,11 @@ class Individual(Entity):
 	def setup_needs(self, entity_data):
 		# self.needs = collections.defaultdict(dict)
 		self.needs = collections.OrderedDict()
-		needs_names = [x.strip() for x in entity_data[0][11].split(',')]
-		needs_max = [x.strip() for x in str(entity_data[0][12]).split(',')]
-		decay_rate = [x.strip() for x in str(entity_data[0][13]).split(',')]
-		threshold = [x.strip() for x in str(entity_data[0][14]).split(',')]
-		current_need = [x.strip() for x in str(entity_data[0][15]).split(',')]
+		needs_names = [x.strip() for x in entity_data[0][12].split(',')]
+		needs_max = [x.strip() for x in str(entity_data[0][13]).split(',')]
+		decay_rate = [x.strip() for x in str(entity_data[0][14]).split(',')]
+		threshold = [x.strip() for x in str(entity_data[0][15]).split(',')]
+		current_need = [x.strip() for x in str(entity_data[0][16]).split(',')]
 		for need in needs_names:
 			self.needs[need] = {}
 			for i in range(len(needs_names)): # TODO Fix pointless looping over all needs when not all needs are in dict
@@ -7040,7 +7120,7 @@ class Individual(Entity):
 		#print('Individual Production: {}'.format(self.indiv_items_produced))
 		last_entity_id = entities.reset_index()['entity_id'].max() # TODO Maybe a better way of doing this
 		#print('Last Entity ID: {}'.format(last_entity_id))
-		factory.create(Individual, 'Person-' + str(last_entity_id + 1), self.indiv_items_produced, world.global_needs, self.government, parents=(self.entity_id, counterparty.entity_id), user=self.user)
+		factory.create(Individual, 'Person-' + str(last_entity_id + 1), self.indiv_items_produced, world.global_needs, self.government, founder=self.entity_id, parents=(self.entity_id, counterparty.entity_id), user=self.user)
 		individual = factory.get_by_id(last_entity_id + 1)
 		# world.prices = pd.concat([world.prices, individual.prices])
 		if self.user and USE_PIN:
@@ -7247,6 +7327,7 @@ class Individual(Entity):
 			#, entity.get_founder(entity.parents[1])
 
 	def change_allegiance(self, gov_id):
+		# TODO Change allegiance of all children and companies owned also
 		orig_gov = factory.get_by_id(self.government)
 		gov = factory.get_by_id(gov_id)
 		if not isinstance(gov, Government):
@@ -7493,7 +7574,7 @@ class Individual(Entity):
 class Environment(Entity):
 	def __init__(self, name, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, None) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, None, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -7535,9 +7616,9 @@ class Organization(Entity):
 
 
 class Corporation(Organization):
-	def __init__(self, name, items, government, auth_shares=1000000, entity_id=None):
+	def __init__(self, name, items, government, founder, auth_shares=1000000, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, None, None, None, None, None, None, None, None, auth_shares, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, auth_shares, None, items) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -7552,6 +7633,7 @@ class Corporation(Organization):
 				self.entity_id = entity_id
 		self.name = name
 		self.government = government
+		self.founder = founder
 		self.user = None
 		self.hold_event_ids = []
 		self.produces = items
@@ -7656,7 +7738,7 @@ class Corporation(Organization):
 class Government(Organization):
 	def __init__(self, name, items=None, user=False, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, user, None, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, user, None, None, items) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -7725,7 +7807,7 @@ class Government(Organization):
 class Governmental(Organization):
 	def __init__(self, name, government, items=None, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -7763,7 +7845,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 	# TODO Can the below be omitted for inheritance
 	def __init__(self, name, government, interest_rate=None, items=None, user=None, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, user, None, interest_rate, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, user, None, interest_rate, items) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -7821,9 +7903,9 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 		return 'Bank: {} | {}'.format(self.name, self.entity_id)
 
 class NonProfit(Organization):
-	def __init__(self, name, items, government, auth_qty=0, entity_id=None):
+	def __init__(self, name, items, government, founder, auth_qty=0, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -7838,6 +7920,7 @@ class NonProfit(Organization):
 				self.entity_id = entity_id
 		self.name = name
 		self.government = government
+		self.founder = founder
 		self.user = None
 		self.hold_event_ids = []
 		self.produces = items
@@ -7976,8 +8059,10 @@ if __name__ == '__main__':
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital each player to start with.')
 	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	parser.add_argument('-P', '--players', type=int, nargs='?', const=-1, help='Play the sim as a government!')
+	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
+	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
 	# TODO Add argparse for setting win conditions
-	# User would one or more goals for Wealth, Tech, Population, Land
+	# User would choose one or more goals for Wealth, Tech, Population, Land
 	# Or a time limit, with the highest of one or more of the above
 	# With ability to keep playing
 	args = parser.parse_args()
@@ -7989,6 +8074,7 @@ if __name__ == '__main__':
 	command = None
 	if command is None:
 		command = args.command
+	USE_PIN = args.pin
 
 	print(time_stamp() + 'Start Econ Sim | Governments: {} | Population per Gov: {}'.format(args.governments, args.population))
 	if args.players:
