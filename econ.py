@@ -167,8 +167,8 @@ class World:
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Items Config: \n{}'.format(self.items))
 			if args.win:
-				self.win = True
-				self.set_win(v=True)
+				self.win_conditions = self.set_win(win_defaults=True, v=True)
+				self.set_table(self.win_conditions, 'win_conditions')
 			self.env = self.create_world(date=self.now)
 			self.setup_prices()
 			self.produce_queue = pd.DataFrame(columns=['item_id', 'entity_id','qty', 'freq', 'last'])
@@ -275,10 +275,13 @@ class World:
 			self.entities = accts.get_entities().reset_index()
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Loaded Entities: \n{}'.format(self.entities))
-			if args.win:
+			# if args.win:
+			try:
 				# TODO Have this load the win conditions
-				self.win = True
-				self.set_win(v=True)
+				self.win_conditions = self.get_table('win_conditions')
+				self.win_conditions = self.set_win(self.win_conditions, v=True)
+			except Exception as e:
+				pass
 			envs = self.entities.loc[self.entities['entity_type'] == 'Environment']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Environments: \n{}'.format(envs))
@@ -485,18 +488,195 @@ class World:
 				print('{} | Hours: {}'.format(entity_name, hours))
 		return self.hours
 
-	def set_win(self, v=False):
+	def set_win(self, win_conditions=None, win_defaults=True, v=False):
 		# TODO Make this user selectable and with dynamic defaults
-		self.tech_win = self.items.loc[self.items['child_of'] == 'Technology'].iloc[-1].name
-		if v: print('Tech win condition:', self.tech_win)
-		self.pop_win = 10
-		if v: print('Population win condition:', self.pop_win)
-		self.wealth_win = 1000000
-		if v: print('Wealth win condition:', self.wealth_win)
-		self.land_win = 100000
-		if v: print('Land win condition:', self.wealth_win)
+		if win_conditions is not None:
+			win_conditions = win_conditions.set_index('Win Condition')
+			self.tech_win = win_conditions['Tech win condition: ', 'Value']
+			self.pop_win = win_conditions['Population win condition: ', 'Value']
+			self.wealth_win = win_conditions['Wealth win condition: ', 'Value']
+			self.wealth_capita_win = win_conditions['Wealth per Capita to win: ', 'Value']
+			self.land_win = win_conditions['Land win condition: ', 'Value']
+			self.item_win = win_conditions['Item win condition: ', 'Value']
+			self.use_win = win_conditions['Use item win condition: ', 'Value']
+			args.time = win_conditions['Sim will end in days: ', 'Value']
+			if isinstance(args.time, int):
+				END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
+			win_conditions = win_conditions.reset_index()
+			print(f'Win Conditions:\n{win_conditions}\n')
+			return win_conditions
+		self.tech_win = None
+		self.pop_win = None
+		self.wealth_win = None
+		self.wealth_capita_win = None
+		self.land_win = None
+		self.item_win = None
+		self.use_win = None
+		if win_defaults:
+			self.tech_win = self.items.loc[self.items['child_of'] == 'Technology'].iloc[-1].name
+			self.pop_win = args.population * 10
+			self.wealth_win = args.capital
+			self.wealth_capita_win = args.capital / args.population
+			self.land_win = self.items.loc[self.items['child_of'] == 'Land']['int_rate_var'].sum()
+			# self.item_win = self.items.loc[self.items['child_of'].isin(['Equipment', 'Buildings'])].iloc[-1].name
+			# self.use_win = self.item_win
+		while True:
+			command = input('\nChoose your type of win conditions with the following commands:\npop, wealth, land, tech, time, capita, use, item, help, done\n')
+			if command.lower() == 'pop':
+				while True:
+					try:
+						pop = input('Enter the population to reach to win: ')
+						if pop == '':
+							break
+						pop = int(pop)
+					except ValueError:
+						print('Not a valid entry. Must be a positive whole number.')
+						continue
+					else:
+						if pop <= 0:
+							continue
+						break
+				self.pop_win = pop
+			elif command.lower() == 'wealth':
+				while True:
+					try:
+						wealth = input('Enter the wealth required to win: ')
+						if wealth == '':
+							break
+						wealth = int(wealth)
+					except ValueError:
+						print('Not a valid entry. Must be a positive whole number.')
+						continue
+					else:
+						if wealth <= 0:
+							continue
+						break
+				self.wealth_win = wealth
+			elif command.lower() == 'capita':
+				while True:
+					try:
+						capita = input('Enter the wealth per capita required to win: ')
+						if capita == '':
+							break
+						capita = int(capita)
+					except ValueError:
+						print('Not a valid entry. Must be a positive whole number.')
+						continue
+					else:
+						if capita <= 0:
+							continue
+						break
+				self.wealth_capita_win = capita
+			elif command.lower() == 'land':
+				while True:
+					try:
+						land = input('Enter the land to control to win: ')
+						if land == '':
+							break
+						land = int(land)
+					except ValueError:
+						print('Not a valid entry. Must be a positive whole number.')
+						continue
+					else:
+						if land <= 0:
+							continue
+						break
+				self.land_win = land
+			elif command.lower() == 'tech':
+				while True:
+					tech = input('Enter the technology needed to achieve to win: ')
+					if tech == '':
+						break
+					if not self.valid_item(tech, typ='Technology'):
+						print('Not a valid entry. Must be a technology item name.')
+						continue
+					break
+				self.tech_win = tech.title()
+			elif command.lower() == 'item':
+				while True:
+					item = input('Enter the item needed to obtain to win: ')
+					if item == '':
+						break
+					if not self.valid_item(item):
+						print('Not a valid entry. Must be an item name.')
+						continue
+					break
+				self.item_win = item.title()
+			elif command.lower() == 'use':
+				while True:
+					use_item = input('Enter the item needed to obtain to win: ')
+					if use_item == '':
+						break
+					if not self.valid_item(use_item, typ=['Equipment', 'Buildings']): # TODO Make this a list with Equipment and Buildings, need to update valid_item()
+						print('Not a valid entry. Must be an Equipment item name.')
+						continue
+					break
+				self.use_win = use_item.title()
+			elif command.lower() == 'time':
+				change_time = True
+				if args.time is not None:
+					change_time = input(f'The sim is already set to end in {args.time} days. Do you want to change it? [y/N]: ')
+					if change_time == '':
+						change_time = 'N'
+					if change_time.upper() == 'Y':
+						change_time = True
+					elif change_time.upper() == 'N':
+						change_time = False
+					else:
+						print('Not a valid entry. Must be "Y" or "N".')
+						continue
+				if change_time:
+					while True:
+						try:
+							time = input('Enter the time limit in days for the sim: ')
+							if time == '':
+								break
+							time = int(time)
+						except ValueError:
+							print('Not a valid entry. Must be a positive whole number.')
+							continue
+						else:
+							if time <= 0:
+								continue
+							break
+					args.time = time
+					if isinstance(args.time, int):
+						END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
+			elif command.lower() == 'help':
+				command = {
+					'pop': 'Set the population needed to reach to win.',
+					'wealth': 'Set the wealth needed to reach to win.',
+					'capita': 'Set the wealth per capita needed to reach to win.',
+					'land': 'Set the land needed to control to win.',
+					'tech': 'Set the technology needed to achieve to win.',
+					'item': 'Set the item needed to obtain to win.',
+					'use': 'Set the item needed to use to win.',
+					'time': ' Set the time limit of the sim.',
+					'help': 'This table of commands.',
+					'done': 'Finish setting win conditions',
+				}
+				cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
+				with pd.option_context('display.max_colwidth', 300, 'display.colheader_justify', 'left'):
+					print(cmd_table)
+			elif command.lower() == 'done':
+				break
+			else:
+				print(f'"{command}" is not a valid command. Type "done" to finish or "help" for more options.')
+		win_conditions = {
+			'Tech win condition: ': self.tech_win,
+			'Population win condition: ': self.pop_win,
+			'Wealth win condition: ': self.wealth_win,
+			'Wealth per Capita to win: ': self.wealth_capita_win,
+			'Land win condition: ': self.land_win,
+			'Item win condition: ': self.item_win,
+			'Use item win condition: ': self.use_win,
+			'Sim will end in days: ': args.time,
+		}
+		win_conditions = pd.DataFrame(win_conditions.items(), columns=['Win Condition', 'Value'])
+		print(f'Win Conditions:\n{win_conditions}\n')
+		return win_conditions
 
-	def check_end(self, adv=False, v=False):
+	def check_end(self, v=False):
 		if self.end:
 			# TODO Report the values if time runs out
 			return self.end
@@ -504,84 +684,91 @@ class World:
 		if v: print('Population: {}'.format(population))
 		industry = len(factory.registry[Corporation])
 		if v: print('Industry: {}'.format(industry))
-		if self.win: # Win conditions
+		if args.win: # Win conditions
 			if len(factory.get(Government)) == 1: # TODO If single gov or multi gov
-				for indiv in factory.get(Individual):
-					if v: print(f'Checking win conditons for {indiv.name}.')
-					if indiv.parents[0] is None and indiv.parents[1] is None:
-						indiv.children = []
-						indiv.entities = []
-						# If single gov, for each founder get all entities controlled
-						for entity in factory.get([Individual]):
-							if entity.founder == indiv.founder:
-								indiv.children.append(entity.entity_id)
-						for entity in factory.get([Corporation, NonProfit]):
-							if entity.founder == indiv.founder:
-								indiv.entities.append(entity.entity_id)
-						indiv.entities += indiv.children
-						if v: print(f'Children for {indiv.name}: {indiv.children}')
-						if v: print(f'Entities for {indiv.name}: {indiv.entities}')
-						# Population of a certain size
-						if len(indiv.children) >= self.pop_win:
+				player_type = Individual
+			else:
+				player_type = Government
+			for player in factory.get(player_type):
+				if v: print(f'Checking win conditons for {player.name}.')
+				if player.parents[0] is None and player.parents[1] is None:
+					player.children = []
+					player.entities = []
+					# If single gov, for each founder get all entities controlled
+					for entity in factory.get([Individual]):
+						if len(factory.get(Government)) == 1:
+							if entity.founder == player.founder:
+								player.children.append(entity.entity_id)
+						else:
+							if entity.government == player.government:
+								player.children.append(entity.entity_id)	
+					for entity in factory.get([Corporation, NonProfit]):
+						if len(factory.get(Government)) == 1:
+							if entity.founder == player.founder:
+								player.entities.append(entity.entity_id)
+						else:
+							if entity.government == player.government:
+								player.children.append(entity.entity_id)
+					player.entities += player.children
+					if v: print(f'Children for {player.name}: {player.children}')
+					if v: print(f'Entities for {player.name}: {player.entities}')
+					# Population of a certain size
+					if self.pop_win is not None:
+						print(f'{player.name} population: {len(player.children)} / {self.pop_win}')
+						if len(player.children) >= self.pop_win:
 							self.end = True
-						ledger.set_entity(indiv.entities)
-						indiv.total_nav = ledger.balance_sheet()
+					ledger.set_entity(player.entities)
+					if self.wealth_win is not None or self.wealth_capita_win is not None:
 						# Wealth of a certain amount
-						if indiv.total_nav >= self.wealth_win:
-							self.end = True
+						player.total_nav = ledger.balance_sheet()#v=True)
+						if self.wealth_win is not None:
+							print(f'{player.name} wealth: {player.total_nav} / {self.wealth_win}')
+							if player.total_nav >= self.wealth_win:
+								self.end = True
+						# Certain wealth per capita reached
+						if self.wealth_capita_win is not None:
+							player.wealth_per_capita = player.total_nav / len(player.children)
+							print(f'{player.name} wealth per capita: {player.wealth_per_capita} / {self.wealth_capita_win}')
+							if player.wealth_per_capita >= self.wealth_capita_win:
+								self.end = True
+					# Certain technology reached
+					if self.tech_win is not None:
 						tech_win_status = ledger.get_qty(self.tech_win)
-						# Certain technology reached
+						print(f'{player.name} final tech status: {tech_win_status} | {self.tech_win}')
 						if tech_win_status > 0:
 							self.end = True
-						# Land held of a certain amount
+					# Certain item obtained
+					if self.item_win is not None:
+						item_win_status = ledger.get_qty(self.item_win)
+						print(f'{player.name} final item qty: {item_win_status} | {self.item_win}')
+						if item_win_status > 0:
+							self.end = True
+					# Certain item used
+					if self.use_win is not None:
+						# Note: The item must have a usage depreciation metric but not a ticks metric
+						use_win_status = ledger.get_qty(self.use_win)
+						print(f'{player.name} final item qty: {use_win_status} | {self.use_win}')
+						if use_win_status != 0:
+							self.end = True
+					# Land held of a certain amount
+					if self.land_win is not None:
 						land_types = self.items.loc[self.items['child_of'] == 'Land'].index.values.tolist()
 						land_types.append('Land')
 						land_held = ledger.get_qty(land_types)
 						land_held = land_held['qty'].sum()
+						print(f'{player.name} land held: {land_held} / {self.land_win}')
 						if land_held >= self.land_win:
 							self.end = True
-						ledger.reset()
-						if self.end:
-							print(f'{indiv.name} has won!')
-			else:
-				for gov in factory.get(Government):
-					gov.children = []
-					gov.entities = []
-					for entity in factory.get([Individual]):
-						if entity.government == gov.government:
-							gov.children.append(entity.entity_id)
-					for entity in factory.get([Corporation, NonProfit]):
-						if entity.government == gov.government:
-							gov.entities.append(entity.entity_id)
-					gov.entities += gov.children
-					if v: print(f'Children for {gov.name}: {gov.children}')
-					if v: print(f'Entities for {gov.name}: {gov.entities}')
-					# Population of a certain size
-					if len(gov.children) >= self.pop_win:
-						self.end = True
-					ledger.set_entity(gov.entities)
-					gov.total_nav = ledger.balance_sheet()
-					# Wealth of a certain amount
-					if gov.total_nav >= self.wealth_win:
-						self.end = True
-					tech_win_status = ledger.get_qty(self.tech_win)
-					# Certain technology reached
-					if tech_win_status > 0:
-						self.end = True
-					# Land held of a certain amount
-					land_types = self.items.loc[self.items['child_of'] == 'Land'].index.values.tolist()
-					land_types.append('Land')
-					land_held = ledger.get_qty(land_types)
-					land_held = land_held['qty'].sum()
-					if land_held >= self.land_win:
-						self.end = True
 					ledger.reset()
 					if self.end:
-						print(f'{gov.name} has won!')
-				# Certain wealth per capita reached
-				# Certain item used
-				# No other players alive
-				# Confirm if want to end sim, ability to keep playing save
+						print(f'{player.name} has won!')
+			# No other players alive
+			if args.users > 1 or args.players > 1:
+				users = [entity for entity in factory.get() if entity.user]
+				print(f'Players left: {len(users)}')
+				if len(users) <= 1:
+					self.end = True
+			# Confirm if want to end sim, ability to keep playing save
 		if population <= 0:
 			print('Econ Sim ended due to human extinction.')
 			self.end = True
@@ -617,10 +804,12 @@ class World:
 			else:
 				return False
 		else:
+			if not isinstance(typ, (list, tuple)):
+				typ = [typ]
 			items_typ = self.items.reset_index()
 			items_typ['item_type'] = items_typ.apply(lambda x: x['item_id'] if x['child_of'] is None else self.get_item_type(x['item_id']), axis=1)
-			items_typ = items_typ.loc[items_typ['item_type'] == typ]
-			# print('Items Typ: {} | {} \n{}'.format(item, typ, items_typ))
+			items_typ = items_typ.loc[items_typ['item_type'].isin(typ)]
+			# print(f'Items Typ: {item} | {typ}')# \n{item_typ}')
 			if item in items_typ['item_id'].values:
 				return True
 			else:
