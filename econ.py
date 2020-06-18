@@ -768,7 +768,10 @@ class World:
 				print(f'Players left: {len(users)}')
 				if len(users) <= 1:
 					self.end = True
-			# Confirm if want to end sim, ability to keep playing save
+		if END_DATE is not None: # Also for debugging
+			if self.now == datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
+				self.end = True
+		# Confirm if want to end sim, ability to keep playing save
 		if population <= 0:
 			print('Econ Sim ended due to human extinction.')
 			self.end = True
@@ -967,9 +970,6 @@ class World:
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 
-		if END_DATE is not None: # For debugging
-			if self.now >= datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
-				self.end = True
 		# Save prior days tables: entities, prices, demand, delay, produce_queue
 		self.prior_entities = self.entities
 		self.set_table(self.prior_entities, 'prior_entities')
@@ -981,8 +981,30 @@ class World:
 		self.set_table(self.prior_delay, 'prior_delay')
 		self.prior_produce_queue = self.produce_queue
 		self.set_table(self.prior_produce_queue, 'prior_produce_queue')
+
 		if self.check_end():
-			return
+			keep_playing = False
+			for entity in factory.get():
+				if entity.user:
+					while True:
+						keep_playing = input('Do you want to continue playing? [Y/n]: ')
+						if keep_playing == '':
+							keep_playing = 'Y'
+						if keep_playing.upper() == 'Y':
+							keep_playing = True
+							break
+						elif keep_playing.upper() == 'N':
+							keep_playing = False
+							break
+						else:
+							print('Not a valid entry. Must be "Y" or "N".')
+							continue
+				if keep_playing:
+					self.end = False
+					break
+			if not keep_playing:
+				return
+
 		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Econ Updated ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		self.entities = accts.get_entities().reset_index()
@@ -1349,6 +1371,8 @@ class Entity:
 				rate = 0.9 #0.99
 			elif direction == 'up_low':
 				rate = 1.02 #1.002
+			elif direction == 'up_very_low':
+				rate = 1.0002 # 1.02 #1.002
 			elif direction == 'down_high':
 				rate = 0.8 #0.98
 			else:
@@ -3831,34 +3855,45 @@ class Entity:
 				world.produce_queue.loc[(world.produce_queue['item_id'] == que_item['item_id']) & (world.produce_queue['entity_id'] == que_item['entity_id']), 'last'] -= 1
 		world.set_table(world.produce_queue, 'produce_queue')
 
-	def get_raw(self, item, qty=1, raw=None, orig_item=None, v=False):
+	def get_raw(self, item, qty=1, raw=None, orig_item=None, base=False, v=False):
 		if raw is None:
 			raw = collections.defaultdict(int)
 		if orig_item is None:
 			orig_item = item
 		item_info = world.items.loc[item]
-		# item_type = world.get_item_type(item)
+		item_type = world.get_item_type(item)
+		# print(f'{item}:\n{item_info}')
 		if item_info['requirements'] is None or item_info['amount'] is None:
+			if base:
+				if item_type == 'Technology':
+					raw[item] = qty
+				else:
+					raw[item] += qty
 			return raw # Base case
 		requirements = [x.strip() for x in item_info['requirements'].split(',')]
 		requirement_types = [world.get_item_type(requirement) for requirement in requirements]
 		amounts = [x.strip() for x in item_info['amount'].split(',')]
-		amounts = list(map(int, amounts))
+		amounts = list(map(float, amounts))
 		requirements_details = list(itertools.zip_longest(requirements, requirement_types, amounts))
 		if v: print(f'Requirements Details for {qty} {item}: \n{requirements_details}')
 		for requirement in requirements_details:
-			if requirement[1] in ['Land', 'Commodity', 'Labour', 'Job', 'Technology', 'Time']:
+			# TODO Make option for this to catch when items have no requirements only
+			if requirement[1] in ['Land', 'Commodity', 'Labour', 'Job', 'Technology', 'Time'] and not base:
+				# print(f'inner: {item} {requirement}')
 				if requirement[1] == 'Technology':
 					raw[requirement[0]] = requirement[2]
 				else:
 					raw[requirement[0]] += (requirement[2] * qty)
 			else:
-				self.get_raw(requirement[0], requirement[2], raw, item)
+				self.get_raw(requirement[0], requirement[2] * qty, raw, item, base=base)
 		if item != orig_item:
 			return raw
 		raw = pd.DataFrame(raw.items(), index=None, columns=['item_id', 'qty'])
+		total = raw['qty'].sum()
+		raw = raw.append({'item_id':'Total', 'qty':total}, ignore_index=True)
 		print(f'Total resources needed to produce: {qty} {item}')
-		print(raw)
+		with pd.option_context('float_format', '{:,.1f}'.format):
+			print(raw)
 		return raw
 
 	def wip_check(self, check=False, v=False):
@@ -5507,10 +5542,10 @@ class Entity:
 				charge_subscription_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Received payment for ' + item, item, price, qty, 'Cash', 'Subscription Revenue', price ]
 				pay_subscription_event += [pay_subscription_entry, charge_subscription_entry]
 				if buffer:
-					counterparty.adj_price(item, qty=1, direction='up_low')
+					counterparty.adj_price(item, qty=1, direction='up_very_low')
 					continue
 				ledger.journal_entry(pay_subscription_event)
-				counterparty.adj_price(item, qty=1, direction='up_low')
+				counterparty.adj_price(item, qty=1, direction='up_very_low')
 				if self.user and not first:
 					needs = world.items.loc[item, 'satisfies']
 					needs = [x.strip() for x in needs.split(',')]
@@ -6490,7 +6525,10 @@ class Entity:
 						continue
 					break
 			self.set_produce(item.title(), qty, freq, man=man)
-		elif command.lower() == 'raw':
+		elif command.lower() == 'raw' or command.lower() == 'rawbase':
+			base = False
+			if command.lower() == 'rawbase':
+				base = True
 			while True:
 				item = input('Enter item to see total raw resources required: ')
 				if item == '':
@@ -6515,7 +6553,7 @@ class Entity:
 					if qty <= 0:
 						continue
 					break
-			self.get_raw(item.title(), qty)
+			self.get_raw(item.title(), qty, base=base)
 		elif command.lower() == 'use':
 			while True:
 				item = input('Enter item to use: ') # TODO Some sort of check for non-usable items
