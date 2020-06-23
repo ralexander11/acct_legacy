@@ -224,6 +224,7 @@ class Accounts:
 				hold_amount text,
 				usage_req text,
 				use_amount text,
+				fulfill text,
 				satisfies text,
 				satisfy_rate text,
 				productivity text,
@@ -253,6 +254,7 @@ class Accounts:
 				hold_amount,
 				usage_req,
 				use_amount,
+				fulfill,
 				satisfies,
 				satisfy_rate,
 				productivity,
@@ -274,6 +276,7 @@ class Accounts:
 					'loan',
 					'Bank',
 					'1',
+					NULL,
 					NULL,
 					NULL,
 					NULL,
@@ -424,6 +427,7 @@ class Accounts:
 			hold_amount = input('Enter the list of values for the amount of each requirement to hold the item: ')
 			usage_req = input('Enter the list of requirements to use the item: ')
 			use_amount = input('Enter the list of values for the amount of each requirement to use the item: ')
+			fulfill = input('Enter the list of requirements the item satisfies or None if the item name is sufficient: ')
 			satisfies = input('Enter the list of needs the item satisfies: ')
 			satisfy_rate = input('Enter the list of satisfy rates for the item: ')
 			productivity = input('Enter the list of requirements the item makes more efficient: ')
@@ -438,17 +442,17 @@ class Accounts:
 			byproduct_amt = input('Enter the list of amount of byproducts created (if any) when this item is produced: ')
 			producer = input('Enter the producer of the item: ')
 
-			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer)
-			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,fulfill,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer)
+			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 
 		else:
 			for item in item_data:
 				try:
-					item = item + ([None] * (25 - len(item)))
+					item = item + ([None] * (26 - len(item)))
 				except TypeError:
 					pass
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
-				insert_sql = 'INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, item)
 
 		self.conn.commit()
@@ -535,6 +539,17 @@ class Accounts:
 		if items_table_name is None:
 			items_table_name=self.items_table_name
 		self.items = pd.read_sql_query('SELECT * FROM ' + items_table_name + ';', self.conn, index_col=['item_id'])
+		return self.items
+
+	def edit_item(self, item=None, prpty=None, value=None):
+		# TODO Make this work
+		if item is None:
+			item = input('Enter a item: ')
+		print('{}: \n{}'.format(item.title(), self.items.loc[[item.title()]].squeeze()))
+		if prpty is None:
+			prpty = input('Enter a property: ')
+		value = input('Enter new value: ')
+		self.items.loc[[item.title()], prpty] = value
 		return self.items
 
 	def print_entities(self, save=True): # TODO Add error checking if no entities exist
@@ -1043,7 +1058,7 @@ class Ledger:
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, credit=False, v=False):
+	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, single_item=False, credit=False, v=False):
 		# if items == 'Rocky Land':
 		# 	if v: print('Get Qty GL: \n{}'.format(self.gl))
 		if not credit:
@@ -1051,7 +1066,6 @@ class Ledger:
 		else:
 			acct_side = 'credit_acct'
 		all_accts = False
-		single_item = False
 		no_item = False
 		if v: print('Get Qty for Items Given: {}'.format(items))
 		if (items is None) or (items == '') or (not items):
@@ -1437,6 +1451,8 @@ class Ledger:
 		if txns is None:
 			txns = []
 			txns.append(input('Which transaction ID would you like to remove? '))
+		if not isinstance(txns, (list, tuple)):
+			txns = [txns]
 		cur = self.conn.cursor()
 		for txn in txns:
 			cur.execute('DELETE FROM '+ self.ledger_name +' WHERE txn_id=?', (txn,))
@@ -1449,6 +1465,8 @@ class Ledger:
 		if txns is None:
 			txns = []
 			txns.append(input('Which txn_id to reverse? ')) # TODO Add check to ensure valid transaction number
+		if not isinstance(txns, (list, tuple)):
+			txns = [txns]
 		cur = self.conn.cursor()
 		rvsl_event = []
 		for txn in txns:
@@ -1864,19 +1882,22 @@ def main(conn=None, command=None, external=False):
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
 	parser.add_argument('-c', '--command', type=str, help='A command for the program.')
-	# Dummy args to allow it work with econ.py
-	parser.add_argument('-sim', '--simulation', action='store_true', help='Run on historical data.')
+	# Dummy args to allow acct.py work with econ.py command loop
+	parser.add_argument('-sim', '--simulation', action='store_true', help='Run on historical data.') # For trading sim
 	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
-	parser.add_argument('-P', '--players', type=int, default=1, help='The number of players in the econ sim.')
-	parser.add_argument('-p', '--population', type=int, default=2, help='The number of people in the econ sim.')
+	parser.add_argument('-p', '--population', type=int, default=1, help='The number of people in the econ sim per government.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the sim!')
-	parser.add_argument('-rand', '--random', action='store_false', help='Remove randomness from the sim!')
+	parser.add_argument('-g', '--governments', type=int, default=1, help='The number of governments in the econ sim.')
+	parser.add_argument('-rand', '--random', action='store_false', help='Remove randomness from the sim.') # TODO Is this needed?
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
 	parser.add_argument('-t', '--time', type=int, help='The number of days the sim will run for.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital each player to start with.')
-	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim!')
-	parser.add_argument('-U', '--Users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
+	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
+	parser.add_argument('-P', '--players', type=int, nargs='?', const=-1, help='Play the sim as a government!')
+	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
+	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
+	parser.add_argument('-auto', '--auto', action='store_true', help='Automatically run prepared commands when in user mode.')
 	args = parser.parse_args()
 
 	if args.database is not None:
@@ -2002,6 +2023,9 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'exporttable':
 			accts.export_table()
+			if args.command is not None: exit()
+		elif command.lower() == 'edititem':
+			accts.edit_item()
 			if args.command is not None: exit()
 
 		elif command.lower() == 'db':

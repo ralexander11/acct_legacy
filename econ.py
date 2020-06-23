@@ -4,6 +4,7 @@ import pandas as pd
 # from pygame.locals import *
 import collections
 import itertools
+import functools
 import argparse
 import datetime
 import warnings
@@ -29,7 +30,8 @@ GESTATION = 2
 MAX_CORPS = 2
 INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
-EXPLORE_TIME = 400
+EXPLORE_TIME = 1
+INC_BUFFER = 3
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -153,8 +155,13 @@ class World:
 			print(self.now)
 			if args.items is None:
 				items_file = 'data/items.csv'
-			self.items = accts.load_items(items_file) # TODO Change config file to JSON
-			self.items_map = pd.DataFrame(columns=['item_id', 'child_of'], index=['item_id']).dropna()
+			else:
+				items_file = 'data/' + args.items
+			self.items = accts.load_items(items_file) # TODO Change config file to JSON and load into a graph structure
+			self.items = self.items.reset_index() # TODO Avoid this?
+			self.items['fulfill'] = self.items.apply(lambda x: x['item_id'] if x['fulfill'] is None else x['fulfill'], axis=1)
+			self.items = self.items.set_index('item_id') # TODO Avoid this?
+			self.items_map = pd.DataFrame(columns=['item_id', 'child_of'], index=['item_id']).dropna() # TODO Is this needed still?
 			self.set_table(self.items_map, 'items_map')
 			self.global_needs = self.create_needs()
 			print(time_stamp() + 'Loading items from: {}'.format(items_file))
@@ -432,6 +439,7 @@ class World:
 			# ]
 			# land_items = self.items.loc[(self.get_item_type(self.items['child_of']) == 'Land') | (self.items.index == 'Land')].reset_index() # TODO Handle items where the child is a child of Land
 			land_items = self.items.loc[(self.items['child_of'] == 'Land') | (self.items.index == 'Land')].reset_index() # TODO Handle items where the child is a child of Land
+			# land_items = self.items.loc[(self.items['child_of'] == 'Land')].reset_index()
 			lands = []
 			for i, land_item in land_items.iterrows():
 				land_id = land_item['item_id']
@@ -489,7 +497,6 @@ class World:
 		return self.hours
 
 	def set_win(self, win_conditions=None, win_defaults=True, v=False):
-		# TODO Make this user selectable and with dynamic defaults
 		if win_conditions is not None:
 			win_conditions = win_conditions.set_index('Win Condition')
 			self.tech_win = win_conditions['Tech win condition: ', 'Value']
@@ -499,6 +506,7 @@ class World:
 			self.land_win = win_conditions['Land win condition: ', 'Value']
 			self.item_win = win_conditions['Item win condition: ', 'Value']
 			self.use_win = win_conditions['Use item win condition: ', 'Value']
+			self.left_win = win_conditions['Last player left alive: ', 'Value']
 			args.time = win_conditions['Sim will end in days: ', 'Value']
 			if isinstance(args.time, int):
 				END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
@@ -512,20 +520,37 @@ class World:
 		self.land_win = None
 		self.item_win = None
 		self.use_win = None
+		self.left_win = None
 		if win_defaults:
 			self.tech_win = self.items.loc[self.items['child_of'] == 'Technology'].iloc[-1].name
 			self.pop_win = args.population * 10
 			self.wealth_win = args.capital
 			self.wealth_capita_win = args.capital / args.population
-			self.land_win = self.items.loc[self.items['child_of'] == 'Land']['int_rate_var'].sum()
+			self.land_win = int(self.items.loc[self.items['child_of'] == 'Land']['int_rate_var'].sum())
 			# self.item_win = self.items.loc[self.items['child_of'].isin(['Equipment', 'Buildings'])].iloc[-1].name
 			# self.use_win = self.item_win
+			# if args.users > 1 or args.players > 1:
+			if args.governments > 1 or args.population > 1:
+				self.left_win = True
+			win_conditions = {
+				'Tech win condition: ': self.tech_win,
+				'Population win condition: ': self.pop_win,
+				'Wealth win condition: ': self.wealth_win,
+				'Wealth per Capita to win: ': self.wealth_capita_win,
+				'Land win condition: ': self.land_win,
+				'Item win condition: ': self.item_win,
+				'Use item win condition: ': self.use_win,
+				'Last player left alive: ': self.left_win,
+				'Sim will end in days: ': args.time,
+			}
+			win_conditions = pd.DataFrame(win_conditions.items(), columns=['Win Condition', 'Value'])
+			print(f'Default Win Conditions:\n{win_conditions}\n')
 		while True:
 			command = input('\nChoose your type of win conditions with the following commands:\npop, wealth, land, tech, time, capita, use, item, help, done\n')
 			if command.lower() == 'pop':
 				while True:
 					try:
-						pop = input('Enter the population to reach to win: ')
+						pop = input(f'Enter the population to reach to win (Currently: {self.pop_win}) : ')
 						if pop == '':
 							break
 						pop = int(pop)
@@ -540,7 +565,7 @@ class World:
 			elif command.lower() == 'wealth':
 				while True:
 					try:
-						wealth = input('Enter the wealth required to win: ')
+						wealth = input(f'Enter the wealth required to win (Currently: {self.wealth_win}) : ')
 						if wealth == '':
 							break
 						wealth = int(wealth)
@@ -555,7 +580,7 @@ class World:
 			elif command.lower() == 'capita':
 				while True:
 					try:
-						capita = input('Enter the wealth per capita required to win: ')
+						capita = input(f'Enter the wealth per capita required to win (Currently: {self.wealth_capita_win}) : ')
 						if capita == '':
 							break
 						capita = int(capita)
@@ -570,7 +595,7 @@ class World:
 			elif command.lower() == 'land':
 				while True:
 					try:
-						land = input('Enter the land to control to win: ')
+						land = input(f'Enter the amount of land to control to win (Currently: {self.land_win}) : ')
 						if land == '':
 							break
 						land = int(land)
@@ -583,8 +608,10 @@ class World:
 						break
 				self.land_win = land
 			elif command.lower() == 'tech':
+				tech_list = self.items.loc[self.items['child_of'] == 'Technology']
+				print('Technologies Available:\n {}'.format(tech_list.index.values))
 				while True:
-					tech = input('Enter the technology needed to achieve to win: ')
+					tech = input(f'Enter the technology needed to achieve to win (Currently: {self.tech_win}) : ')
 					if tech == '':
 						break
 					if not self.valid_item(tech, typ='Technology'):
@@ -594,7 +621,7 @@ class World:
 				self.tech_win = tech.title()
 			elif command.lower() == 'item':
 				while True:
-					item = input('Enter the item needed to obtain to win: ')
+					item = input(f'Enter the item needed to obtain to win (Currently: {self.item_win}) : ')
 					if item == '':
 						break
 					if not self.valid_item(item):
@@ -604,7 +631,7 @@ class World:
 				self.item_win = item.title()
 			elif command.lower() == 'use':
 				while True:
-					use_item = input('Enter the item needed to obtain to win: ')
+					use_item = input(f'Enter the Equipment or Building needed to use to win (Currently: {self.use_win}) : ')
 					if use_item == '':
 						break
 					if not self.valid_item(use_item, typ=['Equipment', 'Buildings']): # TODO Make this a list with Equipment and Buildings, need to update valid_item()
@@ -628,7 +655,7 @@ class World:
 				if change_time:
 					while True:
 						try:
-							time = input('Enter the time limit in days for the sim: ')
+							time = input(f'Enter the time limit in days for the sim (Currently: {args.time}) : ')
 							if time == '':
 								break
 							time = int(time)
@@ -643,7 +670,7 @@ class World:
 					if isinstance(args.time, int):
 						END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
 			elif command.lower() == 'help':
-				command = {
+				commands = {
 					'pop': 'Set the population needed to reach to win.',
 					'wealth': 'Set the wealth needed to reach to win.',
 					'capita': 'Set the wealth per capita needed to reach to win.',
@@ -652,6 +679,7 @@ class World:
 					'item': 'Set the item needed to obtain to win.',
 					'use': 'Set the item needed to use to win.',
 					'time': ' Set the time limit of the sim.',
+					'left': 'Last player alive can only be set at cmd line.',
 					'help': 'This table of commands.',
 					'done': 'Finish setting win conditions',
 				}
@@ -670,6 +698,7 @@ class World:
 			'Land win condition: ': self.land_win,
 			'Item win condition: ': self.item_win,
 			'Use item win condition: ': self.use_win,
+			'Last player left alive: ': self.left_win,
 			'Sim will end in days: ': args.time,
 		}
 		win_conditions = pd.DataFrame(win_conditions.items(), columns=['Win Condition', 'Value'])
@@ -763,12 +792,15 @@ class World:
 					if self.end:
 						print(f'{player.name} has won!')
 			# No other players alive
-			if args.users > 1 or args.players > 1:
+			# if args.users > 1 or args.players > 1:
+			if args.governments > 1 or args.population > 1:
 				users = [entity for entity in factory.get() if entity.user]
 				print(f'Players left: {len(users)}')
 				if len(users) <= 1:
 					self.end = True
 		if END_DATE is not None: # Also for debugging
+			days_left = self.now - datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date()
+			print(f'Days left: {days_left}')
 			if self.now == datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
 				self.end = True
 		# Confirm if want to end sim, ability to keep playing save
@@ -776,6 +808,32 @@ class World:
 			print('Econ Sim ended due to human extinction.')
 			self.end = True
 		return self.end
+
+	def edit_item(self, item=None, prpty=None, value=None, v=True):
+		if item is None:
+			while True:
+				item = input('Enter a item: ')
+				if item == '':
+					return
+				if self.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+		if v: print('{} properties: \n{}'.format(item.title(), self.items.loc[[item.title()]].squeeze()))
+		if prpty is None:
+			while True:
+				prpty = input('Enter a property: ')
+				if prpty == '':
+					return
+				if prpty in self.items.columns.values.tolist():
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+		value = input('Enter new value: ')
+		self.items.loc[[item.title()], prpty] = value
+		return self.items
 
 	def valid_corp(self, ticker):
 		if not isinstance(ticker, str):
@@ -1009,8 +1067,12 @@ class World:
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		self.entities = accts.get_entities().reset_index()
 		#prices_disp = self.entities[['entity_id','name']].merge(self.prices.reset_index(), on=['entity_id']).set_index('item_id')
-		print('Population: {}'.format(len(factory.registry[Individual])))
-		print('Industry: {}'.format(len(factory.registry[Corporation])))
+		self.population = len(factory.registry[Individual])
+		self.industry = len(factory.registry[Corporation])
+		self.governments = len(factory.registry[Government])
+		print('Population: {}'.format(self.population))
+		print('Industry: {}'.format(self.industry))
+		print('Governments: {}'.format(self.governments))
 		for individual in factory.get(Individual):
 			individual.reset_hours()
 		self.prices = self.prices.sort_values(['entity_id'], na_position='first')
@@ -1759,7 +1821,8 @@ class Entity:
 				result_tmp, cost = self.transact(item, price=price, qty=purchase_qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, cash_used=cash_used, buffer=buffer)
 				if not result_tmp:
 					break
-				cash_used += result_tmp[-1][-1]
+				if counterparty.entity_id != self.entity_id:
+					cash_used += result_tmp[-1][-1]
 				result += result_tmp
 				purchased_qty += purchase_qty
 				qty -= purchase_qty
@@ -1936,6 +1999,8 @@ class Entity:
 		ledger.set_entity(self.entity_id)
 		qty_held = ledger.get_qty(items=item, accounts=['Inventory'])#, v=True)
 		ledger.reset()
+		# if isinstance(qty_held, pd.DataFrame):
+		# 	qty_held = qty_held['qty'].sum()
 		print('{} holds {} qty of {} and is looking to consume {} units.'.format(self.name, qty_held, item, qty))
 		if qty_held >= qty:
 			print('{} consumes: {} {}'.format(self.name, qty, item))
@@ -3884,8 +3949,10 @@ class Entity:
 					raw[requirement[0]] = requirement[2]
 				else:
 					raw[requirement[0]] += (requirement[2] * qty)
+			elif 'animal' in str(item_info['freq'] or ''):
+				raw[requirement[0]] += (requirement[2] * qty)
 			else:
-				self.get_raw(requirement[0], requirement[2] * qty, raw, item, base=base)
+				self.get_raw(requirement[0], requirement[2] * qty, raw, item, base=base, v=v)
 		if item != orig_item:
 			return raw
 		raw = pd.DataFrame(raw.items(), index=None, columns=['item_id', 'qty'])
@@ -4280,9 +4347,13 @@ class Entity:
 		if price is None:
 			price = 1
 		if qty is None and founders is None:
-			qty = 5000 # TODO Fix temp defaults
+			# qty = 5000 # TODO Fix temp defaults
+			demand_qty = world.demand.loc[world.demand['item_id'] == item]['qty'].sum()
+			raw_mats = self.get_raw(item, demand_qty)
+			qty = raw_mats.iloc[-1]['qty'] * INIT_PRICE * INC_BUFFER
+			print(f'{item} ({demand_qty}) incorp amount: {qty}')
 		if auth_qty is None:
-			auth_qty = 100000 # TODO Determine dynamically
+			auth_qty = 100000 # TODO Determine dynamically?
 		if founders is None:
 			founders = {self: qty}
 		if qty is None:
@@ -4297,7 +4368,7 @@ class Entity:
 			name = names[0]
 			#print('Ticker: {}'.format(name))
 		if name == 'Bank' and world.gov.bank is not None:
-			print('{} already has a bank. Only one Central Bank per Government is allowed.'.format(world.gov))
+			print('{} already has a bank. Only one Central Bank per Government is allowed at this time.'.format(world.gov))
 			return
 		legal_form = world.org_type(name)
 		# print('Legal Form: {}'.format(legal_form))
@@ -4430,7 +4501,7 @@ class Entity:
 				tech_done_status = ledger.get_qty(items=tech, accounts=['Technology'])
 				tech_research_status = ledger.get_qty(items=tech, accounts=['Researching Technology'])
 				tech_status = tech_done_status + tech_research_status
-				if tech_status == 0 or tech_row['freq'] == 'repeatable':
+				if tech_status == 0 or (tech_row['freq'] == 'repeatable' and tech_research_status == 0):
 					#print('Tech Needed: {}'.format(tech))
 					outcome = self.item_demanded(tech, qty=1)
 					if outcome:
@@ -4763,10 +4834,10 @@ class Entity:
 				self.set_price(item, price=price)
 			# print('Price of {} land set to: {}'.format(item, price))
 		explore_time = world.items['int_rate_fix'][item] # TODO Maybe create dedicated data column
-		if explore_time is None or not pd.isnull(explore_time):
+		if explore_time is None or pd.isnull(explore_time):
 			explore_time = EXPLORE_TIME
 		explore_time = int(explore_time)
-		time_needed = qty / explore_time
+		time_needed = qty * explore_time
 		if isinstance(self, (Corporation)):
 			largest_shareholder_id = self.list_shareholders(largest=True)
 			if largest_shareholder_id is None:
@@ -4781,7 +4852,7 @@ class Entity:
 			entity = self
 		orig_qty = qty
 		if entity.hours < time_needed:
-			qty = math.floor(entity.hours / (1 / explore_time))
+			qty = math.floor(entity.hours / (explore_time))
 			if qty == 0:
 				print('{} lacks time to claim {} units of {}. Can claim {} units with {} hours time.'.format(entity.name, orig_qty, item, qty, entity.hours))
 				self.item_demanded(item, orig_qty)
@@ -6014,7 +6085,13 @@ class Entity:
 		if command is None: # TODO Allow to call bs command from econ.py
 			command = args.command
 		if command is None and not external:
-			command = input('Enter an action or "help" for more info: ')
+			if args.auto:
+				if not commands:
+					args.auto = False
+			if args.auto:
+				command = commands.pop(0)
+			else:
+				command = input('Enter an action or "help" for more info: ')
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'select':
 			if not world.gov.user:
@@ -6077,6 +6154,14 @@ class Entity:
 				world.selection = factory.get_by_id(selection)
 				break
 			return world.selection
+		elif command.lower() == 'win':
+			print(f'Win Conditions:\n{world.win_conditions}\n')
+		# elif command.lower() == 'checkwin':
+		# 	print(f'Win Conditions:\n{world.win_conditions}\n')
+		# 	# TODO Add ability to keep playing
+		# 	world.check_end()
+		elif command.lower() == 'edititem':
+			world.edit_item()
 		elif command.lower() == 'user':
 			target = world.toggle_user()
 			if target is None:
@@ -6418,7 +6503,10 @@ class Entity:
 			self.consume(item.title(), qty)
 		elif command.lower() == 'recurproduce' or command.lower() == 'rproduce':
 			while True:
-				item = input('Enter item to produce: ')
+				if args.auto:
+					item = commands.pop(0)
+				else:
+					item = input('Enter item to produce: ')
 				if item == '':
 					return
 				if world.valid_item(item):
@@ -6429,7 +6517,10 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = input('Enter quantity of {} item to produce: '.format(item))
+					if args.auto:
+						qty = commands.pop(0)
+					else:
+						qty = input('Enter quantity of {} item to produce: '.format(item))
 					if qty == '':
 						qty = 1
 						# return
@@ -6553,7 +6644,16 @@ class Entity:
 					if qty <= 0:
 						continue
 					break
-			self.get_raw(item.title(), qty, base=base)
+			self.get_raw(item.title(), qty, base=base, v=True)
+		elif command.lower() == 'address':
+			print('Will attempt to address needs with items on hand.')
+			priority_needs = {}
+			for need in self.needs:
+				priority_needs[need] = self.needs[need]['Current Need']
+			priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
+			priority_needs = collections.OrderedDict(priority_needs)
+			for need in priority_needs:
+				self.address_need(need, obtain=False)
 		elif command.lower() == 'use':
 			while True:
 				item = input('Enter item to use: ') # TODO Some sort of check for non-usable items
@@ -6916,8 +7016,8 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200):
 				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
 		elif command.lower() == 'buildings':
-			equip_list = world.items.loc[world.items['child_of'] == 'Buildings']
-			print('Buildings Available:\n {}'.format(equip_list.index.values))
+			build_list = world.items.loc[world.items['child_of'] == 'Buildings']
+			print('Buildings Available:\n {}'.format(build_list.index.values))
 			while True:
 				item = input('\nEnter an item to see all of its properties (enter to exit): ')
 				if item == '':
@@ -6930,8 +7030,8 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200):
 				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
 		elif command.lower() == 'technology' or command.lower() == 'tech':
-			equip_list = world.items.loc[world.items['child_of'] == 'Technology']
-			print('Technologies Available:\n {}'.format(equip_list.index.values))
+			tech_list = world.items.loc[world.items['child_of'] == 'Technology']
+			print('Technologies Available:\n {}'.format(tech_list.index.values))
 			while True:
 				item = input('\nEnter an item to see all of its properties (enter to exit): ')
 				if item == '':
@@ -6944,8 +7044,8 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200):
 				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
 		elif command.lower() == 'education' or command.lower() == 'edu':
-			equip_list = world.items.loc[world.items['child_of'] == 'Education']
-			print('Technologies Available:\n {}'.format(equip_list.index.values))
+			edu_list = world.items.loc[world.items['child_of'] == 'Education']
+			print('Education Available:\n {}'.format(edu_list.index.values))
 			while True:
 				item = input('\nEnter an item to see all of its properties (enter to exit): ')
 				if item == '':
@@ -6958,8 +7058,8 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200):
 				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
 		elif command.lower() == 'subscription' or command.lower() == 'sub':
-			equip_list = world.items.loc[world.items['child_of'] == 'Subscription']
-			print('Subscriptions Available:\n {}'.format(equip_list.index.values))
+			sub_list = world.items.loc[world.items['child_of'] == 'Subscription']
+			print('Subscriptions Available:\n {}'.format(sub_list.index.values))
 			while True:
 				item = input('\nEnter an item to see all of its properties (enter to exit): ')
 				if item == '':
@@ -6972,8 +7072,8 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200):
 				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
 		elif command.lower() == 'service':
-			equip_list = world.items.loc[world.items['child_of'] == 'Service']
-			print('Subscriptions Available:\n {}'.format(equip_list.index.values))
+			serv_list = world.items.loc[world.items['child_of'] == 'Service']
+			print('Services Available:\n {}'.format(serv_list.index.values))
 			while True:
 				item = input('\nEnter an item to see all of its properties (enter to exit): ')
 				if item == '':
@@ -7032,18 +7132,16 @@ class Entity:
 			else:
 				print('The "otherhire" command is only for Individuals.')
 		elif command.lower() == 'help':
-			commands = {
+			command_help = {
 				'select': 'Choose a different entity (Individual or Corporation).',
-				'needs': 'See a list of all needs in the sim and list items that satisfy those needs.',
-				'items': 'See a list of all available items and their details for specific items.',
-				'raw': 'See the total raw resources needed to produce an item.',
-				'productivity': 'See a list of all requirements that can be made more productive by other items.',
-				'incorp': 'Incorporate a company to produce items.',
-				'raisecap': 'Sell additional shares in the Corporation.',
+				'needs': 'List all needs and items that satisfy those needs.',
+				'items': 'List of all available items.',
+				'raw': 'Total raw resources needed to produce an item.',
+				'productivity': 'List all requirements that can be made more efficient.',
 				'hours': 'See hours available for each entity.',
 				'land': 'See land available to claim.',
 				'map': 'See all land in existence.',
-				'claimland': 'Claim land for free, but it must be defended.',
+				'claim': 'Claim land for free, but it must be defended.',
 				'produce': 'Produce items.',
 				'consume': 'Consume items.',
 				'autoproduce': 'Produce items automatically.',
@@ -7052,28 +7150,32 @@ class Entity:
 				'use': 'Use an item.',
 				'hire': 'Hire a part-time or full-time worker.',
 				'study': 'Study education and skills as an Individual to improve.',
+				'address': 'Automatically address needs with items on hand.',
 				'equip': 'Equip an item to attack with it or use it.',
 				'unequip': 'Unequip an item that was previously equipped.',
 				'attack': 'Attack another Individual or item with an item.',
 				'birth': 'Have a child with another Individual.',
-				'dividend': 'Declare dividends for a Corporation.',
-				'demand': 'See the demand table.',
 				'auto': 'See the auto production queue table.',
-				'accthelp': 'View commands for the accounting system.',
 				'skip': 'Skip an entities turn even if they have hours left.',
-				'end': 'End the day even if multiple entities have hours left.',
+				# 'end': 'End the day even if multiple entities have hours left.',
+				'accthelp': 'View commands for the accounting system.',
+				'more': 'View additional advanced commands.',
 				'exit': 'Exit out of the sim.'
 			}
-			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
+			cmd_table = pd.DataFrame(command_help.items(), columns=['Command', 'Description'])
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
-			# for k, v in commands.items():
+			# for k, v in command_help.items():
 			# 	print('{}: {}'.format(k, v))
 		elif command.lower() == 'more':
 			# TODO Add command and function to put items up for sale
-			commands = {
-				'recurproduce': 'Produce items, this will also attempt to aquire any requirements.',
+			command_more = {
+				'rproduce': 'Produce items, this will also attempt to aquire any requirements.',
 				'mautoproduce': 'Produce items automatically but not recursively.',
+				'demand': 'See the demand table.',
+				'incorp': 'Incorporate a company to produce items.',
+				'raisecap': 'Sell additional shares in the Corporation.',
+				'dividend': 'Declare dividends for a Corporation.',
 				'otherhire': 'Toggle setting to allow Individual to be hired by others.',
 				'gift': 'Gift cash or items between entities.',
 				'deposit': 'Deposit cash with the bank.',
@@ -7089,9 +7191,10 @@ class Entity:
 				'user': 'Toggle selected entity between user or computer control.',
 				'superselect': 'Select any entity, including computer users.',
 				'acctmore': 'View more commands for the accounting system.',
+				'win': 'See the win conditions.',
 				'exit': 'Exit out of the sim.'
 			}
-			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
+			cmd_table = pd.DataFrame(command_more.items(), columns=['Command', 'Description'])
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
 		elif command.lower() == 'skip' or command.lower() == 'done':
@@ -7290,15 +7393,18 @@ class Individual(Entity):
 
 	def birth_check(self):
 		if self.pregnant:
-			print('{} gave birth recently and has used up all their time for the day.\n'.format(self.name))
-			self.set_hours(MAX_HOURS)
 			self.pregnant -= 1
+			print(f'{self.name} gave birth or was born recently and has used up all their time for the day with {self.pregnant} days left\n')
+			self.set_hours(MAX_HOURS)
 		if self.pregnant == 0:
 			self.pregnant = None
 
 	def birth(self, counterparty=None, amount_1=None, amount_2=None):
 		if self.dead:
 			print(f'{self.name} is dead and cannot give birth.')
+			return
+		if self.hours == 0:
+			print(f'{self.name} has no hours left and cannot give birth.')
 			return
 		if amount_1 is None and amount_2 is None:
 			amount_1 = INIT_CAPITAL / 2
@@ -7367,9 +7473,11 @@ class Individual(Entity):
 		world.set_table(world.prices, 'prices')
 
 		gift_event += individual.capitalize(amount=amount_1 + amount_2, buffer=True)
+		individual.hours = 0
 		print('\nPerson-' + str(last_entity_id + 1) + ' is born!')
 		ledger.journal_entry(gift_event)
 		self.pregnant = GESTATION
+		individual.pregnant = GESTATION + 1
 
 	def emancipation(self, parents=(None, None), v=True):
 		orig_parents = self.parents
@@ -7585,8 +7693,8 @@ class Individual(Entity):
 
 	def need_decay(self, need, decay_rate=1):
 		rand = 1
-		if args.random:
-			rand = random.randint(1, 3)
+		# if args.random:
+		# 	rand = random.randint(1, 3)
 		decay_rate = self.needs[need]['Decay Rate'] * -1 * rand
 		self.set_need(need, decay_rate)
 		print('{} {} need decayed by {} to: {}\n'.format(self.name, need, decay_rate, self.needs[need]['Current Need']))
@@ -7598,7 +7706,7 @@ class Individual(Entity):
 			print('\n{} {} need threshold met at: {}'.format(self.name, need, self.needs[need]['Current Need']))
 			self.address_need(need)
 
-	def address_need(self, need):
+	def address_need(self, need, obtain=True):
 		if need is None:
 			return
 		outcome = None
@@ -7629,11 +7737,12 @@ class Individual(Entity):
 		items_info = items_info.assign(price_rate=price_rate.values)
 		items_info = items_info.sort_values(by='price_rate', ascending=False)
 		# print('Items Info: \n{}'.format(items_info))
-		# items_info = items_info.sort_values(by='need_satisfy_rate', ascending=False) # Old method os sorting
+		# items_info = items_info.sort_values(by='need_satisfy_rate', ascending=False) # Old method of sorting
 		items_info.reset_index(inplace=True)
 		# If first item is not available, try the next one
 		for index, item in items_info.iterrows():
 			item_choosen = items_info['item_id'].iloc[index]
+			# print(f'{need} item_choosen: {item_choosen}')
 			if not self.check_eligible(item_choosen):
 				continue
 			# TODO Support multiple satisfies
@@ -7641,7 +7750,7 @@ class Individual(Entity):
 			#print('Item Choosen: {}'.format(item_choosen))
 			item_type = world.get_item_type(item_choosen)
 			#print('Item Type: {}'.format(item_type))
-			if item_type != 'Commodity' and item_type != 'Components':
+			if item_type != 'Commodity' and item_type != 'Components' and obtain:
 				print('\nSatisfy {} need for {} by purchasing: {}'.format(need, self.name, item_choosen))
 
 			if item_type == 'Subscription':
@@ -7656,7 +7765,8 @@ class Individual(Entity):
 					# if counterparty is None:
 					# 	self.item_demanded(item_choosen, 1)
 					# 	continue
-					outcome = self.order_subscription(item_choosen)#, counterparty=counterparty)#, price=world.get_price(item_choosen, counterparty.entity_id))
+					if obtain:
+						outcome = self.order_subscription(item_choosen)#, counterparty=counterparty)#, price=world.get_price(item_choosen, counterparty.entity_id))
 				# qty_purchase = 1 # TODO Remove as was needed for demand call below
 
 			elif item_type == 'Buildings': # TODO Test this with examples
@@ -7667,7 +7777,7 @@ class Individual(Entity):
 				ledger.reset()
 				qty_owned = qty_held + qty_in_use
 				event = []
-				if qty_owned == 0:
+				if qty_owned == 0 and obtain:
 					outcome = self.purchase(item_choosen, qty=1)#, acct_buy='Equipment') # TODO Support buildings by sqft units
 				if qty_owned:
 					if (qty_held > 0 and qty_in_use == 0) or outcome:
@@ -7687,7 +7797,10 @@ class Individual(Entity):
 				#print('Need Needed: {}'.format(need_needed))
 				qty_purchase = int(math.ceil(need_needed / satisfy_rate))
 				#print('QTY Needed: {}'.format(qty_needed))
-				outcome = self.purchase(item_choosen, qty_purchase)
+				if obtain:
+					outcome = self.purchase(item_choosen, qty_purchase)
+				else:
+					print(f'Produce or purchase {qty_purchase} {item_choosen} service to satisfy {need_needed} {need} need.')
 
 			elif (item_type == 'Commodity') or (item_type == 'Component'):
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
@@ -7697,8 +7810,9 @@ class Individual(Entity):
 				ledger.set_entity(self.entity_id)
 				qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 				ledger.reset()
+				print(f'{self.name} has {qty_held} {item_choosen} out of {qty_needed} qty needed to address {need_needed} {need} need.')
 				# TODO Attempt to use item before aquiring some
-				if qty_held < qty_needed:
+				if qty_held < qty_needed and obtain:
 					qty_wanted = qty_needed - qty_held
 					# TODO Is the below needed?
 					qty_avail = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
@@ -7706,7 +7820,7 @@ class Individual(Entity):
 						qty_avail = qty_wanted # Prevent purchase for 0 qty
 					qty_purchase = min(qty_wanted, qty_avail)
 					# TODO Is the above needed?
-					print('\nSatisfy {} need for {} by purchasing: {} {}'.format(need, self.name, qty_purchase, item_choosen))
+					print(f'\nSatisfy {need} need for {self.name} by purchasing: {qty_purchase} {item_choosen}')
 					outcome = self.purchase(item_choosen, qty_purchase)
 					ledger.set_entity(self.entity_id)
 					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
@@ -7716,7 +7830,7 @@ class Individual(Entity):
 						outcome, time_required, max_qty_possible, incomplete = self.produce(item_choosen, qty_wanted - qty_held)
 						if not outcome:
 							if (qty_wanted - qty_held) != 1:
-								print('Trying to address {} need again for 1 qty of {}.'.format(need, item_choosen))
+								print(f'Trying to address {need} need again for 1 qty of {item_choosen}.')
 								outcome, time_required, max_qty_possible, incomplete = self.produce(item_choosen, qty=1)
 						ledger.set_entity(self.entity_id)
 						qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
@@ -7730,12 +7844,11 @@ class Individual(Entity):
 				ledger.set_entity(self.entity_id)
 				qty_held = ledger.get_qty(items=item_choosen, accounts=['Equipment'])
 				ledger.reset()
-				print('{} has {} {} to address {}.'.format(self.name, qty_held, item_choosen, need))
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				uses_needed = int(math.ceil(need_needed / satisfy_rate))
-				print('Uses Needed of {}: {}'.format(item_choosen, uses_needed))
+				print(f'{self.name} has {qty_held} {item_choosen} to use {uses_needed} times to address {need_needed} {need} need.')
 				event = []
-				if qty_held == 0:
+				if qty_held == 0 and obtain:
 					qty_purchase = 1
 					metrics = items_info['metric'].iloc[index]
 					if isinstance(metrics, str):
@@ -7863,6 +7976,7 @@ class Corporation(Organization):
 		self.founder = founder
 		self.user = None
 		self.hold_event_ids = []
+		self.prod_hold = []
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8051,6 +8165,7 @@ class Governmental(Organization):
 		self.government = government
 		self.user = None
 		self.hold_event_ids = []
+		self.prod_hold = []
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8150,6 +8265,7 @@ class NonProfit(Organization):
 		self.founder = founder
 		self.user = None
 		self.hold_event_ids = []
+		self.prod_hold = []
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8275,19 +8391,19 @@ if __name__ == '__main__':
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-c', '--command', type=str, help='A command for the program.')
 	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
-	
-	parser.add_argument('-p', '--population', type=int, default=1, help='The number of people in the econ sim per government.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the sim!')
-	parser.add_argument('-g', '--governments', type=int, default=1, help='The number of governments in the econ sim.')
 	parser.add_argument('-rand', '--random', action='store_false', help='Remove randomness from the sim.') # TODO Is this needed?
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
 	parser.add_argument('-t', '--time', type=int, help='The number of days the sim will run for.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital each player to start with.')
-	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
+	parser.add_argument('-g', '--governments', type=int, default=1, help='The number of governments in the econ sim.')
 	parser.add_argument('-P', '--players', type=int, nargs='?', const=-1, help='Play the sim as a government!')
-	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
+	parser.add_argument('-p', '--population', type=int, default=1, help='The number of people in the econ sim per government.')
+	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
+	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
+	parser.add_argument('-auto', '--auto', action='store_true', help='Automatically run prepared commands when in user mode.')
 	# TODO Add argparse for setting win conditions
 	# User would choose one or more goals for Wealth, Tech, Population, Land
 	# Or a time limit, with the highest of one or more of the above
@@ -8337,6 +8453,12 @@ if __name__ == '__main__':
 		print(time_stamp() + 'Econ Sim has no end date and will end if everyone dies.')
 	else:
 		print(time_stamp() + 'Econ Sim has an end date of {} or if everyone dies.'.format(END_DATE))
+	if args.auto and (args.users > 0 or args.players > 0):
+		with open('commands.txt') as f:
+			commands = f.readlines()
+		commands = [line.rstrip('\n') for line in commands]
+		input = functools.partial(commands.pop, 0) # Test this
+		print('commands.txt\n', commands)
 	print(time_stamp() + 'Database file: {}'.format(args.database))
 	new_db = True
 	# print('Existing DB Check: {}'.format(os.path.exists('db/' + args.database)))
@@ -8372,3 +8494,11 @@ if __name__ == '__main__':
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
 # (python econ.py -s 11 -p 4 -r -t 10 && say done) || say error
+
+# TODO
+# Add a new column to items called fulfill
+# If it is None, then take the item name
+# Otherwise it allows you to specific what it fulfills, similar to how productivity items work
+# This will allow multiple items to fulfill the same requirement
+# Such as having a Stone Forge and an Electric Forge
+# Or Drift Wood and Lumber both fulfilling Wood
