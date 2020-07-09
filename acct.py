@@ -1058,7 +1058,7 @@ class Ledger:
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, single_item=False, credit=False, v=False):
+	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, single_item=False, always_df=False, credit=False, v=False):
 		# if items == 'Rocky Land':
 		# 	if v: print('Get Qty GL: \n{}'.format(self.gl))
 		if not credit:
@@ -1165,17 +1165,17 @@ class Ledger:
 						credits = 0
 					qty = debits - credits
 					if v: print('QTY: {}\n'.format(qty))
-					if single_item:
+					if single_item and not always_df:
 						total_qty += qty
 					else:
 						inventory = inventory.append({'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
 						#if v: print(inventory)
-		if single_item and not by_entity:
+		if single_item and not by_entity and not always_df:
 			if v: print('Return Total Qty: ', total_qty)
 			return total_qty
 		if not show_zeros:
 			inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold
-		if all_accts:
+		if all_accts and no_item:
 			if self.entity is None:
 				inventory.to_sql('inventory', self.conn, if_exists='replace')
 			else:
@@ -1957,6 +1957,7 @@ def main(conn=None, command=None, external=False):
 			ledger.print_bs()
 			if args.command is not None: exit()
 		elif command.lower() == 'qty':
+			# print('Entity:', ledger.entity)
 			item = input('Which item or ticker? ')#.lower()
 			acct = input('Which account? ')#.title()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -1968,6 +1969,7 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()
+			# print('Entity:', ledger.entity)
 			if args.command is not None: exit()
 		elif command.lower() == 'date':
 			ledger.set_date()

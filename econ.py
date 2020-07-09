@@ -7,6 +7,7 @@ import itertools
 import functools
 import argparse
 import datetime
+# TODO import datetime as dt
 import warnings
 import getpass
 import random
@@ -26,7 +27,7 @@ END_DATE = None
 MAX_HOURS = 12
 WORK_DAY = 8
 PAY_PERIODS = 2
-GESTATION = 2
+GESTATION = 7
 MAX_CORPS = 2
 INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
@@ -176,6 +177,8 @@ class World:
 			if args.win:
 				self.win_conditions = self.set_win(win_defaults=True, v=True)
 				self.set_table(self.win_conditions, 'win_conditions')
+			else:
+				self.win_conditions = None
 			self.env = self.create_world(date=self.now)
 			self.setup_prices()
 			self.produce_queue = pd.DataFrame(columns=['item_id', 'entity_id','qty', 'freq', 'last'])
@@ -282,13 +285,12 @@ class World:
 			self.entities = accts.get_entities().reset_index()
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Loaded Entities: \n{}'.format(self.entities))
-			# if args.win:
 			try:
 				# TODO Have this load the win conditions
 				self.win_conditions = self.get_table('win_conditions')
 				self.win_conditions = self.set_win(self.win_conditions, v=True)
 			except Exception as e:
-				pass
+				self.win_conditions = None
 			envs = self.entities.loc[self.entities['entity_type'] == 'Environment']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Environments: \n{}'.format(envs))
@@ -497,6 +499,18 @@ class World:
 		return self.hours
 
 	def set_win(self, win_conditions=None, win_defaults=True, v=False):
+		self.tech_win = None
+		self.pop_win = None
+		self.wealth_win = None
+		self.wealth_capita_win = None
+		self.land_win = None
+		self.item_win = None
+		self.use_win = None
+		self.left_win = None
+		if args.time is not None: # Due to setting global within function
+			END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
+		else:
+			END_DATE = None
 		if win_conditions is not None:
 			win_conditions = win_conditions.set_index('Win Condition')
 			self.tech_win = win_conditions['Tech win condition: ', 'Value']
@@ -512,16 +526,12 @@ class World:
 				END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
 			win_conditions = win_conditions.reset_index()
 			print(f'Win Conditions:\n{win_conditions}\n')
-			return win_conditions
-		self.tech_win = None
-		self.pop_win = None
-		self.wealth_win = None
-		self.wealth_capita_win = None
-		self.land_win = None
-		self.item_win = None
-		self.use_win = None
-		self.left_win = None
-		if win_defaults:
+			for _, win_value in win_conditions['Value'].iteritems():
+				if win_value:
+					args.win = True
+			if not new_db and not args.reset:
+				return win_conditions
+		if win_defaults and win_conditions is None:
 			self.tech_win = self.items.loc[self.items['child_of'] == 'Technology'].iloc[-1].name
 			self.pop_win = args.population * 10
 			self.wealth_win = args.capital
@@ -530,9 +540,9 @@ class World:
 			# self.item_win = self.items.loc[self.items['child_of'].isin(['Equipment', 'Buildings'])].iloc[-1].name
 			# self.use_win = self.item_win
 			# if args.users > 1 or args.players > 1:
-			if args.governments > 1 or args.population > 1:
+			if args.governments > 1 or args.population > 1 or args.users > 1 or args.players > 1:
 				self.left_win = True
-			win_conditions = {
+			win_conditions = { # TODO Don't duplicate this
 				'Tech win condition: ': self.tech_win,
 				'Population win condition: ': self.pop_win,
 				'Wealth win condition: ': self.wealth_win,
@@ -541,7 +551,7 @@ class World:
 				'Item win condition: ': self.item_win,
 				'Use item win condition: ': self.use_win,
 				'Last player left alive: ': self.left_win,
-				'Sim will end in days: ': args.time,
+				'Sim will end on: ': END_DATE,
 			}
 			win_conditions = pd.DataFrame(win_conditions.items(), columns=['Win Condition', 'Value'])
 			print(f'Default Win Conditions:\n{win_conditions}\n')
@@ -561,7 +571,10 @@ class World:
 						if pop <= 0:
 							continue
 						break
+				if self.pop_win == '':
+					self.pop_win = None
 				self.pop_win = pop
+				print('Population win condition:', self.pop_win)
 			elif command.lower() == 'wealth':
 				while True:
 					try:
@@ -576,7 +589,10 @@ class World:
 						if wealth <= 0:
 							continue
 						break
+				if self.wealth_win == '':
+					self.wealth_win = None
 				self.wealth_win = wealth
+				print('Wealth win condition:', self.wealth_win)
 			elif command.lower() == 'capita':
 				while True:
 					try:
@@ -591,7 +607,10 @@ class World:
 						if capita <= 0:
 							continue
 						break
+				if self.wealth_capita_win == '':
+					self.wealth_capita_win = None
 				self.wealth_capita_win = capita
+				print('Wealth per Capita to win:', self.wealth_capita_win)
 			elif command.lower() == 'land':
 				while True:
 					try:
@@ -606,7 +625,10 @@ class World:
 						if land <= 0:
 							continue
 						break
+				if self.land_win == '':
+					self.land_win = None
 				self.land_win = land
+				print('Land win condition:', self.land_win)
 			elif command.lower() == 'tech':
 				tech_list = self.items.loc[self.items['child_of'] == 'Technology']
 				print('Technologies Available:\n {}'.format(tech_list.index.values))
@@ -619,6 +641,7 @@ class World:
 						continue
 					break
 				self.tech_win = tech.title()
+				print('Tech win condition:', self.tech_win)
 			elif command.lower() == 'item':
 				while True:
 					item = input(f'Enter the item needed to obtain to win (Currently: {self.item_win}) : ')
@@ -629,6 +652,7 @@ class World:
 						continue
 					break
 				self.item_win = item.title()
+				print('Item win condition:', self.item_win)
 			elif command.lower() == 'use':
 				while True:
 					use_item = input(f'Enter the Equipment or Building needed to use to win (Currently: {self.use_win}) : ')
@@ -639,6 +663,7 @@ class World:
 						continue
 					break
 				self.use_win = use_item.title()
+				print('Use item win condition:', self.use_win)
 			elif command.lower() == 'time':
 				change_time = True
 				if args.time is not None:
@@ -669,6 +694,24 @@ class World:
 					args.time = time
 					if isinstance(args.time, int):
 						END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
+				print('Sim will end on:', END_DATE)
+			elif command.lower() == 'left':
+				self.left_win = not self.left_win
+				print('Last player left alive: ', self.left_win)
+			elif command.lower() == 'win':
+				win_conditions = { # TODO Don't duplicate this
+					'Tech win condition: ': self.tech_win,
+					'Population win condition: ': self.pop_win,
+					'Wealth win condition: ': self.wealth_win,
+					'Wealth per Capita to win: ': self.wealth_capita_win,
+					'Land win condition: ': self.land_win,
+					'Item win condition: ': self.item_win,
+					'Use item win condition: ': self.use_win,
+					'Last player left alive: ': self.left_win,
+					'Sim will end on: ': END_DATE,
+				}
+				win_conditions = pd.DataFrame(win_conditions.items(), columns=['Win Condition', 'Value'])
+				print(f'Current Win Conditions:\n{win_conditions}\n')
 			elif command.lower() == 'help':
 				commands = {
 					'pop': 'Set the population needed to reach to win.',
@@ -679,7 +722,8 @@ class World:
 					'item': 'Set the item needed to obtain to win.',
 					'use': 'Set the item needed to use to win.',
 					'time': ' Set the time limit of the sim.',
-					'left': 'Last player alive can only be set at cmd line.',
+					'left': 'Set so the last player alive wins.',
+					'win': 'View currently set win conditions.',
 					'help': 'This table of commands.',
 					'done': 'Finish setting win conditions',
 				}
@@ -690,7 +734,7 @@ class World:
 				break
 			else:
 				print(f'"{command}" is not a valid command. Type "done" to finish or "help" for more options.')
-		win_conditions = {
+		win_conditions = { # TODO Don't duplicate this
 			'Tech win condition: ': self.tech_win,
 			'Population win condition: ': self.pop_win,
 			'Wealth win condition: ': self.wealth_win,
@@ -699,10 +743,13 @@ class World:
 			'Item win condition: ': self.item_win,
 			'Use item win condition: ': self.use_win,
 			'Last player left alive: ': self.left_win,
-			'Sim will end in days: ': args.time,
+			'Sim will end on: ': END_DATE,
 		}
 		win_conditions = pd.DataFrame(win_conditions.items(), columns=['Win Condition', 'Value'])
-		print(f'Win Conditions:\n{win_conditions}\n')
+		print(f'Final Win Conditions:\n{win_conditions}\n')
+		for _, win_value in win_conditions['Value'].iteritems():
+			if win_value:
+				args.win = True
 		return win_conditions
 
 	def check_end(self, v=False):
@@ -792,10 +839,9 @@ class World:
 					if self.end:
 						print(f'{player.name} has won!')
 			# No other players alive
-			# if args.users > 1 or args.players > 1:
-			if args.governments > 1 or args.population > 1:
-				users = [entity for entity in factory.get() if entity.user]
-				print(f'Players left: {len(users)}')
+			if self.left_win:
+				users = [entity for entity in factory.get(Individual) if entity.user]
+				print(f'Players left: {len(users)} / {max(args.governments, args.population, args.users, args.players)}')
 				if len(users) <= 1:
 					self.end = True
 		if END_DATE is not None: # Also for debugging
@@ -1040,7 +1086,7 @@ class World:
 		self.prior_produce_queue = self.produce_queue
 		self.set_table(self.prior_produce_queue, 'prior_produce_queue')
 
-		if self.check_end():
+		if self.check_end(v=True):
 			keep_playing = False
 			for entity in factory.get():
 				if entity.user:
@@ -1337,7 +1383,7 @@ class World:
 		# if str(self.now) == '1986-10-31': # For testing impairment
 		# 	individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm', generic=True), target='Plow')
 
-		if args.random and individual: # TODO Maybe add population target
+		if args.random and individual and not (args.users >= 1 or args.players >= 1): # TODO Maybe add population target
 			birth_roll = random.randint(1, 20)
 			print('Birth Roll: {}'.format(birth_roll))
 			if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
@@ -6173,6 +6219,8 @@ class Entity:
 			else:
 				world.selection = None
 				return
+		elif command.lower() == 'setwin':
+			world.set_win(world.win_conditions)
 		elif command.lower() == 'incorp':
 			while True:
 				corp = input('Enter a corp: ')
@@ -6796,6 +6844,24 @@ class Entity:
 			except AttributeError as e:
 				print('Only Individuals can give birth, but a {} is selected.'.format(self.__class__.__name__))
 				print('Error: {}'.format(repr(e)))
+		elif command.lower() == 'seppuku':
+			while True:
+				confirm = input('Does {} really want to commit seppuku? [y/N]: '.format(self.name))
+				if confirm == '':
+					confirm = 'N'
+				if confirm.upper() == 'Y':
+					confirm = True
+					break
+				elif confirm.upper() == 'N':
+					confirm = False
+					break
+				else:
+					print('Not a valid entry. Must be "Y" or "N".')
+					continue
+			if confirm:
+				self.seppuku()
+				world.selection = None
+				return
 		elif command.lower() == 'emance':
 			if not isinstance(self, Individual):
 				print('{} is not an Individual and unable to be emancipated from their parents.'.format(self.name))
@@ -6975,6 +7041,11 @@ class Entity:
 					continue
 			if confirm:
 				self.bankruptcy()
+		elif command.lower() == 'own' or command.lower() == 'owned':
+			ledger.set_entity(self.entity_id)
+			inv = ledger.get_qty()
+			ledger.reset()
+			print(inv)
 		elif command.lower() == 'hours':
 			world.get_hours(v=True)
 		elif command.lower() == 'land':
@@ -6987,6 +7058,18 @@ class Entity:
 			print('World Demand as of {}: \n{}'.format(world.now, world.demand))
 		elif command.lower() == 'auto':
 			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
+		elif command.lower() == 'savedf':
+			df_name = input('Enter name of df to save: ' )
+			save_df = None
+			try:
+				# save_df = locals()[df_name]
+				save_df = getattr(world, df_name)
+			except KeyError as e:
+				print(f'Error: {repr(e)}')
+			if isinstance(save_df, pd.DataFrame):
+				file_name = 'data/' + df_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
+				save_df.to_csv(file_name, index=True)
+				print(f'{df_name} saved as: {file_name}')
 		elif command.lower() == 'items':
 			print('World Items Available: \n{}'.format(world.items.index.values))
 			print('\nNote: Enter an item type as a command to see a list of just those items. (i.e. Equipment)')
@@ -7139,6 +7222,7 @@ class Entity:
 				'raw': 'Total raw resources needed to produce an item.',
 				'productivity': 'List all requirements that can be made more efficient.',
 				'hours': 'See hours available for each entity.',
+				'own': 'See items owned for selected entity.',
 				'land': 'See land available to claim.',
 				'map': 'See all land in existence.',
 				'claim': 'Claim land for free, but it must be defended.',
@@ -7189,8 +7273,10 @@ class Entity:
 				'changegov': 'Change which Government entity is subject to.',
 				'foundgov': 'Found a new Government.',
 				'user': 'Toggle selected entity between user or computer control.',
+				'seppuku': 'Kill the currently selected entity.',
 				'superselect': 'Select any entity, including computer users.',
 				'acctmore': 'View more commands for the accounting system.',
+				'setwin': 'Set the win conditions.',
 				'win': 'See the win conditions.',
 				'exit': 'Exit out of the sim.'
 			}
@@ -7348,7 +7434,7 @@ class Individual(Entity):
 		# print(self.needs)
 		return self.needs
 
-	def set_need(self, need, need_delta, forced=False, attacked=False, v=False):
+	def set_need(self, need, need_delta, forced=False, attacked=False, seppuku=False, v=False):
 		if v: print('{} sets need {} down by {}'.format(self.name, need, need_delta))
 		if self not in factory.registry[Individual]:
 			print('{} is already deceased.'.format(self.name))
@@ -7379,12 +7465,14 @@ class Individual(Entity):
 		cur.close()
 		if self.needs[need]['Current Need'] <= 0:
 			self.reset_hours()
-			self.inheritance()
+			self.inheritance(bequeath=not seppuku)
 			factory.destroy(self)
 			if forced:
 				print('{} died due to natural causes.'.format(self.name))
 			elif attacked:
 				print('{} died due to attack.'.format(self.name))
+			elif seppuku:
+				print('{} died from seppuku.'.format(self.name))
 			else:
 				print('{} died due to {}.'.format(self.name, need))
 			self.dead = True
@@ -7495,7 +7583,7 @@ class Individual(Entity):
 		if v: print('{} set parents to be {} from {}. User status: {}'.format(self.name, self.parents, orig_parents, self.user))
 		return self.parents
 
-	def inheritance(self, counterparty=None):
+	def inheritance(self, counterparty=None, bequeath=True):
 		# Remove any items that exist on the demand table for this entity
 		demand_items = world.demand[world.demand['entity_id'] == self.entity_id]
 		if not demand_items.empty:
@@ -7512,7 +7600,7 @@ class Individual(Entity):
 		ledger.reset()
 		print('Jobs at death: \n{}'.format(current_jobs)) # 1986-11-29
 		current_jobs = current_jobs.groupby(['item_id']).sum().reset_index() # TODO Use credit=True in get_qty() and 'Worker Info' account
-		print('Grouped Jobs at death: \n{}'.format(current_jobs)) # 1986-12-16
+		# print('Grouped Jobs at death: \n{}'.format(current_jobs))
 		for index, job in current_jobs.iterrows():
 			item = job['item_id']
 			worker_state = job['qty']
@@ -7546,6 +7634,8 @@ class Individual(Entity):
 		world.prices = world.prices.loc[world.prices['entity_id'] != self.entity_id]
 		print('{} removed their prices for items from the price list.\n'.format(self.name))
 
+		if not bequeath:
+			return
 		# Get the counterparty to inherit to
 		if counterparty is None:
 			counterparty = factory.get_by_id(self.parents[0])
@@ -7691,6 +7781,13 @@ class Individual(Entity):
 		self.change_allegiance(gov_id)
 		return gov_id
 
+	def seppuku(self, v=True):
+		for need in self.needs:
+			self.set_need(need, -100, seppuku=True)
+			break
+		if v: print(f'{self.name} has performed seppuku.')
+		return self
+
 	def need_decay(self, need, decay_rate=1):
 		rand = 1
 		# if args.random:
@@ -7706,7 +7803,7 @@ class Individual(Entity):
 			print('\n{} {} need threshold met at: {}'.format(self.name, need, self.needs[need]['Current Need']))
 			self.address_need(need)
 
-	def address_need(self, need, obtain=True):
+	def address_need(self, need, obtain=True, prod=False):
 		if need is None:
 			return
 		outcome = None
@@ -7826,7 +7923,7 @@ class Individual(Entity):
 					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 					ledger.reset()
 					#print('QTY Held: {}'.format(qty_held))
-					if qty_held < qty_wanted:
+					if prod and qty_held < qty_wanted:
 						outcome, time_required, max_qty_possible, incomplete = self.produce(item_choosen, qty_wanted - qty_held)
 						if not outcome:
 							if (qty_wanted - qty_held) != 1:
