@@ -7,6 +7,7 @@ import itertools
 import functools
 import argparse
 import datetime
+# TODO import datetime as dt
 import warnings
 import getpass
 import random
@@ -1337,7 +1338,7 @@ class World:
 		# if str(self.now) == '1986-10-31': # For testing impairment
 		# 	individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm', generic=True), target='Plow')
 
-		if args.random and individual: # TODO Maybe add population target
+		if args.random and individual and not (args.users >= 1 or args.players >= 1): # TODO Maybe add population target
 			birth_roll = random.randint(1, 20)
 			print('Birth Roll: {}'.format(birth_roll))
 			if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
@@ -6796,6 +6797,24 @@ class Entity:
 			except AttributeError as e:
 				print('Only Individuals can give birth, but a {} is selected.'.format(self.__class__.__name__))
 				print('Error: {}'.format(repr(e)))
+		elif command.lower() == 'seppuku':
+			while True:
+				confirm = input('Does {} really want to commit seppuku? [y/N]: '.format(self.name))
+				if confirm == '':
+					confirm = 'N'
+				if confirm.upper() == 'Y':
+					confirm = True
+					break
+				elif confirm.upper() == 'N':
+					confirm = False
+					break
+				else:
+					print('Not a valid entry. Must be "Y" or "N".')
+					continue
+			if confirm:
+				self.seppuku()
+				world.selection = None
+				return
 		elif command.lower() == 'emance':
 			if not isinstance(self, Individual):
 				print('{} is not an Individual and unable to be emancipated from their parents.'.format(self.name))
@@ -6987,6 +7006,18 @@ class Entity:
 			print('World Demand as of {}: \n{}'.format(world.now, world.demand))
 		elif command.lower() == 'auto':
 			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
+		elif command.lower() == 'savedf':
+			df_name = input('Enter name of df to save: ' )
+			save_df = None
+			try:
+				# save_df = locals()[df_name]
+				save_df = getattr(world, df_name)
+			except KeyError as e:
+				print(f'Error: {repr(e)}')
+			if isinstance(save_df, pd.DataFrame):
+				file_name = 'data/' + df_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
+				save_df.to_csv(file_name, index=True)
+				print(f'{df_name} saved as: {file_name}')
 		elif command.lower() == 'items':
 			print('World Items Available: \n{}'.format(world.items.index.values))
 			print('\nNote: Enter an item type as a command to see a list of just those items. (i.e. Equipment)')
@@ -7189,6 +7220,7 @@ class Entity:
 				'changegov': 'Change which Government entity is subject to.',
 				'foundgov': 'Found a new Government.',
 				'user': 'Toggle selected entity between user or computer control.',
+				'seppuku': 'Kill the currently selected entity.',
 				'superselect': 'Select any entity, including computer users.',
 				'acctmore': 'View more commands for the accounting system.',
 				'win': 'See the win conditions.',
@@ -7348,7 +7380,7 @@ class Individual(Entity):
 		# print(self.needs)
 		return self.needs
 
-	def set_need(self, need, need_delta, forced=False, attacked=False, v=False):
+	def set_need(self, need, need_delta, forced=False, attacked=False, seppuku=False, v=False):
 		if v: print('{} sets need {} down by {}'.format(self.name, need, need_delta))
 		if self not in factory.registry[Individual]:
 			print('{} is already deceased.'.format(self.name))
@@ -7379,12 +7411,14 @@ class Individual(Entity):
 		cur.close()
 		if self.needs[need]['Current Need'] <= 0:
 			self.reset_hours()
-			self.inheritance()
+			self.inheritance(bequeath=not seppuku)
 			factory.destroy(self)
 			if forced:
 				print('{} died due to natural causes.'.format(self.name))
 			elif attacked:
 				print('{} died due to attack.'.format(self.name))
+			elif seppuku:
+				print('{} died from seppuku.'.format(self.name))
 			else:
 				print('{} died due to {}.'.format(self.name, need))
 			self.dead = True
@@ -7495,7 +7529,7 @@ class Individual(Entity):
 		if v: print('{} set parents to be {} from {}. User status: {}'.format(self.name, self.parents, orig_parents, self.user))
 		return self.parents
 
-	def inheritance(self, counterparty=None):
+	def inheritance(self, counterparty=None, bequeath=True):
 		# Remove any items that exist on the demand table for this entity
 		demand_items = world.demand[world.demand['entity_id'] == self.entity_id]
 		if not demand_items.empty:
@@ -7512,7 +7546,7 @@ class Individual(Entity):
 		ledger.reset()
 		print('Jobs at death: \n{}'.format(current_jobs)) # 1986-11-29
 		current_jobs = current_jobs.groupby(['item_id']).sum().reset_index() # TODO Use credit=True in get_qty() and 'Worker Info' account
-		print('Grouped Jobs at death: \n{}'.format(current_jobs)) # 1986-12-16
+		# print('Grouped Jobs at death: \n{}'.format(current_jobs))
 		for index, job in current_jobs.iterrows():
 			item = job['item_id']
 			worker_state = job['qty']
@@ -7546,6 +7580,8 @@ class Individual(Entity):
 		world.prices = world.prices.loc[world.prices['entity_id'] != self.entity_id]
 		print('{} removed their prices for items from the price list.\n'.format(self.name))
 
+		if not bequeath:
+			return
 		# Get the counterparty to inherit to
 		if counterparty is None:
 			counterparty = factory.get_by_id(self.parents[0])
@@ -7691,6 +7727,13 @@ class Individual(Entity):
 		self.change_allegiance(gov_id)
 		return gov_id
 
+	def seppuku(self, v=True):
+		for need in self.needs:
+			self.set_need(need, -100, seppuku=True)
+			break
+		if v: print(f'{self.name} has performed seppuku.')
+		return self
+
 	def need_decay(self, need, decay_rate=1):
 		rand = 1
 		# if args.random:
@@ -7706,7 +7749,7 @@ class Individual(Entity):
 			print('\n{} {} need threshold met at: {}'.format(self.name, need, self.needs[need]['Current Need']))
 			self.address_need(need)
 
-	def address_need(self, need, obtain=True):
+	def address_need(self, need, obtain=True, prod=False):
 		if need is None:
 			return
 		outcome = None
@@ -7826,7 +7869,7 @@ class Individual(Entity):
 					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 					ledger.reset()
 					#print('QTY Held: {}'.format(qty_held))
-					if qty_held < qty_wanted:
+					if prod and qty_held < qty_wanted:
 						outcome, time_required, max_qty_possible, incomplete = self.produce(item_choosen, qty_wanted - qty_held)
 						if not outcome:
 							if (qty_wanted - qty_held) != 1:
