@@ -53,11 +53,11 @@ Beef Cow,"Land, Rancher","100, 1",animal,Commodity,"Gestation, Land, Beef Cow, R
 Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,Ranch
 Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,Ranch
 #Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,Farm
-Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,Lumbermill
 #Drift Wood,None,None,None,Commodity,"Forest, Forage","1, 0.1",None,None,None,None,None,Wood,None,None,None,None,None,None,None,1,None,10,None,None,Individual
+Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 5",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,Lumbermill
 Clay,None,None,None,Commodity,"Wetlands, Miner","1, 5",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,None,None,"Quarry, Mine"
-Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,None,None,"Quarry, Mine"
-Ore,None,None,None,Commodity,"Mountain, Miner","1, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
+Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 5",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,None,None,"Quarry, Mine"
+Ore,None,None,None,Commodity,"Mountain, Miner","1, 5",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
 Bellows,None,None,None,Components,"Leather, Wood","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,Blacksmith
 Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","8, 10, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Farm
 Yarn,None,None,None,Commodity,"Cotton, Spinning","1, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill

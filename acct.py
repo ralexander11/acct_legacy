@@ -1338,6 +1338,9 @@ class Ledger:
 
 				values = (event, entity, cp, date, loc, desc, item, price, qty, debit, credit, amount) # So the print looks nicer
 				print(values)
+				# cols = ['event_id', 'entity_id', 'cp_id', 'date', 'loc', 'description', 'item_id', 'price', 'qty', 'debit_acct', 'credit_acct', 'amount']
+				# df = pd.DataFrame([values], columns=cols, index=['txn_id'])
+				# print(df)
 				values = (event, entity, cp, date, post_date, loc, desc, item, price, qty, debit, credit, amount)
 				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)', values)
 

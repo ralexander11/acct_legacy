@@ -140,6 +140,7 @@ econ_accts = [
 	('Gift','Revenue'),
 	('Gift Expense','Expense'),
 	('End of Day','Info'),
+	('End of Turn','Info'),
 ] # TODO Remove div exp once retained earnings is implemented
 
 class World:
@@ -241,6 +242,7 @@ class World:
 			self.gov = factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
+			self.active_day = False
 			if not self.gov.user and USE_PIN: # TODO Add option to turn pins off
 				for user in self.gov.get(Individual, computers=False):
 					while True:
@@ -320,6 +322,7 @@ class World:
 			for index, indiv in individuals.iterrows():
 				current_need_all = [int(float(x.strip())) for x in str(indiv['current_need']).split(',')]
 				if not any(n <= 0 for n in current_need_all):
+					print('Hours:', float(indiv['hours']))
 					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), int(indiv['founder']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
 			corps = self.entities.loc[self.entities['entity_type'] == 'Corporation']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -349,6 +352,14 @@ class World:
 			except IndexError:
 				print('Less than one day completed in prior run.')
 				last_eod_index = 0
+			try:
+				last_eot_index = ledger.gl.loc[ledger.gl['credit_acct'] == 'End of Turn'].iloc[-1].name
+				self.active_day = True
+				print('active_day:', self.active_day)
+			except IndexError:
+				last_eot_index = 0
+				self.active_day = False
+			last_eod_index = max(last_eod_index, last_eot_index)
 			incomplete_cycle = ledger.gl.loc[ledger.gl.index > last_eod_index].index.values.tolist()
 			print('Number of incomplete transactions: {}'.format(len(incomplete_cycle)))
 			ledger.remove_entries(incomplete_cycle)
@@ -1060,116 +1071,118 @@ class World:
 
 	def update_econ(self):
 		t1_start = time.perf_counter()
-		if str(self.now) == '1986-10-01': # TODO Use start_date constant
-			# TODO Consider a better way to do this
-			# for individual in factory.get(Individual):
-				# capital = args.capital / self.population
-				# individual.capitalize(amount=capital)#25000 # Hardcoded
-			for gov in factory.get(Government):
-				self.gov = gov
-				self.gov.bank.print_money(args.capital)
-				for individual in self.gov.get(Individual):
-					self.start_capital = args.capital / self.population
-					individual.loan(amount=self.start_capital, roundup=False)
-			self.gov = factory.get(Government)[0]
-			print('Start Government: {}'.format(self.gov))
+		if not self.active_day:
+			if str(self.now) == '1986-10-01': # TODO Use start_date constant
+				# TODO Consider a better way to do this
+				# for individual in factory.get(Individual):
+					# capital = args.capital / self.population
+					# individual.capitalize(amount=capital)#25000 # Hardcoded
+				for gov in factory.get(Government):
+					self.gov = gov
+					self.gov.bank.print_money(args.capital)
+					for individual in self.gov.get(Individual):
+						self.start_capital = args.capital / self.population
+						individual.loan(amount=self.start_capital, roundup=False)
+				self.gov = factory.get(Government)[0]
+				print('Start Government: {}'.format(self.gov))
 
-		# Save prior days tables: entities, prices, demand, delay, produce_queue
-		self.prior_entities = self.entities
-		self.set_table(self.prior_entities, 'prior_entities')
-		self.prior_prices = self.prices
-		self.set_table(self.prior_prices, 'prior_prices')
-		self.prior_demand = self.demand
-		self.set_table(self.prior_demand, 'prior_demand')
-		self.prior_delay = self.delay
-		self.set_table(self.prior_delay, 'prior_delay')
-		self.prior_produce_queue = self.produce_queue
-		self.set_table(self.prior_produce_queue, 'prior_produce_queue')
+			# Save prior days tables: entities, prices, demand, delay, produce_queue
+			self.prior_entities = self.entities
+			self.set_table(self.prior_entities, 'prior_entities')
+			self.prior_prices = self.prices
+			self.set_table(self.prior_prices, 'prior_prices')
+			self.prior_demand = self.demand
+			self.set_table(self.prior_demand, 'prior_demand')
+			self.prior_delay = self.delay
+			self.set_table(self.prior_delay, 'prior_delay')
+			self.prior_produce_queue = self.produce_queue
+			self.set_table(self.prior_produce_queue, 'prior_produce_queue')
 
-		if self.check_end(v=True):
-			keep_playing = False
+			if self.check_end(v=False):
+				keep_playing = False
+				for entity in factory.get():
+					if entity.user:
+						while True:
+							keep_playing = input('Do you want to continue playing? [Y/n]: ')
+							if keep_playing == '':
+								keep_playing = 'Y'
+							if keep_playing.upper() == 'Y':
+								keep_playing = True
+								break
+							elif keep_playing.upper() == 'N':
+								keep_playing = False
+								break
+							else:
+								print('Not a valid entry. Must be "Y" or "N".')
+								continue
+					if keep_playing:
+						self.end = False
+						break
+				if not keep_playing:
+					return
+
+			print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Econ Updated ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
+			print(time_stamp() + 'Current Date: {}'.format(self.now))
+			self.entities = accts.get_entities().reset_index()
+			#prices_disp = self.entities[['entity_id','name']].merge(self.prices.reset_index(), on=['entity_id']).set_index('item_id')
+			self.population = len(factory.registry[Individual])
+			self.industry = len(factory.registry[Corporation])
+			self.governments = len(factory.registry[Government])
+			print('Population: {}'.format(self.population))
+			print('Industry: {}'.format(self.industry))
+			print('Governments: {}'.format(self.governments))
+			for individual in factory.get(Individual):
+				individual.reset_hours()
+			self.prices = self.prices.sort_values(['entity_id'], na_position='first')
+			with pd.option_context('display.max_rows', None):
+				print('\nPrices: \n{}\n'.format(self.prices))
+				print('Delays: \n{}\n'.format(self.delay))
+
+			demand_items = self.demand.drop_duplicates(['item_id']) # TODO Is this needed?
+			self.set_table(self.demand, 'demand')
+
+			for individual in factory.get(Individual):
+				individual.birth_check()
+
+			print(time_stamp() + 'Current Date: {}'.format(self.now))
+			t3_start = time.perf_counter()
 			for entity in factory.get():
-				if entity.user:
-					while True:
-						keep_playing = input('Do you want to continue playing? [Y/n]: ')
-						if keep_playing == '':
-							keep_playing = 'Y'
-						if keep_playing.upper() == 'Y':
-							keep_playing = True
-							break
-						elif keep_playing.upper() == 'N':
-							keep_playing = False
-							break
-						else:
-							print('Not a valid entry. Must be "Y" or "N".')
-							continue
-				if keep_playing:
-					self.end = False
-					break
-			if not keep_playing:
-				return
-
-		print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Econ Updated ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
-		self.entities = accts.get_entities().reset_index()
-		#prices_disp = self.entities[['entity_id','name']].merge(self.prices.reset_index(), on=['entity_id']).set_index('item_id')
-		self.population = len(factory.registry[Individual])
-		self.industry = len(factory.registry[Corporation])
-		self.governments = len(factory.registry[Government])
-		print('Population: {}'.format(self.population))
-		print('Industry: {}'.format(self.industry))
-		print('Governments: {}'.format(self.governments))
-		for individual in factory.get(Individual):
-			individual.reset_hours()
-		self.prices = self.prices.sort_values(['entity_id'], na_position='first')
-		with pd.option_context('display.max_rows', None):
-			print('\nPrices: \n{}\n'.format(self.prices))
-			print('Delays: \n{}\n'.format(self.delay))
-
-		demand_items = self.demand.drop_duplicates(['item_id']) # TODO Is this needed?
-		self.set_table(self.demand, 'demand')
-
-		for individual in factory.get(Individual):
-			individual.birth_check()
-
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
-		t3_start = time.perf_counter()
-		for entity in factory.get():
-			#print('Entity: {}'.format(entity))
-			t3_1_start = time.perf_counter()
-			entity.depreciation_check()
-			t3_1_end = time.perf_counter()
-			print(time_stamp() + '3.1: Dep check took {:,.2f} sec for {}.'.format((t3_1_end - t3_1_start), entity.name, entity.entity_id))
-			t3_2_start = time.perf_counter()
-			if not entity.user:
-				entity.repay_loans()
-			t3_2_end = time.perf_counter()
-			print(time_stamp() + '3.2: Dbt check took {:,.2f} sec for {}.'.format((t3_2_end - t3_2_start), entity.name, entity.entity_id))
-			t3_3_start = time.perf_counter()
-			entity.check_interest()
-			t3_3_end = time.perf_counter()
-			print(time_stamp() + '3.3: Int check took {:,.2f} sec for {}.'.format((t3_3_end - t3_3_start), entity.name, entity.entity_id))
-			t3_4_start = time.perf_counter()
-			entity.check_subscriptions()
-			t3_4_end = time.perf_counter()
-			print(time_stamp() + '3.4: Sub check took {:,.2f} sec for {}.'.format((t3_4_end - t3_4_start), entity.name, entity.entity_id))
-			t3_5_start = time.perf_counter()
-			entity.check_salary()
-			t3_5_end = time.perf_counter()
-			print(time_stamp() + '3.5: Sal check took {:,.2f} sec for {}.'.format((t3_5_end - t3_5_start), entity.name, entity.entity_id))
-			t3_6_start = time.perf_counter()
-			entity.pay_wages()
-			t3_6_end = time.perf_counter()
-			print(time_stamp() + '3.6: Wag check took {:,.2f} sec for {}.'.format((t3_6_end - t3_6_start), entity.name, entity.entity_id))
-			t3_7_start = time.perf_counter()
-			entity.wip_check()
-			t3_7_end = time.perf_counter()
-			print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
-		t3_end = time.perf_counter()
-		print(time_stamp() + '3: Entity check took {:,.2f} min.'.format((t3_end - t3_start) / 60))
-		print()
+				#print('Entity: {}'.format(entity))
+				t3_1_start = time.perf_counter()
+				entity.depreciation_check()
+				t3_1_end = time.perf_counter()
+				print(time_stamp() + '3.1: Dep check took {:,.2f} sec for {}.'.format((t3_1_end - t3_1_start), entity.name, entity.entity_id))
+				t3_2_start = time.perf_counter()
+				if not entity.user:
+					entity.repay_loans()
+				t3_2_end = time.perf_counter()
+				print(time_stamp() + '3.2: Dbt check took {:,.2f} sec for {}.'.format((t3_2_end - t3_2_start), entity.name, entity.entity_id))
+				t3_3_start = time.perf_counter()
+				entity.check_interest()
+				t3_3_end = time.perf_counter()
+				print(time_stamp() + '3.3: Int check took {:,.2f} sec for {}.'.format((t3_3_end - t3_3_start), entity.name, entity.entity_id))
+				t3_4_start = time.perf_counter()
+				entity.check_subscriptions()
+				t3_4_end = time.perf_counter()
+				print(time_stamp() + '3.4: Sub check took {:,.2f} sec for {}.'.format((t3_4_end - t3_4_start), entity.name, entity.entity_id))
+				t3_5_start = time.perf_counter()
+				entity.check_salary()
+				t3_5_end = time.perf_counter()
+				print(time_stamp() + '3.5: Sal check took {:,.2f} sec for {}.'.format((t3_5_end - t3_5_start), entity.name, entity.entity_id))
+				t3_6_start = time.perf_counter()
+				entity.pay_wages()
+				t3_6_end = time.perf_counter()
+				print(time_stamp() + '3.6: Wag check took {:,.2f} sec for {}.'.format((t3_6_end - t3_6_start), entity.name, entity.entity_id))
+				t3_7_start = time.perf_counter()
+				entity.wip_check()
+				t3_7_end = time.perf_counter()
+				print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
+			t3_end = time.perf_counter()
+			print(time_stamp() + '3: Entity check took {:,.2f} min.'.format((t3_end - t3_start) / 60))
+			print()
 
 		# User mode
+		self.active_day = False
 		user_check = any([entity for entity in factory.get() if entity.user])
 		if user_check or self.paused:
 			for player in factory.get(Government):
@@ -1311,7 +1324,7 @@ class World:
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		t7_start = time.perf_counter()
 		for individual in factory.get(Individual):
-			priority_needs = {}
+			priority_needs = {} # TODO Clean this up with address_needs()
 			for need in individual.needs:
 				priority_needs[need] = individual.needs[need]['Current Need']
 			priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
@@ -1376,14 +1389,15 @@ class World:
 		# 		break
 		# individual = factory.registry[Individual][-1]
 		# individual = [e for e in factory.registry[Individual] if not e.user]
-		individual = factory.get(Individual, users=False)
-		if individual:
-			individual = individual[-1]
-		print('Birth attempt individual: {}'.format(individual))
+		
 		# if str(self.now) == '1986-10-31': # For testing impairment
 		# 	individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm', generic=True), target='Plow')
 
 		if args.random and individual and not (args.users >= 1 or args.players >= 1): # TODO Maybe add population target
+			individual = factory.get(Individual, users=False)
+			if individual:
+				individual = individual[-1]
+			print('Birth attempt individual: {}'.format(individual))
 			birth_roll = random.randint(1, 20)
 			print('Birth Roll: {}'.format(birth_roll))
 			if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
@@ -1411,38 +1425,40 @@ class World:
 		t9_end = time.perf_counter()
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
 
-		# Book End of Day entry
-		eod_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
-		ledger.journal_entry([eod_entry])
+		self.checkpoint_entry()
 
-		# Track historical prices
-		tmp_prices = self.prices.reset_index()
-		tmp_prices['date'] = self.now
-		self.hist_prices = pd.concat([self.hist_prices, tmp_prices])
-		# self.hist_prices = self.hist_prices.dropna()
-		self.set_table(self.hist_prices, 'hist_prices')
-		# Track historical demand
-		tmp_demand = self.demand.copy(deep=True)#.reset_index()
-		tmp_demand['date_saved'] = self.now
-		self.hist_demand = pd.concat([self.hist_demand, tmp_demand])
-		self.set_table(self.hist_demand, 'hist_demand')
-		# print('\nHist Demand: \n{}'.format(self.hist_demand))
-		# Track historical hours and needs
-		# print('Entities: \n{}'.format(self.entities))
-		tmp_hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
-		tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id'])
-		tmp_hist_hours['date'] = self.now
-		tmp_hist_hours = tmp_hist_hours[['date','hours']]
-		for need in self.global_needs:
-			tmp_hist_hours[need] = None
-		for individual in factory.get(Individual):
-			for need in individual.needs:
-				tmp_hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
-		self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
-		self.set_table(self.hist_hours, 'hist_hours')
-		# print('\nHist Hours: \n{}'.format(self.hist_hours))
+		# # Book End of Day entry
+		# eod_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
+		# ledger.journal_entry([eod_entry])
+		# # Track historical prices
+		# tmp_prices = self.prices.reset_index()
+		# tmp_prices['date'] = self.now
+		# self.hist_prices = pd.concat([self.hist_prices, tmp_prices])
+		# # self.hist_prices = self.hist_prices.dropna()
+		# self.set_table(self.hist_prices, 'hist_prices')
+		# # Track historical demand
+		# tmp_demand = self.demand.copy(deep=True)#.reset_index()
+		# tmp_demand['date_saved'] = self.now
+		# self.hist_demand = pd.concat([self.hist_demand, tmp_demand])
+		# self.set_table(self.hist_demand, 'hist_demand')
+		# # print('\nHist Demand: \n{}'.format(self.hist_demand))
+		# # Track historical hours and needs
+		# self.entities = accts.get_entities()
+		# # print('Entities: \n{}'.format(self.entities))
+		# tmp_hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
+		# tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id'])
+		# tmp_hist_hours['date'] = self.now
+		# tmp_hist_hours = tmp_hist_hours[['date','hours']]
+		# for need in self.global_needs:
+		# 	tmp_hist_hours[need] = None
+		# for individual in factory.get(Individual):
+		# 	for need in individual.needs:
+		# 		tmp_hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
+		# self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
+		# self.set_table(self.hist_hours, 'hist_hours')
+		# # print('\nHist Hours: \n{}'.format(self.hist_hours))
 
-		# print('\nItems Map: \n{}'.format(self.items_map))
+		# # print('\nItems Map: \n{}'.format(self.items_map))
 
 		t1_end = time.perf_counter()
 		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
@@ -1464,6 +1480,53 @@ class World:
 				return
 			else:
 				return
+
+	def checkpoint_entry(self, eod=True, v=False):
+		# Book End of Day entry
+		if eod:
+			eod_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
+			ledger.journal_entry([eod_entry])
+		else:
+			eot_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Turn', 0 ]
+			ledger.journal_entry([eot_entry])
+		# Track historical prices
+		tmp_prices = self.prices.reset_index()
+		tmp_prices['date'] = self.now
+		self.hist_prices = pd.concat([self.hist_prices, tmp_prices])
+		self.set_table(self.hist_prices, 'hist_prices')
+		# Track historical demand
+		tmp_demand = self.demand.copy(deep=True)
+		tmp_demand['date_saved'] = self.now
+		self.hist_demand = pd.concat([self.hist_demand, tmp_demand])
+		self.set_table(self.hist_demand, 'hist_demand')
+		# if v: print('\nHist Demand: \n{}'.format(self.hist_demand))
+		# Track historical hours and needs
+		self.entities = accts.get_entities().reset_index()
+		# if v: print('Entities: \n{}'.format(self.entities))
+		tmp_hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
+		tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id'])
+		tmp_hist_hours['date'] = self.now
+		tmp_hist_hours = tmp_hist_hours[['date','hours']]
+		for need in self.global_needs:
+			tmp_hist_hours[need] = None
+		for individual in factory.get(Individual):
+			for need in individual.needs:
+				tmp_hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
+		self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
+		self.set_table(self.hist_hours, 'hist_hours')
+		# if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
+		if not eod:
+			# Save prior days tables: entities, prices, demand, delay, produce_queue
+			self.prior_entities = self.entities
+			self.set_table(self.prior_entities, 'prior_entities')
+			self.prior_prices = self.prices
+			self.set_table(self.prior_prices, 'prior_prices')
+			self.prior_demand = self.demand
+			self.set_table(self.prior_demand, 'prior_demand')
+			self.prior_delay = self.delay
+			self.set_table(self.prior_delay, 'prior_delay')
+			self.prior_produce_queue = self.produce_queue
+			self.set_table(self.prior_produce_queue, 'prior_produce_queue')
 
 class Entity:
 	def __init__(self, name):
@@ -3329,9 +3392,9 @@ class Entity:
 						if qty == 1 and item_type != 'Service' and reqs != 'hold_req': # TODO Maybe support WIP Services
 							if man and not wip_choice and partial is None and not incomplete:
 								while True:
-									choice = input('Should {} ({} hours available) work on the {} over multiple days? [Y/n]: '.format(self.name, self.hours, item))
+									choice = input('Should {} ({} hours available) work on the {} over multiple days? [y/N]: '.format(self.name, self.hours, item))
 									if choice == '':
-										choice = 'Y'
+										choice = 'N'
 									if choice.upper() == 'Y':
 										wip_choice = True
 										break
@@ -3623,6 +3686,7 @@ class Entity:
 		return incomplete, event, time_required, max_qty_possible
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, buffer=False, v=False):
+		# TODO Replace man with self.user
 		if not self.user:
 			if isinstance(self, Individual):
 				item_type = world.get_item_type(item)
@@ -5156,7 +5220,10 @@ class Entity:
 		# Get list of eligible individuals
 		worker_event = []
 		individuals = []
-		individuals_allowed = [indiv for indiv in world.gov.get(Individual) if indiv not in exclude]
+		if man:#self.user:
+			individuals_allowed = [indiv for indiv in world.gov.get(Individual) if self.founder == indiv.founder and indiv not in exclude]
+		else:
+			individuals_allowed = [indiv for indiv in world.gov.get(Individual) if indiv not in exclude]
 		for individual in individuals_allowed:
 			incomplete, entries, time_required, max_qty_possible = individual.fulfill(job, qty=1)#, check=True)
 			# TODO Capture entries
@@ -5201,7 +5268,7 @@ class Entity:
 						worker_choosen = child
 						return worker_choosen
 				else:
-					# return
+					return # TODO Make thid an option
 					while True: # Always ask, default null option
 						try:
 							worker_choosen = input('Enter an entity ID number from the above options to hire: ')
@@ -5296,7 +5363,7 @@ class Entity:
 		if not workers_avail_price:
 			return None, []
 		# Choose the worker with the most experience
-		worker_choosen_exp = max(workers_avail_exp, key=lambda k: workers_avail_exp[k])
+		worker_choosen_exp = max(workers_avail_exp, key=lambda k:workers_avail_exp[k])
 		# Choose the worker for the lowest price
 		worker_choosen = min(workers_avail_price, key=lambda k: workers_avail_price[k])
 		if worker_choosen.user and not man and worker_choosen is not self:
@@ -5315,15 +5382,15 @@ class Entity:
 						confirm = input('Do you want the computer to hire {} as a {}? [Y/n]: '.format(worker_choosen.name, job))
 						if confirm == '':
 							confirm = 'Y'
-				if confirm.upper() == 'Y':
-					confirm = True
-					break
-				elif confirm.upper() == 'N':
-					confirm = False
-					break
-				else:
-					print('Not a valid entry. Must be "Y" or "N".')
-					continue
+						if confirm.upper() == 'Y':
+							confirm = True
+							break
+						elif confirm.upper() == 'N':
+							confirm = False
+							break
+						else:
+							print('Not a valid entry. Must be "Y" or "N".')
+							continue
 			if not confirm:
 				exclude.append(worker_choosen)
 				worker_choosen = self.worker_counterparty(job, only_avail=only_avail, exclude=exclude, man=man)
@@ -6141,7 +6208,7 @@ class Entity:
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'select':
 			if not world.gov.user:
-				individual_ids = self.get_children(founder=True, ids=True)#, v=True)
+				individual_ids = self.get_children(founder=True, ids=True)#, v=True) # TODO Maybe replace with self.founder check
 				individuals = [factory.get_by_id(entity_id) for entity_id in individual_ids]
 			else:
 				individuals = world.gov.get(Individual, computers=False)
@@ -6695,13 +6762,17 @@ class Entity:
 			self.get_raw(item.title(), qty, base=base, v=True)
 		elif command.lower() == 'address':
 			print('Will attempt to address needs with items on hand.')
-			priority_needs = {}
-			for need in self.needs:
-				priority_needs[need] = self.needs[need]['Current Need']
-			priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
-			priority_needs = collections.OrderedDict(priority_needs)
-			for need in priority_needs:
-				self.address_need(need, obtain=False)
+			# priority_needs = {}
+			# for need in self.needs:
+			# 	priority_needs[need] = self.needs[need]['Current Need']
+			# priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
+			# priority_needs = collections.OrderedDict(priority_needs)
+			# for need in priority_needs:
+			self.address_needs(obtain=False)
+		elif command.lower() == 'autoaddress':
+			if isinstance(self, Individual):
+				self.auto_address = not self.auto_address
+				print('Auto Address set to:', self.auto_address)
 		elif command.lower() == 'use':
 			while True:
 				item = input('Enter item to use: ') # TODO Some sort of check for non-usable items
@@ -7070,7 +7141,7 @@ class Entity:
 				file_name = 'data/' + df_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 				save_df.to_csv(file_name, index=True)
 				print(f'{df_name} saved as: {file_name}')
-		elif command.lower() == 'items':
+		elif command.lower() == 'items' or command.lower() == 'item':
 			print('World Items Available: \n{}'.format(world.items.index.values))
 			print('\nNote: Enter an item type as a command to see a list of just those items. (i.e. Equipment)')
 			while True:
@@ -7256,6 +7327,7 @@ class Entity:
 			command_more = {
 				'rproduce': 'Produce items, this will also attempt to aquire any requirements.',
 				'mautoproduce': 'Produce items automatically but not recursively.',
+				'autoaddress': 'Automatically address needs with items on hand at the end of each turn.',
 				'demand': 'See the demand table.',
 				'incorp': 'Incorporate a company to produce items.',
 				'raisecap': 'Sell additional shares in the Corporation.',
@@ -7284,6 +7356,8 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
 		elif command.lower() == 'skip' or command.lower() == 'done':
+			if self.auto_address:
+				self.address_needs(obtain=False, v=False)
 			if isinstance(self, Individual):
 				self.set_hours(MAX_HOURS)
 			user_entities = self.get_children(founder=True)
@@ -7295,6 +7369,7 @@ class Entity:
 					world.selection = None
 			else:
 				world.selection = None
+			world.checkpoint_entry(eod=False)
 		elif command.lower() == 'superend': #'end'
 			# world.end = True
 			return 'end'
@@ -7367,6 +7442,7 @@ class Individual(Entity):
 		self.other_hire = False
 		self.pin = None
 		self.dead = False
+		self.auto_address = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -7672,6 +7748,7 @@ class Individual(Entity):
 		ledger.journal_entry(inherit_event)
 
 	def get_children(self, founder=False, ids=False, v=False):
+		# TODO Replace this function with a self.founder check
 		if founder:
 			founder_id = self.get_founder()
 			entity = factory.get_by_id(founder_id)
@@ -7803,7 +7880,16 @@ class Individual(Entity):
 			print('\n{} {} need threshold met at: {}'.format(self.name, need, self.needs[need]['Current Need']))
 			self.address_need(need)
 
-	def address_need(self, need, obtain=True, prod=False):
+	def address_needs(self, obtain=True, prod=False, v=True):
+		priority_needs = {}
+		for need in self.needs:
+			priority_needs[need] = self.needs[need]['Current Need']
+		priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
+		priority_needs = collections.OrderedDict(priority_needs)
+		for need in priority_needs:
+			self.address_need(need, obtain=obtain, prod=prod, v=v)
+
+	def address_need(self, need, obtain=True, prod=False, v=True):
 		if need is None:
 			return
 		outcome = None
@@ -7848,7 +7934,7 @@ class Individual(Entity):
 			item_type = world.get_item_type(item_choosen)
 			#print('Item Type: {}'.format(item_type))
 			if item_type != 'Commodity' and item_type != 'Components' and obtain:
-				print('\nSatisfy {} need for {} by purchasing: {}'.format(need, self.name, item_choosen))
+				if v: print('\nSatisfy {} need for {} by purchasing: {}'.format(need, self.name, item_choosen))
 
 			if item_type == 'Subscription':
 				ledger.set_entity(self.entity_id)
@@ -7856,7 +7942,7 @@ class Individual(Entity):
 				ledger.reset()
 				if subscription_state:
 					self.needs[need]['Current Need'] = self.needs[need]['Max Need']
-					print('{} need satisfied with {} and set to max value.'.format(need, item_choosen))
+					if v: print('{} need satisfied with {} and set to max value.'.format(need, item_choosen))
 				else:
 					# counterparty = self.subscription_counterparty(item_choosen) # TODO Move this into order_subscription()
 					# if counterparty is None:
@@ -7897,7 +7983,7 @@ class Individual(Entity):
 				if obtain:
 					outcome = self.purchase(item_choosen, qty_purchase)
 				else:
-					print(f'Produce or purchase {qty_purchase} {item_choosen} service to satisfy {need_needed} {need} need.')
+					if v: print(f'Produce or purchase {qty_purchase} {item_choosen} service to satisfy {need_needed} {need} need.')
 
 			elif (item_type == 'Commodity') or (item_type == 'Component'):
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
@@ -7907,7 +7993,7 @@ class Individual(Entity):
 				ledger.set_entity(self.entity_id)
 				qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 				ledger.reset()
-				print(f'{self.name} has {qty_held} {item_choosen} out of {qty_needed} qty needed to address {need_needed} {need} need.')
+				if v: print(f'{self.name} has {qty_held} {item_choosen} out of {qty_needed} qty needed to address {need_needed} {need} need.')
 				# TODO Attempt to use item before aquiring some
 				if qty_held < qty_needed and obtain:
 					qty_wanted = qty_needed - qty_held
@@ -7917,7 +8003,7 @@ class Individual(Entity):
 						qty_avail = qty_wanted # Prevent purchase for 0 qty
 					qty_purchase = min(qty_wanted, qty_avail)
 					# TODO Is the above needed?
-					print(f'\nSatisfy {need} need for {self.name} by purchasing: {qty_purchase} {item_choosen}')
+					if v: print(f'\nSatisfy {need} need for {self.name} by purchasing: {qty_purchase} {item_choosen}')
 					outcome = self.purchase(item_choosen, qty_purchase)
 					ledger.set_entity(self.entity_id)
 					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
@@ -7927,7 +8013,7 @@ class Individual(Entity):
 						outcome, time_required, max_qty_possible, incomplete = self.produce(item_choosen, qty_wanted - qty_held)
 						if not outcome:
 							if (qty_wanted - qty_held) != 1:
-								print(f'Trying to address {need} need again for 1 qty of {item_choosen}.')
+								if v: print(f'Trying to address {need} need again for 1 qty of {item_choosen}.')
 								outcome, time_required, max_qty_possible, incomplete = self.produce(item_choosen, qty=1)
 						ledger.set_entity(self.entity_id)
 						qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
@@ -7943,7 +8029,7 @@ class Individual(Entity):
 				ledger.reset()
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				uses_needed = int(math.ceil(need_needed / satisfy_rate))
-				print(f'{self.name} has {qty_held} {item_choosen} to use {uses_needed} times to address {need_needed} {need} need.')
+				if v: print(f'{self.name} has {qty_held} {item_choosen} to use {uses_needed} times to address {need_needed} {need} need.')
 				event = []
 				if qty_held == 0 and obtain:
 					qty_purchase = 1
