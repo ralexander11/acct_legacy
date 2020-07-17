@@ -322,7 +322,6 @@ class World:
 			for index, indiv in individuals.iterrows():
 				current_need_all = [int(float(x.strip())) for x in str(indiv['current_need']).split(',')]
 				if not any(n <= 0 for n in current_need_all):
-					print('Hours:', float(indiv['hours']))
 					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), int(indiv['founder']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
 			corps = self.entities.loc[self.entities['entity_type'] == 'Corporation']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -1152,11 +1151,11 @@ class World:
 				entity.depreciation_check()
 				t3_1_end = time.perf_counter()
 				print(time_stamp() + '3.1: Dep check took {:,.2f} sec for {}.'.format((t3_1_end - t3_1_start), entity.name, entity.entity_id))
-				t3_2_start = time.perf_counter()
 				if not entity.user:
+					t3_2_start = time.perf_counter()
 					entity.repay_loans()
-				t3_2_end = time.perf_counter()
-				print(time_stamp() + '3.2: Dbt check took {:,.2f} sec for {}.'.format((t3_2_end - t3_2_start), entity.name, entity.entity_id))
+					t3_2_end = time.perf_counter()
+					print(time_stamp() + '3.2: Dbt check took {:,.2f} sec for {}.'.format((t3_2_end - t3_2_start), entity.name, entity.entity_id))
 				t3_3_start = time.perf_counter()
 				entity.check_interest()
 				t3_3_end = time.perf_counter()
@@ -1173,10 +1172,11 @@ class World:
 				entity.pay_wages()
 				t3_6_end = time.perf_counter()
 				print(time_stamp() + '3.6: Wag check took {:,.2f} sec for {}.'.format((t3_6_end - t3_6_start), entity.name, entity.entity_id))
-				t3_7_start = time.perf_counter()
-				entity.wip_check()
-				t3_7_end = time.perf_counter()
-				print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
+				if not entity.user:
+					t3_7_start = time.perf_counter()
+					entity.wip_check()
+					t3_7_end = time.perf_counter()
+					print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
 			t3_end = time.perf_counter()
 			print(time_stamp() + '3: Entity check took {:,.2f} min.'.format((t3_end - t3_start) / 60))
 			print()
@@ -1487,7 +1487,7 @@ class World:
 			eod_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
 			ledger.journal_entry([eod_entry])
 		else:
-			eot_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Turn', 0 ]
+			eot_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of turn entry', '', '', '', 'Info', 'End of Turn', 0 ]
 			ledger.journal_entry([eot_entry])
 		# Track historical prices
 		tmp_prices = self.prices.reset_index()
@@ -4073,11 +4073,20 @@ class Entity:
 			print(raw)
 		return raw
 
-	def wip_check(self, check=False, v=False):
+	def wip_check(self, check=False, items=None, v=False):
+		if items is not None:
+			if not isinstance(items, (list, tuple)):
+				items = [x.strip().title() for x in items.split(',')]
+			wip_items = world.delay.loc[world.delay['items_id'].isin(items)]
+			if wip_items.empty:
+				return
 		ledger.refresh_ledger()
 		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of WIP txns for different item types
-		wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+		if items is not None:
+			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['item_id'].isin(items)) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+		else:
+			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 		if v: print('WIP TXNs: \n{}'.format(wip_txns))
 		if not wip_txns.empty:
 			if v: print('WIP Transactions: \n{}'.format(wip_txns))
@@ -4307,6 +4316,7 @@ class Entity:
 					ledger.journal_entry(wip_event)
 					if wip_event[-1][-3] == 'Inventory':
 						self.set_price(wip_lot['item_id'], wip_lot['qty'])
+					return wip_event
 
 	def release_check(self, v=False):
 		self.hold_event_ids = list(collections.OrderedDict.fromkeys(filter(None, self.hold_event_ids))) # Remove any dupes
@@ -5268,7 +5278,8 @@ class Entity:
 						worker_choosen = child
 						return worker_choosen
 				else:
-					return # TODO Make thid an option
+					if option == 1:
+						return # TODO Make this an option
 					while True: # Always ask, default null option
 						try:
 							worker_choosen = input('Enter an entity ID number from the above options to hire: ')
@@ -6647,7 +6658,13 @@ class Entity:
 					if qty <= 0:
 						continue
 					break
+			result = self.wip_check(items=item)
+			if result:
+				print(f'WIP for {item} completed. If you would like to produce more, enter the produce command again.')
+				return
 			produce_event, time_required, max_qty_possible, incomplete = self.produce(item.title(), qty)
+			if incomplete and max_qty_possible != 0:
+				self.produce(item.title(), qty=max_qty_possible)
 		elif command.lower() == 'produce':
 			while True:
 				item = input('Enter item to produce: ')
@@ -6672,6 +6689,10 @@ class Entity:
 					if qty <= 0:
 						continue
 					break
+			result = self.wip_check(items=item)
+			if result:
+				print(f'WIP for {item} completed. If you would like to produce more, enter the produce command again.')
+				return
 			produce_event, time_required, max_qty_possible, incomplete = self.produce(item.title(), qty, man=True)
 			if incomplete and max_qty_possible != 0:
 				while True:
@@ -6731,6 +6752,8 @@ class Entity:
 						continue
 					break
 			self.set_produce(item.title(), qty, freq, man=man)
+		elif command.lower() == 'wip':
+			self.wip_check()
 		elif command.lower() == 'raw' or command.lower() == 'rawbase':
 			base = False
 			if command.lower() == 'rawbase':
@@ -7453,10 +7476,11 @@ class Individual(Entity):
 		else:
 			self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
 		self.parents = parents
+		self.hours = hours
 		print('Create Individual: {} | User: {} | entity_id: {}'.format(self.name, self.user, self.entity_id))
 		print('Citizen of Government: {}'.format(self.government))
 		print('Parents: {}'.format(self.parents))
-		self.hours = hours
+		print('Current Hours:', self.hours)
 		self.pregnant = None
 		self.hold_event_ids = []
 		self.prod_hold = []
