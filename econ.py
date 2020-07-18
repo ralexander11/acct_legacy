@@ -337,6 +337,9 @@ class World:
 				legal_form = self.org_type(nonprof['name'])
 				factory.create(legal_form, nonprof['name'], nonprof['outputs'], int(nonprof['government']), int(nonprof['founder']), nonprof['auth_shares'], nonprof['entity_id'])
 			self.prices = self.get_table('prior_prices')
+			with pd.option_context('display.max_rows', None):
+				print('\nPrices: \n{}\n'.format(self.prices))
+				print('Delays: \n{}\n'.format(self.delay))
 			try: # TODO Remove error checking because of legacy db files
 				self.hist_prices = self.get_table('hist_prices')
 				self.hist_demand = self.get_table('hist_demand')
@@ -1061,6 +1064,7 @@ class World:
 	def reduce_prices(self, v=False):
 		world.prices['price'] = world.prices['price'] * (1 - REDUCE_PRICE)
 		if v: print(world.prices)
+		print('All prices reduced by {0:.0%}.'.format(REDUCE_PRICE))
 		return world.prices
 
 	def create_needs(self):
@@ -1497,33 +1501,34 @@ class World:
 		else:
 			eot_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of turn entry', '', '', '', 'Info', 'End of Turn', 0 ]
 			ledger.journal_entry([eot_entry])
-		# Track historical prices
-		tmp_prices = self.prices.reset_index()
-		tmp_prices['date'] = self.now
-		self.hist_prices = pd.concat([self.hist_prices, tmp_prices])
-		self.set_table(self.hist_prices, 'hist_prices')
-		# Track historical demand
-		tmp_demand = self.demand.copy(deep=True)
-		tmp_demand['date_saved'] = self.now
-		self.hist_demand = pd.concat([self.hist_demand, tmp_demand])
-		self.set_table(self.hist_demand, 'hist_demand')
-		# if v: print('\nHist Demand: \n{}'.format(self.hist_demand))
-		# Track historical hours and needs
-		self.entities = accts.get_entities().reset_index()
-		# if v: print('Entities: \n{}'.format(self.entities))
-		tmp_hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
-		tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id'])
-		tmp_hist_hours['date'] = self.now
-		tmp_hist_hours = tmp_hist_hours[['date','hours']]
-		for need in self.global_needs:
-			tmp_hist_hours[need] = None
-		for individual in factory.get(Individual):
-			for need in individual.needs:
-				tmp_hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
-		self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
-		self.set_table(self.hist_hours, 'hist_hours')
-		# if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
-		if not eod:
+		if eod:
+			# Track historical prices
+			tmp_prices = self.prices.reset_index()
+			tmp_prices['date'] = self.now
+			self.hist_prices = pd.concat([self.hist_prices, tmp_prices])
+			self.set_table(self.hist_prices, 'hist_prices')
+			# Track historical demand
+			tmp_demand = self.demand.copy(deep=True)
+			tmp_demand['date_saved'] = self.now
+			self.hist_demand = pd.concat([self.hist_demand, tmp_demand])
+			self.set_table(self.hist_demand, 'hist_demand')
+			# if v: print('\nHist Demand: \n{}'.format(self.hist_demand))
+			# Track historical hours and needs
+			self.entities = accts.get_entities().reset_index()
+			# if v: print('Entities: \n{}'.format(self.entities))
+			tmp_hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
+			tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id'])
+			tmp_hist_hours['date'] = self.now
+			tmp_hist_hours = tmp_hist_hours[['date','hours']]
+			for need in self.global_needs:
+				tmp_hist_hours[need] = None
+			for individual in factory.get(Individual):
+				for need in individual.needs:
+					tmp_hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
+			self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
+			self.set_table(self.hist_hours, 'hist_hours')
+			# if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
+		else:
 			# Save prior days tables: entities, prices, demand, delay, produce_queue
 			self.prior_entities = self.entities
 			self.set_table(self.prior_entities, 'prior_entities')
@@ -6965,6 +6970,10 @@ class Entity:
 				self.seppuku()
 				world.selection = None
 				return
+		elif command.lower() == 'addplayer':
+			self.add_person()
+		elif command.lower() == 'addai':
+			self.add_person(user=False)
 		elif command.lower() == 'emance':
 			if not isinstance(self, Individual):
 				print('{} is not an Individual and unable to be emancipated from their parents.'.format(self.name))
@@ -7379,6 +7388,8 @@ class Entity:
 				'foundgov': 'Found a new Government.',
 				'user': 'Toggle selected entity between user or computer control.',
 				'seppuku': 'Kill the currently selected entity.',
+				'addplayer': 'Add a new human player under the selected government.',
+				'addai': 'Add a new AI player under the selected government.',
 				'superselect': 'Select any entity, including computer users.',
 				'acctmore': 'View more commands for the accounting system.',
 				'setwin': 'Set the win conditions.',
@@ -7442,7 +7453,7 @@ class Individual(Entity):
 			current_need = ', '.join(map(str, current_need))
 		needs = ', '.join(needs)
 
-		# Note: The 2nd to 5th values are for another program
+		# Note: The 4th to 8th values are for another program
 		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, hours, needs, max_need, decay_rate, threshold, current_need, str(parents), user, None, None, items) ] # TODO Maybe add dead or active bool field
 		# print('Entity Data: {}'.format(entity_data))
 
@@ -7898,6 +7909,24 @@ class Individual(Entity):
 			break
 		if v: print(f'{self.name} has performed seppuku.')
 		return self
+
+	def add_person(self, name=None, user=True):
+		if name is None:
+			name = 'Person'
+		entities = accts.get_entities()
+		indiv_items_produced = list(world.items[world.items['producer'].str.contains('Individual', na=False)].index.values) # TODO Move to own function
+		indiv_items_produced = ', '.join(indiv_items_produced)
+		last_entity_id = entities.reset_index()['entity_id'].max() # TODO Maybe a better way of doing this
+		factory.create(Individual, name + '-' + str(last_entity_id + 1), indiv_items_produced, world.global_needs, world.gov.entity_id, founder=last_entity_id + 1, parents=(None, None), user=user)
+		new_indiv = factory.get_by_id(last_entity_id + 1)
+		start_capital = args.capital / args.population
+		world.gov.bank.print_money(start_capital)
+		new_indiv.loan(amount=start_capital, roundup=False)
+		if user:
+			print(f'New human player added as: {new_indiv.name}')
+		else:
+			print(f'New AI player added as: {new_indiv.name}')
+		return new_indiv
 
 	def need_decay(self, need, decay_rate=1):
 		rand = 1

@@ -6,6 +6,7 @@ import datetime
 import logging
 import warnings
 import time
+# import decimal
 # from contextlib import contextmanager
 
 
@@ -83,8 +84,12 @@ class Accounts:
 			standard_accts = []
 		create_accts_query = '''
 			CREATE TABLE IF NOT EXISTS accounts (
-				accounts text,
-				child_of text
+				accounts text NOT NULL,
+				child_of text NOT NULL,
+				bs_order int,
+				std_name text,
+				non_cash int,
+				cash_cat text
 			);
 			'''
 		base_accts = [
@@ -330,30 +335,46 @@ class Accounts:
 				acct_data = [acct_data.tolist()]
 			elif isinstance(acct_data, str):
 				acct_data = [[x.strip() for x in acct_data.split(',')]]
-			elif not isinstance(acct_data[0], (list, tuple)):
+			if not isinstance(acct_data[0], (list, tuple)):
 				acct_data = [acct_data]
 		cur = self.conn.cursor()
 		if acct_data is None:
 			account = input('Enter the account name: ')
 			child_of = input('Enter the parent account: ')
-			# order = 
-			# non_cash = 
-			# cash_cat = 
 			if child_of not in self.coa.index:
 				print('\n' + child_of + ' is not a valid account.')
 				return
-			details = (account, child_of)
-			cur.execute('INSERT INTO accounts VALUES (?,?)', details)
+			bs_order = int(input('Enter the account order: '))
+			std_name = input('Enter the account standard name: ')
+			non_cash = input('Enter whether the account is non-cash: ')
+			cash_cat = input('Enter the account cash category: ')
+			details = (account, child_of, bs_order, std_name, non_cash, cash_cat)
+			cur.execute('INSERT INTO accounts VALUES (?,?,?,?,?,?)', details)
 		else:
 			for acct in acct_data: # TODO Maybe turn this into a list comprehension
-				if len(acct) == 2:
-					pass # Convert to new style
-
+				if len(acct) == 2: # Convert to new acct format
+					acct = (acct[0], acct[1], None, None, None, None,)
 				account = str(acct[0])
 				child_of = str(acct[1])
+				if acct[2] is not None:
+					bs_order = int(acct[2])
+				else:
+					bs_order = acct[2]
+				if acct[3] is not None:
+					std_name = str(acct[3])
+				else:
+					std_name = acct[3]
+				if acct[4] is not None:
+					non_cash = int(acct[4])
+				else:
+					non_cash = acct[4]
+				if acct[5] is not None:
+					cash_cat = str(acct[5])
+				else:
+					cash_cat = acct[5]
 				if v: print(acct)
-				details = (account,child_of)
-				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
+				details = (account, child_of, bs_order, std_name, non_cash, cash_cat)
+				cur.execute('INSERT INTO accounts VALUES (?,?,?,?,?,?)', details)
 		self.conn.commit()
 		cur.close()
 		self.refresh_accts()
@@ -1222,9 +1243,8 @@ class Ledger:
 				journal_data = [journal_data.tolist()]
 			elif isinstance(journal_data, str):
 				journal_data = [[x.strip() for x in journal_data.split(',')]]
-			elif not isinstance(journal_data[0], (list, tuple)):
+			if not isinstance(journal_data[0], (list, tuple)):
 				journal_data = [journal_data]
-		post_date = datetime.datetime.utcnow() # TODO Finish this
 		cur = self.conn.cursor()
 		if journal_data is None: # Manually enter a journal entry
 			event = input('Enter an optional event_id: ')
@@ -1290,6 +1310,7 @@ class Ledger:
 
 			values = (event, entity, cp, date, loc, desc, item, price, qty, debit, credit, amount) # So the print looks nicer
 			print(values)
+			post_date = datetime.datetime.utcnow()
 			values = (event, entity, cp, date, post_date, loc, desc, item, price, qty, debit, credit, amount)
 			cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)', values)
 
@@ -1341,6 +1362,7 @@ class Ledger:
 				# cols = ['event_id', 'entity_id', 'cp_id', 'date', 'loc', 'description', 'item_id', 'price', 'qty', 'debit_acct', 'credit_acct', 'amount']
 				# df = pd.DataFrame([values], columns=cols, index=['txn_id'])
 				# print(df)
+				post_date = datetime.datetime.utcnow()
 				values = (event, entity, cp, date, post_date, loc, desc, item, price, qty, debit, credit, amount)
 				cur.execute('INSERT INTO ' + self.ledger_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)', values)
 
