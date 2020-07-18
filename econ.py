@@ -33,6 +33,7 @@ INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
 EXPLORE_TIME = 1
 INC_BUFFER = 3
+REDUCE_PRICE = 0.1
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -1057,6 +1058,11 @@ class World:
 		# print('Price for {}: {}'.format(item, price))
 		return price
 
+	def reduce_prices(self, v=False):
+		world.prices['price'] = world.prices['price'] * (1 - REDUCE_PRICE)
+		if v: print(world.prices)
+		return world.prices
+
 	def create_needs(self):
 		global_needs = []
 		for _, item_satifies in self.items['satisfies'].iteritems():
@@ -1314,9 +1320,11 @@ class World:
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		t6_start = time.perf_counter()
 		print('Check Prices:')
-		for entity in factory.get():
-			print('\nPrices check for: {}'.format(entity.name))
-			entity.check_prices()
+		# for entity in factory.get():
+		# 	print('\nPrices check for: {}'.format(entity.name))
+			# entity.check_prices()
+		# for _ in range(world.population):
+		world.reduce_prices()
 		t6_end = time.perf_counter()
 		print(time_stamp() + '6: Prices check took {:,.2f} min.'.format((t6_end - t6_start) / 60))
 		print()
@@ -3423,12 +3431,13 @@ class Entity:
 											print('"{}" is not a valid entry. Must be a number.'.format(required_hours))
 											continue
 										if required_hours > orig_required_hours:
-											print('"{}" is more hours than required: {}. Will use the maximum hours possible.'.format(required_hours, orig_required_hours))
+											print('{} hours is more than is required. Will use {} hours instead.'.format(required_hours, orig_required_hours))
 											required_hours = orig_required_hours
 											break
 										if required_hours > self.hours:
-											print('"{}" is more hours than {} has remaining: {}'.format(required_hours, self.name, self.hours))
-											continue
+											print('"{}" is more hours than {} has remaining. Will use the remaining {} hours.'.format(required_hours, self.name, self.hours))
+											required_hours = self.hours
+											break
 										break
 									if required_hours == 0:
 										break
@@ -4077,7 +4086,7 @@ class Entity:
 		if items is not None:
 			if not isinstance(items, (list, tuple)):
 				items = [x.strip().title() for x in items.split(',')]
-			wip_items = world.delay.loc[world.delay['items_id'].isin(items)]
+			wip_items = world.delay.loc[world.delay['item_id'].isin(items)]
 			if wip_items.empty:
 				return
 		ledger.refresh_ledger()
@@ -4221,7 +4230,7 @@ class Entity:
 									if isinstance(self, Individual):
 										if entry[0] in self.prod_hold:
 											self.prod_hold = [wip_lot['event_id'] if x == entry[0] else x for x in self.prod_hold]
-									print('{} WIP Orig Partial event_id: {} | New Partial event_id: {} | {}'.format(self.name, entry[0], wip_lot['event_id'], self.hold_event_ids))
+									if v: print('{} WIP Orig Partial event_id: {} | New Partial event_id: {} | {}'.format(self.name, entry[0], wip_lot['event_id'], self.hold_event_ids))
 									entry[0] = wip_lot['event_id']
 							ledger.journal_entry(partial_work_event)
 					try:
@@ -5083,7 +5092,7 @@ class Entity:
 			# Get list of jobs
 			# TODO Get list of jobs that have accruals only
 			ledger.set_entity(self.entity_id)
-			wages_payable_list = ledger.get_qty(accounts=['Wages Payable'])
+			wages_payable_list = ledger.get_qty(accounts=['Wages Payable'], credit=True)
 			ledger.reset()
 			if v: print('Wages Payable List: \n{}'.format(wages_payable_list))
 			jobs = wages_payable_list['item_id']
@@ -7351,6 +7360,7 @@ class Entity:
 				'rproduce': 'Produce items, this will also attempt to aquire any requirements.',
 				'mautoproduce': 'Produce items automatically but not recursively.',
 				'autoaddress': 'Automatically address needs with items on hand at the end of each turn.',
+				'wip': 'Attempt to complete any items in WIP.',
 				'demand': 'See the demand table.',
 				'incorp': 'Incorporate a company to produce items.',
 				'raisecap': 'Sell additional shares in the Corporation.',
@@ -7471,10 +7481,10 @@ class Individual(Entity):
 			self.produces = [x.strip() for x in self.produces.split(',')]
 		if self.produces is not None:
 			self.produces = list(filter(None, self.produces))
-		if self.produces is not None:
-			self.prices = pd.DataFrame({'entity_id': self.entity_id, 'item_id': self.produces,'price': INIT_PRICE}).set_index('item_id')
-		else:
-			self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
+		# if self.produces is not None:
+		# 	self.prices = pd.DataFrame({'entity_id': self.entity_id, 'item_id': self.produces,'price': INIT_PRICE}).set_index('item_id')
+		# else:
+		# 	self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
 		self.parents = parents
 		self.hours = hours
 		print('Create Individual: {} | User: {} | entity_id: {}'.format(self.name, self.user, self.entity_id))
