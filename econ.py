@@ -15,6 +15,7 @@ import time
 import math
 import os
 import re
+import timeit
 import cProfile
 
 DISPLAY_WIDTH = 98
@@ -893,6 +894,18 @@ class World:
 					continue
 		value = input('Enter new value: ')
 		self.items.loc[[item.title()], prpty] = value
+		cur = ledger.conn.cursor()
+		items_query = f'''
+			UPDATE items
+			SET {prpty} = ?
+			WHERE item_id = ?;
+		'''
+		print(items_query)
+		values = (value, item)
+		cur.execute(items_query, values)
+		ledger.conn.commit()
+		cur.close()
+		print(acct.get_items())
 		return self.items
 
 	def valid_corp(self, ticker):
@@ -1214,9 +1227,9 @@ class World:
 					print('Ledger default set to: {}'.format(ledger.default))
 				ledger.reset()
 				self.gov = player
-				print('Checking player auto produce queue.')
-				for entity in player.get():
-					entity.auto_produce()
+				# print('Checking player auto produce queue.')
+				# for entity in player.get():
+				# 	entity.auto_produce()
 				world.get_hours(v=True)
 				while True:#sum(self.get_hours(computers=False).values()) > 0:
 					if self.selection is None:
@@ -1241,7 +1254,9 @@ class World:
 										elif self.selection.pin == pin:
 											break
 						else:
+							print('Not entities with hours left.')
 							break
+						self.selection.auto_produce()
 					if isinstance(self.selection, Individual):
 						print('\nEntity Selected: {} | Hours: {}'.format(self.selection.name, self.selection.hours))
 					else:
@@ -1530,6 +1545,7 @@ class World:
 			# if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
 		else:
 			# Save prior days tables: entities, prices, demand, delay, produce_queue
+			self.entities = accts.get_entities().reset_index()
 			self.prior_entities = self.entities
 			self.set_table(self.prior_entities, 'prior_entities')
 			self.prior_prices = self.prices
@@ -3405,9 +3421,16 @@ class Entity:
 						if qty == 1 and item_type != 'Service' and reqs != 'hold_req': # TODO Maybe support WIP Services
 							if man and not wip_choice and partial is None and not incomplete:
 								while True:
-									choice = input('Should {} ({} hours available) work on the {} over multiple days? [y/N]: '.format(self.name, self.hours, item))
+									if required_hours > self.hours:
+										# TODO Maybe make this automatic
+										choice = input('Should {} ({} hours available) work on the {} over multiple days? [Y/n]: '.format(self.name, self.hours, item))
+									else:
+										choice = input('Should {} ({} hours available) work on the {} over multiple days? [y/N]: '.format(self.name, self.hours, item))
 									if choice == '':
-										choice = 'N'
+										if required_hours > self.hours:
+											choice = 'Y'
+										else:
+											choice = 'N'
 									if choice.upper() == 'Y':
 										wip_choice = True
 										break
@@ -3453,12 +3476,12 @@ class Entity:
 							# if required_hours != orig_labour_required:
 							time_required = True
 						print('{} will attempt to hire {} labour for {} hours.'.format(self.name, req_item, required_hours))
-						if 'Individual' in world.items.loc[item, 'producer'] and qty == 1:
-							counterparty = self
-						elif item_type == 'Education':
-							counterparty = self
-						else:
-							counterparty = self.worker_counterparty(req_item, man=man)
+						# if 'Individual' in world.items.loc[item, 'producer'] and qty == 1:
+						# 	counterparty = self
+						# elif item_type == 'Education':
+						# 	counterparty = self
+						# else:
+						counterparty = self.worker_counterparty(req_item, man=man)
 						if isinstance(counterparty, tuple):
 							counterparty, entries = counterparty
 							event += entries
@@ -3692,7 +3715,8 @@ class Entity:
 			world.delay = tmp_delay.copy(deep=True) # TODO This would not factor in any changes to world.delay from a lower stack frame but might not matter
 			world.set_table(world.delay, 'delay')
 			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
-			self.hold_event_ids += hold_event_ids
+			if not wip_choice:
+				self.hold_event_ids += hold_event_ids
 			if isinstance(self, Individual):
 				self.prod_hold += prod_hold
 			# print('{} Final self.hold_event_ids for {}: {} | {}'.format(self.name, item, self.hold_event_ids, hold_event_ids))
@@ -3742,17 +3766,17 @@ class Entity:
 			elif item_type == 'Education':
 				debit_acct = 'Education'
 			elif item_type == 'Equipment':
-				if isinstance(self, Individual): # TODO Check this
+				if isinstance(self, Individual) or man: # TODO Check this
 					debit_acct = 'Equipment'
 				else:
 					debit_acct = 'Inventory'
 			elif item_type == 'Buildings':
-				if isinstance(self, Individual):
+				if isinstance(self, Individual) or man:
 					debit_acct = 'Buildings'
 				else:
 					debit_acct = 'Inventory'
 			elif item_type == 'Land':
-				if isinstance(self, Individual):
+				if isinstance(self, Individual) or man:
 					debit_acct = 'Land'
 				else:
 					debit_acct = 'Inventory'
@@ -3764,9 +3788,15 @@ class Entity:
 				elif item_type == 'Education':
 					debit_acct='Studying Education'
 				elif item_type == 'Equipment':
-					debit_acct = 'WIP Inventory'#'WIP Equipment'
+					if isinstance(self, Individual) or man:
+						debit_acct = 'WIP Equipment'
+					else:
+						debit_acct = 'WIP Inventory'
 				elif item_type == 'Buildings':
-					debit_acct = 'WIP Inventory'#'Building Under Construction'
+					if isinstance(self, Individual) or man:
+						debit_acct = 'Building Under Construction'
+					else:
+						debit_acct = 'WIP Inventory'
 				else:
 					debit_acct = 'WIP Inventory'
 		else:
@@ -4025,7 +4055,8 @@ class Entity:
 		world.set_table(world.produce_queue, 'produce_queue')
 		print('Set Produce Queue by {}: \n{}'.format(self.name, world.produce_queue))
 
-	def auto_produce(self):
+	def auto_produce(self, v=True):
+		if v: print(f'Checking {self.name}\'s auto produce queue.')
 		if world.produce_queue.empty:
 			return
 		entity_pro_queue = world.produce_queue.loc[world.produce_queue['entity_id'] == self.entity_id]
@@ -5008,7 +5039,7 @@ class Entity:
 						continue
 				if not confirm:
 					return
-			time_needed = entity.hours
+			time_needed = qty * explore_time
 		orig_hours = entity.hours
 		if isinstance(entity, Individual):
 			entity.set_hours(time_needed)
@@ -5234,6 +5265,8 @@ class Entity:
 			return
 
 	def worker_counterparty(self, job, only_avail=True, exclude=None, man=False):
+		if job == 'Study':# or 'Research':
+			return self
 		print('{} looking for worker for job: {}'.format(self.name, job))
 		option = 1
 		if exclude is None:
@@ -5249,7 +5282,7 @@ class Entity:
 		else:
 			individuals_allowed = [indiv for indiv in world.gov.get(Individual) if indiv not in exclude]
 		for individual in individuals_allowed:
-			incomplete, entries, time_required, max_qty_possible = individual.fulfill(job, qty=1)#, check=True)
+			incomplete, entries, time_required, max_qty_possible = individual.fulfill(job, qty=1, man=man)#, check=True)
 			# TODO Capture entries
 			if not incomplete:
 				# This will cause all available workers to attempt to become qualified even if they don't get the job in the end. TODO Test if check=True will prevent this.
@@ -6679,7 +6712,7 @@ class Entity:
 			produce_event, time_required, max_qty_possible, incomplete = self.produce(item.title(), qty)
 			if incomplete and max_qty_possible != 0:
 				self.produce(item.title(), qty=max_qty_possible)
-		elif command.lower() == 'produce':
+		elif command.lower() == 'produce' or command.lower() == 'p':
 			while True:
 				item = input('Enter item to produce: ')
 				if item == '':
@@ -6756,7 +6789,7 @@ class Entity:
 				try:
 					freq = input('Enter number of days between production of {} {} (0 for daily): '.format(qty, item))
 					if freq == '':
-						return
+						freq = 0
 					freq = int(freq)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
@@ -6766,11 +6799,30 @@ class Entity:
 						continue
 					break
 			self.set_produce(item.title(), qty, freq, man=man)
+		elif command.lower() == 'stopautoproduce':
+			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
+			idx = None
+			while True:
+				try:
+					idx = input('Enter the index number of the autoproduce line to remove: ')
+					if idx == '':
+						return
+					idx = int(idx)
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number from the autoproduce table index.')
+					continue
+				else:
+					if idx not in world.produce_queue.index.tolist():
+						print('Not a valid entry. Must be a positive whole number from the autoproduce table index.')
+						continue
+					break
+			world.produce_queue.drop([idx], inplace=True)
+			print('World Auto Produce as of {} after removal: \n{}'.format(world.now, world.produce_queue))
 		elif command.lower() == 'wip':
 			self.wip_check()
-		elif command.lower() == 'raw' or command.lower() == 'rawbase':
+		elif command.lower() == 'raw' or command.lower() == 'rawbase' or command.lower() == 'r':
 			base = False
-			if command.lower() == 'rawbase':
+			if command.lower() == 'rawbase' or command.lower() == 'r':
 				base = True
 			while True:
 				item = input('Enter item to see total raw resources required: ')
@@ -6784,7 +6836,7 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = input('Enter quantity of {} item: '.format(item))
+					qty = input('Enter quantity of {} item: '.format(item.title()))
 					if qty == '':
 						qty = 1
 						# return
@@ -7153,11 +7205,27 @@ class Entity:
 					continue
 			if confirm:
 				self.bankruptcy()
-		elif command.lower() == 'own' or command.lower() == 'owned':
+		elif command.lower() == 'owned':
+			start_time = timeit.default_timer()
 			ledger.set_entity(self.entity_id)
 			inv = ledger.get_qty()
 			ledger.reset()
 			print(inv)
+			print(timeit.default_timer() - start_time)
+		elif command.lower() == 'own':
+			start_time = timeit.default_timer()
+			ledger.set_entity(self.entity_id)
+			inv = ledger.get_qty(accounts=['Cash', 'Investments', 'Land', 'Buildings', 'Equipment', 'Equipped', 'Inventory', 'WIP Inventory', 'WIP Equipment', 'Building Under Construction', 'Land In Use', 'Buildings In Use', 'Equipment In Use', 'Technology', 'Researching Technology'])
+			ledger.reset()
+			print(inv)
+			print(timeit.default_timer() - start_time)
+		elif command.lower() == 'labour':
+			start_time = timeit.default_timer()
+			ledger.set_entity(self.entity_id)
+			inv = ledger.get_qty(accounts=['Wages Receivable', 'Education', 'Studying Education'])
+			ledger.reset()
+			print(inv)
+			print(timeit.default_timer() - start_time)
 		elif command.lower() == 'hours':
 			world.get_hours(v=True)
 		elif command.lower() == 'land':
@@ -7168,6 +7236,8 @@ class Entity:
 			world.unused_land(entity_id=world.env.entity_id)
 		elif command.lower() == 'demand':
 			print('World Demand as of {}: \n{}'.format(world.now, world.demand))
+		elif command.lower() == 'delay':
+			print('Delayed items as of {}: \n{}'.format(world.now, world.delay))
 		elif command.lower() == 'auto':
 			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
 		elif command.lower() == 'savedf':
@@ -7338,9 +7408,10 @@ class Entity:
 				'land': 'See land available to claim.',
 				'map': 'See all land in existence.',
 				'claim': 'Claim land for free, but it must be defended.',
-				'produce': 'Produce items.',
+				'\033[4mp\033[0mroduce': 'Produce items.',
 				'consume': 'Consume items.',
 				'autoproduce': 'Produce items automatically.',
+				'stopautoproduce': 'Stop producing items automatically.',
 				'purchase': 'Purchase items.',
 				'sale': 'Put item up for sale.',
 				'use': 'Use an item.',
@@ -7353,7 +7424,6 @@ class Entity:
 				'birth': 'Have a child with another Individual.',
 				'auto': 'See the auto production queue table.',
 				'skip': 'Skip an entities turn even if they have hours left.',
-				# 'end': 'End the day even if multiple entities have hours left.',
 				'accthelp': 'View commands for the accounting system.',
 				'more': 'View additional advanced commands.',
 				'exit': 'Exit out of the sim.'
@@ -7394,6 +7464,7 @@ class Entity:
 				'acctmore': 'View more commands for the accounting system.',
 				'setwin': 'Set the win conditions.',
 				'win': 'See the win conditions.',
+				'end': 'End the day even if multiple entities have hours left.',
 				'exit': 'Exit out of the sim.'
 			}
 			cmd_table = pd.DataFrame(command_more.items(), columns=['Command', 'Description'])

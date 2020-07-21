@@ -28,16 +28,16 @@ Miner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,No
 Tanner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Water Forage,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Fresh Water,None,None,None,Commodity,"Land, Water Forage","1, 3",None,None,None,None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Individual
-Water Skin,None,None,start,Equipment,"Tanner, Wild Leather","10, 5",10,None,None,None,None,None,None,None,Water Forage,0.33,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
 Forage,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Berries,None,None,None,Commodity,"Land, Forage","10, 3",None,None,None,None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Individual
 Basket Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Basket,None,None,start,Equipment,Basket Weaving,20,12,None,None,None,None,None,None,None,Forage,0.4,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Hunting,None,None,None,Labour,Strength,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Wild Meat,None,None,None,Commodity,"Land, Hunting","10, 20",None,None,None,None,None,None,Hunger,5,None,None,8,spoilage,None,None,None,1,None,None,Individual
-Wild Leather,None,None,None,Commodity,"Land, Hunting","10, 20",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Individual
+Basket,None,None,start,Equipment,Basket Weaving,18,12,None,None,None,None,None,None,None,Forage,0.5,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
+Water Skin,None,None,start,Equipment,"Tanner, Wild Leather","10, 2",10,None,None,None,None,None,None,None,Water Forage,0.5,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
+Hunter,None,None,None,Labour,Strength,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Wild Meat,None,None,None,Commodity,"Land, Hunter","10, 12",None,None,None,None,None,None,Hunger,5,None,None,8,spoilage,None,None,None,1,None,None,Individual
+Wild Leather,None,None,None,Commodity,"Land, Hunter","10, 12",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Individual
 Ranged Weapon,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Bow and Arrow,None,None,continuous,Ranged Weapon,"Wood, Wild Leather","10, 1",1,None,None,None,None,None,None,None,Hunting,0.25,"100, 1000","usage, equipped",None,100,None,10,None,None,Individual
+Bow And Arrow,None,None,continuous,Ranged Weapon,"Wood, Wild Leather","2, 1",1,None,None,None,None,None,None,None,Hunter,0.25,"100, 1000","usage, equipped",None,100,None,10,None,None,Individual
 Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Harvesting,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Spinning,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -50,18 +50,18 @@ Rancher,None,None,None,Labour,Cultivator,5,None,None,None,None,None,None,None,No
 #Milk,None,None,None,Commodity,"Cow, Rancher","1, 1",None,None,None,None,None,None,"Thirst, Hunger","2, 3",None,None,None,None,None,None,None,None,None,None,Ranch
 Gestation,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Beef Cow,"Land, Rancher","100, 1",animal,Commodity,"Gestation, Land, Beef Cow, Rancher","3, 10, 2, 1",None,Land,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
-Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,Ranch
-Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,Ranch
+Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,Ranch
+Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,Ranch
 #Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,Farm
 #Drift Wood,None,None,None,Commodity,"Forest, Forage","1, 0.1",None,None,None,None,None,Wood,None,None,None,None,None,None,None,1,None,10,None,None,Individual
-Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 5",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,Lumbermill
-Clay,None,None,None,Commodity,"Wetlands, Miner","1, 5",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,None,None,"Quarry, Mine"
-Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 5",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,None,None,"Quarry, Mine"
-Ore,None,None,None,Commodity,"Mountain, Miner","1, 5",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
+Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,Lumbermill
+Clay,None,None,None,Commodity,"Wetlands, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,None,None,"Quarry, Mine"
+Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,None,None,"Quarry, Mine"
+Ore,None,None,None,Commodity,"Mountain, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
 Bellows,None,None,None,Components,"Leather, Wood","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,Blacksmith
-Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","8, 10, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Farm
-Yarn,None,None,None,Commodity,"Cotton, Spinning","1, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill
-Cloth,None,None,None,Commodity,"Yarn, Weaving","1, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill
+Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","4, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Farm
+Yarn,None,None,None,Commodity,"Cotton, Spinning","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill
+Cloth,None,None,None,Commodity,"Yarn, Weaving","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill
 Cotton Gin,None,None,start,Equipment,"Metal, Wood","2, 30",10,None,None,None,None,None,None,None,None,None,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
 Cotton Spinner,None,None,start,Equipment,"Metal, Wood, Cotton Gin","2, 30, 1",10,None,None,Cotton Gin,1,None,None,None,Spinning,0.50,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
 Tailor,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
