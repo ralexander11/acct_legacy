@@ -145,7 +145,8 @@ class Accounts:
 				user text,
 				auth_shares INTEGER,
 				int_rate real,
-				outputs text
+				outputs text,
+				obj BLOB
 			);
 			''' # TODO Add needs table?
 		default_entities = ['''
@@ -171,7 +172,8 @@ class Accounts:
 				user,
 				auth_shares,
 				int_rate,
-				outputs
+				outputs,
+				obj
 				)
 				VALUES (
 					'Person001',
@@ -195,7 +197,8 @@ class Accounts:
 					'True',
 					1000000,
 					0.0,
-					'Labour'
+					'Labour',
+					NULL
 				);
 			'''] # TODO Rename outputs to produces
 			# TODO Add field for currency and accounting framework
@@ -384,14 +387,15 @@ class Accounts:
 			auth_shares = input('Enter the number of shares authorized: ')
 			int_rate = input('Enter the interest rate for the bank: ')
 			outputs = input('Enter the output names as a list: ') # For corporations
+			obj = None
 
 			# if auth_shares == '' or auth_shares == 'None' or auth_shares is None:
 			# 	auth_shares = np.nan
 			if int_rate == '' or int_rate == 'None' or int_rate is None:
 				int_rate = np.nan
 
-			details = (name,currency,framework,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,founder,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,int_rate,outputs)
-			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (name,currency,framework,comm,min_qty,max_qty,liquidate_chance,ticker_source,entity_type,government,founder,hours,needs,need_max,decay_rate,need_threshold,current_need,parents,user,auth_shares,int_rate,outputs,obj)
+			cur.execute('INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 			
 		else:
 			for entity in entity_data:
@@ -400,7 +404,7 @@ class Accounts:
 				except TypeError:
 					pass
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))
-				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.entities_table_name + ' VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, entity)
 
 		self.conn.commit()

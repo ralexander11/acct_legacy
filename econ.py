@@ -15,6 +15,8 @@ import time
 import math
 import os
 import re
+import pickle
+from sqlite3 import Binary
 import timeit
 import cProfile
 
@@ -245,11 +247,14 @@ class World:
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
 			self.active_day = False
+			global USE_PIN
 			if not self.gov.user and USE_PIN: # TODO Add option to turn pins off
 				for user in self.gov.get(Individual, computers=False):
 					while True:
 						try:
-							pin = getpass.getpass('{} enter a 4 digit pin number: '.format(user.name))
+							pin = getpass.getpass('{} enter a 4 digit pin number or enter "exit": '.format(user.name))
+							if pin.lower() == 'exit':
+								exit()
 							pin = int(pin)
 						except ValueError:
 							print('Not a valid entry. Must be a 4 digit number.')
@@ -286,7 +291,7 @@ class World:
 			self.start_capital = args.capital / args.population
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Items Config: \n{}'.format(self.items))
-			self.entities = accts.get_entities().reset_index()
+			# self.entities = accts.get_entities().reset_index() # TODO Test if needed
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Loaded Entities: \n{}'.format(self.entities))
 			try:
@@ -299,7 +304,9 @@ class World:
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Environments: \n{}'.format(envs))
 			for index, env in envs.iterrows():
-				factory.create(Environment, env['name'], env['entity_id'])
+				entity_data = pickle.loads(env['obj'])
+				factory.register_instance(entity_data)
+				# factory.create(Environment, env['name'], env['entity_id'])
 			self.env = factory.get(Environment)[0]
 			self.produce_queue = self.get_table('prior_produce_queue')
 			self.end = False
@@ -307,7 +314,9 @@ class World:
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Governments: \n{}'.format(govs))
 			for index, gov in govs.iterrows():
-				factory.create(Government, gov['name'], None, gov['user'], int(gov['entity_id']))
+				entity_data = pickle.loads(gov['obj'])
+				factory.register_instance(entity_data)
+				# factory.create(Government, gov['name'], None, gov['user'], int(gov['entity_id']))
 			self.governments = len(govs)
 			banks = self.entities.loc[self.entities['entity_type'] == 'Bank']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -316,7 +325,9 @@ class World:
 				int_rate = bank['int_rate']
 				if int_rate is not None:
 					int_rate = float(int_rate)
-				factory.create(Bank, bank['name'], int(bank['government']), int_rate, None, bank['user'], int(bank['entity_id']))
+				entity_data = pickle.loads(bank['obj'])
+				factory.register_instance(entity_data)
+				# factory.create(Bank, bank['name'], int(bank['government']), int_rate, None, bank['user'], int(bank['entity_id']))
 			for gov in factory.get(Government):
 				bank_id = self.entities.loc[(self.entities['entity_type'] == 'Bank') & (self.entities['government'] == str(gov.entity_id)), 'entity_id'].values[0]
 				print('Bank ID: {}'.format(bank_id))
@@ -324,19 +335,31 @@ class World:
 			for index, indiv in individuals.iterrows():
 				current_need_all = [int(float(x.strip())) for x in str(indiv['current_need']).split(',')]
 				if not any(n <= 0 for n in current_need_all):
-					factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), int(indiv['founder']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
+					entity = pickle.loads(indiv['obj'])
+					factory.register_instance(entity)
+					if entity.pin is not None:
+						USE_PIN = True
+					print('Load Individual: {} | User: {} | entity_id: {}'.format(entity.name, entity.user, entity.entity_id))
+					print('Citizen of Government: {}'.format(entity.government))
+					print('Parents: {}'.format(entity.parents))
+					print('Current Hours:', entity.hours)
+					# factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), int(indiv['founder']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
 			corps = self.entities.loc[self.entities['entity_type'] == 'Corporation']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Corporations: \n{}'.format(corps))
 			for index, corp in corps.iterrows():
-				legal_form = self.org_type(corp['name'])
-				factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), int(corp['founder']), corp['auth_shares'], corp['entity_id'])
+				entity_data = pickle.loads(corp['obj'])
+				factory.register_instance(entity_data)
+				# legal_form = self.org_type(corp['name'])
+				# factory.create(legal_form, corp['name'], corp['outputs'], int(corp['government']), int(corp['founder']), corp['auth_shares'], corp['entity_id'])
 			nonprofs = self.entities.loc[self.entities['entity_type'] == 'NonProfit']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Non-Profits: \n{}'.format(nonprofs))	
 			for index, nonprof in nonprofs.iterrows():
-				legal_form = self.org_type(nonprof['name'])
-				factory.create(legal_form, nonprof['name'], nonprof['outputs'], int(nonprof['government']), int(nonprof['founder']), nonprof['auth_shares'], nonprof['entity_id'])
+				entity_data = pickle.loads(nonprof['obj'])
+				factory.register_instance(entity_data)
+				# legal_form = self.org_type(nonprof['name'])
+				# factory.create(legal_form, nonprof['name'], nonprof['outputs'], int(nonprof['government']), int(nonprof['founder']), nonprof['auth_shares'], nonprof['entity_id'])
 			self.prices = self.get_table('prior_prices')
 			with pd.option_context('display.max_rows', None):
 				print('\nPrices: \n{}\n'.format(self.prices))
@@ -358,11 +381,13 @@ class World:
 				last_eod_index = 0
 			try:
 				last_eot_index = ledger.gl.loc[ledger.gl['credit_acct'] == 'End of Turn'].iloc[-1].name
-				self.active_day = True
-				print('active_day:', self.active_day)
 			except IndexError:
 				last_eot_index = 0
+			if last_eot_index > last_eod_index:
+				self.active_day = True
+			else:
 				self.active_day = False
+			print('Active Day:', self.active_day)
 			last_eod_index = max(last_eod_index, last_eot_index)
 			incomplete_cycle = ledger.gl.loc[ledger.gl.index > last_eod_index].index.values.tolist()
 			print('Number of incomplete transactions: {}'.format(len(incomplete_cycle)))
@@ -388,7 +413,9 @@ class World:
 				for user in self.gov.get(Individual, computers=False):
 					while True:
 						try:
-							pin = getpass.getpass('{} enter a 4 digit pin number: '.format(user.name))
+							pin = getpass.getpass('{} enter a 4 digit pin number or enter "exit": '.format(user.name))
+							if pin.lower() == 'exit':
+								exit()
 							pin = int(pin)
 						except ValueError:
 							print('Not a valid entry. Must be a 4 digit number.')
@@ -1242,7 +1269,9 @@ class World:
 							if USE_PIN:
 								while True:
 									try:
-										pin = getpass.getpass('Enter the 4 digit pin number for {}: '.format(self.selection.name))
+										pin = getpass.getpass('Enter the 4 digit pin number for {} or enter "exit": '.format(self.selection.name))
+										if pin.lower() == 'exit':
+											exit()
 										pin = int(pin)
 									except ValueError:
 										print('Not a valid entry. Must be a 4 digit number.')
@@ -1509,6 +1538,18 @@ class World:
 				return
 
 	def checkpoint_entry(self, eod=True, v=False):
+		cur = ledger.conn.cursor()
+		obj_query = '''
+			UPDATE entities
+			SET obj = ?
+			WHERE entity_id = ?;
+		'''
+		for entity in factory.get():
+			entity_data = pickle.dumps(entity, pickle.HIGHEST_PROTOCOL)
+			values = (Binary(entity_data), entity.entity_id)
+			cur.execute(obj_query, values)
+		ledger.conn.commit()
+		cur.close()
 		# Book End of Day entry
 		if eod:
 			eod_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
@@ -5348,7 +5389,9 @@ class Entity:
 								if USE_PIN:
 									while True: # TODO Make this an Individual entity function
 										try:
-											pin = getpass.getpass('To approve, enter the 4 digit pin number for {}: '.format(worker_choosen.name))
+											pin = getpass.getpass('To approve, enter the 4 digit pin number for {} or enter "exit": '.format(worker_choosen.name))
+											if pin.lower() == 'exit':
+												exit()
 											if pin == '':
 												worker_choosen = None
 												break
@@ -5400,7 +5443,9 @@ class Entity:
 								if USE_PIN:
 									while True:
 										try:
-											pin = getpass.getpass('To approve, enter the 4 digit pin number for {}: '.format(worker_choosen.name))
+											pin = getpass.getpass('To approve, enter the 4 digit pin number for {} or enter "exit": '.format(worker_choosen.name))
+											if pin.lower() == 'exit':
+												exit()
 											if pin == '':
 												worker_choosen = None
 												break
@@ -6458,7 +6503,7 @@ class Entity:
 			except AttributeError as e:
 				print('Only corporations can sell shares, but an {} is selected.'.format(self.__class__.__name__))
 				print('Error: {}'.format(repr(e)))
-		elif command.lower() == 'claimland' or command.lower() == 'claim':
+		elif command.lower() == 'claimland' or command.lower() == 'claim' or command.lower() == 'c':
 			while True:
 				item = input('Enter type of land to claim: ')
 				if item == '':
@@ -6757,7 +6802,7 @@ class Entity:
 						continue
 				if confirm:
 					self.produce(item.title(), qty=max_qty_possible)
-		elif command.lower() == 'autoproduce' or command.lower() == 'mautoproduce':
+		elif command.lower() == 'autoproduce' or command.lower() == 'mautoproduce' or command.lower() == 'a':
 			man = False
 			if command.lower() == 'mautoproduce':
 				man = True
@@ -6818,7 +6863,7 @@ class Entity:
 					break
 			world.produce_queue.drop([idx], inplace=True)
 			print('World Auto Produce as of {} after removal: \n{}'.format(world.now, world.produce_queue))
-		elif command.lower() == 'wip':
+		elif command.lower() == 'wip' or command.lower() == 'w':
 			self.wip_check()
 		elif command.lower() == 'raw' or command.lower() == 'rawbase' or command.lower() == 'r':
 			base = False
@@ -7211,21 +7256,21 @@ class Entity:
 			inv = ledger.get_qty()
 			ledger.reset()
 			print(inv)
-			print(timeit.default_timer() - start_time)
-		elif command.lower() == 'own':
+			print('Time taken: ', timeit.default_timer() - start_time)
+		elif command.lower() == 'own' or command.lower() == 'o':
 			start_time = timeit.default_timer()
 			ledger.set_entity(self.entity_id)
 			inv = ledger.get_qty(accounts=['Cash', 'Investments', 'Land', 'Buildings', 'Equipment', 'Equipped', 'Inventory', 'WIP Inventory', 'WIP Equipment', 'Building Under Construction', 'Land In Use', 'Buildings In Use', 'Equipment In Use', 'Technology', 'Researching Technology'])
 			ledger.reset()
 			print(inv)
-			print(timeit.default_timer() - start_time)
+			print('Time taken: ', timeit.default_timer() - start_time)
 		elif command.lower() == 'labour':
 			start_time = timeit.default_timer()
 			ledger.set_entity(self.entity_id)
 			inv = ledger.get_qty(accounts=['Wages Receivable', 'Education', 'Studying Education'])
 			ledger.reset()
 			print(inv)
-			print(timeit.default_timer() - start_time)
+			print('Time taken: ', timeit.default_timer() - start_time)
 		elif command.lower() == 'hours':
 			world.get_hours(v=True)
 		elif command.lower() == 'land':
@@ -7350,7 +7395,7 @@ class Entity:
 					continue
 			with pd.option_context('display.max_colwidth', 200):
 				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
-		elif command.lower() == 'needs':
+		elif command.lower() == 'needs' or command.lower() == 'n':
 			print('{} Needs:'.format(self.name))
 			for need in world.global_needs:
 				print('{}: {}'.format(need, self.needs[need]['Current Need']))
@@ -7525,7 +7570,7 @@ class Individual(Entity):
 		needs = ', '.join(needs)
 
 		# Note: The 4th to 8th values are for another program
-		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, hours, needs, max_need, decay_rate, threshold, current_need, str(parents), user, None, None, items) ] # TODO Maybe add dead or active bool field
+		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, hours, needs, max_need, decay_rate, threshold, current_need, str(parents), user, None, None, items, None) ] # TODO Maybe add dead or active bool field
 		# print('Entity Data: {}'.format(entity_data))
 
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -7739,7 +7784,9 @@ class Individual(Entity):
 		if self.user and USE_PIN:
 			while True:
 				try:
-					pin = getpass.getpass('{} enter a 4 digit pin number: '.format(individual.name))
+					pin = getpass.getpass('{} enter a 4 digit pin number or enter "exit": '.format(individual.name))
+					if pin.lower() == 'exit':
+						exit()
 					pin = int(pin)
 				except ValueError:
 					print('Not a valid entry. Must be a 4 digit number.')
@@ -8231,7 +8278,7 @@ class Individual(Entity):
 class Environment(Entity):
 	def __init__(self, name, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, None, None) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, None, None, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -8275,7 +8322,7 @@ class Organization(Entity):
 class Corporation(Organization):
 	def __init__(self, name, items, government, founder, auth_shares=1000000, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, auth_shares, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, auth_shares, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -8396,7 +8443,7 @@ class Corporation(Organization):
 class Government(Organization):
 	def __init__(self, name, items=None, user=False, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, user, None, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, user, None, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -8465,7 +8512,7 @@ class Government(Organization):
 class Governmental(Organization):
 	def __init__(self, name, government, items=None, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, None, None, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -8504,7 +8551,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 	# TODO Can the below be omitted for inheritance
 	def __init__(self, name, government, interest_rate=None, items=None, user=None, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, user, None, interest_rate, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, user, None, interest_rate, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
@@ -8564,7 +8611,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 class NonProfit(Organization):
 	def __init__(self, name, items, government, founder, auth_qty=0, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
-		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, None, None, items) ] # Note: The 2nd to 5th values are for another program
+		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, None, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
 		if new_db or args.reset:
 			if entity_id is None:
