@@ -33,7 +33,8 @@ Berries,None,None,None,Commodity,"Land, Forage","10, 3",None,None,None,None,None
 Basket Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Basket,None,None,start,Equipment,Basket Weaving,18,12,None,None,None,None,None,None,None,Forage,0.5,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
 Water Skin,None,None,start,Equipment,"Tanner, Wild Leather","10, 2",10,None,None,None,None,None,None,None,Water Forage,0.5,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Hunter,None,None,None,Labour,Strength,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Strength,None,None,None,Education,"Study, Rock","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+Hunter,None,None,None,Labour,Strength,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Wild Meat,None,None,None,Commodity,"Land, Hunter","10, 12",None,None,None,None,None,None,Hunger,5,None,None,8,spoilage,None,None,None,1,None,None,Individual
 Wild Leather,None,None,None,Commodity,"Land, Hunter","10, 12",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Individual
 Ranged Weapon,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -93,7 +94,6 @@ Harvest,None,None,None,Service,Harvesting,1,None,None,None,None,None,None,None,N
 #Metal Working,None,None,None,Technology,"Time, Anvil","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Blacksmith
 Blacksmith Shop,None,None,continuous,Buildings,"Time, Land, Wood, Rock","2, 100, 100, 60",1,Land,100,None,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
 Blacksmither,None,None,None,Labour,Strength,1,2000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Strength,None,None,None,Education,"Time, Rock","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Wire,None,None,None,Commodity,"Metal Working, Metal","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Blacksmith
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 #Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",100,ticks,None,None,None,100,None,None,Blacksmith

@@ -932,7 +932,7 @@ class World:
 		cur.execute(items_query, values)
 		ledger.conn.commit()
 		cur.close()
-		print(acct.get_items())
+		print(accts.get_items())
 		return self.items
 
 	def valid_corp(self, ticker):
@@ -2528,6 +2528,7 @@ class Entity:
 		hold_event_ids = []
 		prod_hold = []
 		wip_choice = False
+		wip_complete = False
 		time_required = False
 		time_check = False
 		whole_qty = 1
@@ -3450,7 +3451,7 @@ class Entity:
 					hours_remain = 0
 					while labour_done < labour_required:
 						required_hours = labour_required - labour_done
-						print('Labour Done in Cycle: {} | Labour Required: {} | Remaining Hours: {} | WIP Choice: {}'.format(labour_done, labour_required, required_hours, wip_choice))
+						print('Labour Done in Cycle: {} | Labour Required: {} | Remaining Hours: {} | WIP Choice: {} | Time Req: {}'.format(labour_done, labour_required, required_hours, wip_choice, time_required))
 						orig_required_hours = required_hours
 						# if item_type == 'Education':
 						# 	print('{} has not studied enough {} today. Will attempt to study for {} hours.'.format(self.name, req_item, required_hours)) #MAX_HOURS = 12
@@ -3492,7 +3493,7 @@ class Entity:
 											required_hours = 0
 											break
 										try:
-											required_hours = input('Enter the amount of hours to hire {} ({} hours available) to work on {}: '.format(self.name, self.hours, item))
+											required_hours = input('Enter the amount of hours to hire {} ({} hours available) to work on {}[{}]: '.format(self.name, self.hours, item, min(self.hours, orig_required_hours)))
 											if required_hours == '':
 												required_hours = orig_required_hours
 											required_hours = float(required_hours)
@@ -3515,11 +3516,12 @@ class Entity:
 								 # TODO Or MAX_HOURS?
 								if required_hours < WORK_DAY:
 									wip_choice = False # TODO Test this
+									wip_complete = True
 								# if orig_required_hours < WORK_DAY:
 								# 	required_hours = orig_required_hours
 							# if required_hours != orig_labour_required:
 							time_required = True
-						print('{} will attempt to hire {} labour for {} hours.'.format(self.name, req_item, required_hours))
+						print('{} will attempt to hire {} labour for {} hours. Time Req: {}'.format(self.name, req_item, required_hours, time_required))
 						# if 'Individual' in world.items.loc[item, 'producer'] and qty == 1:
 						# 	counterparty = self
 						# elif item_type == 'Education':
@@ -3627,7 +3629,7 @@ class Entity:
 							tmp_delay = tmp_delay.append({'txn_id':None, 'delay':delay_amount, 'hours':hours_remain, 'job':req_item, 'item_id':item}, ignore_index=True)
 							# print('tmp_delay: \n{}'.format(tmp_delay))
 					# print('Labour Done End: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
-					if wip_choice and not hours_remain and not time_check:
+					if (wip_choice or wip_complete) and not hours_remain and not time_check:
 						time_required = False
 					if not wip_choice and partial is None:
 						try:
@@ -3652,7 +3654,7 @@ class Entity:
 						else:
 							max_qty_possible = 0
 							constraint_qty = 0
-					print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | Partial: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, partial, constraint_qty, incomplete))
+					print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | Time Req: {} | Partial: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, time_required, partial, constraint_qty, incomplete))
 
 			elif req_item_type == 'Education' and partial is None:
 				if item_type == 'Job' or item_type == 'Labour':
@@ -6533,7 +6535,7 @@ class Entity:
 			counterparty = 0
 			while True:
 				try:
-					counterparty = input('Enter an entity ID number to claim from ({} for nature): '.format(world.env.entity_id))
+					counterparty = input('Enter an entity ID number to claim from ({} for nature)[{}]: '.format(world.env.entity_id, world.env.entity_id))
 					if counterparty == '':
 						# Shortcut instead of return
 						counterparty = world.env.entity_id
@@ -6773,9 +6775,10 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = input('Enter quantity of {} item to produce: '.format(item))
+					qty = input('Enter quantity of {} item to produce[1]: '.format(item))
 					if qty == '':
-						return
+						qty = 1
+						# return
 					qty = int(qty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
@@ -6821,9 +6824,10 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = input('Enter quantity of {} item to produce: '.format(item))
+					qty = input('Enter quantity of {} item to produce[1]: '.format(item))
 					if qty == '':
-						return
+						qty = 1
+						# return
 					qty = int(qty)
 				except ValueError:
 					print('Not a valid entry. Must be a positive whole number.')
@@ -6835,7 +6839,7 @@ class Entity:
 			freq = 0
 			while True:
 				try:
-					freq = input('Enter number of days between production of {} {} (0 for daily): '.format(qty, item))
+					freq = input('Enter number of days between production of {} {} (0 for daily)[0]: '.format(qty, item))
 					if freq == '':
 						freq = 0
 					freq = int(freq)
@@ -6870,7 +6874,7 @@ class Entity:
 			self.wip_check()
 		elif command.lower() == 'raw' or command.lower() == 'rawbase' or command.lower() == 'r':
 			base = False
-			if command.lower() == 'rawbase' or command.lower() == 'r':
+			if command.lower() == 'rawbase':# or command.lower() == 'r':
 				base = True
 			while True:
 				item = input('Enter item to see total raw resources required: ')
@@ -6884,7 +6888,7 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = input('Enter quantity of {} item: '.format(item.title()))
+					qty = input('Enter quantity of {} item[1]: '.format(item.title()))
 					if qty == '':
 						qty = 1
 						# return
@@ -7274,7 +7278,7 @@ class Entity:
 			ledger.reset()
 			print(inv)
 			print('Time taken:', timeit.default_timer() - start_time)
-		elif command.lower() == 'hours':
+		elif command.lower() == 'hours' or command.lower() == 'h':
 			world.get_hours(v=True)
 		elif command.lower() == 'land':
 			world.unused_land()
@@ -7284,7 +7288,7 @@ class Entity:
 			world.unused_land(entity_id=world.env.entity_id)
 		elif command.lower() == 'demand':
 			print('World Demand as of {}: \n{}'.format(world.now, world.demand))
-		elif command.lower() == 'delay':
+		elif command.lower() == 'delay' or command.lower() == 'd':
 			print('Delayed items as of {}: \n{}'.format(world.now, world.delay))
 		elif command.lower() == 'auto':
 			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
