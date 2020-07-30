@@ -59,7 +59,7 @@ Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 6",None,None,None,None,No
 Clay,None,None,None,Commodity,"Wetlands, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,None,None,"Quarry, Mine"
 Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,None,None,"Quarry, Mine"
 Ore,None,None,None,Commodity,"Mountain, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
-Bellows,None,None,None,Components,"Leather, Wood","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,Blacksmith
+Bellows,None,None,None,Components,"Wild Leather, Wood","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,Blacksmith
 Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","4, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Farm
 Yarn,None,None,None,Commodity,"Cotton, Spinning","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill
 Cloth,None,None,None,Commodity,"Yarn, Weaving","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill

@@ -927,12 +927,12 @@ class World:
 			SET {prpty} = ?
 			WHERE item_id = ?;
 		'''
-		print(items_query)
+		# print(items_query)
 		values = (value, item)
 		cur.execute(items_query, values)
 		ledger.conn.commit()
 		cur.close()
-		print(accts.get_items())
+		# print(accts.get_items())
 		return self.items
 
 	def valid_corp(self, ticker):
@@ -1286,11 +1286,15 @@ class World:
 							print('Not entities with hours left.')
 							break
 						self.selection.auto_produce()
+						self.selection.wip_check(time_only=not self.selection.auto_wip)
 					if isinstance(self.selection, Individual):
 						print('\nEntity Selected: {} | Hours: {}'.format(self.selection.name, self.selection.hours))
 					else:
 						print('\nEntity Selected: {}'.format(self.selection))
-					result = self.selection.action()
+					if not self.selection.hours and self.selection.auto_done:
+						result = self.selection.action('done')
+					else:
+						result = self.selection.action()
 					if self.selection is not None and isinstance(self.selection, Individual):
 						if self.selection.hours == 0:
 							# print('\nEntity Selected: {} | Hours: {}'.format(self.selection.name, self.selection.hours))
@@ -1453,11 +1457,11 @@ class World:
 			individual = factory.get(Individual, users=False)
 			if individual:
 				individual = individual[-1]
-			print('Birth attempt individual: {}'.format(individual))
-			birth_roll = random.randint(1, 20)
-			print('Birth Roll: {}'.format(birth_roll))
-			if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
-				individual.birth()
+				print('Birth attempt individual: {}'.format(individual))
+				birth_roll = random.randint(1, 20)
+				print('Birth Roll: {}'.format(birth_roll))
+				if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
+					individual.birth()
 
 		# if args.random:
 		# 	death_roll = random.randint(1, 40)
@@ -2514,7 +2518,7 @@ class Entity:
 			return modifier, equip_info
 		return None, None
 
-	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, buffer=False, v=False): # TODO Maybe add buffer=True
+	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, buffer=False, show_results=False, v=False): # TODO Maybe add buffer=True
 		if v: print('{} fulfill {} x {}. Partial: {} | Check: {} | Reqs: {}'.format(self.name, item, qty, partial, check, reqs))
 		try:
 			if not self.gl_tmp.empty:
@@ -2596,6 +2600,7 @@ class Entity:
 			item_freq = [x.strip() for x in item_freq.split(',')]
 		else:
 			item_freq = []
+		results = pd.DataFrame(columns=['item_id', 'qty', 'modifier', 'qty_req', 'qty_held', 'incomplete', 'max_qty'], index=None)
 		# TODO Sort so requirements with a capacity are first after time
 		max_qty_possible = qty
 		# print('item: {} | max_qty_possible: {}'.format(item, max_qty_possible))
@@ -2714,6 +2719,7 @@ class Entity:
 				if max_qty_possible == 0: # TODO Handle in similar way for commodities and other item types?
 					incomplete = True
 				print('Land Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty)) # TODO Show the max possible above qty requested
+				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':land, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 				# if (reqs == 'hold_req' or time_required):# and not incomplete: # TODO Test is "not incomplete" is still needed here`
 				# TODO Handle land in use during one tick
 				# qty_needed = req_qty * (1-modifier) * qty
@@ -2819,6 +2825,7 @@ class Entity:
 					constraint_qty = 'inf'
 					max_qty_possible = min(max_qty_possible, qty)
 				print('Buildings Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
+				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':building, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 				qty_to_use = 0
 				build_in_use = 0
 				if building != 0:
@@ -2982,6 +2989,7 @@ class Entity:
 					constraint_qty = 'inf'
 					max_qty_possible = min(max_qty_possible, qty)
 				print('Equipment Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
+				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':equip_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 				qty_to_use = 0
 				equip_in_use = 0
 				if equip_qty != 0:
@@ -3101,6 +3109,7 @@ class Entity:
 					constraint_qty = 'inf'
 					max_qty_possible = min(max_qty_possible, qty)
 				print('Components Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
+				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':component_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 				if not check:
 					entries = self.consume(req_item, qty=qty_needed, buffer=True)
 					if not entries:
@@ -3267,6 +3276,7 @@ class Entity:
 				# if max_qty_possible == 0: # TODO This should not be needed
 				# 	incomplete = True
 				print('Commodity Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
+				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':material_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 				if not check:
 					consume_qty = req_qty * (1 - modifier) * qty # TODO Should this be qty_needed?
 					if not 'animal' in req_freq or not 'animal' in item_freq:
@@ -3330,6 +3340,7 @@ class Entity:
 						incomplete = True
 
 			elif req_item_type == 'Job' and partial is None:
+				modifier = 0
 				if item_type == 'Job' or item_type == 'Labour':
 					if isinstance(self, Individual):
 						experience = abs(ledger.get_qty(items=req_item, accounts=['Salary Income']))
@@ -3391,8 +3402,10 @@ class Entity:
 							constraint_qty = 'inf'
 							max_qty_possible = min(max_qty_possible, qty)
 						print('Job Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
+						results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':workers, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 
 			elif req_item_type == 'Labour':
+				qty_held = None
 				if item_type == 'Job' or item_type == 'Labour':
 					if isinstance(self, Individual): # TODO Test this
 						experience = abs(ledger.get_qty(items=req_item, accounts=['Wages Income']))
@@ -3460,7 +3473,10 @@ class Entity:
 						# 	entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, wage=0, buffer=True)
 						# else:
 						print(f'{self.name} to {action} {qty} {item} requires {req_item} labour for {required_hours} hours.')
-						if qty == 1 and item_type != 'Service' and reqs != 'hold_req': # TODO Maybe support WIP Services
+						# TODO Maybe support WIP Services
+						# if (qty == 1 or orig_labour_required > MAX_HOURS) and reqs != 'hold_req' and item_type != 'Service':
+						# if qty == 1 and reqs != 'hold_req' and item_type != 'Service':
+						if reqs != 'hold_req' and item_type != 'Service':
 							if man and not wip_choice and partial is None and not incomplete:
 								while True:
 									if required_hours > self.hours:
@@ -3493,7 +3509,10 @@ class Entity:
 											required_hours = 0
 											break
 										try:
-											required_hours = input('Enter the amount of hours to hire {} ({} hours available) to work on {}[{}]: '.format(self.name, self.hours, item, min(self.hours, orig_required_hours)))
+											if self.auto_wip:
+												required_hours = orig_required_hours
+											else:
+												required_hours = input('Enter the amount of hours to hire {} ({} hours available) to work on {}[{}]: '.format(self.name, self.hours, item, min(self.hours, orig_required_hours)))
 											if required_hours == '':
 												required_hours = orig_required_hours
 											required_hours = float(required_hours)
@@ -3649,14 +3668,26 @@ class Entity:
 						# print('Max Qty Possible with {} Labour: {}'.format(req_item, max_qty_possible))
 					else:
 						if labour_done > 0 and not incomplete:# and labour_required != labour_done:
-							max_qty_possible = 1
-							constraint_qty = 1
+							# max_qty_possible = 1
+							# constraint_qty = 1
+							if wip_choice: # TODO Test this better
+								max_qty_possible = min(max_qty_possible, qty)
+								constraint_qty = None
+							else:
+								max_qty_possible = 1
+								constraint_qty = 1
 						else:
-							max_qty_possible = 0
-							constraint_qty = 0
+							if wip_choice: # TODO Test this better
+								max_qty_possible = min(max_qty_possible, qty)
+								constraint_qty = None
+							else:
+								max_qty_possible = 0
+								constraint_qty = 0
 					print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | Time Req: {} | Partial: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, time_required, partial, constraint_qty, incomplete))
+					results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':qty_held, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 
 			elif req_item_type == 'Education' and partial is None:
+				modifier = 0
 				if item_type == 'Job' or item_type == 'Labour':
 					# if type(self) == Individual:
 					if isinstance(self, Individual):
@@ -3700,8 +3731,11 @@ class Entity:
 								# TODO Test this
 								incomplete = True
 								max_qty_possible = 0
+						constraint_qty = None
+						results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':edu_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 
 			elif req_item_type == 'Technology' and partial is None:
+				modifier = 0
 				ledger.reset()
 				tech_done_status = ledger.get_qty(items=req_item, accounts=['Technology'])
 				tech_status_wip = ledger.get_qty(items=req_item, accounts=['Researching Technology'])
@@ -3739,6 +3773,8 @@ class Entity:
 						max_qty_possible = 0
 					else:
 						incomplete = True
+				constraint_qty = None
+				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':tech_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 			ledger.reset()
 		if incomplete:
 			for individual in world.gov.get(Individual):
@@ -3767,6 +3803,11 @@ class Entity:
 				self.prod_hold += prod_hold
 			# print('{} Final self.hold_event_ids for {}: {} | {}'.format(self.name, item, self.hold_event_ids, hold_event_ids))
 		self.gl_tmp = pd.DataFrame(columns=world.cols)
+		if show_results:
+			if incomplete:
+				print(f'Result of trying to produce {qty} {item}:\n{results}')
+			else:
+				print(f'Result of producing {qty} {item}:\n{results}')
 		return incomplete, event, time_required, max_qty_possible
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, buffer=False, v=False):
@@ -3778,7 +3819,7 @@ class Entity:
 					pass
 			elif item not in self.produces: # TODO Should this be kept long term?
 				return [], False, 0, True
-		incomplete, produce_event, time_required, max_qty_possible = self.fulfill(item, qty, reqs=reqs, amts=amts, man=man)
+		incomplete, produce_event, time_required, max_qty_possible = self.fulfill(item, qty, reqs=reqs, amts=amts, man=man, show_results=True)
 		if incomplete:
 			return [], time_required, max_qty_possible, incomplete
 		orig_qty = qty
@@ -4146,7 +4187,7 @@ class Entity:
 			# TODO Make option for this to catch when items have no requirements only
 			if requirement[1] in ['Land', 'Commodity', 'Labour', 'Job', 'Technology', 'Time'] and not base:
 				# print(f'inner: {item} {requirement}')
-				if requirement[1] == 'Technology':
+				if requirement[1] == 'Technology':# or requirement[1] == 'Education':
 					raw[requirement[0]] = requirement[2]
 				else:
 					raw[requirement[0]] += (requirement[2] * qty)
@@ -4164,7 +4205,7 @@ class Entity:
 			print(raw)
 		return raw
 
-	def wip_check(self, check=False, items=None, v=False):
+	def wip_check(self, check=False, time_only=False, items=None, v=False):
 		if items is not None:
 			if not isinstance(items, (list, tuple)):
 				items = [x.strip().title() for x in items.split(',')]
@@ -4180,6 +4221,7 @@ class Entity:
 			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 		if v: print('WIP TXNs: \n{}'.format(wip_txns))
 		if not wip_txns.empty:
+			result = []
 			if v: print('WIP Transactions: \n{}'.format(wip_txns))
 			# Compare the gl dates to the WIP time from the items table
 			#items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
@@ -4261,6 +4303,8 @@ class Entity:
 					ledger.reset()
 					if v: print('Modifier End: {}'.format(modifier))
 					timespan = timespan * (1 - modifier)
+				elif time_only:
+					continue
 				if check:
 					continue
 				delay = 0
@@ -4361,6 +4405,7 @@ class Entity:
 					# Mark Land, Buildings, and Equipment as in use
 					hold_incomplete, in_use_event, hold_time_required, hold_max_qty_possible = self.fulfill(item, qty=qty, reqs='hold_req', amts='hold_amount', buffer=True)#, v=True)
 					ledger.reset()
+					self.gl_tmp = None
 					if hold_incomplete:
 						print('{} cannot hold {} {} that it produced over time.'.format(self.name, qty, item))
 						return
@@ -4407,7 +4452,8 @@ class Entity:
 					ledger.journal_entry(wip_event)
 					if wip_event[-1][-3] == 'Inventory':
 						self.set_price(wip_lot['item_id'], wip_lot['qty'])
-					return wip_event
+					result += wip_event
+			return result
 
 	def release_check(self, v=False):
 		self.hold_event_ids = list(collections.OrderedDict.fromkeys(filter(None, self.hold_event_ids))) # Remove any dupes
@@ -6870,6 +6916,9 @@ class Entity:
 					break
 			world.produce_queue.drop([idx], inplace=True)
 			print('World Auto Produce as of {} after removal: \n{}'.format(world.now, world.produce_queue))
+		elif command.lower() == 'autowip':
+			self.auto_wip = not self.auto_wip
+			print('Auto WIP set to:', self.auto_wip)
 		elif command.lower() == 'wip' or command.lower() == 'w':
 			self.wip_check()
 		elif command.lower() == 'raw' or command.lower() == 'rawbase' or command.lower() == 'r':
@@ -7274,7 +7323,7 @@ class Entity:
 		elif command.lower() == 'labour':
 			start_time = timeit.default_timer()
 			ledger.set_entity(self.entity_id)
-			inv = ledger.get_qty(accounts=['Wages Receivable', 'Education', 'Studying Education'])
+			inv = ledger.get_qty(accounts=['Wages Receivable', 'Education Expense', 'Studying Education'])
 			ledger.reset()
 			print(inv)
 			print('Time taken:', timeit.default_timer() - start_time)
@@ -7522,6 +7571,9 @@ class Entity:
 			cmd_table = pd.DataFrame(command_more.items(), columns=['Command', 'Description'])
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
+		elif command.lower() == 'autodone':
+			self.auto_done = not self.auto_done
+			print('Auto Done set to:', self.auto_done)
 		elif command.lower() == 'skip' or command.lower() == 'done':
 			if self.auto_address:
 				self.address_needs(obtain=False, v=False)
@@ -7610,6 +7662,8 @@ class Individual(Entity):
 		self.pin = None
 		self.dead = False
 		self.auto_address = False
+		self.auto_wip = False
+		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8348,6 +8402,8 @@ class Corporation(Organization):
 		self.user = None
 		self.hold_event_ids = []
 		self.prod_hold = []
+		self.auto_wip = False
+		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8471,6 +8527,8 @@ class Government(Organization):
 		self.user = user
 		self.government = self.entity_id
 		self.hold_event_ids = []
+		self.auto_wip = False
+		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8537,6 +8595,8 @@ class Governmental(Organization):
 		self.user = None
 		self.hold_event_ids = []
 		self.prod_hold = []
+		self.auto_wip = False
+		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8585,6 +8645,8 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 			user = False
 		self.user = user
 		self.hold_event_ids = []
+		self.auto_wip = False
+		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8637,6 +8699,8 @@ class NonProfit(Organization):
 		self.user = None
 		self.hold_event_ids = []
 		self.prod_hold = []
+		self.auto_wip = False
+		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
