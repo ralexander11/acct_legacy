@@ -75,10 +75,10 @@ Metal Working,None,None,None,Technology,"Time, Forge","5, 1",None,None,None,None
 Metal,None,None,None,Commodity,"Metal Working, Forge, Ore","1, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,Smelter
 Anvil,None,None,continuous,Equipment,"Time, Land, Metal","2, 1, 50",1,"Land","2",None,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,Blacksmith
 Loom,None,None,start,Equipment,"Metal, Wood, Cloth","5, 50, 10",10,None,None,Cotton Gin,1,None,None,None,Weaving,0.50,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
-Mining Pick,None,None,start,Equipment,"Metal, Wood, Blacksmith, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Miner,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Axe,None,None,start,Equipment,"Metal, Wood, Blacksmith, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Lumberjack,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Shovel,None,None,start,Equipment,"Metal, Wood, Blacksmith, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Cultivator,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Hoe,None,None,start,Equipment,"Metal, Wood, Blacksmith, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Harvesting,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
+Pickaxe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Miner,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
+Axe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Lumberjack,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
+Shovel,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Cultivator,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
+Hoe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Harvesting,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
 #Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 Water Well,None,None,continuous,Equipment,"Land, Rock, Wood","10, 100, 20",4,Land,10,None,None,None,None,None,None,None,30,ticks,None,None,None,100,None,None,Well
 Water,None,None,None,Subscription,"Water Well","1",None,None,None,None,None,None,Thirst,100,None,None,None,None,None,None,None,None,None,None,Well
@@ -93,7 +93,7 @@ Harvest,None,None,None,Service,Harvesting,1,None,None,None,None,None,None,None,N
 #Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 #Metal Working,None,None,None,Technology,"Time, Anvil","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Blacksmith
 Blacksmith Shop,None,None,continuous,Buildings,"Time, Land, Wood, Rock","2, 100, 100, 60",1,Land,100,None,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
-Blacksmither,None,None,None,Labour,Strength,1,2000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Blacksmither,None,None,None,Labour,Strength,5,2000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Wire,None,None,None,Commodity,"Metal Working, Metal","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Blacksmith
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
 #Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",100,ticks,None,None,None,100,None,None,Blacksmith

@@ -173,7 +173,7 @@ class World:
 			print(time_stamp() + 'Loading items from: {}'.format(items_file))
 			self.demand = pd.DataFrame(columns=['date','entity_id','item_id','qty','reason'])
 			self.set_table(self.demand, 'demand')
-			self.delay = pd.DataFrame(columns=['txn_id','delay','hours','job','item_id'])
+			self.delay = pd.DataFrame(columns=['txn_id', 'entity_id','delay','hours','job','item_id'])
 			self.set_table(self.delay, 'delay')
 			self.governments = governments
 			self.population = population
@@ -186,7 +186,7 @@ class World:
 				self.win_conditions = None
 			self.env = self.create_world(date=self.now)
 			self.setup_prices()
-			self.produce_queue = pd.DataFrame(columns=['item_id', 'entity_id','qty', 'freq', 'last'])
+			self.produce_queue = pd.DataFrame(columns=['item_id', 'entity_id','qty', 'freq', 'last', 'one_time', 'man'])
 			print('\nInitial Produce Queue: \n{}'.format(self.produce_queue))
 			self.set_table(self.produce_queue, 'produce_queue')
 			self.end = False
@@ -278,6 +278,8 @@ class World:
 			self.demand['qty'] = self.demand['qty'].astype(float)#, errors='ignore')
 			# self.demand['qty'].astype(int)#, errors='ignore')
 			self.delay = self.get_table('prior_delay')
+			if 'entity_id' not in self.delay.columns: # TODO Remove as this is for legacy compatibility
+				self.delay['entity_id'] = None
 			self.entities = accts.get_entities('prior_entities').reset_index()
 			individuals = self.entities.loc[self.entities['entity_type'] == 'Individual']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -928,7 +930,7 @@ class World:
 			WHERE item_id = ?;
 		'''
 		# print(items_query)
-		values = (value, item)
+		values = (value, item.title())
 		cur.execute(items_query, values)
 		ledger.conn.commit()
 		cur.close()
@@ -1298,7 +1300,7 @@ class World:
 					if self.selection is not None and isinstance(self.selection, Individual):
 						if self.selection.hours == 0:
 							# print('\nEntity Selected: {} | Hours: {}'.format(self.selection.name, self.selection.hours))
-							print('Enter "Done" to end turn.')
+							print('Enter "done" to end turn. Or "autodone" to automatically end turn.')
 					if result == 'end':
 						break
 			ledger.default = None
@@ -2519,7 +2521,7 @@ class Entity:
 		return None, None
 
 	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, buffer=False, show_results=False, v=False): # TODO Maybe add buffer=True
-		if v: print('{} fulfill {} x {}. Partial: {} | Check: {} | Reqs: {}'.format(self.name, item, qty, partial, check, reqs))
+		if v: print('{} fulfill {} x {}. Partial: {} | Check: {} | Reqs: {} | Man: {}'.format(self.name, item, qty, partial, check, reqs, man))
 		try:
 			if not self.gl_tmp.empty:
 				ledger.gl = self.gl_tmp
@@ -3645,7 +3647,7 @@ class Entity:
 							# else:
 							# 	delay_amount = 1
 							delay_amount = 1
-							tmp_delay = tmp_delay.append({'txn_id':None, 'delay':delay_amount, 'hours':hours_remain, 'job':req_item, 'item_id':item}, ignore_index=True)
+							tmp_delay = tmp_delay.append({'txn_id':None, 'entity_id':self.entity_id, 'delay':delay_amount, 'hours':hours_remain, 'job':req_item, 'item_id':item}, ignore_index=True)
 							# print('tmp_delay: \n{}'.format(tmp_delay))
 					# print('Labour Done End: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
 					if (wip_choice or wip_complete) and not hours_remain and not time_check:
@@ -4131,35 +4133,63 @@ class Entity:
 		return produce_event, time_required, max_qty_possible, incomplete
 		# return qty, time_required # TODO Return the qty instead of True, or can use max_qty_possible for qty if complete
 
-	def set_produce(self, item, qty, freq=0, man=False):
+	def set_produce(self, item, qty, freq=0, one_time=False, man=False):
 		# TODO Maybe make multindex with item_id and entity_id
+		# pd.DataFrame(columns=['item_id', 'entity_id','qty', 'freq', 'last', 'one_time', 'man'])
 		current_pro_queue = world.produce_queue.loc[(world.produce_queue['item_id'] == item) & (world.produce_queue['entity_id'] == self.entity_id)]
 		if not current_pro_queue.empty:
 			print('This item exists on the production queue as: \n{}'.format(current_pro_queue))
 			print('It will be replaced with the new values below: ')
-		world.produce_queue = world.produce_queue.append({'item_id':item, 'entity_id':self.entity_id, 'qty':qty, 'freq':freq, 'last':freq, 'man':man,}, ignore_index=True)
+		world.produce_queue = world.produce_queue.append({'item_id':item, 'entity_id':self.entity_id, 'qty':qty, 'freq':freq, 'last':freq, 'one_time':one_time, 'man':man,}, ignore_index=True)
 		world.produce_queue = pd.concat([world.produce_queue, current_pro_queue]).drop_duplicates(keep=False) # TODO There may be a better way to get the difference between two dfs
 		world.set_table(world.produce_queue, 'produce_queue')
 		print('Set Produce Queue by {}: \n{}'.format(self.name, world.produce_queue))
 
-	def auto_produce(self, v=True):
+	def auto_produce(self, index=None, v=True):
 		if v: print(f'Checking {self.name}\'s auto produce queue.')
 		if world.produce_queue.empty:
 			return
 		entity_pro_queue = world.produce_queue.loc[world.produce_queue['entity_id'] == self.entity_id]
+		if index is not None:
+			entity_pro_queue = entity_pro_queue.loc[index]
+			entity_pro_queue = entity_pro_queue.to_frame().T
 		for index, que_item in entity_pro_queue.iterrows():
 			if que_item['last'] == 0:
+				item = que_item['item_id']
 				man = que_item['man']
 				if isinstance(man, str):
 					if man == 'True':
 						man = True
 					else:
 						man = False
-				result, time_required, max_qty_possible, incomplete = self.produce(que_item['item_id'], que_item['qty'], man=man)
+				try: # TODO Temp for legacy save files
+					one_time = que_item['one_time']
+				except KeyError as e:
+					world.produce_queue['one_time'] = False
+					world.produce_queue = world.produce_queue[['item_id', 'entity_id', 'qty', 'freq', 'last', 'one_time', 'man']]
+					one_time = False
+				if isinstance(one_time, str):
+					if one_time == 'True':
+						one_time = True
+					else:
+						one_time = False
+				if not world.delay.loc[(world.delay['entity_id'] == self.entity_id) & (world.delay['item_id'] == item)].empty:
+					print('Skipping autoproduce for {item} as it is already a WIP.')
+					continue
+				result, time_required, max_qty_possible, incomplete = self.produce(item, que_item['qty'], man=man)
+				if incomplete and max_qty_possible != 0 and one_time:
+					result, time_required, max_qty_possible, incomplete = self.produce(item, max_qty_possible, man=man)
 				if result:
-					world.produce_queue.loc[(world.produce_queue['item_id'] == que_item['item_id']) & (world.produce_queue['entity_id'] == que_item['entity_id']), 'last'] = que_item['freq']
+					world.produce_queue.loc[index, 'last'] = que_item['freq']
+					if one_time:
+						world.produce_queue.loc[index, 'qty'] -= max_qty_possible
+						if world.produce_queue.loc[index, 'qty'] <= 0:
+							world.produce_queue.drop([index], inplace=True)
+						else:
+							if self.hours > 0:
+								self.auto_produce(index)
 			else:
-				world.produce_queue.loc[(world.produce_queue['item_id'] == que_item['item_id']) & (world.produce_queue['entity_id'] == que_item['entity_id']), 'last'] -= 1
+				world.produce_queue.loc[index, 'last'] -= 1
 		world.set_table(world.produce_queue, 'produce_queue')
 
 	def get_raw(self, item, qty=1, raw=None, orig_item=None, base=False, v=False):
@@ -4206,7 +4236,7 @@ class Entity:
 		return raw
 
 	def wip_check(self, check=False, time_only=False, items=None, v=False):
-		if items is not None:
+		if items is not None: # TODO Not finished
 			if not isinstance(items, (list, tuple)):
 				items = [x.strip().title() for x in items.split(',')]
 			wip_items = world.delay.loc[world.delay['item_id'].isin(items)]
@@ -4273,13 +4303,13 @@ class Entity:
 							if not result and not check:
 								print('{} WIP Progress for {} using equipment was not successfull.'.format(self.name, item))
 								if world.delay.empty:
-									world.delay = world.delay.append({'txn_id':index, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
+									world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
 									world.set_table(world.delay, 'delay')
 								elif index in world.delay['txn_id'].values:
 									world.delay.loc[world.delay['txn_id'] == index, 'delay'] += 1
 									world.set_table(world.delay, 'delay')
 								else:
-									world.delay = world.delay.append({'txn_id':index, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
+									world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
 									world.set_table(world.delay, 'delay')
 								return
 					start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d').date()
@@ -6854,8 +6884,14 @@ class Entity:
 						continue
 				if confirm:
 					self.produce(item.title(), qty=max_qty_possible)
-		elif command.lower() == 'autoproduce' or command.lower() == 'mautoproduce' or command.lower() == 'a':
+		elif command.lower() == 'autoproduce' or command.lower() == 'autoproduceonce' or command.lower() == 'mautoproduce' or command.lower() == 'rautoproduce' or command.lower() == 'a':
+			one_time = False
 			man = False
+			if command.lower() == 'autoproduceonce':
+				one_time = True
+				man = True
+			if command.lower() == 'rautoproduce':
+				man = False
 			if command.lower() == 'mautoproduce':
 				man = True
 			while True:
@@ -6896,7 +6932,9 @@ class Entity:
 					if freq < 0:
 						continue
 					break
-			self.set_produce(item.title(), qty, freq, man=man)
+			self.set_produce(item.title(), qty, freq, one_time=one_time, man=man)
+			if command.lower() == 'autoproduceonce':
+				self.auto_produce(world.produce_queue.index[-1])
 		elif command.lower() == 'stopautoproduce':
 			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
 			idx = None
@@ -6918,7 +6956,7 @@ class Entity:
 			print('World Auto Produce as of {} after removal: \n{}'.format(world.now, world.produce_queue))
 		elif command.lower() == 'autowip':
 			self.auto_wip = not self.auto_wip
-			print('Auto WIP set to:', self.auto_wip)
+			print('Auto WIP now set to:', self.auto_wip)
 		elif command.lower() == 'wip' or command.lower() == 'w':
 			self.wip_check()
 		elif command.lower() == 'raw' or command.lower() == 'rawbase' or command.lower() == 'r':
@@ -7662,7 +7700,7 @@ class Individual(Entity):
 		self.pin = None
 		self.dead = False
 		self.auto_address = False
-		self.auto_wip = False
+		self.auto_wip = True
 		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
@@ -8402,7 +8440,7 @@ class Corporation(Organization):
 		self.user = None
 		self.hold_event_ids = []
 		self.prod_hold = []
-		self.auto_wip = False
+		self.auto_wip = True
 		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
@@ -8527,7 +8565,7 @@ class Government(Organization):
 		self.user = user
 		self.government = self.entity_id
 		self.hold_event_ids = []
-		self.auto_wip = False
+		self.auto_wip = True
 		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
@@ -8595,7 +8633,7 @@ class Governmental(Organization):
 		self.user = None
 		self.hold_event_ids = []
 		self.prod_hold = []
-		self.auto_wip = False
+		self.auto_wip = True
 		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
@@ -8645,7 +8683,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 			user = False
 		self.user = user
 		self.hold_event_ids = []
-		self.auto_wip = False
+		self.auto_wip = True
 		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
@@ -8699,7 +8737,7 @@ class NonProfit(Organization):
 		self.user = None
 		self.hold_event_ids = []
 		self.prod_hold = []
-		self.auto_wip = False
+		self.auto_wip = True
 		self.auto_done = False
 		self.produces = items
 		if isinstance(self.produces, str):
