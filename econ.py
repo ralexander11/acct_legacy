@@ -145,6 +145,7 @@ econ_accts = [
 	('Gift Expense','Expense'),
 	('End of Day','Info'),
 	('End of Turn','Info'),
+	('Save','Info'),
 ] # TODO Remove div exp once retained earnings is implemented
 
 class World:
@@ -385,10 +386,19 @@ class World:
 				last_eot_index = ledger.gl.loc[ledger.gl['credit_acct'] == 'End of Turn'].iloc[-1].name
 			except IndexError:
 				last_eot_index = 0
+			try:
+				last_save_index = ledger.gl.loc[ledger.gl['credit_acct'] == 'Save'].iloc[-1].name
+			except IndexError:
+				last_save_index = 0
 			if last_eot_index > last_eod_index:
 				self.active_day = True
 			else:
 				self.active_day = False
+			if last_save_index > last_eot_index:
+				entity_id = ledger.gl.loc[ledger.gl['credit_acct'] == 'Save'].iloc[-1][1]
+				entity = factory.get_by_id(entity_id)
+				entity.saved = True
+				self.active_day = True
 			print('Active Day:', self.active_day)
 			last_eod_index = max(last_eod_index, last_eot_index)
 			incomplete_cycle = ledger.gl.loc[ledger.gl.index > last_eod_index].index.values.tolist()
@@ -1287,8 +1297,9 @@ class World:
 						else:
 							print('Not entities with hours left.')
 							break
-						self.selection.auto_produce()
-						self.selection.wip_check(time_only=not self.selection.auto_wip)
+						if not self.selection.saved:
+							self.selection.auto_produce()
+							self.selection.wip_check(time_only=not self.selection.auto_wip)
 					if isinstance(self.selection, Individual):
 						print('\nEntity Selected: {} | Hours: {}'.format(self.selection.name, self.selection.hours))
 					else:
@@ -1347,11 +1358,13 @@ class World:
 		print('Check Demand List:')
 		for entity in factory.get(users=False):
 			#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
-			entity.tech_motivation()
 			# entity.set_price() # TODO Is this needed?
 			entity.auto_produce()
+			if isinstance(entity, Individual) and not entity.user:
+				entity.address_needs()
 			entity.check_demand()
 			entity.check_inv()
+			entity.tech_motivation()
 		t4_end = time.perf_counter()
 		print(time_stamp() + '4: Demand list check took {:,.2f} min.'.format((t4_end - t4_start) / 60))
 		print()
@@ -1383,25 +1396,25 @@ class World:
 		print(time_stamp() + '6: Prices check took {:,.2f} min.'.format((t6_end - t6_start) / 60))
 		print()
 
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
-		t7_start = time.perf_counter()
-		for individual in factory.get(Individual):
-			priority_needs = {} # TODO Clean this up with address_needs()
-			for need in individual.needs:
-				priority_needs[need] = individual.needs[need]['Current Need']
-			priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
-			priority_needs = collections.OrderedDict(priority_needs)
-			for need in priority_needs:
-				#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
-				if not individual.user:
-					individual.threshold_check(need)
-				print('{} {} need at: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
-				individual.need_decay(need)
-				if individual.dead:
-					break
-		t7_end = time.perf_counter()
-		print(time_stamp() + '7: Needs check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
-		print()
+		# print(time_stamp() + 'Current Date: {}'.format(self.now))
+		# t7_start = time.perf_counter()
+		# for individual in factory.get(Individual):
+		# 	priority_needs = {} # TODO Clean this up with address_needs()
+		# 	for need in individual.needs:
+		# 		priority_needs[need] = individual.needs[need]['Current Need']
+		# 	priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
+		# 	priority_needs = collections.OrderedDict(priority_needs)
+		# 	for need in priority_needs:
+		# 		#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
+		# 		if not individual.user:
+		# 			individual.threshold_check(need)
+		# 		print('{} {} need at: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
+		# 		individual.need_decay(need)
+		# 		if individual.dead:
+		# 			break
+		# t7_end = time.perf_counter()
+		# print(time_stamp() + '7: Needs check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
+		# print()
 
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		t8_start = time.perf_counter()
@@ -1543,7 +1556,7 @@ class World:
 			else:
 				return
 
-	def checkpoint_entry(self, eod=True, v=False):
+	def checkpoint_entry(self, eod=True, save=False, v=False):
 		cur = ledger.conn.cursor()
 		obj_query = '''
 			UPDATE entities
@@ -1557,11 +1570,18 @@ class World:
 		ledger.conn.commit()
 		cur.close()
 		# Book End of Day entry
+		if world.selection is None:
+			entity_id = 0
+		else:
+			entity_id = world.selection.entity_id
 		if eod:
 			eod_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
 			ledger.journal_entry([eod_entry])
+		elif save:
+			save_entry = [ ledger.get_event(), entity_id, entity_id, world.now, '', 'End of day entry', '', '', '', 'Info', 'Save', 0 ]
+			ledger.journal_entry([save_entry])
 		else:
-			eot_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of turn entry', '', '', '', 'Info', 'End of Turn', 0 ]
+			eot_entry = [ ledger.get_event(), entity_id, entity_id, world.now, '', 'End of turn entry', '', '', '', 'Info', 'End of Turn', 0 ]
 			ledger.journal_entry([eot_entry])
 		if eod:
 			# Track historical prices
@@ -3481,11 +3501,14 @@ class Entity:
 						if reqs != 'hold_req' and item_type != 'Service':
 							if man and not wip_choice and partial is None and not incomplete:
 								while True:
-									if required_hours > self.hours:
-										# TODO Maybe make this automatic
-										choice = input('Should {} ({} hours available) work on the {} over multiple days? [Y/n]: '.format(self.name, self.hours, item))
+									if self.auto_wip:
+										choice = 'Y'
 									else:
-										choice = input('Should {} ({} hours available) work on the {} over multiple days? [y/N]: '.format(self.name, self.hours, item))
+										if required_hours > self.hours:
+											# TODO Maybe make this automatic
+											choice = input('Should {} ({} hours available) work on the {} over multiple days? [Y/n]: '.format(self.name, self.hours, item))
+										else:
+											choice = input('Should {} ({} hours available) work on the {} over multiple days? [y/N]: '.format(self.name, self.hours, item))
 									if choice == '':
 										if required_hours > self.hours:
 											choice = 'Y'
@@ -3533,7 +3556,11 @@ class Entity:
 									if required_hours == 0:
 										break
 							else:
-								required_hours = min(required_hours, WORK_DAY)
+								# required_hours = min(required_hours, WORK_DAY)
+								if isinstance(self, Individual):
+									required_hours = min(orig_required_hours, self.hours)
+								else:
+									required_hours = min(required_hours, WORK_DAY)
 								 # TODO Or MAX_HOURS?
 								if required_hours < WORK_DAY:
 									wip_choice = False # TODO Test this
@@ -3807,9 +3834,9 @@ class Entity:
 		self.gl_tmp = pd.DataFrame(columns=world.cols)
 		if show_results:
 			if incomplete:
-				print(f'Result of trying to produce {qty} {item}:\n{results}')
+				print(f'Result of {self.name} trying to produce {qty} {item}:\n{results}')
 			else:
-				print(f'Result of producing {qty} {item}:\n{results}')
+				print(f'Result of {self.name} producing {qty} {item}:\n{results}')
 		return incomplete, event, time_required, max_qty_possible
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, buffer=False, v=False):
@@ -4174,7 +4201,7 @@ class Entity:
 					else:
 						one_time = False
 				if not world.delay.loc[(world.delay['entity_id'] == self.entity_id) & (world.delay['item_id'] == item)].empty:
-					print('Skipping autoproduce for {item} as it is already a WIP.')
+					print(f'Skipping autoproduce for {item} as it is already a WIP.')
 					continue
 				result, time_required, max_qty_possible, incomplete = self.produce(item, que_item['qty'], man=man)
 				if incomplete and max_qty_possible != 0 and one_time:
@@ -4230,9 +4257,9 @@ class Entity:
 		raw = pd.DataFrame(raw.items(), index=None, columns=['item_id', 'qty'])
 		total = raw['qty'].sum()
 		raw = raw.append({'item_id':'Total', 'qty':total}, ignore_index=True)
-		print(f'Total resources needed to produce: {qty} {item}')
+		if v: print(f'Total resources needed to produce: {qty} {item}')
 		with pd.option_context('float_format', '{:,.1f}'.format):
-			print(raw)
+			if v: print(raw)
 		return raw
 
 	def wip_check(self, check=False, time_only=False, items=None, v=False):
@@ -4947,9 +4974,9 @@ class Entity:
 				world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, ignore_index=True)
 				world.set_table(world.demand, 'demand')
 			if qty == 1:
-				print('{} added to demand list for {} unit by {}.'.format(item, qty, self.name))
+				print('{} added to demand list for {} unit by {}.\n{}'.format(item, qty, self.name, world.demand))
 			else:
-				print('{} added to demand list for {} units by {}.'.format(item, qty, self.name))
+				print('{} added to demand list for {} units by {}.\n{}'.format(item, qty, self.name, world.demand))
 			#print('Demand after addition: \n{}'.format(world.demand))
 			return item, qty
 
@@ -4976,21 +5003,22 @@ class Entity:
 					world.set_table(world.demand, 'demand')
 					if to_drop:
 						print('World Self Demand:\n{}'.format(world.demand))
-			for index, demand_row in world.demand.iterrows():
-				item = demand_row['item_id']
-				item_type = world.get_item_type(item)
-				if item_type == 'Land':
-					result = self.claim_land(item, demand_row['qty'], account='Inventory')
-					if result:
-						if result[0][8] == demand_row['qty']:
-							to_drop.append(index)
-						else:
-							world.demand.at[index, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
-							print('World Demand:\n{}'.format(world.demand))
-			world.demand = world.demand.drop(to_drop).reset_index(drop=True)
-			world.set_table(world.demand, 'demand')
-			if to_drop:
-				print('World Demand:\n{}'.format(world.demand))
+			else: # TODO Test this better
+				for index, demand_row in world.demand.iterrows():
+					item = demand_row['item_id']
+					item_type = world.get_item_type(item)
+					if item_type == 'Land':
+						result = self.claim_land(item, demand_row['qty'], account='Inventory')
+						if result:
+							if result[0][8] == demand_row['qty']:
+								to_drop.append(index)
+							else:
+								world.demand.at[index, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
+								print('World Demand:\n{}'.format(world.demand))
+				world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+				world.set_table(world.demand, 'demand')
+				if to_drop:
+					print('World Demand:\n{}'.format(world.demand))
 		if v: print('{} demand check for items: \n{}'.format(self.name, self.produces))
 		for item in self.produces:
 			if v: print('Check Demand Item for {}: {}'.format(self.name, item))
@@ -7603,6 +7631,7 @@ class Entity:
 				'acctmore': 'View more commands for the accounting system.',
 				'setwin': 'Set the win conditions.',
 				'win': 'See the win conditions.',
+				'save': 'Save the current state.',
 				'end': 'End the day even if multiple entities have hours left.',
 				'exit': 'Exit out of the sim.'
 			}
@@ -7612,6 +7641,8 @@ class Entity:
 		elif command.lower() == 'autodone':
 			self.auto_done = not self.auto_done
 			print('Auto Done set to:', self.auto_done)
+		elif command.lower() == 'save':
+			world.checkpoint_entry(eod=False, save=True)
 		elif command.lower() == 'skip' or command.lower() == 'done':
 			if self.auto_address:
 				self.address_needs(obtain=False, v=False)
@@ -7702,6 +7733,7 @@ class Individual(Entity):
 		self.auto_address = False
 		self.auto_wip = True
 		self.auto_done = False
+		self.saved = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8192,7 +8224,10 @@ class Individual(Entity):
 		for item, _ in items_info.iterrows():
 			min_price = world.prices.loc[world.prices.index == item].min()['price']
 			if pd.isna(min_price):
-				min_price = INIT_PRICE
+				raw_mats = self.get_raw(item)
+				min_price = raw_mats.iloc[-1]['qty'] * INIT_PRICE
+				print(f'Item Address Min Price for {item}: {min_price}')
+				# min_price = INIT_PRICE # TODO Old method
 			item_prices.append(min_price)
 		item_prices = pd.Series(item_prices)
 		items_info = items_info.assign(price=item_prices.values)
@@ -8395,6 +8430,7 @@ class Environment(Entity):
 		self.user = None
 		self.hold_event_ids = []
 		self.produces = None
+		self.saved = False
 		self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
 		print('\nCreate Environment: {} | entity_id: {}'.format(self.name, self.entity_id))
 
@@ -8442,6 +8478,7 @@ class Corporation(Organization):
 		self.prod_hold = []
 		self.auto_wip = True
 		self.auto_done = False
+		self.saved = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8567,6 +8604,7 @@ class Government(Organization):
 		self.hold_event_ids = []
 		self.auto_wip = True
 		self.auto_done = False
+		self.saved = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8635,6 +8673,7 @@ class Governmental(Organization):
 		self.prod_hold = []
 		self.auto_wip = True
 		self.auto_done = False
+		self.saved = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8685,6 +8724,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 		self.hold_event_ids = []
 		self.auto_wip = True
 		self.auto_done = False
+		self.saved = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]
@@ -8739,6 +8779,7 @@ class NonProfit(Organization):
 		self.prod_hold = []
 		self.auto_wip = True
 		self.auto_done = False
+		self.saved = False
 		self.produces = items
 		if isinstance(self.produces, str):
 			self.produces = [x.strip() for x in self.produces.split(',')]

@@ -108,3 +108,4 @@ logs/
 *config*.json
 *.txt
 *.sh
+stmt_scrub.py
