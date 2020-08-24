@@ -1133,7 +1133,7 @@ class World:
 	def update_econ(self):
 		t1_start = time.perf_counter()
 		if not self.active_day:
-			if str(self.now) == '1986-10-01': # TODO Use start_date constant
+			if str(self.now) == str(ledger.gl['date'].min()):
 				# TODO Consider a better way to do this
 				# for individual in factory.get(Individual):
 					# capital = args.capital / self.population
@@ -1360,9 +1360,18 @@ class World:
 			#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
 			# entity.set_price() # TODO Is this needed?
 			entity.auto_produce()
+			if isinstance(entity, Individual):
+				individual.needs_decay()
+				if individual.dead:
+					continue
 			if isinstance(entity, Individual) and not entity.user:
-				entity.address_needs()
-			entity.check_demand()
+				# if str(self.now) == str(ledger.gl['date'].min()):
+				# 	priority = False
+				# else:
+				# 	priority = True
+				entity.address_needs(priority=True)
+				# print('{} {} need at: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
+			entity.check_demand(multi=True, others=not isinstance(entity, Individual))
 			entity.check_inv()
 			entity.tech_motivation()
 		t4_end = time.perf_counter()
@@ -1376,6 +1385,7 @@ class World:
 			print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
 			entity.check_optional()
 			entity.check_inv()
+			# entity.tech_motivation()
 			if isinstance(entity, Corporation):
 				# entity.list_shareholders(largest=True)
 				entity.dividend()
@@ -1407,7 +1417,8 @@ class World:
 		# 	for need in priority_needs:
 		# 		#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
 		# 		if not individual.user:
-		# 			individual.threshold_check(need)
+		# 			individual.threshold_check(need, priority=True)
+		# 			# individual.address_need(need, priority=True)
 		# 		print('{} {} need at: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
 		# 		individual.need_decay(need)
 		# 		if individual.dead:
@@ -1862,7 +1873,7 @@ class Entity:
 			# counterparty.adj_price(item, qty, direction='down')
 			return purchase_event, cost
 
-	def purchase(self, item, qty, acct_buy=None, acct_sell='Inventory', acct_rev='Sales', wip_acct='WIP Inventory', buffer=False):
+	def purchase(self, item, qty, acct_buy=None, acct_sell='Inventory', acct_rev='Sales', wip_acct='WIP Inventory', priority=False, buffer=False):
 		# TODO Clean up
 		if qty == 0:
 			return
@@ -1921,14 +1932,14 @@ class Entity:
 						break
 				else:
 					print('No {} to offer {}{} service. Will add it to the demand table by {}.'.format(', '.join(producers), item, quirk, self.name))
-					self.item_demanded(item, qty)
+					self.item_demanded(item, qty, priority=priority)
 					return
 			else:
 				counterparty_id = min(serv_prices, key=lambda k: serv_prices[k])
 				counterparty = factory.get_by_id(counterparty_id)
 			if counterparty is None:
 				print('No {} to offer {}{} service. Will add it to the demand table for {}.'.format(', '.join(producers), item, quirk, self.name))
-				self.item_demanded(item, qty)
+				self.item_demanded(item, qty, priority=priority)
 				return
 			print('{} chooses {} for the {}{} service counterparty.'.format(self.name, counterparty.name, item, quirk))
 			if item_type == 'Service':
@@ -2036,10 +2047,10 @@ class Entity:
 				qty_wanted = max(qty_wanted - wip_global_qty, 0)
 				if qty_wanted > 0:
 					if cost:
-						#self.item_demanded(item, qty_wanted - purchased_qty, cost=cost)
+						#self.item_demanded(item, qty_wanted - purchased_qty, cost=cost, priority=priority)
 						pass
 					else:
-						self.item_demanded(item, qty_wanted - purchased_qty)
+						self.item_demanded(item, qty_wanted - purchased_qty, priority=priority)
 		# print('Purchase Result: {} {} \n{}'.format(qty, item, result))
 		if buffer:
 			return result
@@ -3523,9 +3534,9 @@ class Entity:
 									else:
 										print('Not a valid entry. Must be "Y" or "N".')
 										continue
-							else:
-								# if 'Individual' in world.items.loc[item, 'producer']: # TODO Is this needed?
-								wip_choice = True
+							elif isinstance(self, Individual):
+								if required_hours > self.hours: # TODO Check against global hours
+									wip_choice = True
 						if wip_choice:
 							if man and isinstance(self, Individual):
 								if self.hours > 0:
@@ -3586,7 +3597,7 @@ class Entity:
 								self.gl_tmp = ledger.gl
 								# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
 						entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True)
-						# print('Labour Entries: \n{}'.format(entries))
+						print('Labour Entries: \n{}'.format(entries))
 						# print('WIP Choice: {} | Labour Done: {}'.format(wip_choice, labour_done))
 						if not entries and (not wip_choice or not labour_done):
 							entries = []
@@ -3635,7 +3646,7 @@ class Entity:
 						if entries:
 							hours_done = entries[0][8]
 							labour_done += hours_done # Same as required_hours
-							print('Labour done at end of cycle: {} | Hours done: {}'.format(labour_done, hours_done))
+							print('Labour done at end of cycle: {} | Hours done: {} | Incomplete: {}'.format(labour_done, hours_done, incomplete))
 							counterparty.set_hours(hours_done)
 							hours_deltas[counterparty.name] += hours_done
 							hours_remain = orig_required_hours - hours_done
@@ -4642,7 +4653,7 @@ class Entity:
 
 	# Allow individuals to incorporate organizations without human input
 	def incorporate(self, name=None, item=None, qty=None, price=None, auth_qty=None, founders=None):
-		INC_TIME = MAX_HOURS - 4
+		INC_TIME = 0#MAX_HOURS - 4
 		entity = None
 		if isinstance(self, Individual):
 			if self.hours < INC_TIME:
@@ -4880,7 +4891,7 @@ class Entity:
 			print('{} cannot add {} to demand list as it is constrained by {}.'.format(self.name, item, constraint))
 			return True
 
-	def item_demanded(self, item=None, qty=None, need=None, cost=False):
+	def item_demanded(self, item=None, qty=None, need=None, cost=False, priority=False):
 		reason_need = False
 		if qty == 0:
 			return
@@ -4965,13 +4976,25 @@ class Entity:
 		#print('Demand QTY: {}'.format(qty))
 		if qty != 0 and not self.check_constraint(item):
 			if cost:
-				world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, ignore_index=True)
+				if priority:
+					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, index=[0])
+					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
+				else:
+					world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, ignore_index=True)
 				world.set_table(world.demand, 'demand')
 			elif reason_need:
-				world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, ignore_index=True)
+				if priority:
+					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, index=[0])
+					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
+				else:
+					world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, ignore_index=True)
 				world.set_table(world.demand, 'demand')
 			else:
-				world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, ignore_index=True)
+				if priority:
+					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, index=[0])
+					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
+				else:
+					world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, ignore_index=True)
 				world.set_table(world.demand, 'demand')
 			if qty == 1:
 				print('{} added to demand list for {} unit by {}.\n{}'.format(item, qty, self.name, world.demand))
@@ -4980,11 +5003,12 @@ class Entity:
 			#print('Demand after addition: \n{}'.format(world.demand))
 			return item, qty
 
-	def check_demand(self, v=False):
+	def check_demand(self, multi=True, others=True, v=False):
 		if self.produces is None:
 			return
 		if isinstance(self, Individual):
 			to_drop = []
+			# Claim land items for self first
 			if self.entity_id in world.demand['entity_id'].values: # TODO Make this less ugly
 				self_demand = world.demand.loc[world.demand['entity_id'] == self.entity_id]
 				if not self_demand.empty:
@@ -5020,7 +5044,11 @@ class Entity:
 				if to_drop:
 					print('World Demand:\n{}'.format(world.demand))
 		if v: print('{} demand check for items: \n{}'.format(self.name, self.produces))
-		for item in self.produces:
+		# for item in self.produces:
+		for index, demand_item in world.demand.iterrows():
+			item = demand_item['item_id']
+			if item not in self.produces:
+				continue
 			if v: print('Check Demand Item for {}: {}'.format(self.name, item))
 			item_type = world.get_item_type(item)
 			if item_type == 'Subscription' or item_type == 'Land':
@@ -5030,18 +5058,29 @@ class Entity:
 			qty = 0
 			qty_existance = 0
 			# Filter for item and add up all qtys to support multiple entries
-			for index, demand_row in world.demand.iterrows():
+			if multi:
+				for index, demand_row in world.demand.iterrows():
+					if item_type == 'Education': # TODO Maybe add Service also
+						if demand_row['entity_id'] == self.entity_id: # TODO Could filter df for entity_id first
+							if demand_row['item_id'] == item:
+								qty = demand_row['qty']
+								qty = int(math.ceil(qty))
+								break
+					else:
+						if others or (not others and demand_row['entity_id'] == self.entity_id):
+							if demand_row['item_id'] == item:
+								qty += demand_row['qty']
+								qty = int(math.ceil(qty))
+								to_drop.append(index)
+			else:
 				if item_type == 'Education': # TODO Maybe add Service also
-					if demand_row['entity_id'] == self.entity_id: # TODO Could filter df for entity_id first
-						if demand_row['item_id'] == item:
-							qty = demand_row['qty']
-							qty = int(math.ceil(qty))
-							break
-				else:
-					if demand_row['item_id'] == item:
-						qty += demand_row['qty']
+					if demand_item['entity_id'] == self.entity_id: # TODO Could filter df for entity_id first
+						qty = demand_item['qty']
 						qty = int(math.ceil(qty))
-						to_drop.append(index)
+				else:
+					qty += demand_item['qty']
+					qty = int(math.ceil(qty))
+					to_drop.append(index)
 			if qty == 0:
 				continue
 			print()
@@ -5131,7 +5170,7 @@ class Entity:
 								if result:
 									break
 
-	def claim_land(self, item, qty, price=0, counterparty=None, account='Land', buffer=False):
+	def claim_land(self, item, qty, price=0, counterparty=None, account='Land', priority=False, buffer=False):
 		# If too much land is claimed by user, the min possible will be claimed automatically
 		if qty <= 0:
 			return
@@ -5157,8 +5196,10 @@ class Entity:
 			largest_shareholder_id = self.list_shareholders(largest=True)
 			if largest_shareholder_id is None:
 				return
-			largest_shareholder = factory.get_by_id(largest_shareholder_id)
-			entity = largest_shareholder
+			entity = factory.get_by_id(largest_shareholder_id)
+			if entity is None:
+				print(f'Largest shareholder for {self.name} is {entity}')
+				return
 			print('{} will attempt to claim {} {} on behalf of {}. Owner Hours: {}'.format(entity.name, qty, item, self.name, entity.hours))
 		elif isinstance(self, (NonProfit, Governmental)): # TODO Long term solution for this temp fix
 			time_needed = 0
@@ -5170,7 +5211,7 @@ class Entity:
 			qty = math.floor(entity.hours / (explore_time))
 			if qty == 0:
 				print('{} lacks time to claim {} units of {}. Can claim {} units with {} hours time.'.format(entity.name, orig_qty, item, qty, entity.hours))
-				self.item_demanded(item, orig_qty)
+				self.item_demanded(item, orig_qty, priority=priority)
 				return
 			print('{} lacks time to claim {} units of {}. But can claim {} units with {} hours time instead.'.format(entity.name, orig_qty, item, qty, entity.hours))
 			if self.user:
@@ -5221,7 +5262,7 @@ class Entity:
 				print('{} claims {} units of {} in {} hours. Hours left: {}'.format(self.name, qty, item, time_needed, entity.hours))
 				return claim_land_event
 			ledger.journal_entry(claim_land_event)
-			self.item_demanded(item, orig_qty - qty)
+			self.item_demanded(item, orig_qty - qty, priority=priority)
 			print('{} claims {} units of {} in {} hours. Hours left: {}'.format(self.name, qty, item, time_needed, entity.hours))
 			return claim_land_event
 		else:
@@ -5368,6 +5409,9 @@ class Entity:
 		desc_rev = job + ' wages to be received'
 		if counterparty is None:
 			print('No workers available to do {} job for {} hours.'.format(job, labour_hours))
+			return
+		if labour_hours == 0:
+			print(f'Cannot hire {counterparty.name} as a {job} for {labour_hours} hours.')
 			return
 		#print('Labour Counterparty: {}'.format(counterparty.name))
 		if job == 'Study': # TODO Fix how Study works to use WIP system
@@ -5820,11 +5864,11 @@ class Entity:
 		print('{} chooses {} for the {} subscription counterparty.'.format(self.name, counterparty.name, item))
 		return counterparty
 
-	def order_subscription(self, item, counterparty=None, price=None, qty=1, buffer=False):
+	def order_subscription(self, item, counterparty=None, price=None, qty=1, priority=False, buffer=False):
 		if counterparty is None:
 			counterparty = self.subscription_counterparty(item)
 		if counterparty is None:
-			self.item_demanded(item, qty)
+			self.item_demanded(item, qty, priority=priority)
 			return
 		if price is None:
 			price = world.get_price(item, counterparty.entity_id)
@@ -5871,7 +5915,7 @@ class Entity:
 				self.order_subscription(item, counterparty=counterparty, price=price, qty=qty, buffer=buffer)
 			if result is False:
 				self.bankruptcy()
-			#self.item_demanded(item, qty, cost=True) # TODO Decide how to handle
+			#self.item_demanded(item, qty, cost=True, priority=priority) # TODO Decide how to handle
 			counterparty.adj_price(item, qty=1, direction='down')
 
 	def cancel_subscription(self, item, counterparty, price=0, qty=-1):
@@ -8177,31 +8221,41 @@ class Individual(Entity):
 			print(f'New AI player added as: {new_indiv.name}')
 		return new_indiv
 
-	def need_decay(self, need, decay_rate=1):
-		rand = 1
-		# if args.random:
-		# 	rand = random.randint(1, 3)
-		decay_rate = self.needs[need]['Decay Rate'] * -1 * rand
-		self.set_need(need, decay_rate)
-		print('{} {} need decayed by {} to: {}\n'.format(self.name, need, decay_rate, self.needs[need]['Current Need']))
-		return decay_rate
-
-	def threshold_check(self, need, threshold=100):
-		threshold = self.needs[need]['Threshold']
-		if self.needs[need]['Current Need'] < threshold:
-			print('\n{} {} need threshold met at: {}'.format(self.name, need, self.needs[need]['Current Need']))
-			self.address_need(need)
-
-	def address_needs(self, obtain=True, prod=False, v=True):
+	def needs_decay(self, decay_rate=1):
 		priority_needs = {}
 		for need in self.needs:
 			priority_needs[need] = self.needs[need]['Current Need']
 		priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
 		priority_needs = collections.OrderedDict(priority_needs)
 		for need in priority_needs:
-			self.address_need(need, obtain=obtain, prod=prod, v=v)
+			self.need_decay(need, decay_rate=decay_rate)
 
-	def address_need(self, need, obtain=True, prod=False, v=True):
+	def need_decay(self, need, decay_rate=1):
+		rand = 1
+		# if args.random:
+		# 	rand = random.randint(1, 3)
+		decay_rate = self.needs[need]['Decay Rate'] * -1 * rand
+		self.set_need(need, decay_rate)
+		print('{} {} need decayed by {} to: {}'.format(self.name, need, decay_rate, self.needs[need]['Current Need']))
+		return decay_rate
+
+	def threshold_check(self, need, threshold=100, priority=False):
+		# TODO No longer needed
+		threshold = self.needs[need]['Threshold']
+		if self.needs[need]['Current Need'] < threshold:
+			print('\n{} {} need threshold met at: {}'.format(self.name, need, self.needs[need]['Current Need']))
+			self.address_need(need, priority=priority)
+
+	def address_needs(self, obtain=True, prod=False, priority=False, v=True):
+		priority_needs = {}
+		for need in self.needs:
+			priority_needs[need] = self.needs[need]['Current Need']
+		priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1], reverse=priority)}
+		priority_needs = collections.OrderedDict(priority_needs)
+		for need in priority_needs:
+			self.address_need(need, obtain=obtain, prod=prod, priority=priority, v=v)
+
+	def address_need(self, need, obtain=True, prod=False, priority=False, v=True):
 		if need is None:
 			return
 		outcome = None
@@ -8224,16 +8278,16 @@ class Individual(Entity):
 		for item, _ in items_info.iterrows():
 			min_price = world.prices.loc[world.prices.index == item].min()['price']
 			if pd.isna(min_price):
-				raw_mats = self.get_raw(item)
+				raw_mats = self.get_raw(item, base=True)
 				min_price = raw_mats.iloc[-1]['qty'] * INIT_PRICE
 				print(f'Item Address Min Price for {item}: {min_price}')
 				# min_price = INIT_PRICE # TODO Old method
 			item_prices.append(min_price)
 		item_prices = pd.Series(item_prices)
 		items_info = items_info.assign(price=item_prices.values)
-		price_rate = items_info['need_satisfy_rate'] / items_info['price']
+		price_rate = items_info['price'] / items_info['need_satisfy_rate']
 		items_info = items_info.assign(price_rate=price_rate.values)
-		items_info = items_info.sort_values(by='price_rate', ascending=False)
+		items_info = items_info.sort_values(by='price_rate', ascending=True)
 		# print('Items Info: \n{}'.format(items_info))
 		# items_info = items_info.sort_values(by='need_satisfy_rate', ascending=False) # Old method of sorting
 		items_info.reset_index(inplace=True)
@@ -8264,8 +8318,9 @@ class Individual(Entity):
 					# 	self.item_demanded(item_choosen, 1)
 					# 	continue
 					if obtain:
-						outcome = self.order_subscription(item_choosen)#, counterparty=counterparty)#, price=world.get_price(item_choosen, counterparty.entity_id))
+						outcome = self.order_subscription(item_choosen, priority=priority)#, counterparty=counterparty)#, price=world.get_price(item_choosen, counterparty.entity_id))
 				# qty_purchase = 1 # TODO Remove as was needed for demand call below
+				break
 
 			elif item_type == 'Buildings': # TODO Test this with examples
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
@@ -8276,7 +8331,7 @@ class Individual(Entity):
 				qty_owned = qty_held + qty_in_use
 				event = []
 				if qty_owned == 0 and obtain:
-					outcome = self.purchase(item_choosen, qty=1)#, acct_buy='Equipment') # TODO Support buildings by sqft units
+					outcome = self.purchase(item_choosen, qty=1, priority=priority)#, acct_buy='Equipment') # TODO Support buildings by sqft units
 				if qty_owned:
 					if (qty_held > 0 and qty_in_use == 0) or outcome:
 						entries = self.in_use(item_choosen, buffer=True)
@@ -8289,6 +8344,7 @@ class Individual(Entity):
 					event += entries
 					ledger.journal_entry(event)
 					return event
+				break
 
 			elif item_type == 'Service':
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
@@ -8296,9 +8352,10 @@ class Individual(Entity):
 				qty_purchase = int(math.ceil(need_needed / satisfy_rate))
 				#print('QTY Needed: {}'.format(qty_needed))
 				if obtain:
-					outcome = self.purchase(item_choosen, qty_purchase)
+					outcome = self.purchase(item_choosen, qty_purchase, priority=priority)
 				else:
 					if v: print(f'Produce or purchase {qty_purchase} {item_choosen} service to satisfy {need_needed} {need} need.')
+				break
 
 			elif (item_type == 'Commodity') or (item_type == 'Component'):
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
@@ -8319,7 +8376,7 @@ class Individual(Entity):
 					qty_purchase = min(qty_wanted, qty_avail)
 					# TODO Is the above needed?
 					if v: print(f'\nSatisfy {need} need for {self.name} by purchasing: {qty_purchase} {item_choosen}')
-					outcome = self.purchase(item_choosen, qty_purchase)
+					outcome = self.purchase(item_choosen, qty_purchase, priority=priority)
 					ledger.set_entity(self.entity_id)
 					qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 					ledger.reset()
@@ -8336,6 +8393,7 @@ class Individual(Entity):
 						#print('QTY Held: {}'.format(qty_held))
 				if qty_held:
 					self.consume(item_choosen, min(qty_needed, qty_held), need)
+				break
 
 			elif item_type == 'Equipment':
 				# TODO Decide how qty will work with time spent using item
@@ -8366,7 +8424,7 @@ class Individual(Entity):
 						if metric == 'usage':
 							qty_purchase = int(math.ceil(uses_needed / lifespan))
 							break
-					outcome = self.purchase(item_choosen, qty_purchase)#, acct_buy='Equipment')
+					outcome = self.purchase(item_choosen, qty_purchase, priority=priority)#, acct_buy='Equipment')
 					# TODO Should update qty_held again
 				if qty_held > 0 or outcome:
 					entries = self.use_item(item_choosen, uses_needed, buffer=True)
@@ -8377,6 +8435,7 @@ class Individual(Entity):
 					event += entries
 					ledger.journal_entry(event)
 					return event
+				break
 			if self.needs[need]['Current Need'] == self.needs[need]['Max Need']:
 				break
 
