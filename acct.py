@@ -1055,6 +1055,7 @@ class Ledger:
 		return self.bs
 
 	def get_qty_txns(self, item=None, acct=None):
+		# TODO Maybe make acct accept a list of accounts
 		rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of txns
 		qty_txns = self.gl[(self.gl['item_id'] == item) & ((self.gl['debit_acct'] == acct) | (self.gl['credit_acct'] == acct)) & pd.notnull(self.gl['qty']) & (~self.gl['event_id'].isin(rvsl_txns))]

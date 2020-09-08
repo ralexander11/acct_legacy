@@ -1127,7 +1127,19 @@ class World:
 			item_needs = [x.strip() for x in item_satifies.split(',')]
 			global_needs += item_needs
 		global_needs = list(collections.OrderedDict.fromkeys(global_needs))
+		global_needs = self.needs_analysis(global_needs)
 		print('Global Needs: \n{}'.format(global_needs))
+		return global_needs
+
+	def needs_analysis(self, needs):
+		global_needs = {}
+		for need in needs:
+			items_info = self.items[self.items['satisfies'].str.contains(need, na=False)]
+			items_info['item_type'] = items_info.apply(lambda x: self.get_item_type(x.name), axis=1)
+			if ((items_info['item_type'] == 'Commodity') | (items_info['item_type'] == 'Subscription') | (items_info['item_type'] == 'Service')).all():
+				global_needs[need] = 'consumption'
+			else:
+				global_needs[need] = 'capital'
 		return global_needs
 
 	def update_econ(self):
@@ -1369,7 +1381,8 @@ class World:
 				# 	priority = False
 				# else:
 				# 	priority = True
-				entity.address_needs(priority=True) # TODO Consumption needs only first at priority
+				entity.address_needs(priority=True, method='consumption')
+				entity.address_needs(method='capital')
 				# print('{} {} need at: {}'.format(entity.name, need, entity.needs[need]['Current Need']))
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual), needs_only=True)
 			entity.wip_check()
@@ -1424,7 +1437,7 @@ class World:
 		# 			individual.threshold_check(need, priority=True)
 		# 			# individual.address_need(need, priority=True)
 		# 		print('{} {} need at: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
-		# 		individual.need_decay(need)
+		# 		individual.needs_decay(need)
 		# 		if individual.dead:
 		# 			break
 		# t7_end = time.perf_counter()
@@ -5155,6 +5168,12 @@ class Entity:
 		for item in self.produces:
 			if not self.check_eligible(item): # TODO Maybe cache this
 				continue
+			# Only make optional productive items for items produced once before
+			ledger.set_entity(self.entity_id)
+			past_qty_check = ledger.get_qty(item, show_zeros=True, always_df=True)
+			ledger.reset()
+			if past_qty_check.empty:
+				continue
 			#print('Produces Item: {}'.format(item))
 			requirements = world.items.loc[item, 'requirements']
 			if requirements is None:
@@ -8270,9 +8289,12 @@ class Individual(Entity):
 			print('\n{} {} need threshold met at: {}'.format(self.name, need, self.needs[need]['Current Need']))
 			self.address_need(need, priority=priority)
 
-	def address_needs(self, obtain=True, prod=False, priority=False, v=True):
+	def address_needs(self, obtain=True, prod=False, priority=False, method=None, v=True):
 		priority_needs = {}
 		for need in self.needs:
+			if method is not None:
+				if world.global_needs[need] != method:
+					continue
 			priority_needs[need] = self.needs[need]['Current Need']
 		priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}#, reverse=priority)}
 		priority_needs = collections.OrderedDict(priority_needs)
