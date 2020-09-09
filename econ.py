@@ -3594,11 +3594,13 @@ class Entity:
 								if required_hours < WORK_DAY:
 									wip_choice = False # TODO Test this
 									wip_complete = True
+									if required_hours == 0:
+										break
 								# if orig_required_hours < WORK_DAY:
 								# 	required_hours = orig_required_hours
 							# if required_hours != orig_labour_required:
 							time_required = True
-						print('{} will attempt to hire {} labour for {} hours. Time Req: {}'.format(self.name, req_item, required_hours, time_required))
+						print('{} will attempt to hire {} labour for {} hours. Time Req: {} | WIP Choice: {} | WIP Complete: {}'.format(self.name, req_item, required_hours, time_required, wip_choice, wip_complete))
 						# if 'Individual' in world.items.loc[item, 'producer'] and qty == 1:
 						# 	counterparty = self
 						# elif item_type == 'Education':
@@ -3617,34 +3619,34 @@ class Entity:
 						entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True)
 						# print('Labour Entries: \n{}'.format(entries))
 						# print('WIP Choice: {} | Labour Done: {}'.format(wip_choice, labour_done))
-						if not entries and (not wip_choice or not labour_done):
+						if not entries and ((not wip_choice and not wip_complete) or not labour_done):# and not wip_complete: # TODO Test "and not wip_complete"
 							entries = []
 							incomplete = True
 							if wip_choice:
 								time_required = False
 							# if item_type != 'Education':
 							#print('World Demand Before: \n{}'.format(world.demand))
-							demand_count = world.demand.loc[world.demand['item_id'] == item].shape[0]
-							if not man:
-								print('Demand Count Buckets for {}: {}'.format(item, demand_count))
-							if demand_count:
-								try:
-									qty_possible = max(int(math.floor(labour_done / (req_qty * (1-modifier)))), 1)
-								except ZeroDivisionError:
-									qty_possible = qty
-								qty_poss_bucket = max(int(math.ceil(qty_possible // demand_count)), 1)
-								# TODO Better handle zero remaining when qty_poss_bucket is also 1
-								qty_poss_remain = qty_possible % qty_poss_bucket
-								print('Labour Done for {}: {} | Qty Possible for {}: {}'.format(req_item, labour_done, item, qty_possible))
-								print('Qty Poss. per Bucket: {} | Qty Poss. Remain: {}'.format(qty_poss_bucket, qty_poss_remain))
-								world.demand.loc[world.demand['item_id'] == item, 'qty'] = qty_poss_bucket
-								for i, row in world.demand.iterrows():
-									if row['item_id'] == item:
-										break
-								world.demand.at[i, 'qty'] = qty_poss_bucket + qty_poss_remain
-								world.demand.loc[world.demand['item_id'] == item, 'reason'] = 'labour'
-								world.set_table(world.demand, 'demand')
-								print('{} adjusted {} on demand list due to labour constraint.'.format(self.name, item))
+							# demand_count = world.demand.loc[world.demand['item_id'] == item].shape[0]
+							# if not man:
+							# 	print('Demand Count Buckets for {}: {}'.format(item, demand_count))
+							# if demand_count:
+							# 	try:
+							# 		qty_possible = max(int(math.floor(labour_done / (req_qty * (1-modifier)))), 1)
+							# 	except ZeroDivisionError:
+							# 		qty_possible = qty
+							# 	qty_poss_bucket = max(int(math.ceil(qty_possible // demand_count)), 1)
+							# 	# TODO Better handle zero remaining when qty_poss_bucket is also 1
+							# 	qty_poss_remain = qty_possible % qty_poss_bucket
+							# 	print('Labour Done for {}: {} | Qty Possible for {}: {}'.format(req_item, labour_done, item, qty_possible))
+							# 	print('Qty Poss. per Bucket: {} | Qty Poss. Remain: {}'.format(qty_poss_bucket, qty_poss_remain))
+							# 	world.demand.loc[world.demand['item_id'] == item, 'qty'] = qty_poss_bucket
+							# 	for i, row in world.demand.iterrows():
+							# 		if row['item_id'] == item:
+							# 			break
+							# 	world.demand.at[i, 'qty'] = qty_poss_bucket + qty_poss_remain
+							# 	world.demand.loc[world.demand['item_id'] == item, 'reason'] = 'labour'
+							# 	world.set_table(world.demand, 'demand')
+							# 	print('{} adjusted {} on demand list due to labour constraint.'.format(self.name, item))
 								#print(time_stamp() + 'World Demand After: \n{}'.format(world.demand))
 							break
 						# elif not entries and item_type == 'Education': # TODO Fix how Study works to use WIP system
@@ -3708,7 +3710,7 @@ class Entity:
 					# print('Labour Done End: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
 					if (wip_choice or wip_complete) and not hours_remain and not time_check:
 						time_required = False
-					if not wip_choice and partial is None:
+					if (not wip_choice and not wip_complete) and partial is None:
 						try:
 							if man and incomplete:
 								individuals = self.get_children(founder=True, ids=False)
@@ -3728,14 +3730,14 @@ class Entity:
 						if labour_done > 0 and not incomplete:# and labour_required != labour_done:
 							# max_qty_possible = 1
 							# constraint_qty = 1
-							if wip_choice: # TODO Test this better
+							if wip_choice or wip_complete: # TODO Test this better
 								max_qty_possible = min(max_qty_possible, qty)
 								constraint_qty = None
 							else:
 								max_qty_possible = 1
 								constraint_qty = 1
 						else:
-							if wip_choice: # TODO Test this better
+							if wip_choice or wip_complete: # TODO Test this better
 								max_qty_possible = min(max_qty_possible, qty)
 								constraint_qty = None
 							else:
@@ -5125,7 +5127,7 @@ class Entity:
 			elif 'need' in item_demand['reason'].values:
 				self.adj_price(item, qty, direction='up')
 				reason_need = True
-			outcome, time_required, max_qty_possible, incomplete = self.produce(item, qty, wip=reason_need)
+			outcome, time_required, max_qty_possible, incomplete = self.produce(item, qty, wip=True)#reason_need)
 			if v: print('Demand Check Outcome: {} \n{}'.format(time_required, outcome))
 			if to_drop:
 				index = to_drop[-1]
@@ -5160,7 +5162,7 @@ class Entity:
 			# 		with pd.option_context('display.max_rows', None):
 			# 			print('World Demand: {} \n{}'.format(world.now, world.demand))
 
-	def check_optional(self):
+	def check_optional(self, priority=False):
 		if self.produces is None:
 			return
 		items_list = world.items[world.items['producer'] != None]
@@ -5175,6 +5177,9 @@ class Entity:
 			if past_qty_check.empty:
 				continue
 			#print('Produces Item: {}'.format(item))
+			# print(f'{item} satisfies:', world.items.loc[item, 'satisfies'])
+			if world.items.loc[item, 'satisfies'] is not None:
+				priority = True
 			requirements = world.items.loc[item, 'requirements']
 			if requirements is None:
 				print('{} has no requirements.'.format(item))
@@ -5208,7 +5213,7 @@ class Entity:
 							ledger.reset()
 							#print('Current Qty of {}: {}'.format(item['item_id'], current_qty))
 							if current_qty == 0:
-								result = self.purchase(prod_item['item_id'], qty=1)#, acct_buy=item_type) # TODO Handle more than 1 qty?
+								result = self.purchase(prod_item['item_id'], qty=1, priority=priority)#, acct_buy=item_type) # TODO Handle more than 1 qty?
 								if result:
 									break
 
@@ -8300,7 +8305,7 @@ class Individual(Entity):
 		priority_needs = collections.OrderedDict(priority_needs)
 		if priority:
 			priority_needs = reversed(priority_needs)
-		if v: print(f'priority_needs {priority}: {priority_needs}')
+		# if v: print(f'priority_needs {priority}: {priority_needs}')
 		for need in priority_needs:
 			self.address_need(need, obtain=obtain, prod=prod, priority=priority, v=v)
 
