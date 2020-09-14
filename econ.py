@@ -1385,6 +1385,8 @@ class World:
 				entity.address_needs(method='capital')
 				# print('{} {} need at: {}'.format(entity.name, need, entity.needs[need]['Current Need']))
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual), needs_only=True)
+
+		for entity in factory.get(users=False):
 			entity.wip_check()
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual))
 			if isinstance(entity, Individual) and not entity.user:
@@ -1974,6 +1976,8 @@ class Entity:
 		global_inv = global_inv.merge(prices_tmp, on=['entity_id','item_id'])
 		global_inv.sort_values(by=['price'], ascending=True, inplace=True)
 		# print('Global purchase inventory for: {} \n{}'.format(item, global_inv))
+		if item_type in ['Commodity', 'Components']:
+			global_inv = global_inv.loc[global_inv['entity_id'] != self.entity_id]
 		if self.entity_id in global_inv['entity_id'].values:
 			if global_inv.shape[0] >= 2:
 				print('Global Purchase Inventory reordered for {}: \n{}'.format(item, global_inv))
@@ -3457,6 +3461,7 @@ class Entity:
 
 			elif req_item_type == 'Labour':
 				qty_held = None
+				none_qualify = False
 				if item_type == 'Job' or item_type == 'Labour':
 					if isinstance(self, Individual): # TODO Test this
 						experience = abs(ledger.get_qty(items=req_item, accounts=['Wages Income']))
@@ -3555,6 +3560,9 @@ class Entity:
 							elif isinstance(self, Individual):
 								if required_hours > self.hours: # TODO Check against global hours
 									wip_choice = True
+							else: # TODO Test this
+								if required_hours > MAX_HOURS or labour_done > 0:
+									wip_choice = True	
 						if wip_choice:
 							if man and isinstance(self, Individual):
 								if self.hours > 0:
@@ -3591,11 +3599,11 @@ class Entity:
 								else:
 									required_hours = min(required_hours, WORK_DAY)
 								 # TODO Or MAX_HOURS?
-								if required_hours < WORK_DAY:
-									wip_choice = False # TODO Test this
-									wip_complete = True
-									if required_hours == 0:
-										break
+								# if required_hours < WORK_DAY:# and labour_done > 0:
+								# 	wip_choice = False # TODO Test this
+								# 	wip_complete = True
+								# 	if required_hours == 0:
+								# 		break
 								# if orig_required_hours < WORK_DAY:
 								# 	required_hours = orig_required_hours
 							# if required_hours != orig_labour_required:
@@ -3616,10 +3624,13 @@ class Entity:
 									ledger.gl = ledger.gl.append(entry_df)
 								self.gl_tmp = ledger.gl
 								# print('Ledger Temp: \n{}'.format(ledger.gl.tail()))
+						if counterparty == 'none_qualify':
+							none_qualify = True
+							counterparty = None
 						entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True)
 						# print('Labour Entries: \n{}'.format(entries))
 						# print('WIP Choice: {} | Labour Done: {}'.format(wip_choice, labour_done))
-						if not entries and ((not wip_choice and not wip_complete) or not labour_done):# and not wip_complete: # TODO Test "and not wip_complete"
+						if not entries and ((not wip_choice) or not labour_done):# and not wip_complete: # TODO Test "and not wip_complete"
 							entries = []
 							incomplete = True
 							if wip_choice:
@@ -3737,13 +3748,17 @@ class Entity:
 								max_qty_possible = 1
 								constraint_qty = 1
 						else:
-							if wip_choice or wip_complete: # TODO Test this better
-								max_qty_possible = min(max_qty_possible, qty)
-								constraint_qty = None
+							if wip_choice:# or wip_complete: # TODO Test this better
+								if none_qualify:
+									max_qty_possible = 0
+									constraint_qty = 0
+								else:
+									max_qty_possible = min(max_qty_possible, qty)
+									constraint_qty = None
 							else:
 								max_qty_possible = 0
 								constraint_qty = 0
-					print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | Time Req: {} | Partial: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, time_required, partial, constraint_qty, incomplete))
+					print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | WIP Complete: {} | Time Req: {} | Partial: {} | Labour Done: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, wip_complete, time_required, partial, labour_done, constraint_qty, incomplete))
 					results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':qty_held, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 
 			elif req_item_type == 'Education' and partial is None:
@@ -3885,7 +3900,7 @@ class Entity:
 				wip_qty = wip_result[-1][8]
 				print(f'WIP for {item} completed for {wip_qty}.')
 				if wip_qty >= qty:
-					return
+					return [], False, 0, True
 				else:
 					qty -= wip_qty
 		incomplete, produce_event, time_required, max_qty_possible = self.fulfill(item, qty, reqs=reqs, amts=amts, man=man, show_results=True)
@@ -5034,43 +5049,6 @@ class Entity:
 	def check_demand(self, multi=True, others=True, needs_only=False, v=False):
 		if self.produces is None:
 			return
-		if isinstance(self, Individual) and not needs_only: # TODO Assumes land is never a direct need
-			to_drop = []
-			# Claim land items for self first
-			if self.entity_id in world.demand['entity_id'].values: # TODO Make this less ugly
-				self_demand = world.demand.loc[world.demand['entity_id'] == self.entity_id]
-				if not self_demand.empty:
-					for index, demand_row in self_demand.iterrows():
-						item = demand_row['item_id']
-						item_type = world.get_item_type(item)
-						if item_type == 'Land':
-							result = self.claim_land(item, demand_row['qty'], account='Inventory')
-							if result:
-								if result[0][8] == demand_row['qty']:
-									to_drop.append(index)
-								else:
-									world.demand.at[index, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
-									print('World Self Demand:\n{}'.format(world.demand))
-					world.demand = world.demand.drop(to_drop).reset_index(drop=True)
-					world.set_table(world.demand, 'demand')
-					if to_drop:
-						print('World Self Demand:\n{}'.format(world.demand))
-			else: # TODO Test this better
-				for index, demand_row in world.demand.iterrows():
-					item = demand_row['item_id']
-					item_type = world.get_item_type(item)
-					if item_type == 'Land':
-						result = self.claim_land(item, demand_row['qty'], account='Inventory')
-						if result:
-							if result[0][8] == demand_row['qty']:
-								to_drop.append(index)
-							else:
-								world.demand.at[index, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
-								print('World Demand:\n{}'.format(world.demand))
-				world.demand = world.demand.drop(to_drop).reset_index(drop=True)
-				world.set_table(world.demand, 'demand')
-				if to_drop:
-					print('World Demand:\n{}'.format(world.demand))
 		if needs_only:
 			if v: print('{} demand check for needed items: \n{}'.format(self.name, self.produces))
 		else:
@@ -5081,12 +5059,50 @@ class Entity:
 			if needs_only:
 				if demand_item['reason'] != 'need':
 					continue
+			item_type = world.get_item_type(item)
+			if item_type == 'Subscription':
+				continue
+			elif item_type == 'Land': #TODO Handle land better
+				if isinstance(self, Individual) and not needs_only: # TODO Assumes land is never a direct need
+					to_drop = []
+					# Claim land items for self first
+					if self.entity_id in world.demand['entity_id'].values: # TODO Make this less ugly
+						self_demand = world.demand.loc[world.demand['entity_id'] == self.entity_id]
+						if not self_demand.empty:
+							for index, demand_row in self_demand.iterrows():
+								item = demand_row['item_id']
+								item_type = world.get_item_type(item)
+								if item_type == 'Land':
+									result = self.claim_land(item, demand_row['qty'], account='Inventory')
+									if result:
+										if result[0][8] == demand_row['qty']:
+											to_drop.append(index)
+										else:
+											world.demand.at[index, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
+											print('World Self Demand:\n{}'.format(world.demand))
+							world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+							world.set_table(world.demand, 'demand')
+							if to_drop:
+								print('World Self Demand:\n{}'.format(world.demand))
+					else: # TODO Test this better
+						for index, demand_row in world.demand.iterrows():
+							item = demand_row['item_id']
+							item_type = world.get_item_type(item)
+							if item_type == 'Land':
+								result = self.claim_land(item, demand_row['qty'], account='Inventory')
+								if result:
+									if result[0][8] == demand_row['qty']:
+										to_drop.append(index)
+									else:
+										world.demand.at[index, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
+										print('World Demand:\n{}'.format(world.demand))
+						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+						world.set_table(world.demand, 'demand')
+						if to_drop:
+							print('World Demand:\n{}'.format(world.demand))
 			if item not in self.produces:
 				continue
 			if v: print('Check Demand Item for {}: {}'.format(self.name, item))
-			item_type = world.get_item_type(item)
-			if item_type == 'Subscription' or item_type == 'Land':
-				continue
 			#print('World Demand: \n{}'.format(world.demand))
 			to_drop = []
 			qty = 0
@@ -5131,7 +5147,7 @@ class Entity:
 			if v: print('Demand Check Outcome: {} \n{}'.format(time_required, outcome))
 			if to_drop:
 				index = to_drop[-1]
-			try:
+			try: # TODO Not needed any more
 				if not outcome and world.demand.loc[index, 'reason'] == 'Labour':
 					print('Retrying demand check of {} for qty of 1 (instead of {}) due to labour constraint. ({}) {}'.format(item, qty, to_drop[0], world.demand.loc[index, 'reason']))
 					qty = 1
@@ -5209,7 +5225,7 @@ class Entity:
 						if self.check_eligible(prod_item['item_id']):
 							item_type = world.get_item_type(prod_item['item_id'])
 							ledger.set_entity(self.entity_id)
-							current_qty = ledger.get_qty(prod_item['item_id'], [item_type])
+							current_qty = ledger.get_qty(prod_item['item_id'], [item_type, 'WIP ' + item_type])#, v=True)
 							ledger.reset()
 							#print('Current Qty of {}: {}'.format(item['item_id'], current_qty))
 							if current_qty == 0:
@@ -5378,6 +5394,7 @@ class Entity:
 		if v: print('Jobs to pay wages: \n{}'.format(jobs))
 		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		wages_paid_txns = ledger.gl[( (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['debit_acct'] == 'Wages Payable') & (ledger.gl['credit_acct'] == 'Cash') ) & (~ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
+		# TODO Fix the above not working with WIP items
 		if v: print('Wages Paid TXN Event IDs for {}: \n{}'.format(self.name, wages_paid_txns))
 		wages_pay_txns = ledger.gl[( (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['debit_acct'] == 'Wages Expense') & (ledger.gl['credit_acct'] == 'Wages Payable') ) & (~ledger.gl['event_id'].isin(wages_paid_txns)) & (~ledger.gl['event_id'].isin(rvsl_txns))]
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -5386,37 +5403,51 @@ class Entity:
 			job_wages_pay_txns = wages_pay_txns.loc[wages_pay_txns['item_id'] == job]
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				if v: print('Wages Pay TXNs for job: {}\n{}'.format(job, job_wages_pay_txns))
-			pay_wages_event = []
-			ledger.set_entity(self.entity_id)
-			cash = ledger.balance_sheet(['Cash'])
-			ledger.reset()
-			for _, txn in job_wages_pay_txns.iterrows():
-				counterparty_id = txn['cp_id']
-				event_id = txn['event_id']
-				counterparty = factory.get_by_id(counterparty_id)
-				if v: print('{} Wages Payable for: {} | Event ID: {}'.format(job, counterparty.name, event_id))
-				labour_hours = txn['qty']
-				wages_payable = txn['amount']
-				price = txn['price']
-				if cash >= wages_payable or counterparty.entity_id == self.entity_id:
-					wages_pay_entry = [ event_id, self.entity_id, counterparty.entity_id, world.now, '', job + ' wages paid', job, price, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
-					wages_chg_entry = [ event_id, counterparty.entity_id, self.entity_id, world.now, '', job + ' wages received', job, price, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
-					pay_wages_event += [wages_pay_entry, wages_chg_entry]
-					if counterparty.entity_id != self.entity_id:
-						cash -= wages_payable
-				else:
-					print('{} does not have enough cash to pay {} in wages for {}\'s {} work. Cash: {}'.format(self.name, wages_payable, counterparty.name, job, cash))
-					result = self.loan(amount=(wages_payable - cash), item='Credit Line 5')
-					if result:
-						self.pay_wages(self, jobs=jobs, counterparty=counterparty, v=v)
-					if result is False:
-						self.bankruptcy()
-			ledger.journal_entry(pay_wages_event)
-			ledger.set_entity(self.entity_id)
-			cash = ledger.balance_sheet(['Cash'])
-			ledger.reset()
-			if job != 'Study' and job != 'Research':
-				print('{} cash after {} wages paid: {}'.format(self.name, job, cash))
+			event_ids = list(job_wages_pay_txns['event_id'].unique())
+			counterparties = list(job_wages_pay_txns['cp_id'].unique())
+			print(f'event_ids for {job}: {event_ids}')
+			print(f'counterparties for {job}: {counterparties}')
+			for event_id in event_ids:
+				pay_wages_event = []
+				ledger.set_entity(self.entity_id)
+				cash = ledger.balance_sheet(['Cash'])
+				ledger.reset()
+				for counterparty_id in counterparties:
+					ledger.set_entity(self.entity_id)
+					ledger.gl = ledger.gl.loc[(ledger.gl['cp_id'] == counterparty_id) & (ledger.gl['event_id'] == event_id)]
+					wages_payable = -(ledger.balance_sheet(['Wages Payable'], job))
+					labour_hours = -(ledger.get_qty(job, ['Wages Payable']))
+					ledger.reset()
+					price = wages_payable / labour_hours
+					print(f'wages_payable for {job} {event_id} {counterparty_id}: {wages_payable}')
+					print(f'labour_hours for {job} {event_id} {counterparty_id}: {labour_hours}')
+				# for _, txn in job_wages_pay_txns.iterrows():
+				# 	counterparty_id = txn['cp_id']
+				# 	event_id = txn['event_id']
+					counterparty = factory.get_by_id(counterparty_id)
+					# if v: print('{} Wages Payable for: {} | Event ID: {}'.format(job, counterparty.name, event_id))
+					# labour_hours = txn['qty']
+					# wages_payable = txn['amount']
+					# price = txn['price']
+					if cash >= wages_payable or counterparty.entity_id == self.entity_id:
+						wages_pay_entry = [ event_id, self.entity_id, counterparty.entity_id, world.now, '', job + ' wages paid', job, price, labour_hours, 'Wages Payable', 'Cash', wages_payable ]
+						wages_chg_entry = [ event_id, counterparty.entity_id, self.entity_id, world.now, '', job + ' wages received', job, price, labour_hours, 'Cash', 'Wages Receivable', wages_payable ]
+						pay_wages_event += [wages_pay_entry, wages_chg_entry]
+						if counterparty.entity_id != self.entity_id:
+							cash -= wages_payable
+					else:
+						print('{} does not have enough cash to pay {} in wages for {}\'s {} work. Cash: {}'.format(self.name, wages_payable, counterparty.name, job, cash))
+						result = self.loan(amount=(wages_payable - cash), item='Credit Line 5')
+						if result:
+							self.pay_wages(self, jobs=jobs, counterparty=counterparty, v=v)
+						if result is False:
+							self.bankruptcy()
+				ledger.journal_entry(pay_wages_event)
+				ledger.set_entity(self.entity_id)
+				cash = ledger.balance_sheet(['Cash'])
+				ledger.reset()
+				if job != 'Study' and job != 'Research':
+					print('{} cash after {} wages paid: {}'.format(self.name, job, cash))
 
 	def check_wages(self, job, v=False):
 		# PAY_PERIODS = 32 #datetime.timedelta(days=32)
@@ -5451,9 +5482,13 @@ class Entity:
 		if last_paid < PAY_PERIODS:
 			return True
 
-	def accru_wages(self, job, counterparty, labour_hours, wage=None, buffer=False, check=False):
-		desc_exp = job + ' wages to be paid'
-		desc_rev = job + ' wages to be received'
+	def accru_wages(self, job, counterparty, labour_hours, wage=None, accrual=False, buffer=False, check=False):
+		if accrual:
+			desc_exp = job + ' wages paid'
+			desc_rev = job + ' wages pay received'
+		else:
+			desc_exp = job + ' wages to be paid'
+			desc_rev = job + ' wages to be received'
 		if counterparty is None:
 			print('No workers available to do {} job for {} hours.'.format(job, labour_hours))
 			return
@@ -5479,8 +5514,14 @@ class Entity:
 		if recently_paid and not incomplete:
 			if counterparty.hours > 0: # TODO Move this above fulfill()
 				hours_worked = min(labour_hours, counterparty.hours)
-				wages_exp_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_exp, job, wage, hours_worked, 'Wages Expense', 'Wages Payable', wage * hours_worked ]
-				wages_rev_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_rev, job, wage, hours_worked, 'Wages Receivable', 'Wages Income', wage * hours_worked ]
+				if accrual:
+					debit_acct = 'Wages Receivable'
+					credit_acct = 'Wages Payable'
+				else:
+					debit_acct = 'Cash'
+					credit_acct = 'Cash'
+				wages_exp_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_exp, job, wage, hours_worked, 'Wages Expense', credit_acct, wage * hours_worked ]
+				wages_rev_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_rev, job, wage, hours_worked, debit_acct, 'Wages Income', wage * hours_worked ]
 				accru_wages_event += [wages_exp_entry, wages_rev_entry]
 			else:
 				if not incomplete: # TODO This is not needed
@@ -5530,6 +5571,8 @@ class Entity:
 				individuals.append(individual)
 				worker_event += entries
 		#print('Eligible Individuals: \n{}'.format(individuals))
+		if not individuals:
+			return 'none_qualify'
 		# Check total wages receivable for that job for each individual
 		for individual in individuals:
 			experience_wages = 0
