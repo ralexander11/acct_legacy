@@ -31,7 +31,7 @@ MAX_HOURS = 12
 WORK_DAY = 8
 PAY_PERIODS = 2
 GESTATION = 7
-MAX_CORPS = 1#2
+MAX_CORPS = 2
 INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
 EXPLORE_TIME = 1
@@ -1372,10 +1372,10 @@ class World:
 			#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
 			# entity.set_price() # TODO Is this needed?
 			entity.auto_produce()
-			if isinstance(entity, Individual):
-				entity.needs_decay()
-				if entity.dead:
-					continue
+			# if isinstance(entity, Individual):
+			# 	entity.needs_decay()
+			# 	if entity.dead:
+			# 		continue
 			if isinstance(entity, Individual) and not entity.user:
 				# if str(self.now) == str(ledger.gl['date'].min()):
 				# 	priority = False
@@ -1425,26 +1425,26 @@ class World:
 		print(time_stamp() + '6: Prices check took {:,.2f} min.'.format((t6_end - t6_start) / 60))
 		print()
 
-		# print(time_stamp() + 'Current Date: {}'.format(self.now))
-		# t7_start = time.perf_counter()
-		# for individual in factory.get(Individual):
-		#	# priority_needs = {} # TODO Clean this up with address_needs()
-		#	# for need in individual.needs:
-		#	# 	priority_needs[need] = individual.needs[need]['Current Need']
-		#	# priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
-		#	# priority_needs = collections.OrderedDict(priority_needs)
-		#	# for need in priority_needs:
-		# 		#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
-		# 		if not individual.user:
-		# 			individual.threshold_check(need, priority=True)
-		# 			# individual.address_need(need, priority=True)
-		# 		print('{} {} need at: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
-		# 		individual.needs_decay(need)
-		# 		if individual.dead:
-		# 			break
-		# t7_end = time.perf_counter()
-		# print(time_stamp() + '7: Needs check took {:,.2f} min.'.format((t7_end - t7_start) / 60))
-		# print()
+		print(time_stamp() + 'Current Date: {}'.format(self.now))
+		t7_start = time.perf_counter()
+		for individual in factory.get(Individual):
+			# priority_needs = {} # TODO Clean this up with address_needs()
+			# for need in individual.needs:
+			# 	priority_needs[need] = individual.needs[need]['Current Need']
+			# priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}
+			# priority_needs = collections.OrderedDict(priority_needs)
+			# for need in priority_needs:
+				#print('Individual Name: {} | {}'.format(individual.name, individual.entity_id))
+				# if not individual.user:
+				# 	individual.threshold_check(need, priority=True)
+					# individual.address_need(need, priority=True)
+				# print('{} {} need at: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
+				individual.needs_decay()
+				if individual.dead:
+					break
+		t7_end = time.perf_counter()
+		print(time_stamp() + '7: Needs decay took {:,.2f} min.'.format((t7_end - t7_start) / 60))
+		print()
 
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		t8_start = time.perf_counter()
@@ -3872,7 +3872,7 @@ class Entity:
 			world.delay = tmp_delay.copy(deep=True) # TODO This would not factor in any changes to world.delay from a lower stack frame but might not matter
 			world.set_table(world.delay, 'delay')
 			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
-			if not wip_choice:
+			if not wip_choice or man:
 				self.hold_event_ids += hold_event_ids
 			if isinstance(self, Individual):
 				self.prod_hold += prod_hold
@@ -4573,7 +4573,7 @@ class Entity:
 		release_event = []
 		for event_id in self.hold_event_ids:
 			if v: print('Release check for event_id:', event_id)
-			release_event += self.release(event_id=event_id)#, v=True)
+			release_event += self.release(event_id=event_id, v=v)
 			# if v: print('release_event:\n', release_event)
 		ledger.journal_entry(release_event)
 		self.hold_event_ids = []
@@ -6544,13 +6544,7 @@ class Entity:
 		if command is None: # TODO Allow to call bs command from econ.py
 			command = args.command
 		if command is None and not external:
-			if args.auto:
-				if not commands:
-					args.auto = False
-			if args.auto:
-				command = commands.pop(0)
-			else:
-				command = input('Enter an action or "help" for more info: ')
+			command = input('Enter an action or "help" for more info: ')
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'select':
 			if not world.gov.user:
@@ -6964,10 +6958,7 @@ class Entity:
 			self.consume(item.title(), qty)
 		elif command.lower() == 'recurproduce' or command.lower() == 'rproduce':
 			while True:
-				if args.auto: # TODO Remove this experiment
-					item = commands.pop(0)
-				else:
-					item = input('Enter item to produce: ')
+				item = input('Enter item to produce: ')
 				if item == '':
 					return
 				if world.valid_item(item):
@@ -6978,10 +6969,7 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					if args.auto: # TODO Remove this experiment
-						qty = commands.pop(0)
-					else:
-						qty = input('Enter quantity of {} item to produce: '.format(item))
+					qty = input('Enter quantity of {} item to produce: '.format(item))
 					if qty == '':
 						qty = 1
 						# return
@@ -9123,12 +9111,6 @@ if __name__ == '__main__':
 		print(time_stamp() + 'Econ Sim has no end date and will end if everyone dies.')
 	else:
 		print(time_stamp() + 'Econ Sim has an end date of {} or if everyone dies.'.format(END_DATE))
-	if args.auto and (args.users > 0 or args.players > 0):
-		with open('commands.txt') as f:
-			commands = f.readlines()
-		commands = [line.rstrip('\n') for line in commands]
-		input = functools.partial(commands.pop, 0) # Test this
-		print('commands.txt\n', commands)
 	print(time_stamp() + 'Database file: {}'.format(args.database))
 	new_db = True
 	# print('Existing DB Check: {}'.format(os.path.exists('db/' + args.database)))
