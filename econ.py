@@ -13,7 +13,7 @@ import getpass
 import random
 import time
 import math
-import os
+import os, sys
 import re
 import pickle
 from sqlite3 import Binary
@@ -6544,7 +6544,12 @@ class Entity:
 		if command is None: # TODO Allow to call bs command from econ.py
 			command = args.command
 		if command is None and not external:
-			command = input('Enter an action or "help" for more info: ')
+			try:
+				command = input('Enter an action or "help" for more info: ')
+			except EOFError as e:
+				command = None
+				sys.stdin = open('/dev/tty')
+				return
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'select':
 			if not world.gov.user:
