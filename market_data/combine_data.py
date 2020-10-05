@@ -1,6 +1,6 @@
 import pandas as pd
 import glob, os
-import datetime
+import datetime as dt
 import argparse
 
 DISPLAY_WIDTH = 97
@@ -11,12 +11,12 @@ pd.set_option('display.max_rows', 20)
 def time_stamp(offset=0):
 	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
 		offset = 4
-	time_stamp = (datetime.datetime.now() + datetime.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
+	time_stamp = (dt.datetime.now() + dt.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
 	return time_stamp
 
 class CombineData(object):
 	def __init__(self, data_location=None, date=None):
-		self.current_date = datetime.datetime.today().strftime('%Y-%m-%d')
+		self.current_date = dt.datetime.today().strftime('%Y-%m-%d')
 		self.date = date
 		self.data_location = data_location
 		if self.data_location is None:
@@ -26,7 +26,7 @@ class CombineData(object):
 			else:
 				# self.data_location = '../market_data/data/'
 				# self.data_location = '../market_data/test_data/'
-				self.data_location = '/Users/Robbie/Public/market_data/data/'
+				self.data_location = '/Users/Robbie/Public/market_data/new/data/'
 
 	def load_file(self, infile):
 		with open(infile, 'r') as f:
@@ -91,15 +91,24 @@ class CombineData(object):
 			quote_df = self.load_data('quote', dates=dates)
 		if stats_df is None:
 			stats_df = self.load_data('stats', dates=dates)
-		merged = pd.merge(quote_df, stats_df, how='outer', left_index=True, right_index=True, sort=False)
+		merged = pd.merge(quote_df, stats_df, how='outer', left_index=True, right_index=True, suffixes=(None, '_y'), sort=False)
 		if save:
 			merged.to_csv(self.data_location + 'merged.csv')
 			print(time_stamp() + 'Saved merged data!\n{}'.format(merged.head()))
 		return merged
 
-	def date_filter(self, dates=None, merged=None, save=False, v=False):
+	def date_filter(self, dates=None, since=False, merged=None, save=False, v=False):
 		if dates is None:
-			dates = str(self.current_date)
+			dates = [str(self.current_date)]
+		else:
+			if not isinstance(dates, (list, tuple)):
+				dates = [x.strip() for x in dates.split(',')]
+		if since:
+			if len(dates) != 1:
+				print('Must provide only 1 date with the "since" command.')
+				return
+			dates = pd.date_range(start=dates[0], end=dt.datetime.today(), freq='D').to_pydatetime().tolist()
+			dates = [date.strftime('%Y-%m-%d') for date in dates]
 		if merged is None:
 			# quote_df = self.load_data('quote', dates=dates)
 			# stats_df = self.load_data('stats', dates=dates)
@@ -165,12 +174,6 @@ class CombineData(object):
 			# stats_df = self.load_data('stats')
 			merged = self.merge_data()#quote_df, stats_df)
 		return merged.xs((symbol.upper(), date))[field]
-
-	def front(self, n):
-		return self.iloc[:, :n]
-
-	def back(self, n):
-		return self.iloc[:, -n:]
 
 	def fill_missing(self, missing=None, merged=None, save=False, v=False):
 		if v: print(time_stamp() + 'Missing File Save:', save)
@@ -379,12 +382,19 @@ class CombineData(object):
 			print(time_stamp() + 'Saved found missing fields to: {}'.format(path))
 		return df
 
+	def front(self, n):
+		return self.iloc[:, :n]
+
+	def back(self, n):
+		return self.iloc[:, -n:]
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-d', '--dates', type=str, help='A list of dates to combine data for.')
 	parser.add_argument('-t', '--tickers', type=str, help='A list of tickers to filter data for.')
 	parser.add_argument('-f', '--fields', type=str, help='The fields to filter data for.')
 	parser.add_argument('-m', '--mode', type=str, help='The mode to run: merged, missing, value, tickers.')
+	parser.add_argument('-since', '--since', action='store_true', help='Use all dates since a given date.')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	args = parser.parse_args()
 
@@ -447,21 +457,24 @@ if __name__ == '__main__':
 			print('Value option only works when one field, date, and ticker are provided.')
 
 	if args.dates and args.tickers and args.fields:
-		df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates)), save=args.save)
+		df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since)), save=args.save)
 	if args.dates and args.tickers and args.fields is None:
-		df = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates), save=args.save)
+		df = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since), save=args.save)
 	if args.dates and args.tickers is None and args.fields:
-		df = combine_data.data_point(args.fields, combine_data.date_filter(args.dates), save=args.save)
+		df = combine_data.data_point(args.fields, combine_data.date_filter(args.dates, since=args.since), save=args.save)
 	if args.dates is None and args.tickers and args.fields:
 		df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers), save=args.save)
 	if args.dates and args.tickers is None and args.fields is None:
-		df = combine_data.date_filter(args.dates, save=args.save)
+		df = combine_data.date_filter(args.dates, since=args.since, save=args.save)
 	if args.dates is None and args.tickers and args.fields is None:
 		print('Merging all dates for:', args.tickers)
 		print('Save: ', args.save)
 		df = combine_data.comp_filter(args.tickers, save=args.save)
 	if args.dates is None and args.tickers is None and args.fields:
 		df = combine_data.data_point(args.fields, save=args.save)
+	if args.dates is None and args.tickers is None and args.fields is None:
+		print('Save:', args.save)
+		df = combine_data.merge_data(save=args.save)
 
 	# print('Date Filter:')
 	# print(combine_data.date_filter('2018-05-11'))
