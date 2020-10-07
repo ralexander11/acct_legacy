@@ -409,6 +409,42 @@ class MarketData(object):
 				financials_save.to_csv(path, index=False)
 		return financials_save
 
+	def get_splits(self, tickers=None, range='1y', save=False, v=False):
+		if tickers is None:
+			# tickers = 'ws_tickers.csv'
+			tickers = ['tsla', 'aapl']
+		if '.csv' in tickers:
+			tickers = self.get_symbols(tickers)
+		if isinstance(tickers, str):
+			tickers = [x.strip() for x in tickers.split(',')]
+		base_url = 'https://cloud.iexapis.com/stable/stock/'
+		# https://cloud.iexapis.com/stable/stock/tsla/splits/1y?token=TOKEN
+		splits = []
+		for ticker in tickers:
+			try:
+				result = pd.read_json(base_url + ticker + '/splits/' + range + '?token=' + self.token, orient='records')
+			except:
+				print(self.time_stamp() + 'Error: ' + base_url + ticker + '/splits/' + range + '?token=TOKEN')
+				continue
+			if result.empty:
+				print(self.time_stamp() + 'Empty: ' + base_url + ticker + '/splits/' + range + '?token=TOKEN')
+				continue
+			# result.reset_index(inplace=True)
+			result['symbol'] = ticker.upper()
+			# if v: print('result:\n', result)
+			splits.append(result)
+		splits_save = pd.concat(splits, sort=True)
+		splits_save.drop_duplicates(inplace=True)
+		if v: print('splits_save:\n', splits_save)
+		if save:
+			if len(tickers) == 1:
+				path = self.save_location + 'splits/' + str(tickers[0]) + '_splits.csv'
+			else:
+				path = self.save_location + 'splits/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_splits.csv'
+			print(self.time_stamp() + 'Saved: ', path)
+			splits_save.to_csv(path, index=False)
+		return splits_save
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -455,6 +491,10 @@ if __name__ == '__main__':
 	if args.mode == 'financials':
 		# args.tickers = ['aapl']
 		data.get_financials(args.tickers, save=args.save)
+		exit()
+
+	if args.mode == 'splits':
+		data.get_splits(args.tickers, save=args.save)
 		exit()
 
 	if args.mode == 'symbols':
