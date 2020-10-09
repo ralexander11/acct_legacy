@@ -411,16 +411,17 @@ class MarketData(object):
 
 	def get_splits(self, tickers=None, range='1y', save=False, v=False):
 		if tickers is None:
-			# tickers = 'ws_tickers.csv'
+			# tickers = '../data/ws_tickers.csv'
 			tickers = ['tsla', 'aapl']
 		if '.csv' in tickers:
-			tickers = self.get_symbols(tickers)
-		if isinstance(tickers, str):
-			tickers = [x.strip() for x in tickers.split(',')]
+			# print('Splits tickers loaded from:', tickers)
+			symbols = self.get_symbols(tickers)
+		if '.csv' not in tickers and isinstance(tickers, str):
+			symbols = [x.strip() for x in tickers.split(',')]
 		base_url = 'https://cloud.iexapis.com/stable/stock/'
 		# https://cloud.iexapis.com/stable/stock/tsla/splits/1y?token=TOKEN
 		splits = []
-		for ticker in tickers:
+		for ticker in symbols:
 			try:
 				result = pd.read_json(base_url + ticker + '/splits/' + range + '?token=' + self.token, orient='records')
 			except:
@@ -434,13 +435,16 @@ class MarketData(object):
 			# if v: print('result:\n', result)
 			splits.append(result)
 		splits_save = pd.concat(splits, sort=True)
-		splits_save.drop_duplicates(inplace=True)
+		splits_save.dropna(subset=['ratio'], inplace=True)
+		splits_save.drop_duplicates(['symbol', 'exDate', 'ratio'], inplace=True)
 		if v: print('splits_save:\n', splits_save)
 		if save:
-			if len(tickers) == 1:
-				path = self.save_location + 'splits/' + str(tickers[0]) + '_splits.csv'
+			if '.csv' in tickers:
+				path = self.save_location + 'splits/splits_data.csv'
+			elif len(symbols) == 1:
+				path = self.save_location + 'splits/' + str(symbols[0]) + '_splits_data.csv'
 			else:
-				path = self.save_location + 'splits/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_splits.csv'
+				path = self.save_location + 'splits/' + str(symbols[0]) + '_to_' + str(symbols[-1]) + '_splits_data.csv'
 			print(self.time_stamp() + 'Saved: ', path)
 			splits_save.to_csv(path, index=False)
 		return splits_save
@@ -548,3 +552,5 @@ if __name__ == '__main__':
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -t cdn_tickers.csv -d all_dates.csv -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing05.log 2>&1 &
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing11.log 2>&1 &
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m splits -t '../data/ws_tickers.csv' -s >> /home/robale5/becauseinterfaces.com/acct/logs/splits01.log 2>&1 &

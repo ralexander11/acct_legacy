@@ -83,8 +83,6 @@ class CombineData(object):
 				continue
 			dfs.append(load_df)
 		df = pd.concat(dfs, sort=True) # Sort to suppress warning
-		# if end_point == 'stats':
-		# 	df.drop(['companyName', 'peRatio'], errors='ignore', inplace=True)
 		df = df.set_index('date', append=True)
 		return df
 
@@ -99,7 +97,7 @@ class CombineData(object):
 			print(time_stamp() + 'Saved merged data!\n{}'.format(merged.head()))
 		return merged
 
-	def date_filter(self, dates=None, since=False, data=None, save=False, v=False):
+	def date_filter(self, dates=None, since=False, data=None, merged=None, save=False, v=False):
 		if dates is None:
 			dates = [str(self.current_date)]
 		else:
@@ -117,7 +115,8 @@ class CombineData(object):
 			merged = self.merge_data(dates=dates)
 		elif '.csv' in merged:
 			merged = pd.read_csv(self.data_location + merged)
-		merged = pd.concat(data, merged)
+		if data is not None:
+			merged = pd.concat(data, merged)
 		if v: print('Data filtered for dates:\n{}'.format(merged))
 		if save:
 			if len(dates) == 1:
@@ -182,29 +181,32 @@ class CombineData(object):
 
 	def splits(self, merged=None, splits=None, save=False, v=False):
 		if merged is None:
-			df = self.merge_data()
+			if os.path.exists('data/merged.csv'):
+				df = pd.read_csv('data/merged.csv')
+			else:
+				df = self.merge_data()
 		elif '.csv' in merged:
 			df = pd.read_csv(self.data_location + merged)
 		if splits is None:
-			splits = input('Enter csv file name with split data: ')
+			# splits = input('Enter csv file name with split data: ')
 			if not splits:
-				splits = 'tsla_to_aapl_splits.csv'
+				splits = 'splits_data.csv'
 		if '.csv' in splits:
 			splits_data = pd.read_csv(self.data_location + 'splits/' + splits, index_col='symbol', encoding='utf-8')
 		if 'factor' not in df.columns.values:
 			df['factor'] = 1
+		df['cur_factor'] = 1
 		# print(df)
 		for symbol, split_event in splits_data.iterrows():
 			# print('symbol:', symbol)
 			if symbol == 'TSLA':
 				split_event['ratio'] = 0.2
 			# print(split_event)
-			df.loc[(df['symbol'] == symbol) & (df['date'] < split_event['exDate']), 'factor'] *= split_event['ratio']
-			# Copy columns
-			# Adjust columns
-		adj_cols = ['close','delayedPrice','extendedPrice','high','iexClose','iexRealtimePrice','latestPrice','low','oddLotDelayedPrice','open','previousClose','week52High','week52Low','day200MovingAvg','day50MovingAvg','week52high','week52low']
+			df.loc[(df['symbol'] == symbol) & (df['date'] < split_event['exDate']), 'cur_factor'] *= split_event['ratio']
+		# Adjust data columns
+		adj_cols = ['factor','close','delayedPrice','extendedPrice','high','iexClose','iexRealtimePrice','latestPrice','low','oddLotDelayedPrice','open','previousClose','week52High','week52Low','day200MovingAvg','day50MovingAvg','week52high','week52low']
 		for col in adj_cols:
-			df[col] *= df['factor']
+			df[col] *= df['cur_factor']
 		df = df.set_index('date', append=True)
 		if v: print('Data adjusted for stock splits:\n{}'.format(df))
 		if save:
@@ -215,6 +217,48 @@ class CombineData(object):
 			df.to_csv(filename)
 			print(time_stamp() + 'Saved data adjusted for stock splits to:\n{}'.format(filename))
 		return df
+
+	def target(self, merged, save=False, v=False):
+		if '.csv' in merged:
+			df = pd.read_csv(self.data_location + merged)
+		else:
+			df = merged
+		# TODO Maybe check if target col exists
+		if 'target' not in df.columns.values:
+			df['target'] = None
+		tickers = df['symbol'].unique().tolist()
+		dfs = []
+		for ticker in tickers:
+			tmp_df = df.loc[df['symbol'] == ticker]
+			# tmp_df['target'] = tmp_df['latestPrice'].shift(1)
+			tmp_df['target'].fillna(tmp_df['latestPrice'].shift(1), inplace=True) # TODO Test this
+			dfs.append(tmp_df)
+		df = pd.concat(dfs)
+		if v: print('Target price added to data:\n{}'.format(df))
+		if save:
+			filename = self.data_location + 'tar_' + merged[:-5 + '.csv']
+			df.to_csv(filename)
+			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(filename))
+		return df
+
+	def get(self, save=False, v=False):
+		if os.path.exists('data/merged.csv'):
+			merged = pd.read_csv('data/merged.csv')
+			args.dates = [merged['date'].max() + 1]
+			args.tickers = merged['symbol'].unique().tolist()
+			merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, data=merged, since=True))
+		else:
+			if args.dates is None:
+				args.dates = ['2020-01-24']
+			if args.tickers is None:
+				args.tickers = pd.read_csv('../data/ws_tickers.csv', header=None)
+				args.tickers = args.tickers.iloc[:,0].unique().tolist()
+			merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=True))
+		if save:
+			filename = data_location + 'merged.csv'
+			merged.to_csv(filename)
+			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(args.dates[0], filename))
+		return merged
 
 	def fill_missing(self, missing=None, merged=None, save=False, v=False):
 		if v: print(time_stamp() + 'Missing File Save:', save)
@@ -497,25 +541,12 @@ if __name__ == '__main__':
 		merged = 'merged_TSLA_to_AAPL.csv'
 		df = combine_data.splits(merged, save=args.save)
 
+	elif args.mode == 'tar' or args.mode == 'target':
+		merged = 'merged.csv'
+		df = combine_data.target(merged, save=args.save)
+
 	elif args.mode == 'get':
-		if os.path.exists('data/merged.csv'):
-			merged = pd.read_csv('data/merged.csv')
-			args.dates = [merged['date'].max() + 1]
-			args.tickers = merged.['symbol'].unique().tolist()
-			merged_new = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=True))
-			merged = pd.concat(merged, merged_new)
-		else:
-			if args.dates is None:
-				args.dates = ['2020-01-24']
-			if args.tickers is None:
-				args.tickers = pd.read_csv('../data/ws_tickers.csv', header=None)
-				args.tickers = args.tickers.iloc[:,0].unique().tolist()
-			merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=True))
-		if args.save:
-			filename = data_location + 'merged.csv'
-			merged.to_csv(filename)
-			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(args.dates[0], filename))
-		return merged
+		df = combine_data.get(merged, save=args.save)
 
 	else:
 		if args.dates and args.tickers and args.fields:
