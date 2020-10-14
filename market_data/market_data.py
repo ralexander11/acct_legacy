@@ -449,6 +449,19 @@ class MarketData(object):
 			splits_save.to_csv(path, index=False)
 		return splits_save
 
+	def get_holidays(self, days=365, save=False, v=False):
+		base_url = 'https://cloud.iexapis.com/stable/ref-data/us/dates/holiday/'
+		# https://sandbox.iexapis.com/stable/ref-data/us/dates/holiday/last/365?token=TOKEN
+		df_past = pd.read_json(base_url + 'last/' + str(days) + '?token=' + self.token, orient='records')
+		df_fut = pd.read_json(base_url + 'next/' + str(days) + '?token=' + self.token, orient='records')
+		df = pd.concat([df_past, df_fut])
+		if v: print('US Holidays:\n', df)
+		if save:
+			path = self.save_location + 'holidays.csv'
+			print(self.time_stamp() + 'Saved: ', path)
+			df.to_csv(path, index=False)
+		return df
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -499,6 +512,10 @@ if __name__ == '__main__':
 
 	if args.mode == 'splits':
 		data.get_splits(args.tickers, save=args.save)
+		exit()
+
+	if args.mode == 'holidays':
+		data.get_holidays(save=args.save, v=True)
 		exit()
 
 	if args.mode == 'symbols':
