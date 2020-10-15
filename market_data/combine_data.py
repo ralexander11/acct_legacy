@@ -93,7 +93,7 @@ class CombineData(object):
 			stats_df = self.load_data('stats', dates=dates)
 		merged = pd.merge(quote_df, stats_df, how='outer', left_index=True, right_index=True, suffixes=(None, '_y'), sort=False)
 		if save:
-			merged.to_csv(self.data_location + 'merged.csv')
+			merged.to_csv(self.data_location + 'merged.csv', index=True)
 			print(time_stamp() + 'Saved merged data!\n{}'.format(merged.head()))
 		return merged
 
@@ -113,6 +113,7 @@ class CombineData(object):
 				return
 			dates = pd.date_range(start=dates[0], end=dt.datetime.today(), freq='D').to_pydatetime().tolist()
 			dates = [date.strftime('%Y-%m-%d') for date in dates]
+			print('Number of dates:', len(dates))
 		if merged is None:
 			merged = self.merge_data(dates=dates)
 		elif '.csv' in merged:
@@ -152,7 +153,7 @@ class CombineData(object):
 				filename = self.data_location + 'merged_' + str(symbol[0]) + '.csv'
 			else:
 				filename = self.data_location + 'merged_' + str(symbol[0]) + '_to_' + str(symbol[-1]) + '.csv'
-			merged.to_csv(filename)
+			merged.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved data filtered for symbols: {}\nTo: {}'.format(symbol, filename))
 		return merged
 
@@ -170,7 +171,7 @@ class CombineData(object):
 				filename = self.data_location + 'merged_' + str(fields[0]) + '.csv'
 			else:
 				filename = self.data_location + 'merged_' + str(fields[0]) + '_to_' + str(fields[-1]) + '.csv'
-			merged.to_csv(filename)
+			merged.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved data filtered for fields: {}\nTo: {}'.format(fields, filename))
 		return merged#[fields]
 
@@ -190,6 +191,7 @@ class CombineData(object):
 				df = self.date_filter()
 		elif '.csv' in merged:
 			df = pd.read_csv(self.data_location + merged)
+		print('splits df:\n', df)
 		if splits is None:
 			# splits = input('Enter csv file name with split data: ')
 			if not splits:
@@ -209,12 +211,14 @@ class CombineData(object):
 		# Adjust data columns
 		adj_cols = ['factor','close','delayedPrice','extendedPrice','high','iexClose','iexRealtimePrice','latestPrice','low','oddLotDelayedPrice','open','previousClose','week52High','week52Low','day200MovingAvg','day50MovingAvg','week52high','week52low']
 		for col in adj_cols:
-			df[col] *= df['cur_factor']
-		df = df.set_index('date', append=True)
+			if col in df.columns.values:
+				df[col] *= df['cur_factor']
+		df.reset_index(drop=True, inplace=True)
 		if v: print('Data adjusted for stock splits:\n{}'.format(df))
 		if save:
+			# filename = self.data_location + 'merged.csv'
 			filename = self.data_location + 'merged.csv'
-			df.to_csv(filename)
+			df.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved data adjusted for stock splits to:\n{}'.format(filename))
 		return df
 
@@ -233,14 +237,15 @@ class CombineData(object):
 		dfs = []
 		for ticker in tickers:
 			tmp_df = df.loc[df['symbol'] == ticker]
-			# tmp_df['target'] = tmp_df['latestPrice'].shift(1)
-			tmp_df['target'].fillna(tmp_df['latestPrice'].shift(1), inplace=True) # TODO Test this
+			# tmp_df['target'] = tmp_df['latestPrice'].shift(-1)
+			tmp_df['target'].fillna(tmp_df['latestPrice'].shift(-1), inplace=True) # TODO Test this
 			dfs.append(tmp_df)
 		df = pd.concat(dfs)
+		df.reset_index(drop=True, inplace=True)
 		if v: print('Target price added to data:\n{}'.format(df))
 		if save:
 			filename = self.data_location + 'merged.csv'
-			df.to_csv(filename)
+			df.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(filename))
 		return df
 
@@ -255,14 +260,18 @@ class CombineData(object):
 			df = pd.read_csv(self.data_location + df)
 		df['date'] = pd.to_datetime(df['date'])
 		if v: print(df)
-		df = df[df['date'].dt.dayofweek < 5]
+		df = df.loc[(df['date'].dt.dayofweek < 5) | (df['sector'] == 'cryptocurrency')]
 		if v: print(df)
 		holidays = pd.read_csv(self.data_location + 'holidays.csv')
-		df = df[~df['date'].isin(holidays['date'])]
+		# df = df[~df['date'].isin(holidays['date'])]
+		df = df.loc[(~df['date'].isin(holidays['date'])) | (df['sector'] == 'cryptocurrency') | (df['primaryExchange'].isin(['Toronto Stock Exchange', 'TSX Venture Exchange']))]
+		cdn_holidays = ['2019-01-01', '2019-02-18', '2019-04-19', '2019-05-20', '2019-07-01', '2019-08-05', '2019-09-02', '2019-10-14', '2019-12-25', '2019-12-26', '2020-01-01', '2020-02-17', '2020-04-10', '2020-05-18', '2020-07-1', '2020-08-03', '2020-09-07', '2020-10-12', '2020-12-25', '2020-12-28']
+		df = df.loc[(~df['date'].isin(cdn_holidays)) | (df['sector'] == 'cryptocurrency') | (~df['primaryExchange'].isin(['Toronto Stock Exchange', 'TSX Venture Exchange']))]
+		df.reset_index(drop=True, inplace=True)
 		if v: print(df)
 		if save:
 			filename = self.data_location + 'merged.csv'
-			df.to_csv(filename)
+			df.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved data with weekends and US holidays scrubbed out to:\n{}'.format(filename))
 		return df
 
@@ -273,8 +282,8 @@ class CombineData(object):
 			args.tickers = merged['symbol'].unique().tolist()
 			merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, data=merged, since=True))
 			merged = combine_data.splits(merged)
-			merged = combine_data.target(merged)
 			merged = combine_data.scrub(merged)
+			merged = combine_data.target(merged)
 		else:
 			if args.dates is None:
 				args.dates = ['2020-01-24']
@@ -283,13 +292,24 @@ class CombineData(object):
 				args.tickers = args.tickers.iloc[:,0].unique().tolist()
 			merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=True))
 			merged = combine_data.splits(merged)
-			merged = combine_data.target(merged)
 			merged = combine_data.scrub(merged)
+			merged = combine_data.target(merged)
 		if save:
-			filename = data_location + 'merged.csv'
-			merged.to_csv(filename)
+			filename = self.data_location + 'merged.csv'
+			merged.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(args.dates[0], filename))
 		return merged
+
+	def get_tickers(self, df=None, save=False, v=False):
+		if df is None:
+			if os.path.exists('data/merged.csv'):
+				df = pd.read_csv('data/merged.csv')
+		df = pd.Series(df['symbol'].unique())
+		if save:
+			filename = self.data_location + 'all_tickers.csv'
+			df.to_csv(filename, index=False)
+			print(time_stamp() + 'Saved tickers to:\n{}'.format(filename))
+		return df
 
 	def fill_missing(self, missing=None, merged=None, save=False, v=False):
 		if v: print(time_stamp() + 'Missing File Save:', save)
@@ -317,7 +337,8 @@ class CombineData(object):
 		df = merged.set_index(['symbol','date'])
 		df = df.drop(['hist_close','hist_changePercent','hist_change','hist_changeOverTime','hist_high','hist_low','hist_open','hist_volume','hist_label','uClose','uHigh','uLow','uOpen'], axis=1, errors='ignore')
 		df['sector'] = df['sector'].astype(str)
-		df['latestEPSDate'] = df['latestEPSDate'].astype(str)
+		if 'latestEPSDate' in df.columns.values:
+			df['latestEPSDate'] = df['latestEPSDate'].astype(str)
 		df['nextEarningsDate'] = df['nextEarningsDate'].astype(str)
 		# df = df.drop(['calculationPrice','companyName_x','latestSource','latestTime','primaryExchange','sector','companyName_y','latestEPSDate','comment_merg','isUSMarketOpen','nextEarningsDate','nextDividendDate','exDividendDate','shortDate'], axis=1, errors='ignore')
 		# print(df)
@@ -385,11 +406,22 @@ class CombineData(object):
 		# df['oddLotDelayedPrice'].fillna(df['latestPrice'], inplace=True) # Not in merged
 		df['previousVolume'].fillna(df['latestVolume'].shift(1), inplace=True)
 
+		if 'factor' in df.columns.values:
+			df['factor'].fillna(df['factor'].shift(1), inplace=True)
+		if 'cur_factor' in df.columns.values:
+			df['cur_factor'].fillna(df['cur_factor'].shift(1), inplace=True)
+		# if 'target' in df.columns.values: # Rerun target() function instead
+		# 	df['target'].fillna(df['latestPrice'].shift(-1), inplace=True)
+
 		df['sector'].fillna(method='ffill', inplace=True)
 		df['avg30Volume'].fillna(df['avgTotalVolume'], inplace=True)
 		df['beta'].fillna(method='ffill', inplace=True)
-		df['companyName_x'].fillna(method='ffill', inplace=True)
-		df['companyName_y'].fillna(method='ffill', inplace=True)
+		if 'companyName' in df.columns.values:
+			df['companyName'].fillna(method='ffill', inplace=True)
+		if 'companyName_x' in df.columns.values:
+			df['companyName_x'].fillna(method='ffill', inplace=True)
+		if 'companyName_y' in df.columns.values:
+			df['companyName_y'].fillna(method='ffill', inplace=True)
 		df['employees'].fillna(method='ffill', inplace=True)
 		df['employees'].fillna(method='bfill', inplace=True)
 		df['float'].fillna(method='ffill', inplace=True)
@@ -428,8 +460,15 @@ class CombineData(object):
 		df['dividendYield'].fillna(method='ffill', inplace=True)
 		df['dividendYield'].fillna(method='bfill', inplace=True)
 
-		df['peRatio_x'].fillna(df['latestPrice'] / (df['peRatio_x'].shift(1) * df['latestPrice'].shift(1)), inplace=True)
-		df['peRatio_y'].fillna(df['peRatio_x'], inplace=True)
+		if 'peRatio' in df.columns.values:
+			df['peRatio'].fillna(df['latestPrice'] / (df['peRatio'].shift(1) * df['latestPrice'].shift(1)), inplace=True)
+		if 'peRatio_x' in df.columns.values:
+			df['peRatio_x'].fillna(df['latestPrice'] / (df['peRatio_x'].shift(1) * df['latestPrice'].shift(1)), inplace=True)
+		if 'peRatio_y' in df.columns.values:
+			if 'peRatio_x' in df.columns.values:
+				df['peRatio_y'].fillna(df['peRatio_x'], inplace=True)
+			else:
+				df['peRatio_y'].fillna(df['peRatio'], inplace=True)
 
 		# if v: print(time_stamp() + 'Step 4')
 		# df['day50MovingAvg'].fillna((((df['day50MovingAvg'].shift(1) * 49) + df['latestPrice']) / 50), inplace=True) #, fill_value=0 # Test if only needed in while loop
@@ -449,13 +488,13 @@ class CombineData(object):
 		if v: print(time_stamp() + 'Step 8')
 		# while df['day50MovingAvg'].isnull().values.any():
 		# 	df['day50MovingAvg'].fillna((((df['day50MovingAvg'].shift(1) * 49) + df['latestPrice']) / 50), inplace=True) # Old
-		while df['peRatio_x'].isnull().values.any():
-			current = df['peRatio_x'].isnull().values.sum()
-			if v: print(current)
-			# if current < 800000:
-			# 	break
-			df['peRatio_x'].fillna(df['latestPrice'] / (df['peRatio_x'].shift(1) * df['latestPrice'].shift(1)), inplace=True)
-		df['peRatio_y'].fillna(df['peRatio_x'], inplace=True)
+		while df['peRatio'].isnull().values.any():
+			current = df['peRatio'].isnull().values.sum()
+			# if v: print(current)
+			if current % 10000 == 0:
+				if v: print(current)
+			df['peRatio'].fillna(df['latestPrice'] / (df['peRatio'].shift(1) * df['latestPrice'].shift(1)), inplace=True)
+		df['peRatio_y'].fillna(df['peRatio'], inplace=True)
 		if v: print(time_stamp() + 'Step 9')
 		# with pd.option_context('display.max_rows', None):
 		# 	if v: print(time_stamp() + 'Missing data filled:\n', df[['day50MovingAvg','changePercent','close',]])#.head(20))
@@ -468,8 +507,7 @@ class CombineData(object):
 			display_dates = ['2019-09-13','2019-09-16','2019-10-01']
 			# if v: print(time_stamp() + 'missing_merged:\n', df.loc[df.index.get_level_values('date').isin(display_dates)])
 		if save:
-			filename = 'fill_ws_miss'
-			path = 'data/' + filename + '_merged.csv'
+			path = self.data_location + 'merged_filled.csv'
 			df.to_csv(path, date_format='%Y-%m-%d', index=True)
 			print(time_stamp() + 'Saved merged missing data to: {}'.format(path))
 		return df
@@ -485,6 +523,7 @@ class CombineData(object):
 				data = pd.read_csv(self.data_location + data)
 		df = data[['symbol','date','close','high','low','open','latestVolume','change','changePercent']]
 		df = df[df.isnull().values.any(axis=1)]
+		df = df.loc[~(df['symbol'].str.contains('-CV') | df['symbol'].str.contains('-CT'))]
 		print('Number of missing ticker-dates:', len(df))
 		if dates_only:
 			df = df['date'].unique()
@@ -492,8 +531,8 @@ class CombineData(object):
 		with pd.option_context('display.max_columns', None, 'display.max_rows', None):
 			if v: print(time_stamp() + 'Found Missing Fields: {}\n{}'.format(len(df), df))
 		if save:
-			filename = 'ws_new_miss_fields.csv'
-			path = 'data/' + filename
+			filename = 'miss_merged.csv'
+			path = self.data_location + filename
 			df.to_csv(path, date_format='%Y-%m-%d', index=True)
 			print(time_stamp() + 'Saved found missing fields to: {}'.format(path))
 		return df
@@ -522,8 +561,9 @@ if __name__ == '__main__':
 	combine_data = CombineData(data_location=data_location)
 
 	if args.mode == 'fill':
-		merged = 'ws_miss_merged.csv' #'merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
-		missing = 'A_to_ZZZ-CT_hist_prices_2019-08-26_to_2020-02-19.csv'
+		merged = 'merged.csv' # 'ws_miss_merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
+		missing = 'A_to_ZYME_hist_prices_2020-03-18_to_2020-03-19.csv'
+		# missing = 'A_to_ZZZ-CT_hist_prices_2019-08-26_to_2020-02-19.csv'
 		# 'AGR_to_ZZZD-CT_hist_prices_2019-09-11_to_2020-02-10.csv'
 		# 'a_to_zyne_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'aapl_to_aapl_hist_prices_2018-05-22_to_2020-01-22.csv'
@@ -531,7 +571,7 @@ if __name__ == '__main__':
 		df = combine_data.fill_missing(missing, merged, save=args.save, v=True)
 
 	elif args.mode == 'find':
-		data = 'ws_miss_merged.csv' # None # 'all_hist_prices_new4_merged.csv'
+		data = 'merged.csv' # 'ws_miss_merged.csv' # None # 'all_hist_prices_new4_merged.csv'
 		df = combine_data.find_missing(data, save=args.save, v=False)
 
 	elif args.mode == 'merged' or args.mode == 'merge':
@@ -571,15 +611,18 @@ if __name__ == '__main__':
 	elif args.mode == 'splits':
 		# merged = 'merged_TSLA_to_AAPL.csv'
 		merged = 'merged.csv'
-		df = combine_data.splits(merged, save=args.save)
+		df = combine_data.splits(merged, save=args.save, v=True)
 
 	elif args.mode == 'tar' or args.mode == 'target':
 		merged = 'merged.csv'
-		df = combine_data.target(merged, save=args.save)
+		df = combine_data.target(merged, save=args.save, v=True)
 
 	elif args.mode == 'scrub':
 		merged = 'merged.csv'
-		df = combine_data.scrub(merged, save=args.save)
+		df = combine_data.scrub(merged, save=args.save, v=True)
+
+	elif args.mode == 'gettickers':
+		df = combine_data.get_tickers(save=args.save, v=True)
 
 	elif args.mode == 'get':
 		df = combine_data.get(merged, save=args.save)
@@ -608,3 +651,5 @@ if __name__ == '__main__':
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/combine01.log 2>&1 &
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m fill -s >> /home/robale5/becauseinterfaces.com/acct/logs/fill03.log 2>&1 &
+
+# splits, scrub, tar

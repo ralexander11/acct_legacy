@@ -311,7 +311,7 @@ class MarketData(object):
 
 	def get_hist_price(self, data=None, save=False, v=True):
 		if data is None:
-			data = 'ws_new_miss_fields.csv'
+			data = 'miss_merged.csv' # 'ws_new_miss_fields.csv'
 		if '.csv' in data:
 			print(self.time_stamp() + 'Reading data from: data/{}'.format(data))
 			data = pd.read_csv('data/' + data)
@@ -325,6 +325,7 @@ class MarketData(object):
 				date = time.strptime(date, '%Y-%m-%d')
 			date = time.strftime('%Y%m%d', date)
 			if v: print(self.time_stamp() + '[' + str(i) + '] ' + base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=TOKEN')
+			# https://cloud.iexapis.com/stable/stock/aapl/chart/date/20201001?chartByDay=true&token=TOKEN
 			try:
 				result = pd.read_json(base_url + ticker + '/chart/date/' + date + '?chartByDay=true&token=' + self.token)
 			except:
@@ -568,6 +569,6 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -t cdn_tickers.csv -d all_dates.csv -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing05.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing11.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing12.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m splits -t '../data/ws_tickers.csv' -s >> /home/robale5/becauseinterfaces.com/acct/logs/splits01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m splits -t 'all_tickers.csv' -s >> /home/robale5/becauseinterfaces.com/acct/logs/splits02.log 2>&1 &
