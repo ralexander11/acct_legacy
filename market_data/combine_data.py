@@ -132,15 +132,21 @@ class CombineData(object):
 
 	def comp_filter(self, symbol, merged=None, flatten=False, save=False, v=False):
 		if merged is None:
+			# if os.path.exists('data/merged.csv'):
+			# 	merged = pd.read_csv('data/merged.csv')
+			# else:
 			merged = self.merge_data()
+		if symbol is None:
+			symbol = []
 		if not isinstance(symbol, (list, tuple)):
 			symbol = [x.strip().upper() for x in symbol.split(',')]
 		else:
 			if isinstance(symbol[-1], float): # xlsx causes last ticker to be nan
 				symbol = symbol[:-2]
 			symbol = list(map(str.upper, symbol))
-		merged = merged.reset_index(level='symbol')
-		merged = merged.loc[merged['symbol'].isin(symbol)]
+		merged = merged.reset_index()#level='symbol')
+		if symbol:
+			merged = merged.loc[merged['symbol'].isin(symbol)]
 		if flatten:
 			merged = merged.set_index('symbol', append=True)
 			# merged.columns = merged.columns.swaplevel(0, 1)
@@ -149,10 +155,13 @@ class CombineData(object):
 			merged.columns = ['_'.join(reversed(c)) for c in merged.columns]
 		if v: print('Data filtered for symbols:\n{}'.format(merged))
 		if save:
-			if len(symbol) == 1:
-				filename = self.data_location + 'merged_' + str(symbol[0]) + '.csv'
+			if symbol:
+				if len(symbol) == 1:
+					filename = self.data_location + 'merged_' + str(symbol[0]) + '.csv'
+				else:
+					filename = self.data_location + 'merged_' + str(symbol[0]) + '_to_' + str(symbol[-1]) + '.csv'
 			else:
-				filename = self.data_location + 'merged_' + str(symbol[0]) + '_to_' + str(symbol[-1]) + '.csv'
+				filename = self.data_location + 'merged.csv'
 			merged.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved data filtered for symbols: {}\nTo: {}'.format(symbol, filename))
 		return merged
@@ -222,31 +231,43 @@ class CombineData(object):
 			print(time_stamp() + 'Saved data adjusted for stock splits to:\n{}'.format(filename))
 		return df
 
-	def target(self, df=None, save=False, v=False):
-		if df is None:
+	def mark_miss(self, merged=None, save=False, v=False):
+		if merged is None:
 			if os.path.exists('data/merged.csv'):
 				df = pd.read_csv('data/merged.csv')
 			else:
 				# df = self.merge_data()
 				df = self.date_filter()
-		elif '.csv' in df:
-			df = pd.read_csv(self.data_location + df)
+		elif '.csv' in merged:
+			df = pd.read_csv(self.data_location + merged)
+		else:
+			df = merged.copy(deep=True)
+		if args.tickers:
+			if not isinstance(args.tickers, (list, tuple)):
+				args.tickers = [x.strip().upper() for x in args.tickers.split(',')]
+			df = df.loc[df['symbol'].isin(args.tickers)]
 		if 'target' not in df.columns.values:
 			df['target'] = None
 		tickers = df['symbol'].unique().tolist()
 		dfs = []
 		for ticker in tickers:
 			tmp_df = df.loc[df['symbol'] == ticker]
-			# tmp_df['target'] = tmp_df['latestPrice'].shift(-1)
-			tmp_df['target'].fillna(tmp_df['latestPrice'].shift(-1), inplace=True) # TODO Test this
+			min_date = tmp_df['date'].min()
+			max_date = tmp_df['date'].max()
+			if v: print('min_date:', min_date)
+			if v: print('max_date:', max_date)
+			tmp_df.set_index(pd.DatetimeIndex(tmp_df['date']), inplace=True)
+			miss_dates = pd.date_range(start=min_date, end=max_date).difference(tmp_df.index)
+			miss_dates = [(date - pd.to_timedelta(1, unit='d')).strftime('%Y-%m-%d') for date in miss_dates]
+			if v: print('miss_dates:\n', miss_dates)
+			tmp_df['target'] = tmp_df.apply(lambda x: 'miss' if x['date'] in miss_dates else x['target'], axis=1)
 			dfs.append(tmp_df)
 		df = pd.concat(dfs)
-		df.reset_index(drop=True, inplace=True)
-		if v: print('Target price added to data:\n{}'.format(df))
+		print('Data marked for missing dates:\n{}'.format(df))
 		if save:
 			filename = self.data_location + 'merged.csv'
 			df.to_csv(filename, index=False)
-			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(filename))
+			print(time_stamp() + 'Saved data marked for missing dates to:\n{}'.format(filename))
 		return df
 
 	def scrub(self, df=None, save=False, v=False):
@@ -275,23 +296,56 @@ class CombineData(object):
 			print(time_stamp() + 'Saved data with weekends and US holidays scrubbed out to:\n{}'.format(filename))
 		return df
 
+	def target(self, df=None, save=False, v=False):
+		if df is None:
+			if os.path.exists('data/merged.csv'):
+				df = pd.read_csv('data/merged.csv')
+			else:
+				# df = self.merge_data()
+				df = self.date_filter()
+		elif '.csv' in df:
+			df = pd.read_csv(self.data_location + df)
+		if 'target' not in df.columns.values:
+			df['target'] = None
+		tickers = df['symbol'].unique().tolist()
+		dfs = []
+		for ticker in tickers:
+			tmp_df = df.loc[df['symbol'] == ticker]
+			# tmp_df['target'] = tmp_df['latestPrice'].shift(-1)
+			tmp_df['target'].fillna(tmp_df['latestPrice'].shift(-1), inplace=True) # TODO Test this
+			dfs.append(tmp_df)
+		df = pd.concat(dfs)
+		df['target'] = df.apply(lambda x: None if x['target'] == 'miss' else x['target'], axis=1)
+		df.reset_index(drop=True, inplace=True)
+		if v: print('Target price added to data:\n{}'.format(df))
+		if save:
+			filename = self.data_location + 'merged.csv'
+			df.to_csv(filename, index=False)
+			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(filename))
+		return df
+
 	def get(self, save=False, v=False):
 		if os.path.exists('data/merged.csv'):
+			if v: print('Merged data exists for get:')
 			merged = pd.read_csv('data/merged.csv')
 			args.dates = [merged['date'].max() + 1]
-			args.tickers = merged['symbol'].unique().tolist()
-			merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, data=merged, since=True))
+			if v: print('Dates:', args.dates)
+			# args.tickers = merged['symbol'].unique().tolist()
+			# merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, data=merged, since=True))
+			merged = combine_data.date_filter(args.dates, data=merged, since=True)
 			merged = combine_data.splits(merged)
+			merged = combine_data.mark_miss(merged)
 			merged = combine_data.scrub(merged)
 			merged = combine_data.target(merged)
 		else:
 			if args.dates is None:
 				args.dates = ['2020-01-24']
-			if args.tickers is None:
-				args.tickers = pd.read_csv('../data/ws_tickers.csv', header=None)
+			# if args.tickers is None:
+			# 	args.tickers = pd.read_csv('../data/ws_tickers.csv', header=None)
 				args.tickers = args.tickers.iloc[:,0].unique().tolist()
 			merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=True))
 			merged = combine_data.splits(merged)
+			merged = combine_data.mark_miss(merged)
 			merged = combine_data.scrub(merged)
 			merged = combine_data.target(merged)
 		if save:
@@ -608,6 +662,20 @@ if __name__ == '__main__':
 		else:
 			print('Value option only works when one field, date, and ticker are provided.')
 
+	elif args.mode == 'test':
+		merged = 'merged.csv'
+		df = pd.read_csv('data/' + merged)
+		df = df.loc[df['symbol'] == 'TSLA']
+		print(df)
+		print(df.tail(20))
+		exit()
+
+	elif args.mode == 'mark':
+		# merged = 'merged_TSLA_to_AAPL.csv'
+		# merged = 'merged.csv'
+		merged = None
+		df = combine_data.mark_miss(merged, save=args.save, v=False)
+
 	elif args.mode == 'splits':
 		# merged = 'merged_TSLA_to_AAPL.csv'
 		merged = 'merged.csv'
@@ -652,4 +720,4 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m fill -s >> /home/robale5/becauseinterfaces.com/acct/logs/fill03.log 2>&1 &
 
-# splits, scrub, tar
+# splits, mark, scrub, tar
