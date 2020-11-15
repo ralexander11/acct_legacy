@@ -354,6 +354,27 @@ class CombineData(object):
 			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(args.dates[0], filename))
 		return merged
 
+	def crypto_data(self, merged=None, prep=False, save=False, v=False):
+		if merged is None:
+			merged = 'merged.csv'
+		if v: print(time_stamp() + 'Loading data from:', merged)
+		df = pd.read_csv('data/' + merged)
+		df = df.loc[df['sector'] == 'cryptocurrency']
+		if prep:
+			# Keep certain columns
+			# df.dropna(axis=1, how='all', inplace=True)
+			# cols = ['symbol','date','askPrice','askSize','bidPrice','bidSize','high','latestPrice','latestVolume','low','previousClose','target'] # After 2020-07-26
+			cols = ['symbol','date','askPrice','askSize','bidPrice','bidSize','latestPrice','target']
+			df = df[cols]
+			df.dropna(inplace=True)
+		if v: print(df)
+		if args.save:
+			filename = 'crypto_merged.csv'
+			path = self.data_location + filename
+			df.to_csv(path, date_format='%Y-%m-%d', index=False)
+			print(time_stamp() + 'Saved crypto data to: {}'.format(path))
+		return df
+
 	def get_tickers(self, df=None, save=False, v=False):
 		if df is None:
 			if os.path.exists('data/merged.csv'):
@@ -662,13 +683,8 @@ if __name__ == '__main__':
 		else:
 			print('Value option only works when one field, date, and ticker are provided.')
 
-	elif args.mode == 'test':
-		merged = 'merged.csv'
-		df = pd.read_csv('data/' + merged)
-		df = df.loc[df['symbol'] == 'TSLA']
-		print(df)
-		print(df.tail(20))
-		exit()
+	elif args.mode == 'crypto':
+		df = combine_data.crypto_data(save=args.save, v=True)
 
 	elif args.mode == 'mark':
 		# merged = 'merged_TSLA_to_AAPL.csv'
