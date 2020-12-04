@@ -5276,7 +5276,7 @@ class Entity:
 				print('{} lacks time to claim {} units of {}. Can claim {} units with {} hours time.'.format(entity.name, orig_qty, item, qty, entity.hours))
 				self.item_demanded(item, orig_qty, priority=priority)
 				return
-			print('{} lacks time to claim {} units of {}. But can claim {} units with {} hours time instead.'.format(entity.name, orig_qty, item, qty, entity.hours))
+			print('{} lacks time to claim {} units of {}. But can claim {} units with {} hours of time instead.'.format(entity.name, orig_qty, item, qty, entity.hours))
 			if self.user:
 				while True:
 					confirm = input('Do you want to claim {} units of {} instead? [Y/n]: '.format(qty, item))

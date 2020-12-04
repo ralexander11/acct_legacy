@@ -64,13 +64,13 @@ Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","4, 1, 1",Non
 Yarn,None,None,None,Commodity,"Cotton, Spinning","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill
 Cloth,None,None,None,Commodity,"Yarn, Weaving","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill
 Cotton Gin,None,None,start,Equipment,"Metal, Wood","2, 30",10,None,None,None,None,None,None,None,None,None,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
-Cotton Spinner,None,None,start,Equipment,"Metal, Wood, Cotton Gin","2, 30, 1",10,None,None,Cotton Gin,1,None,None,None,Spinning,0.50,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
+Cotton Spinner,None,None,start,Equipment,"Metal, Wood, Cotton Gin","2, 30, 1",100,None,None,Cotton Gin,1,None,None,None,Spinning,0.50,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
 Tailor,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Clothing,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Basic Clothing,None,None,continuous,Clothing,"Cloth, Tailor","2, 10",1,None,None,None,None,None,Clothing,2,None,None,100,equipped,None,None,None,10,None,None,Individual
 Small Tent,None,None,start,Equipment,"Cloth, Wood","2, 20",1,None,None,None,None,None,Shelter,5,None,None,"100, 2000","usage, ticks",None,None,None,10,None,None,Individual
 #Leather Clothing,None,None,continuous,Clothing,"Leather, Tanner","20, 10",1,None,None,None,None,None,Clothing,1,None,None,100,equipped,None,None,None,40,None,None,Individual
-Forge,None,None,continuous,Equipment,"Bellows, Wood, Rock, Clay","1, 5, 30, 15",None,None,None,None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,Blacksmith
+Forge,None,None,continuous,Equipment,"Bellows, Wood, Rock, Clay","1, 5, 30, 15",100,None,None,None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,Blacksmith
 Metal Working,None,None,None,Technology,"Time","100",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Metal,None,None,None,Commodity,"Metal Working, Forge, Ore","1, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,Smelter
 Anvil,None,None,continuous,Equipment,"Time, Land, Metal","2, 1, 50",1,"Land","2",None,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,Blacksmith

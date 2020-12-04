@@ -1,427 +1,709 @@
-# import acct
-# import trade
-# from market_data.market_data import MarketData
-from market_data.combine_data import CombineData
+#!/usr/bin/env python
+# coding: utf-8
 
-import tensorflow as tf
+# ##### Copyright 2018 The TensorFlow Authors.
+
+# In[1]:
+
+
+#@title Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# In[2]:
+
+
+#@title MIT License
+#
+# Copyright (c) 2017 François Chollet
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
+
+# # Basic regression: Predict fuel efficiency
+
+# <table class="tfo-notebook-buttons" align="left">
+#   <td>
+#     <a target="_blank" href="https://www.tensorflow.org/tutorials/keras/regression"><img src="https://www.tensorflow.org/images/tf_logo_32px.png" />View on TensorFlow.org</a>
+#   </td>
+#   <td>
+#     <a target="_blank" href="https://colab.research.google.com/github/tensorflow/docs/blob/master/site/en/tutorials/keras/regression.ipynb"><img src="https://www.tensorflow.org/images/colab_logo_32px.png" />Run in Google Colab</a>
+#   </td>
+#   <td>
+#     <a target="_blank" href="https://github.com/tensorflow/docs/blob/master/site/en/tutorials/keras/regression.ipynb"><img src="https://www.tensorflow.org/images/GitHub-Mark-32px.png" />View source on GitHub</a>
+#   </td>
+#   <td>
+#     <a href="https://storage.googleapis.com/tensorflow_docs/docs/site/en/tutorials/keras/regression.ipynb"><img src="https://www.tensorflow.org/images/download_logo_32px.png" />Download notebook</a>
+#   </td>
+# </table>
+
+# In a *regression* problem, we aim to predict the output of a continuous value, like a price or a probability. Contrast this with a *classification* problem, where we aim to select a class from a list of classes (for example, where a picture contains an apple or an orange, recognizing which fruit is in the picture).
+# 
+# This notebook uses the classic [Auto MPG](https://archive.ics.uci.edu/ml/datasets/auto+mpg) Dataset and builds a model to predict the fuel efficiency of late-1970s and early 1980s automobiles. To do this, we'll provide the model with a description of many automobiles from that time period. This description includes attributes like: cylinders, displacement, horsepower, and weight.
+# 
+# This example uses the `tf.keras` API, see [this guide](https://www.tensorflow.org/guide/keras) for details.
+
+# In[3]:
+
+
+# Use seaborn for pairplot
+# get_ipython().system('pip install -q seaborn')
+
+
+# In[4]:
+
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import argparse
-import datetime
+import seaborn as sns
+import datetime as dt
 import os
-import gc
 
-# tf.compat.v1.disable_eager_execution()
 
-server = False
-if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
-	server = True
+# Make numpy printouts easier to read.
+np.set_printoptions(precision=3, suppress=True)
 
-if not server:
-	import matplotlib as mpl
-	import matplotlib.pyplot as plt
-	mpl.rcParams['figure.figsize'] = (8, 6)
-	mpl.rcParams['axes.grid'] = False
 
-v = True
-DISPLAY_WIDTH = 98
-# TRAIN_SPLIT = 300000 # Automate as 70%
-BATCH_SIZE = 256
-BUFFER_SIZE = 10000
-EVALUATION_INTERVAL = 200 # steps_per_epoch
-EPOCHS = 10
-HISTORY_SIZE = 2 #720
-TARGET_SIZE = 0 #72
-STEP = 1 #6
-tf.random.set_seed(13)
-DATA_NEEDED = 100
+# In[5]:
 
-# Download data
-# zip_path = tf.keras.utils.get_file(origin='https://storage.googleapis.com/tensorflow/tf-keras-datasets/jena_climate_2009_2016.csv.zip', fname='jena_climate_2009_2016.csv.zip', extract=True)
-# csv_path, _ = os.path.splitext(zip_path)
-csv_path = 'data/jena_climate_2009_2016.csv'
+
+import tensorflow as tf
+
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.layers.experimental import preprocessing
 
 def time_stamp(offset=0):
 	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
 		offset = 4
-	time_stamp = (datetime.datetime.now() + datetime.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
+	time_stamp = (dt.datetime.now() + dt.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
 	return time_stamp
 
-def create_time_steps(length):
-	time_steps = []
-	for i in range(-length, 0, 1):
-		time_steps.append(i)
-	return time_steps
-
-def show_plot(plot_data, delta, title):
-	labels = ['History', 'True Future', 'Model Prediction']
-	marker = ['.-', 'rx', 'go']
-	time_steps = create_time_steps(plot_data[0].shape[0])
-	if delta:
-		future = delta
-	else:
-		future = 0
-	plt.title(title)
-	for i, x in enumerate(plot_data):
-		if i:
-			plt.plot(future, plot_data[i], marker[i], markersize=10, label=labels[i])
-		else:
-			plt.plot(time_steps, plot_data[i].flatten(), marker[i], label=labels[i])
-	plt.legend()
-	plt.xlim([time_steps[0], (future+5)*2])
-	plt.xlabel('Time-Step')
-	return plt
-
-def multivariate_data(dataset, target, start_index, end_index, history_size, target_size, step=1, single_step=True, v=False):
-	count = 0
-	if v: print('\nstart_index:', start_index)
-	if v: print('end_index:', end_index)
-	if v: print('history_size:', history_size)
-	if v: print('target_size:', target_size)
-	if v: print('step:', step)
-	data = []
-	labels = []
-	prior = None
-
-	start_index = start_index + history_size
-	if end_index is None:
-		end_index = len(dataset) - target_size
-	if v: print('start_index_2:', start_index)
-	if v: print('end_index_2:', end_index)
-	if v: print('range:', range(start_index, end_index))
-	if v: print()
-
-	for i in range(start_index, end_index):
-		count += 1
-		cond = count == 1
-		if v and cond: print('count:', count)
-		indices = range(i-history_size, i, step)
-		if v and cond: print('indices:', indices)
-		data.append(dataset[indices])
-		if v and cond: print('data:\n', data)
-		if v and cond: print('data len:', len(data))
-		if v and cond: print('data len[0]:', len(data[0]))
-		if single_step:
-			labels.append(target[i+target_size])
-			if count == 1:
-				prior_index = (i+target_size) - 1
-				prior = target[prior_index]
-				if v: print('prior_index:', prior_index)
-				if v: print('prior:', prior)
-			if v and cond: print('target index:', (i+target_size))
-			if v and cond: print('labels:\n', labels)
-		else:
-			labels.append(target[i:i+target_size])
-			if cond:
-				prior_index = (i+target_size) - 1
-				prior = target[prior_index]
-
-	return np.array(data), np.array(labels), prior
-
-def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=False):
-	# TODO Maybe make data_mean, data_std instance variables
-	print('-' * DISPLAY_WIDTH)
-	print(time_stamp() + 'Prep data...')
-	if not isinstance(path, str):
-		df = path
-		df = df.dropna(subset=['iexLastUpdated']) # TODO Do this when train=True?
-		# with pd.option_context('display.max_columns', None):
-		# 	print(df)#.head())
-		datetime_cols = ['closeTime', 'delayedPriceTime', 'extendedPriceTime', 'iexLastUpdated', 'latestTime', 'latestUpdate', 'openTime', 'exDividendDate', 'latestEPSDate', 'shortDate', 'lastTradeTime']
-		all_zeros_cols = ['iexAskPrice', 'iexAskSize', 'iexBidPrice', 'iexBidSize', 'dividendRate', 'dividendYield', 'peRatioHigh', 'peRatioLow']
-		categorical_data_cols = ['calculationPrice', 'companyName_x', 'latestSource', 'companyName_y', 'primaryExchange', 'sector']
-		all_nan_cols = ['askPrice', 'askSize', 'bidPrice', 'bidSize', 'EPSSurpriseDollar', 'returnOnCapital']
-		has_nan_cols = ['insiderPercent', 'priceToBook']
-		unsure_cols = ['institutionPercent']
-		drop_cols = datetime_cols + all_zeros_cols + categorical_data_cols + all_nan_cols + has_nan_cols + unsure_cols
-		dataset = df.drop(drop_cols, axis=1, errors='ignore')
-		cols = ['changePercent', 'day50MovingAvg', 'latestPrice']
-		dataset = dataset[cols]
-		if v: print(dataset)#.head())
-		for tar_col, col in enumerate(dataset.columns.values.tolist()):
-			if col == 'latestPrice':
-				break
-		if v: print('latestPrice tar_col:', tar_col)
-		# dataset.plot(subplots=True)
-		# plt.show()
-		# exit()
-
-	else: # From an example in the documentation
-		df = pd.read_csv(path)
-		dataset = df[['p (mbar)', 'T (degC)', 'rho (g/m**3)']]
-		dataset.index = df['Date Time']
-		tar_col = 1
-		if v: print(dataset)#.head())
-		# features.plot(subplots=True)
-		# plt.show()
-	dataset = dataset.values
-	# if v: print('dataset:\n', dataset)
-	if train:
-		TRAIN_SPLIT = int(len(dataset) * 0.7)
-	else:
-		TRAIN_SPLIT = len(dataset)
-	if v: print('dataset len:', len(dataset))
-	if v: print('train_split:', TRAIN_SPLIT)
-	if v: print('val_split:', len(dataset) - TRAIN_SPLIT)
-	if norm:
-		if data_mean is None:
-			data_mean = dataset[:TRAIN_SPLIT].mean(axis=0)
-		if v: print('data_mean:', data_mean)
-		if data_std is None:
-			data_std = dataset[:TRAIN_SPLIT].std(axis=0)
-		if v: print('data_std: ', data_std)
-		dataset = (dataset - data_mean) / data_std
-		df_mean_std = pd.DataFrame(columns=cols, data=[data_mean, data_std], index=None)
-		if v: print('df_mean_std:\n', df_mean_std)
-	if v: print('dataset normalized[5]:\n', dataset[:5])
-	if v: print('target[5]:\n', (dataset[:, tar_col])[:5])
-	if v: print('target len:', len(dataset[:, 1]))
-	x_train, y_train, _ = multivariate_data(dataset, dataset[:, tar_col], 0, TRAIN_SPLIT, HISTORY_SIZE, TARGET_SIZE, STEP, single_step=True, v=v)
-	x_val, y_val, prior = multivariate_data(dataset, dataset[:, tar_col], TRAIN_SPLIT, None, HISTORY_SIZE, TARGET_SIZE, STEP, single_step=True, v=v)
-	if v: print('\nx_train[3]:\n{}'.format(x_train[:3]))#.shape))
-	if v: print('y_train[3]: {}'.format(y_train[:3]))#[0].shape))
-	if v: print('x_val[3]:\n{}'.format(x_val[:3]))#.shape))
-	if v: print('y_val[3]: {}'.format(y_val[:3]))#[0].shape))
-	if v: print()
+print(time_stamp() +'TensorFlow Version:', tf.__version__)
 
 
-	train_data = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-	train_data = train_data.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).repeat()
-	if v: print('\ntrain_data:', train_data)
-	val_data = tf.data.Dataset.from_tensor_slices((x_val, y_val))
-	val_data = val_data.batch(BATCH_SIZE).repeat()
-	if v: print('val_data:  ', val_data)
-	# if v: print('val_data len:\n', len(val_data))
-	# exit()
-	return train_data, val_data, x_train, tar_col, prior, data_mean, data_std, df_mean_std
+# ## The Auto MPG dataset
+# 
+# The dataset is available from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/).
+# 
 
-def create_model(x_train, v=False):
-	print('\n' + time_stamp() + 'Create model...')
-	if x_train.size == 0:
-		return
-	if v: print(x_train.shape)
-	if v: print(x_train.shape[-2:])
-	if v: print()
-	# exit()
-	model = tf.keras.models.Sequential()
-	model.add(tf.keras.layers.LSTM(32, input_shape=x_train.shape[-2:]))
-	model.add(tf.keras.layers.Dense(1))
+# ### Get the data
+# First download and import the dataset using pandas:
 
-	model.compile(optimizer=tf.keras.optimizers.RMSprop(), loss='mae')
+# In[6]:
+
+
+# url = 'http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data'
+# column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
+				# 'Acceleration', 'Model Year', 'Origin']
+url = 'http://becauseinterfaces.com/acct/market_data/data/crypto_prep_merged.csv'
+column_names = ['symbol','date','askPrice','askSize','bidPrice','bidSize','latestPrice','target']
+
+# raw_dataset = pd.read_csv(url, names=column_names,
+# 						  na_values='?', comment='\t',
+# 						  sep=' ', skipinitialspace=True)
+raw_dataset = pd.read_csv(url, names=column_names)
+
+
+# In[7]:
+
+
+dataset = raw_dataset.copy()
+# print(dataset.tail())
+
+dataset = dataset.loc[dataset['symbol'] == 'BTCUSDT']
+dataset.drop(['symbol','date'], axis=1, inplace=True)
+print(dataset.dtypes)
+dataset = dataset.astype('float')
+print(dataset.dtypes)
+print(dataset.tail())
+
+
+# ### Clean the data
+# 
+# The dataset contains a few unknown values.
+
+# In[8]:
+
+
+# dataset.isna().sum()
+
+
+# Drop those rows to keep this initial tutorial simple.
+
+# In[9]:
+
+
+# dataset = dataset.dropna()
+
+
+# The `"Origin"` column is really categorical, not numeric. So convert that to a one-hot:
+# 
+# Note: You can set up the `keras.Model` to do this kind of transformation for you. That's beyond the scope of this tutorial. See the [preprocessing layers](../structured_data/preprocessing_layers.ipynb) or [Loading CSV data](../load_data/csv.ipynb) tutorials for examples.
+
+# In[10]:
+
+
+# dataset['Origin'] = dataset['Origin'].map({1: 'USA', 2: 'Europe', 3: 'Japan'})
+
+
+# In[11]:
+
+
+# dataset = pd.get_dummies(dataset, prefix='', prefix_sep='')
+# dataset.tail()
+
+
+# ### Split the data into train and test
+# 
+# Now split the dataset into a training set and a test set.
+# 
+# We will use the test set in the final evaluation of our models.
+
+# In[12]:
+
+
+# train_dataset = dataset.sample(frac=0.8, random_state=0)
+frac = int(len(dataset) * 0.8)
+print(time_stamp() + 'frac:', frac)
+train_dataset = dataset[:frac]
+test_dataset = dataset.drop(train_dataset.index)
+
+
+# ### Inspect the data
+# 
+# Have a quick look at the joint distribution of a few pairs of columns from the training set.
+# 
+# Looking at the top row it should be clear that the fuel efficiency (MPG) is a function of all the other parameters. Looking at the other rows it should be clear that they are each functions of eachother.
+
+# In[13]:
+
+
+# sns.pairplot(train_dataset[['MPG', 'Cylinders', 'Displacement', 'Weight']], diag_kind='kde')
+
+
+# Also look at the overall statistics, note how each feature covers a very different range:
+
+# In[14]:
+
+print(time_stamp() + 'Dataset Statistics Summary')
+print(train_dataset.describe().transpose())
+
+# ### Split features from labels
+# 
+# Separate the target value, the "label", from the features. This label is the value that you will train the model to predict.
+
+# In[15]:
+
+
+train_features = train_dataset.copy()
+test_features = test_dataset.copy()
+
+train_labels = train_features.pop('target')
+test_labels = test_features.pop('target')
+
+
+# ## Normalization
+# 
+# In the table of statistics it's easy to see how different the ranges of each feature are.
+
+# In[16]:
+
+
+# train_dataset.describe().transpose()[['mean', 'std']]
+
+
+# It is good practice to normalize features that use different scales and ranges. 
+# 
+# One reason this is important is because the features are multiplied by the model weights. So the scale of the outputs and the scale of the gradients are affected by the scale of the inputs. 
+# 
+# Although a model *might* converge without feature normalization, normalization makes training much more stable. 
+
+# ### The Normalization layer
+# The `preprocessing.Normalization` layer is a clean and simple way to build that preprocessing into your model.
+# 
+# The first step is to create the layer:
+
+# In[17]:
+
+
+normalizer = preprocessing.Normalization()
+
+
+# Then `.adapt()` it to the data:
+
+# In[18]:
+
+normalizer.adapt(np.array(train_features))
+
+
+# This calculates the mean and variance, and stores them in the layer. 
+
+# In[19]:
+
+
+print(time_stamp() + 'Normalized Mean:')
+print(normalizer.mean.numpy())
+
+
+# When the layer is called it returns the input data, with each feature independently normalized:
+
+# In[20]:
+
+
+first = np.array(train_features[:1])
+
+with np.printoptions(precision=2, suppress=True):
+	print('First example:', first)
+	print()
+	print('Normalized:', normalizer(first).numpy())
+
+# ## Linear regression
+# 
+# Before building a DNN model, start with a linear regression.
+
+# ### One Variable
+# 
+# Start with a single-variable linear regression, to predict `MPG` from `Horsepower`.
+# 
+# Training a model with `tf.keras` typically starts by defining the model architecture.
+# 
+# In this case use a `keras.Sequential` model. This model represents a sequence of steps. In this case there are two steps:
+# 
+# * Normalize the input `horsepower`.
+# * Apply a linear transformation ($y = mx+b$) to produce 1 output using `layers.Dense`.
+# 
+# The number of _inputs_ can either be set by the `input_shape` argument, or automatically when the model is run for the first time.
+
+# First create the horsepower `Normalization` layer:
+
+# In[21]:
+
+
+latestPrice = np.array(train_features['latestPrice'])
+
+latestPrice_normalizer = preprocessing.Normalization(input_shape=[1,])
+latestPrice_normalizer.adapt(latestPrice)
+
+
+# Build the sequential model:
+
+# In[22]:
+
+
+latestPrice_model = tf.keras.Sequential([
+	latestPrice_normalizer,
+	layers.Dense(units=1)
+])
+
+latestPrice_model.summary()
+
+
+# This model will predict `MPG` from `Horsepower`.
+# 
+# Run the untrained model on the first 10 horse-power values. The output won't be good, but you'll see that it has the expected shape, `(10,1)`:
+
+# In[23]:
+
+
+latestPrice_model.predict(latestPrice[:10])
+
+
+# Once the model is built, configure the training procedure using the `Model.compile()` method. The most important arguments to compile are the `loss` and the `optimizer` since these define what will be optimized (`mean_absolute_error`) and how (using the `optimizers.Adam`).
+
+# In[24]:
+
+
+latestPrice_model.compile(
+	optimizer=tf.optimizers.Adam(learning_rate=0.1),
+	loss='mean_absolute_error')
+
+
+# Once the training is configured, use `Model.fit()` to execute the training:
+
+# In[25]:
+
+
+# get_ipython().run_cell_magic('time', '', "history = horsepower_model.fit(\n    train_features['Horsepower'], train_labels,\n    epochs=100,\n    # suppress logging\n    verbose=0,\n    # Calculate validation results on 20% of the training data\n    validation_split = 0.2)")
+history = latestPrice_model.fit(
+	train_features['latestPrice'], train_labels,
+	epochs=100,
+	# suppress logging
+	verbose=0,
+	# Calculate validation results on 20% of the training data
+	validation_split = 0.2)
+
+
+# Visualize the model's training progress using the stats stored in the `history` object.
+
+# In[26]:
+
+
+hist = pd.DataFrame(history.history)
+hist['epoch'] = history.epoch
+print(hist.tail())
+
+
+# In[27]:
+
+
+def plot_loss(history):
+  plt.plot(history.history['loss'], label='loss')
+  plt.plot(history.history['val_loss'], label='val_loss')
+  plt.ylim([0, 10])
+  plt.xlabel('Epoch')
+  plt.ylabel('Error [target]')
+  plt.legend()
+  plt.grid(True)
+
+
+# In[28]:
+
+
+# plot_loss(history)
+
+
+# Collect the results on the test set, for later:
+
+# In[29]:
+
+
+test_results = {}
+
+test_results['latestPrice_model'] = latestPrice_model.evaluate(
+	test_features['latestPrice'],
+	test_labels, verbose=0)
+
+
+# SInce this is a single variable regression it's easy to look at the model's predictions as a function of the input:
+
+# In[30]:
+
+
+x = tf.linspace(0.0, 250, 251)
+y = latestPrice_model.predict(x)
+
+
+# In[31]:
+
+
+def plot_latestPrice(x, y):
+  plt.scatter(train_features['latestPrice'], train_labels, label='Data')
+  plt.plot(x, y, color='k', label='Predictions')
+  plt.xlabel('latestPrice')
+  plt.ylabel('target')
+  plt.legend()
+
+
+# In[32]:
+
+
+# plot_latestPrice(x,y)
+
+# ### Multiple inputs
+
+# You can use an almost identical setup to make predictions based on multiple inputs. This model still does the same $y = mx+b$ except that $m$ is a matrix and $b$ is a vector.
+# 
+# This time use the `Normalization` layer that was adapted to the whole dataset.
+
+# In[33]:
+
+
+linear_model = tf.keras.Sequential([
+	normalizer,
+	layers.Dense(units=1)
+])
+
+
+# When you call this model on a batch of inputs, it produces `units=1` outputs for each example.
+
+# In[34]:
+
+
+linear_model.predict(train_features[:10])
+
+
+# When you call the model it's weight matrices will be built. Now you can see that the `kernel` (the $m$ in $y=mx+b$) has a shape of `(9,1)`.
+
+# In[35]:
+
+
+linear_model.layers[1].kernel
+
+
+# Use the same `compile` and `fit` calls as for the single input `horsepower` model:
+
+# In[36]:
+
+
+linear_model.compile(
+	optimizer=tf.optimizers.Adam(learning_rate=0.1),
+	loss='mean_absolute_error')
+
+
+# In[37]:
+
+
+# get_ipython().run_cell_magic('time', '', 'history = linear_model.fit(\n    train_features, train_labels, \n    epochs=100,\n    # suppress logging\n    verbose=0,\n    # Calculate validation results on 20% of the training data\n    validation_split = 0.2)')
+history = linear_model.fit(
+	train_features, train_labels,
+	epochs=100,
+	# suppress logging
+	verbose=0,
+	# Calculate validation results on 20% of the training data
+	validation_split = 0.2)
+
+
+# Using all the inputs achieves a much lower training and validation error than the `horsepower` model: 
+
+# In[38]:
+
+
+# plot_loss(history)
+
+
+# Collect the results on the test set, for later:
+
+# In[39]:
+
+
+test_results['linear_model'] = linear_model.evaluate(
+	test_features, test_labels, verbose=0)
+
+
+# ## A DNN regression
+
+# The previous section implemented linear models for single and multiple inputs.
+# 
+# This section implements single-input and multiple-input DNN models. The code is basically the same except the model is expanded to include some "hidden"  non-linear layers. The name "hidden" here just means not directly connected to the inputs or outputs.
+
+# These models will contain a few more layers than the linear model:
+# 
+# * The normalization layer.
+# * Two hidden, nonlinear, `Dense` layers using the `relu` nonlinearity.
+# * A linear single-output layer.
+# 
+# Both will use the same training procedure so the `compile` method is included in the `build_and_compile_model` function below.
+
+# In[40]:
+
+
+def build_and_compile_model(norm):
+	model = keras.Sequential([
+		norm,
+		layers.Dense(64, activation='relu'),
+		layers.Dense(64, activation='relu'),
+		layers.Dense(1)
+	])
+
+	model.compile(loss='mean_absolute_error',
+				optimizer=tf.keras.optimizers.Adam(0.001))
 	return model
 
-def train_model(model, train_data, val_data, v=False):
-	print('\n' + time_stamp() + 'Train model...')
-	history = model.fit(train_data, epochs=EPOCHS, steps_per_epoch=EVALUATION_INTERVAL, validation_data=val_data, validation_steps=50)
-	return history
 
-def plot_train_history(history, title, v=False):
-	loss = history.history['loss']
-	val_loss = history.history['val_loss']
-	epochs = range(len(loss))
-	plt.figure()
-	plt.plot(epochs, loss, 'b', label='Training loss')
-	plt.plot(epochs, val_loss, 'r', label='Validation loss')
-	plt.title(title)
-	plt.legend()
-	plt.show()
+# ### One variable
 
-def show_result(model, val_data, train_data, tar_col, data_mean, data_std, v=False):
-	# TODO Maybe make data_mean, data_std instance variables
-	count = 0
-	n = 1
-	if v: print('val_data take ' + str(n), val_data.take(n))
-	if v: print()
-	for x, y in val_data.take(n):
-		count += 1
-		if v: print('result count:', count)
-		if v: print('x[3]:\n', x[:3])
-		if v: print('y[3]:\n', y[:3])
-		pred = model.predict(x)
-		if v: print('pred[3]:\n', pred[:3])
-		pred_real = pred[0][0]
-		if data_mean is not None:
-			pred_real = (pred_real * data_std[tar_col]) + data_mean[tar_col]
-			if v: print('pred:', pred_real)
-		actual = y[0].numpy()
-		if data_std is not None:
-			actual = (actual * data_std[tar_col]) + data_mean[tar_col]
-			if v: print('actual:', actual)
-		if v: print('diff:', actual - pred_real)
-		# plot = show_plot([x[0][:, 1].numpy(), y[0].numpy(), pred[0]], 1, 'Single Step Prediction')
-		# plot.show()
-	count = 0
-	for x, y in train_data.take(3):
-		count += 1
-		if v: print('result train count:', count)
-		if data_mean is not None:
-			prior = (x[0].numpy() * data_std[tar_col]) + data_mean[tar_col]
-		else:
-			prior = x[0].numpy()
-		if v: print('prior_x:\n', prior)
-		if data_std is not None:
-			prior = (y[0].numpy() * data_std[tar_col]) + data_mean[tar_col]
-		else:
-			prior = y[0].numpy()
-		if v: print('prior_y:\n', prior)
-	return pred_real, actual
+# Start with a DNN model for a single input: "latestPrice"
 
-def pred_price(df, v=False):
-	train_data, val_data, x_train, tar_col, prior, data_mean, data_std, df_mean_std = prep_data(df, norm=True, train=True, v=v)
-	model = create_model(x_train=x_train, v=v)
-	if model is None:
-		return None, None, None, None, None
-	# for x, y in val_data.take(1):
-	# 	pred = model.predict(x)
-	# 	print('\npred shape:', pred.shape)
-	# 	print('pred[3]:\n', pred[:3])
-	hist = train_model(model=model, train_data=train_data, val_data=val_data, v=v)
-	if v: print('hist:', hist)
-	# plot_train_history(hist, 'Training and validation loss')
-	pred, actual = show_result(model=model, val_data=val_data, train_data=train_data, tar_col=tar_col, data_mean=data_mean, data_std=data_std, v=v)
-	if data_mean is not None:
-		prior = (prior * data_std[tar_col]) + data_mean[tar_col]
-	return pred, prior, actual, model, df_mean_std
-
-def get_price(df, ticker, path=None, data_mean=None, data_std=None, tar_col=None, merged_data=None, new_train=True, train=False):#, lite=False):
-	print(time_stamp() + 'Predict price for ticker: {}'.format(ticker))
-	ticker = ticker.lower()
-	if path is None:
-		path = '/home/robale5/becauseinterfaces.com/acct/misc/models/'
-		if not os.path.exists(path):
-			path = 'misc/models/'
-			# path = '~/Public/models/'
-	filepath = path + ticker + '_model'
-	# print('model_path:', filepath)
-	if not os.path.exists(filepath) or train:# and not lite:
-		if new_train or train:
-			predictions = main(ticker, merged_data=merged_data, v=False)
-			with pd.option_context('display.max_columns', None):
-				print(time_stamp() + 'Predictions:\n', predictions)
-			if predictions is None:
-				tf.keras.backend.clear_session()
-				return
-		else:
-			print('No model for {}.'.format(ticker))
-			return
-	# if lite:
-	# 	import tflite_runtime.interpreter as tflite
-	# 	interpreter = tflite.Interpreter(model_path=filepath)
-	model = tf.keras.models.load_model(filepath, custom_objects=None, compile=True)
-	data_path = filepath + '/assets/' + ticker + '_mean_std.csv'
-	with open(data_path, 'r') as f:
-		df_mean_std = pd.read_csv(f, index_col=None)
-	cols = df_mean_std.columns.values.tolist()
-	for tar_col, col in enumerate(cols):
-		if col == 'latestPrice':
-			break # TODO Maybe handle if value is not present
-	if tar_col is None:
-		tar_col = 2
-	if data_mean is None:
-		data_mean = np.array(df_mean_std.iloc[0])
-	if data_std is None:
-		data_std = np.array(df_mean_std.iloc[1])
-	x_data = df[cols]
-	y_data = np.array([df.iloc[:, tar_col].values[1]])
-	x_data = np.array([x_data.values])
-	x_data_norm = (x_data - data_mean) / data_std
-	x_data_norm = x_data_norm.astype(np.float64)
-	data = tf.data.Dataset.from_tensor_slices((x_data_norm, y_data))
-	data = data.batch(BATCH_SIZE).repeat()
-	# print('data:\n', data)
-	for x, y in data.take(1):
-		# print('x:\n', x)
-		price = model.predict(x)
-	price = price[0][0]
-	price = (price * data_std[tar_col]) + data_mean[tar_col]
-	# Test to clean up memory
-	del model
-	gc.collect()
-	tf.keras.backend.clear_session()
-	return price
-
-def convert_lite(tickers=None, model=None, save=True):
-	if tickers is None:
-		ticker =['tsla'] # For testing
-	if not isinstance(tickers, (list, tuple)):
-		tickers = [tickers]
-	for ticker in tickers:
-		ticker = ticker.lower()
-		path = 'misc/models/'
-		# path = '~/Public/models/'
-		filepath = path + ticker + '_model'
-		print('model_path:', filepath)
-		model = tf.keras.models.load_model(filepath, custom_objects=None, compile=True)
-		print('\nmodel:', model)
-		converter = tf.lite.TFLiteConverter.from_keras_model(model)
-		print('\nconverter:', converter)
-		tflite_model = converter.convert() # KeyError here
-		print('\ntflite_model:', tflite_model)
-		if save:
-			save_filepath = 'misc/models_lite/' + ticker + '_model'
-			tf.keras.models.save_model(tflite_model, save_filepath, overwrite=True, include_optimizer=True, save_format=None, signatures=None, options=None)
-			print(time_stamp() + 'Model saved to:', save_filepath)
-	return tflite_model
-
-def main(tickers=None, merged_data=None, v=True):
-	combine_data = CombineData()
-	predictions = pd.DataFrame(columns=['ticker','prediction','prior','changePercent','actual','actual_changePer'])
-	if tickers is not None:
-		if not isinstance(tickers, (list, tuple)):
-			tickers = [str(tickers)]
-		for ticker in tickers:
-			ticker = ticker.lower()
-			merged = 'merged_final.csv'
-			# print(combine_data.data_location + merged)
-			if merged_data is not None:
-				df = combine_data.comp_filter(ticker, merged_data)
-				if df.shape[0] < DATA_NEEDED:
-					return
-			elif os.path.exists(combine_data.data_location + merged):
-				print(time_stamp() + 'Merged data exists.')
-				merged_data = pd.read_csv(combine_data.data_location + merged)
-				merged_data = merged_data.set_index(['symbol','date'])
-				df = combine_data.comp_filter(ticker, merged_data) # TODO Don't load each time, keep in memory
-			else:
-				print(time_stamp() + 'Saving down merged data.')
-				df = combine_data.comp_filter(ticker, save=True)
-			print('Creating model to predict price for {}.'.format(ticker))
-			pred, prior, actual, model, df_mean_std = pred_price(df, v=v)
-			if pred is None:
-				return
-			predictions = predictions.append({'ticker':ticker, 'prediction':pred, 'prior':prior, 'changePercent':(pred-prior)/prior, 'actual':actual, 'actual_changePer':(actual-prior)/prior}, ignore_index=True)
-			path = '/home/robale5/becauseinterfaces.com/acct/misc/models/'
-			if not os.path.exists(path):
-				filepath = 'misc/models/' + ticker + '_model'
-			tf.keras.models.save_model(model, filepath, overwrite=True, include_optimizer=True, save_format=None, signatures=None, options=None)
-			df_mean_std.to_csv('misc/models/' + ticker + '_model/assets/' + ticker + '_mean_std.csv', date_format='%Y-%m-%d', index=False)
-	else:
-		pred, prior, actual, model, df_mean_std = pred_price(csv_path, v=v)
-		if pred is None:
-			return
-		predictions = predictions.append({'ticker':None, 'prediction':pred, 'prior':None, 'changePercent':None, 'actual':None, 'actual_changePer':None}, ignore_index=True)
-	return predictions
+# In[41]:
 
 
-if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument('-t', '--train', action='store_true', help='Train a new model if existing model is not found.')
-	args = parser.parse_args()
-
-	predictions = main(['tsla','aapl'])
-	with pd.option_context('display.max_columns', None):
-		print(time_stamp() + 'predictions:\n', predictions)
-
-# Redo models: fb, snap, crm, ttd, grpn
-
-# predictions:
-#    ticker  prediction   prior  changePercent  actual  actual_changePer
-# 0   tsla  305.790849  307.51      -0.005591  305.80         -0.005561
-# 1   aapl  178.330856  174.28       0.023243  170.97         -0.018992
+dnn_latestPrice_model = build_and_compile_model(latestPrice_normalizer)
 
 
-# ('AZZ', '2019-05-01') 44.14423 <class 'str'>
-# ('AZZ', '2019-05-02') 44.13875 <class 'float'>
+# This model has quite a few more trainable parameters than the linear models.
 
-# ('AXS-D', '2019-12-10') 25.28 <class 'float'>
-# ('AXS-D', '2019-12-11') 25.28 <class 'str'>
+# In[42]:
+
+
+dnn_latestPrice_model.summary()
+
+
+# Train the model:
+
+# In[43]:
+
+
+# get_ipython().run_cell_magic('time', '', "history = dnn_latestPrice_model.fit(\n    train_features['latestPrice'], train_labels,\n    validation_split=0.2,\n    verbose=0, epochs=100)")
+history = dnn_latestPrice_model.fit(
+	train_features['latestPrice'], train_labels,
+	validation_split=0.2,
+	verbose=0, epochs=100)
+
+
+# This model does slightly better than the linear-horsepower model.
+
+# In[44]:
+
+
+# plot_loss(history)
+
+
+# If you plot the predictions as a function of `latestPrice`, you'll see how this model takes advantage of the nonlinearity provided by the hidden layers:
+
+# In[45]:
+
+
+x = tf.linspace(0.0, 250, 251)
+y = dnn_latestPrice_model.predict(x)
+
+
+# In[46]:
+
+
+# plot_latestPrice(x, y)
+
+
+# Collect the results on the test set, for later:
+
+# In[47]:
+
+
+test_results['dnn_latestPrice_model'] = dnn_latestPrice_model.evaluate(
+	test_features['latestPrice'], test_labels,
+	verbose=0)
+
+
+# ### Full model
+
+# If you repeat this process using all the inputs it slightly improves the performance on the validation dataset.
+
+# In[48]:
+
+
+dnn_model = build_and_compile_model(normalizer)
+dnn_model.summary()
+
+
+# In[49]:
+
+
+# get_ipython().run_cell_magic('time', '', 'history = dnn_model.fit(\n    train_features, train_labels,\n    validation_split=0.2,\n    verbose=0, epochs=100)')
+history = dnn_model.fit(
+	train_features, train_labels,
+	validation_split=0.2,
+	verbose=0, epochs=100)
+
+
+# In[50]:
+
+
+# plot_loss(history)
+
+
+# Collect the results on the test set:
+
+# In[51]:
+
+
+test_results['dnn_model'] = dnn_model.evaluate(test_features, test_labels, verbose=0)
+
+
+# ## Performance
+
+# Now that all the models are trained check the test-set performance and see how they did:
+
+# In[52]:
+
+
+df = pd.DataFrame(test_results, index=['Mean absolute error [target]']).T
+print(df)
+
+# These results match the validation error seen during training.
+
+# ### Make predictions
+# 
+# Finally, predict have a look at the errors made by the model when making predictions on the test set:
+
+# In[53]:
+
+
+test_predictions = dnn_model.predict(test_features).flatten()
+
+a = plt.axes(aspect='equal')
+plt.scatter(test_labels, test_predictions)
+plt.xlabel('True Values [target]')
+plt.ylabel('Predictions [target]')
+lims = [0, 50]
+plt.xlim(lims)
+plt.ylim(lims)
+_ = plt.plot(lims, lims)
+
+
+# It looks like the model predicts reasonably well. 
+# 
+# Now take a look at the error distribution:
+
+# In[54]:
+
+
+error = test_predictions - test_labels
+plt.hist(error, bins=25)
+plt.xlabel('Prediction Error [target]')
+_ = plt.ylabel('Count')
+
+
+# If you're happy with the model save it for later use:
+
+# In[55]:
+
+
+dnn_model.save('dnn_model')
+
+
+# If you reload the model, it gives identical output:
+
+# In[56]:
+
+
+reloaded = tf.keras.models.load_model('dnn_model')
+
+test_results['reloaded'] = reloaded.evaluate(test_features, test_labels, verbose=0)
+
+
+# In[57]:
+
+
+df = pd.DataFrame(test_results, index=['Mean absolute error [target]']).T
+print(df)
+print(time_stamp() + 'Finished.')
+
+
+# ## Conclusion
+# 
+# This notebook introduced a few techniques to handle a regression problem. Here are a few more tips that may help:
+# 
+# * [Mean Squared Error (MSE)](https://www.tensorflow.org/api_docs/python/tf/losses/MeanSquaredError) and [Mean Absolute Error (MAE)](https://www.tensorflow.org/api_docs/python/tf/losses/MeanAbsoluteError) are common loss functions used for regression problems. Mean Absolute Error is less sensitive to outliers. Different loss functions are used for classification problems.
+# * Similarly, evaluation metrics used for regression differ from classification.
+# * When numeric input data features have values with different ranges, each feature should be scaled independently to the same range.
+# * Overfitting is a common problem for DNN models, it wasn't a problem for this tutorial. See the [overfit and underfit](overfit_and_underfit.ipynb) tutorial for more help with this.
+# 
+
+# VBoxManage showhdinfo ~/VirtualBox\ VMs/Ubuntu/Ubuntu.vdi
+# VBoxManage modifyhd --resize 30720 ~/VirtualBox\ VMs/Ubuntu/Ubuntu.vdi

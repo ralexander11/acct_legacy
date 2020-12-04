@@ -369,7 +369,10 @@ class CombineData(object):
 			df.dropna(inplace=True)
 		if v: print(df)
 		if args.save:
-			filename = 'crypto_merged.csv'
+			if prep:
+				filename = 'crypto_prep_merged.csv'
+			else:
+				filename = 'crypto_merged.csv'
 			path = self.data_location + filename
 			df.to_csv(path, date_format='%Y-%m-%d', index=False)
 			print(time_stamp() + 'Saved crypto data to: {}'.format(path))
@@ -385,6 +388,16 @@ class CombineData(object):
 			df.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved tickers to:\n{}'.format(filename))
 		return df
+
+	def max_date(self, merged='merged.csv', v=True):
+		if '.csv' not in merged:
+			print('Must be a .csv file name.')
+			return
+		if v: print(time_stamp() + 'Loading data from:', merged)
+		df = pd.read_csv('data/' + merged)
+		max_date = df['date'].max()
+		if v: print(time_stamp() + 'Max Date:', max_date)
+		return max_date
 
 	def fill_missing(self, missing=None, merged=None, save=False, v=False):
 		if v: print(time_stamp() + 'Missing File Save:', save)
@@ -684,7 +697,7 @@ if __name__ == '__main__':
 			print('Value option only works when one field, date, and ticker are provided.')
 
 	elif args.mode == 'crypto':
-		df = combine_data.crypto_data(save=args.save, v=True)
+		df = combine_data.crypto_data(save=args.save, prep=True, v=True)
 
 	elif args.mode == 'mark':
 		# merged = 'merged_TSLA_to_AAPL.csv'
@@ -707,6 +720,9 @@ if __name__ == '__main__':
 
 	elif args.mode == 'gettickers':
 		df = combine_data.get_tickers(save=args.save, v=True)
+
+	elif args.mode == 'maxdate':
+		max_date = combine_data.max_date()
 
 	elif args.mode == 'get':
 		df = combine_data.get(merged, save=args.save)
