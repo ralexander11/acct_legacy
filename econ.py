@@ -5137,12 +5137,13 @@ class Entity:
 			print(time_stamp() + 'Current Date: {}'.format(world.now))
 			print('{} attempting to produce {} {} from the demand table.'.format(self.name, qty, item))
 			item_demand = world.demand[world.demand['item_id'] == item]
-			reason_need = False
-			if 'existance' in item_demand['reason'].values:
-				self.adj_price(item, qty, direction='up')
-			elif 'need' in item_demand['reason'].values:
-				self.adj_price(item, qty, direction='up')
-				reason_need = True
+			# reason_need = False
+
+			# if 'need' in item_demand['reason'].values:
+			# 	self.adj_price(item, qty, direction='up')
+			# 	reason_need = True
+			# elif 'existance' in item_demand['reason'].values:
+			# 	self.adj_price(item, qty, direction='up')
 			outcome, time_required, max_qty_possible, incomplete = self.produce(item, qty, wip=True)#reason_need)
 			if v: print('Demand Check Outcome: {} \n{}'.format(time_required, outcome))
 			if to_drop:
