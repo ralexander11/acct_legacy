@@ -1385,6 +1385,8 @@ class World:
 				entity.address_needs(method='capital')
 				# print('{} {} need at: {}'.format(entity.name, need, entity.needs[need]['Current Need']))
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual), needs_only=True)
+			if isinstance(entity, Individual) and not entity.user:
+				entity.address_needs(obtain=False, priority=False, method='consumption')
 
 		for entity in factory.get(users=False):
 			entity.wip_check()
@@ -1439,9 +1441,9 @@ class World:
 				# 	individual.threshold_check(need, priority=True)
 					# individual.address_need(need, priority=True)
 				# print('{} {} need at: {}'.format(individual.name, need, individual.needs[need]['Current Need']))
-				individual.needs_decay()
-				if individual.dead:
-					break
+			individual.needs_decay()
+			if individual.dead:
+				break
 		t7_end = time.perf_counter()
 		print(time_stamp() + '7: Needs decay took {:,.2f} min.'.format((t7_end - t7_start) / 60))
 		print()
@@ -1500,14 +1502,15 @@ class World:
 
 		if args.random and individual and not (args.users >= 1 or args.players >= 1): # TODO Maybe add population target
 			# TODO Add (args.random or args.births) switch
-			individual = factory.get(Individual, users=False)
-			if individual:
-				individual = individual[-1]
-				print('Birth attempt individual: {}'.format(individual))
-				birth_roll = random.randint(1, 20)
-				print('Birth Roll: {}'.format(birth_roll))
-				if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
-					individual.birth()
+			for _ in range(self.population):
+				individual = factory.get(Individual, users=False)
+				if individual:
+					individual = individual[-1]
+					print('Birth attempt individual: {}'.format(individual))
+					birth_roll = random.randint(1, 20)
+					print('Birth Roll: {}'.format(birth_roll))
+					if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
+						individual.birth()
 
 		# if args.random:
 		# 	death_roll = random.randint(1, 40)
@@ -4228,7 +4231,7 @@ class Entity:
 		print('Set Produce Queue by {}: \n{}'.format(self.name, world.produce_queue))
 
 	def auto_produce(self, index=None, v=True):
-		if v: print(f'Checking {self.name}\'s auto produce queue.')
+		if v: print(f'\nChecking {self.name}\'s auto produce queue.')
 		if world.produce_queue.empty:
 			return
 		entity_pro_queue = world.produce_queue.loc[world.produce_queue['entity_id'] == self.entity_id]
@@ -8340,9 +8343,9 @@ class Individual(Entity):
 			priority_needs[need] = self.needs[need]['Current Need']
 		priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}#, reverse=priority)}
 		priority_needs = collections.OrderedDict(priority_needs)
+		if v: print(f'priority_needs {priority}: {priority_needs}')
 		if priority:
 			priority_needs = reversed(priority_needs)
-		# if v: print(f'priority_needs {priority}: {priority_needs}')
 		for need in priority_needs:
 			self.address_need(need, obtain=obtain, prod=prod, priority=priority, v=v)
 
