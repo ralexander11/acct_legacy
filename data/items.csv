@@ -67,8 +67,8 @@ Cotton Gin,None,None,start,Equipment,"Metal, Wood","2, 30",10,None,None,None,Non
 Cotton Spinner,None,None,start,Equipment,"Metal, Wood, Cotton Gin","2, 30, 1",100,None,None,Cotton Gin,1,None,None,None,Spinning,0.50,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
 Tailor,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Clothing,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Basic Clothing,None,None,continuous,Clothing,"Cloth, Tailor","2, 10",1,None,None,None,None,None,Clothing,2,None,None,100,equipped,None,None,None,10,None,None,Individual
-Small Tent,None,None,start,Equipment,"Cloth, Wood","2, 20",1,None,None,None,None,None,Shelter,5,None,None,"100, 2000","usage, ticks",None,None,None,10,None,None,Individual
+Basic Clothing,None,None,continuous,Clothing,"Cloth, Tailor","2, 10",1,None,None,None,None,None,Clothing,2,None,None,100,equipped,None,None,None,10,None,None,Textile Mill
+Small Tent,None,None,start,Equipment,"Cloth, Wood","2, 20",1,None,None,None,None,None,Shelter,5,None,None,"100, 2000","usage, ticks",None,None,None,10,None,None,Textile Mill
 #Leather Clothing,None,None,continuous,Clothing,"Leather, Tanner","20, 10",1,None,None,None,None,None,Clothing,1,None,None,100,equipped,None,None,None,40,None,None,Individual
 Forge,None,None,continuous,Equipment,"Bellows, Wood, Rock, Clay","1, 5, 30, 15",100,None,None,None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,Blacksmith
 Metal Working,None,None,None,Technology,"Time","100",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
