@@ -1496,9 +1496,6 @@ class World:
 		# 		break
 		# individual = factory.registry[Individual][-1]
 		# individual = [e for e in factory.registry[Individual] if not e.user]
-		
-		# if str(self.now) == '1986-10-31': # For testing impairment
-		# 	individual.use_item('Rock', uses=1, counterparty=factory.get_by_name('Farm', generic=True), target='Plow')
 
 		if args.random and individual and not (args.users >= 1 or args.players >= 1): # TODO Maybe add population target
 			# TODO Add (args.random or args.births) switch
@@ -5439,6 +5436,7 @@ class Entity:
 						pay_wages_event += [wages_pay_entry, wages_chg_entry]
 						if counterparty.entity_id != self.entity_id:
 							cash -= wages_payable
+							counterparty.adj_price(job, labour_hours, direction='up_low')
 					else:
 						print('{} does not have enough cash to pay {} in wages for {}\'s {} work. Cash: {}'.format(self.name, wages_payable, counterparty.name, job, cash))
 						result = self.loan(amount=(wages_payable - cash), item='Credit Line 5')
@@ -5535,13 +5533,13 @@ class Entity:
 				return
 			if buffer:
 				print('{} hired {} as a {} for {} hours.'.format(self.name, counterparty.name, job, hours_worked))
-				if job != 'Study' and job != 'Research':
-					counterparty.adj_price(job, labour_hours, direction='up_low')
+				# if job != 'Study' and job != 'Research':
+					# counterparty.adj_price(job, labour_hours, direction='up_low')
 				return accru_wages_event
 			ledger.journal_entry(accru_wages_event)
 			counterparty.set_hours(hours_worked)
-			if job != 'Study' and job != 'Research':
-				counterparty.adj_price(job, labour_hours, direction='up_low')
+			# if job != 'Study' and job != 'Research':
+			# 	counterparty.adj_price(job, labour_hours, direction='up_low')
 		else:
 			if incomplete:
 				print('{} cannot fulfill requirements for {} job.'.format(self.name, job))
