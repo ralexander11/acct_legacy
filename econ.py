@@ -36,7 +36,7 @@ INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
 EXPLORE_TIME = 1
 INC_BUFFER = 3
-REDUCE_PRICE = 0.1
+REDUCE_PRICE = 0.02 # 0.1
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -5133,9 +5133,10 @@ class Entity:
 					to_drop.append(index)
 			if qty == 0:
 				continue
+			qty = math.ceil(qty / MAX_CORPS)
 			print()
 			print(time_stamp() + 'Current Date: {}'.format(world.now))
-			print('{} attempting to produce {} {} from the demand table.'.format(self.name, qty, item))
+			print('{} attempting to produce {} {} from the demand table. Max Corps: {}'.format(self.name, qty, item, MAX_CORPS))
 			item_demand = world.demand[world.demand['item_id'] == item]
 			# reason_need = False
 
@@ -8165,8 +8166,8 @@ class Individual(Entity):
 			#print('Index: \n{}'.format(index))
 			#print('Entry: \n{}'.format(entry))
 			# TODO Confirm this still works
-			bequeath_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Bequeath to ' + counterparty.name, index[0], entry[2], entry[3], index[2], index[1], entry[4] ]
-			inherit_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Inheritance from ' + self.name, index[0], entry[2], entry[3], index[1], index[2], entry[4] ]
+			bequeath_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Bequeath to ' + counterparty.name, index[0], entry[3], entry[4], index[2], index[1], entry[5] ]
+			inherit_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Inheritance from ' + self.name, index[0], entry[3], entry[4], index[1], index[2], entry[5] ]
 			inherit_event += [bequeath_entry, inherit_entry]
 		ledger.journal_entry(inherit_event)
 
