@@ -93,10 +93,10 @@ econ_accts = [
 	('Wages Expense','Expense'),
 	('Wages Receivable','Asset'),
 	('Wages Income','Revenue'),
-	('Depreciation Expense','Expense'),
-	('Accumulated Depreciation','Asset'),
+	('Depr. Expense','Expense'),
+	('Accum. Depr.','Asset'),
 	('Loss on Impairment','Expense'),
-	('Accumulated Impairment Losses','Asset'),
+	('Accum. Impairment Losses','Asset'),
 	('Spoilage Expense','Expense'),
 	('Worker Info','Info'),
 	('Hire Worker','Info'),
@@ -2373,7 +2373,7 @@ class Entity:
 					for n in range(uses):
 						#target_type = world.get_item_type(target)
 						ledger.set_entity(counterparty.entity_id)
-						target_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Accumulated Depreciation','Accumulated Impairment Losses'], item=target)
+						target_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Accum. Depr.','Accum. Impairment Losses'], item=target)
 						asset_cost = ledger.balance_sheet(accounts=['Buildings','Equipment'], item=target)
 						print('Target Balance: {}'.format(target_bal))
 						ledger.reset()
@@ -6391,9 +6391,9 @@ class Entity:
 			if v: print('Asset Bal for {}: {}'.format(item, asset_bal))
 			dep_amount = (asset_bal / lifespan) * uses
 			if v: print('Dep. amount for {}: {}'.format(item, dep_amount))
-			accum_dep_bal = ledger.balance_sheet(accounts=['Accumulated Depreciation'], item=item)
+			accum_dep_bal = ledger.balance_sheet(accounts=['Accum. Depr.'], item=item)
 			ledger.reset()
-			if v: print('Accum. Dep. for {}: {}'.format(item, accum_dep_bal))
+			if v: print('Accumulated Depreciation for {}: {}'.format(item, accum_dep_bal))
 			remaining_amount = asset_bal - accum_dep_bal
 			orig_uses = uses
 			if dep_amount > remaining_amount:
@@ -6419,7 +6419,7 @@ class Entity:
 				elif not outcome and uses == 0:
 					return [], None
 			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
-			depreciation_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation of ' + item, item, '', '', 'Depreciation Expense', 'Accumulated Depreciation', dep_amount ]
+			depreciation_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation of ' + item, item, '', '', 'Depreciation Expense', 'Accum. Depr.', dep_amount ]
 			depreciation_event += [depreciation_entry]
 			if buffer:
 				return depreciation_event, uses
@@ -6495,7 +6495,7 @@ class Entity:
 		# item_type = world.get_item_type(item)
 		# asset_bal = ledger.balance_sheet(accounts=[item_type], item=item)
 
-		impairment_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Impairment of ' + item, item, '', '', 'Loss on Impairment', 'Accumulated Impairment Losses', amount ]
+		impairment_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Impairment of ' + item, item, '', '', 'Loss on Impairment', 'Accum. Impairment Losses', amount ]
 		impairment_event = [impairment_entry]
 		ledger.journal_entry(impairment_event)
 		return impairment_event
@@ -6508,8 +6508,8 @@ class Entity:
 		asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Buildings In Use', 'Equipment In Use', 'Equipped'], item=item)# TODO Maybe support other accounts
 		if asset_bal == 0:
 			return
-		accum_dep_bal = ledger.balance_sheet(accounts=['Accumulated Depreciation'], item=item)
-		accum_imp_bal = ledger.balance_sheet(accounts=['Accumulated Impairment Losses'], item=item)
+		accum_dep_bal = ledger.balance_sheet(accounts=['Accum. Depr.'], item=item)
+		accum_imp_bal = ledger.balance_sheet(accounts=['Accum. Impairment Losses'], item=item)
 		ledger.reset()
 		accum_reduction = abs(accum_dep_bal) + abs(accum_imp_bal)
 		if accum_reduction >= asset_bal:
@@ -6533,11 +6533,11 @@ class Entity:
 
 			derecognition_event += self.release(item, qty=qty)
 			# TODO Check if item is In Use
-			derecognition_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accumulated Depreciation', 'Equipment', asset_bal ]
+			derecognition_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accum. Depr.', 'Equipment', asset_bal ]
 			overage_entry = []
 			if accum_reduction > asset_bal:
 				overage = accum_reduction - asset_bal
-				overage_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item + ' (Overage)', item, overage / qty, qty, 'Accumulated Depreciation', 'Depreciation Expense', overage ]
+				overage_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item + ' (Overage)', item, overage / qty, qty, 'Accum. Depr.', 'Depreciation Expense', overage ]
 				derecognition_event += [derecognition_entry, overage_entry]
 			else:
 				derecognition_event += [derecognition_entry]
@@ -7989,8 +7989,11 @@ class Individual(Entity):
 		if self.dead:
 			print(f'{self.name} is dead and cannot give birth.')
 			return
-		if self.hours == 0:
-			print(f'{self.name} has no hours left and cannot give birth.')
+		# if self.hours == 0:
+		# 	print(f'{self.name} has no hours left and cannot give birth.')
+		# 	return
+		if self.pregnant is not None:
+			print(f'{self.name} is pregnant already and cannot give birth.')
 			return
 		if amount_1 is None and amount_2 is None:
 			amount_1 = INIT_CAPITAL / 2
