@@ -2072,7 +2072,8 @@ class Entity:
 						#self.item_demanded(item, qty_wanted - purchased_qty, cost=cost, priority=priority)
 						pass
 					else:
-						self.item_demanded(item, qty_wanted - purchased_qty, priority=priority, reason_need=reason_need)
+						qty_demanded = max(qty_wanted - purchased_qty, 0)
+						self.item_demanded(item, qty_demanded, priority=priority, reason_need=reason_need)
 		# print('Purchase Result: {} {} \n{}'.format(qty, item, result))
 		if buffer:
 			return result
@@ -3595,7 +3596,8 @@ class Entity:
 							else:
 								# required_hours = min(required_hours, WORK_DAY)
 								if isinstance(self, Individual):
-									required_hours = min(orig_required_hours, self.hours)
+									if self.hours:
+										required_hours = min(orig_required_hours, self.hours)
 								else:
 									required_hours = min(required_hours, WORK_DAY)
 								 # TODO Or MAX_HOURS?
@@ -5054,12 +5056,17 @@ class Entity:
 		else:
 			if v: print('{} demand check for items: \n{}'.format(self.name, self.produces))
 		# for item in self.produces:
+		checked = []
 		for index, demand_item in world.demand.iterrows():
 			item = demand_item['item_id']
+			if item in checked:
+				continue
 			if needs_only:
 				if demand_item['reason'] != 'need':
 					continue
 			item_type = world.get_item_type(item)
+			if item_type != 'Land':
+				checked.append(item)
 			if item_type == 'Subscription':
 				continue
 			elif item_type == 'Land': #TODO Handle land better
@@ -5070,9 +5077,10 @@ class Entity:
 						self_demand = world.demand.loc[world.demand['entity_id'] == self.entity_id]
 						if not self_demand.empty:
 							for index, demand_row in self_demand.iterrows():
-								item = demand_row['item_id']
-								item_type = world.get_item_type(item)
-								if item_type == 'Land':
+								# item = demand_row['item_id']
+								# item_type = world.get_item_type(item)
+								# if item_type == 'Land':
+								if demand_row['item_id'] == item:
 									result = self.claim_land(item, demand_row['qty'], account='Inventory')
 									if result:
 										if result[0][8] == demand_row['qty']:
@@ -5086,11 +5094,13 @@ class Entity:
 								print('World Self Demand:\n{}'.format(world.demand))
 					else: # TODO Test this better
 						for index, demand_row in world.demand.iterrows():
-							item = demand_row['item_id']
-							item_type = world.get_item_type(item)
-							if item_type == 'Land':
+							# item = demand_row['item_id']
+							# item_type = world.get_item_type(item)
+							# if item_type == 'Land':
+							if demand_row['item_id'] == item:
 								result = self.claim_land(item, demand_row['qty'], account='Inventory')
 								if result:
+									print(f'{self.name} demand land claim result qty for {item}: {result[0][8]}')
 									if result[0][8] == demand_row['qty']:
 										to_drop.append(index)
 									else:
@@ -6419,7 +6429,7 @@ class Entity:
 				elif not outcome and uses == 0:
 					return [], None
 			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
-			depreciation_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation of ' + item, item, '', '', 'Depreciation Expense', 'Accum. Depr.', dep_amount ]
+			depreciation_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation of ' + item, item, '', '', 'Depr. Expense', 'Accum. Depr.', dep_amount ]
 			depreciation_event += [depreciation_entry]
 			if buffer:
 				return depreciation_event, uses
@@ -6537,7 +6547,7 @@ class Entity:
 			overage_entry = []
 			if accum_reduction > asset_bal:
 				overage = accum_reduction - asset_bal
-				overage_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item + ' (Overage)', item, overage / qty, qty, 'Accum. Depr.', 'Depreciation Expense', overage ]
+				overage_entry = [ ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item + ' (Overage)', item, overage / qty, qty, 'Accum. Depr.', 'Depr. Expense', overage ]
 				derecognition_event += [derecognition_entry, overage_entry]
 			else:
 				derecognition_event += [derecognition_entry]
@@ -7980,8 +7990,8 @@ class Individual(Entity):
 	def birth_check(self):
 		if self.pregnant:
 			self.pregnant -= 1
-			print(f'{self.name} gave birth or was born recently and has used up all their time for the day with {self.pregnant} days left\n')
 			self.set_hours(MAX_HOURS)
+			print(f'{self.name} gave birth or was born recently and has used up all their time ({self.hours}) for the day with {self.pregnant} days left.\n')
 		if self.pregnant == 0:
 			self.pregnant = None
 
