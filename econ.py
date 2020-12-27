@@ -36,7 +36,7 @@ INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
 EXPLORE_TIME = 1
 INC_BUFFER = 3
-REDUCE_PRICE = 0.02 # 0.1
+REDUCE_PRICE = 0.01 # 0.1
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -508,11 +508,12 @@ class World:
 			env.create_land(land[0], land[1], date) # TODO Call from env instance
 		return env
 
-	def unused_land(self, item=None, entity_id=None, all_land=False, v=True):
+	def unused_land(self, item=None, entity_id=None, all_land=False, accounts=None, v=True):
 		if all_land:
 			accounts = ['Land','Land In Use']
 		else:
-			accounts = ['Land']
+			if accounts is None:
+				accounts = ['Land']
 		if entity_id is not None:
 			if not isinstance(entity_id, int):
 				entity_id = entity_id.entity_id
@@ -1497,17 +1498,14 @@ class World:
 		# individual = factory.registry[Individual][-1]
 		# individual = [e for e in factory.registry[Individual] if not e.user]
 
-		if args.random and individual and not (args.users >= 1 or args.players >= 1): # TODO Maybe add population target
+		if args.random and not (args.users >= 1 or args.players >= 1): # TODO Maybe add population target
 			# TODO Add (args.random or args.births) switch
-			for _ in range(self.population):
-				individual = factory.get(Individual, users=False)
-				if individual:
-					individual = individual[-1]
-					print('Birth attempt individual: {}'.format(individual))
-					birth_roll = random.randint(1, 20)
-					print('Birth Roll: {}'.format(birth_roll))
-					if birth_roll == 20:# or (str(self.now) == '1986-10-02'):
-						individual.birth()
+			individuals = world.gov.get(Individual, users=False)
+			for individual in individuals:
+				birth_roll = random.randint(1, 20)
+				print('Birth Roll for {}: {}'.format(individual.name, birth_roll))
+				if birth_roll == 20:
+					individual.birth()
 
 		# if args.random:
 		# 	death_roll = random.randint(1, 40)
@@ -1798,6 +1796,7 @@ class Entity:
 		if orig_price.empty:
 			return
 		orig_price = orig_price.values[0]
+		# TODO Maybe get all entities carrying or producing the item
 		low_price = world.prices.loc[(world.prices.index == item), 'price'].min()
 		if low_price < orig_price:
 			world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = low_price
@@ -4323,7 +4322,7 @@ class Entity:
 		if items is not None: # TODO Not finished
 			if not isinstance(items, (list, tuple)):
 				items = [x.strip().title() for x in items.split(',')]
-			wip_items = world.delay.loc[world.delay['item_id'].isin(items)]
+			wip_items = world.delay.loc[(world.delay['item_id'].isin(items)) & (world.delay['entity_id'] == self.entity_id)]
 			if wip_items.empty:
 				return
 		ledger.refresh_ledger()
@@ -5082,6 +5081,8 @@ class Entity:
 								# if item_type == 'Land':
 								if demand_row['item_id'] == item:
 									result = self.claim_land(item, demand_row['qty'], account='Inventory')
+									if not result:
+										result = self.purchase(item, demand_row['qty'], acct_buy='Inventory')
 									if result:
 										if result[0][8] == demand_row['qty']:
 											to_drop.append(index)
@@ -5099,6 +5100,8 @@ class Entity:
 							# if item_type == 'Land':
 							if demand_row['item_id'] == item:
 								result = self.claim_land(item, demand_row['qty'], account='Inventory')
+								if not result:
+									result = self.purchase(item, demand_row['qty'], acct_buy='Inventory')
 								if result:
 									print(f'{self.name} demand land claim result qty for {item}: {result[0][8]}')
 									if result[0][8] == demand_row['qty']:
@@ -5143,7 +5146,8 @@ class Entity:
 					to_drop.append(index)
 			if qty == 0:
 				continue
-			qty = math.ceil(qty / MAX_CORPS)
+			if isinstance(self, Corporation):
+				qty = math.ceil(qty / MAX_CORPS)
 			print()
 			print(time_stamp() + 'Current Date: {}'.format(world.now))
 			print('{} attempting to produce {} {} from the demand table. Max Corps: {}'.format(self.name, qty, item, MAX_CORPS))
@@ -5346,7 +5350,7 @@ class Entity:
 				print('{} cannot claim {} units of {} because there is only {} units available.'.format(self.name, qty, item, unused_land))
 			# unused_land = ledger.get_qty(items=item, accounts=['Land'], by_entity=True)
 			# print('Unused {} claimed by the following entities: \n{}'.format(item, unused_land))
-			unused_land = world.unused_land(item)
+			unused_land = world.unused_land(item, accounts=['Land','Inventory'])
 			entity.hours = orig_hours
 
 	def get_counterparty(self, txns, rvsl_txns, item, account, m=1, n=0, allowed=None, v=False): # TODO Remove parameters no longer needed
@@ -8079,6 +8083,7 @@ class Individual(Entity):
 		ledger.journal_entry(gift_event)
 		self.pregnant = GESTATION
 		individual.pregnant = GESTATION + 1
+		return individual
 
 	def emancipation(self, parents=(None, None), v=True):
 		orig_parents = self.parents
