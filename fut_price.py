@@ -1,50 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# ##### Copyright 2018 The TensorFlow Authors.
-
-# In[1]:
-
-
-#@title Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-
-# In[2]:
-
-
-#@title MIT License
-#
-# Copyright (c) 2017 François Chollet
-#
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-
-
 # # Basic regression: Predict fuel efficiency
 
 # <table class="tfo-notebook-buttons" align="left">
@@ -66,7 +22,7 @@
 # 
 # This notebook uses the classic [Auto MPG](https://archive.ics.uci.edu/ml/datasets/auto+mpg) Dataset and builds a model to predict the fuel efficiency of late-1970s and early 1980s automobiles. To do this, we'll provide the model with a description of many automobiles from that time period. This description includes attributes like: cylinders, displacement, horsepower, and weight.
 # 
-# This example uses the `tf.keras` API, see [this guide](https://www.tensorflow.org/guide/keras) for details.
+# This example uses the 'tf.keras' API, see [this guide](https://www.tensorflow.org/guide/keras) for details.
 
 # In[3]:
 
@@ -98,6 +54,9 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.layers.experimental import preprocessing
+from market_data.combine_data import CombineData
+
+crypto = False # True # 
 
 def time_stamp(offset=0):
 	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
@@ -107,6 +66,7 @@ def time_stamp(offset=0):
 
 print(time_stamp() +'TensorFlow Version:', tf.__version__)
 
+combine_data = CombineData()
 
 # ## The Auto MPG dataset
 # 
@@ -118,30 +78,64 @@ print(time_stamp() +'TensorFlow Version:', tf.__version__)
 
 # In[6]:
 
-
 # url = 'http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data'
 # column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
 				# 'Acceleration', 'Model Year', 'Origin']
-url = 'http://becauseinterfaces.com/acct/market_data/data/crypto_prep_merged.csv'
-column_names = ['symbol','date','askPrice','askSize','bidPrice','bidSize','latestPrice','target']
+
+if crypto:
+	url = 'http://becauseinterfaces.com/acct/market_data/data/crypto_prep_merged.csv'
+	column_names = ['symbol','date','askPrice','askSize','bidPrice','bidSize','latestPrice','target']
+	ticker = 'BTCUSDT'
+	merged = 'crypto_prep_merged.csv'
+else:
+	url = 'http://becauseinterfaces.com/acct/market_data/data/merged.csv'
+	# column_names = ['symbol', 'date', 'avgTotalVolume', 'change', 'changePercent', 'close', 'closeSource', 'companyName', 'delayedPrice', 'extendedChange', 'extendedChangePercent', 'extendedPrice', 'high', 'highSource', 'highTime', 'iexClose', 'iexCloseTime', 'iexMarketPercent', 'iexOpen', 'iexOpenTime', 'iexRealtimePrice', 'iexRealtimeSize', 'iexVolume', 'isUSMarketOpen', 'latestPrice', 'latestVolume', 'low', 'lowSource', 'lowTime', 'marketCap', 'oddLotDelayedPrice', 'oddLotDelayedPriceTime', 'open', 'openSource', 'peRatio', 'previousClose', 'previousVolume', 'volume', 'week52High', 'week52Low', 'ytdChange', 'avg10Volume', 'avg30Volume', 'beta', 'day200MovingAvg', 'day30ChangePercent', 'day50MovingAvg', 'day5ChangePercent', 'employees', 'float', 'marketcap', 'maxChangePercent', 'month1ChangePercent', 'month3ChangePercent', 'month6ChangePercent', 'nextDividendDate', 'nextEarningsDate', 'peRatio_y', 'sharesOutstanding', 'ttmDividendRate', 'ttmEPS', 'week52change', 'week52high', 'week52low', 'year1ChangePercent', 'year2ChangePercent', 'year5ChangePercent', 'ytdChangePercent', 'factor', 'cur_factor', 'target'] # With categoricals
+	column_names = ['symbol', 'date', 'avgTotalVolume', 'change', 'changePercent', 'close', 'delayedPrice', 'extendedChange', 'extendedChangePercent', 'extendedPrice', 'high', 'iexMarketPercent', 'iexRealtimePrice', 'iexRealtimeSize', 'iexVolume', 'latestPrice', 'latestVolume', 'low', 'marketCap', 'open', 'peRatio', 'previousClose', 'previousVolume', 'volume', 'week52High', 'week52Low', 'ytdChange', 'avg10Volume', 'avg30Volume', 'beta', 'day200MovingAvg', 'day30ChangePercent', 'day50MovingAvg', 'day5ChangePercent', 'marketcap', 'maxChangePercent', 'month1ChangePercent', 'month3ChangePercent', 'month6ChangePercent', 'sharesOutstanding', 'ttmEPS', 'week52change', 'week52high', 'week52low', 'year1ChangePercent', 'year2ChangePercent', 'year5ChangePercent', 'ytdChangePercent', 'factor', 'cur_factor', 'target']
+	ticker = 'tsla'
+	merged = 'merged.csv'
 
 # raw_dataset = pd.read_csv(url, names=column_names,
 # 						  na_values='?', comment='\t',
 # 						  sep=' ', skipinitialspace=True)
-raw_dataset = pd.read_csv(url, names=column_names)
+# raw_dataset = pd.read_csv(url, names=column_names)
 
 
 # In[7]:
 
+print(time_stamp() + f'URL: {url}')
+print(time_stamp() + f'Ticker: {ticker}')
 
-dataset = raw_dataset.copy()
-# print(dataset.tail())
+if os.path.exists(combine_data.data_location + merged) and not crypto:
+	print(time_stamp() + 'Merged data exists.')
+	merged_data = pd.read_csv(combine_data.data_location + merged)
+	merged_data = merged_data.set_index(['symbol','date'])
+	dataset = combine_data.comp_filter(ticker, merged_data)
+else:
+	raw_dataset = pd.read_csv(url, names=column_names)
+	dataset = raw_dataset.copy()
+	dataset = dataset.loc[dataset['symbol'] == ticker]
 
-dataset = dataset.loc[dataset['symbol'] == 'BTCUSDT']
+print(time_stamp() + f'Dataset tail 1.')
+print(dataset.tail())
+
+print(dataset.shape)
+if not crypto:
+	dataset = dataset[column_names]
+print(dataset.shape)
 dataset.drop(['symbol','date'], axis=1, inplace=True)
-print(dataset.dtypes)
-dataset = dataset.astype('float')
-print(dataset.dtypes)
+# dataset.dropna(axis=0, subset=['target'], inplace=True)
+# print(time_stamp() + 'nan counts:')
+# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+# 	print(dataset.isna().sum())
+dataset.dropna(axis=0, inplace=True)
+print(dataset.shape)
+with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+	print(dataset.dtypes)
+print(time_stamp() + f'Convert to floats.')
+dataset = dataset.astype('float', errors='ignore')
+with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+	print(dataset.dtypes)
+print(time_stamp() + f'Dataset tail 2.')
 print(dataset.tail())
 
 
@@ -316,12 +310,13 @@ latestPrice_normalizer.adapt(latestPrice)
 
 # In[22]:
 
-
+print(time_stamp() + 'Build latestPrice_model:')
 latestPrice_model = tf.keras.Sequential([
 	latestPrice_normalizer,
 	layers.Dense(units=1)
 ])
 
+print(time_stamp() + 'Summary latestPrice_model:')
 latestPrice_model.summary()
 
 
@@ -331,7 +326,7 @@ latestPrice_model.summary()
 
 # In[23]:
 
-
+print(time_stamp() + 'Predict untrained latestPrice_model:')
 latestPrice_model.predict(latestPrice[:10])
 
 
@@ -339,7 +334,7 @@ latestPrice_model.predict(latestPrice[:10])
 
 # In[24]:
 
-
+print(time_stamp() + 'Compile latestPrice_model:')
 latestPrice_model.compile(
 	optimizer=tf.optimizers.Adam(learning_rate=0.1),
 	loss='mean_absolute_error')
@@ -351,6 +346,7 @@ latestPrice_model.compile(
 
 
 # get_ipython().run_cell_magic('time', '', "history = horsepower_model.fit(\n    train_features['Horsepower'], train_labels,\n    epochs=100,\n    # suppress logging\n    verbose=0,\n    # Calculate validation results on 20% of the training data\n    validation_split = 0.2)")
+print(time_stamp() + 'Fit latestPrice_model:')
 history = latestPrice_model.fit(
 	train_features['latestPrice'], train_labels,
 	epochs=100,
@@ -367,6 +363,7 @@ history = latestPrice_model.fit(
 
 hist = pd.DataFrame(history.history)
 hist['epoch'] = history.epoch
+print(time_stamp() + 'Hist tail:')
 print(hist.tail())
 
 
@@ -374,13 +371,13 @@ print(hist.tail())
 
 
 def plot_loss(history):
-  plt.plot(history.history['loss'], label='loss')
-  plt.plot(history.history['val_loss'], label='val_loss')
-  plt.ylim([0, 10])
-  plt.xlabel('Epoch')
-  plt.ylabel('Error [target]')
-  plt.legend()
-  plt.grid(True)
+	plt.plot(history.history['loss'], label='loss')
+	plt.plot(history.history['val_loss'], label='val_loss')
+	plt.ylim([0, 10])
+	plt.xlabel('Epoch')
+	plt.ylabel('Error [target]')
+	plt.legend()
+	plt.grid(True)
 
 
 # In[28]:
@@ -393,7 +390,7 @@ def plot_loss(history):
 
 # In[29]:
 
-
+print(time_stamp() + 'Evaluate latestPrice_model:')
 test_results = {}
 
 test_results['latestPrice_model'] = latestPrice_model.evaluate(
@@ -405,20 +402,22 @@ test_results['latestPrice_model'] = latestPrice_model.evaluate(
 
 # In[30]:
 
-
+print(time_stamp() + 'Predict latestPrice_model:')
 x = tf.linspace(0.0, 250, 251)
 y = latestPrice_model.predict(x)
+# print(time_stamp() + 'x:\n', x)
+# print(time_stamp() + 'y:\n', y)
 
 
 # In[31]:
 
 
 def plot_latestPrice(x, y):
-  plt.scatter(train_features['latestPrice'], train_labels, label='Data')
-  plt.plot(x, y, color='k', label='Predictions')
-  plt.xlabel('latestPrice')
-  plt.ylabel('target')
-  plt.legend()
+	plt.scatter(train_features['latestPrice'], train_labels, label='Data')
+	plt.plot(x, y, color='k', label='Predictions')
+	plt.xlabel('latestPrice')
+	plt.ylabel('target')
+	plt.legend()
 
 
 # In[32]:
@@ -434,7 +433,7 @@ def plot_latestPrice(x, y):
 
 # In[33]:
 
-
+print(time_stamp() + 'Build linear_model:')
 linear_model = tf.keras.Sequential([
 	normalizer,
 	layers.Dense(units=1)
@@ -445,7 +444,7 @@ linear_model = tf.keras.Sequential([
 
 # In[34]:
 
-
+print(time_stamp() + 'Predict untrained linear_model:')
 linear_model.predict(train_features[:10])
 
 
@@ -461,7 +460,7 @@ linear_model.layers[1].kernel
 
 # In[36]:
 
-
+print(time_stamp() + 'Compile linear_model:')
 linear_model.compile(
 	optimizer=tf.optimizers.Adam(learning_rate=0.1),
 	loss='mean_absolute_error')
@@ -471,6 +470,7 @@ linear_model.compile(
 
 
 # get_ipython().run_cell_magic('time', '', 'history = linear_model.fit(\n    train_features, train_labels, \n    epochs=100,\n    # suppress logging\n    verbose=0,\n    # Calculate validation results on 20% of the training data\n    validation_split = 0.2)')
+print(time_stamp() + 'Fit linear_model:')
 history = linear_model.fit(
 	train_features, train_labels,
 	epochs=100,
@@ -492,7 +492,7 @@ history = linear_model.fit(
 
 # In[39]:
 
-
+print(time_stamp() + 'Evaluate linear_model:')
 test_results['linear_model'] = linear_model.evaluate(
 	test_features, test_labels, verbose=0)
 
@@ -533,7 +533,7 @@ def build_and_compile_model(norm):
 
 # In[41]:
 
-
+print(time_stamp() + 'Build and Compile dnn_latestPrice_model:')
 dnn_latestPrice_model = build_and_compile_model(latestPrice_normalizer)
 
 
@@ -541,7 +541,7 @@ dnn_latestPrice_model = build_and_compile_model(latestPrice_normalizer)
 
 # In[42]:
 
-
+print(time_stamp() + 'Summary dnn_latestPrice_model:')
 dnn_latestPrice_model.summary()
 
 
@@ -551,6 +551,7 @@ dnn_latestPrice_model.summary()
 
 
 # get_ipython().run_cell_magic('time', '', "history = dnn_latestPrice_model.fit(\n    train_features['latestPrice'], train_labels,\n    validation_split=0.2,\n    verbose=0, epochs=100)")
+print(time_stamp() + 'Fit dnn_latestPrice_model:')
 history = dnn_latestPrice_model.fit(
 	train_features['latestPrice'], train_labels,
 	validation_split=0.2,
@@ -569,10 +570,11 @@ history = dnn_latestPrice_model.fit(
 
 # In[45]:
 
-
+print(time_stamp() + 'Predict dnn_latestPrice_model:')
 x = tf.linspace(0.0, 250, 251)
 y = dnn_latestPrice_model.predict(x)
-
+print(time_stamp() + 'x:\n', x)
+print(time_stamp() + 'y:\n', y)
 
 # In[46]:
 
@@ -584,10 +586,14 @@ y = dnn_latestPrice_model.predict(x)
 
 # In[47]:
 
-
+print(time_stamp() + 'Evaluate dnn_latestPrice_model:')
 test_results['dnn_latestPrice_model'] = dnn_latestPrice_model.evaluate(
 	test_features['latestPrice'], test_labels,
 	verbose=0)
+
+print(time_stamp() + 'Test Results first 3 models:')
+df = pd.DataFrame(test_results, index=['Mean absolute error [target]']).T
+print(df)
 
 
 # ### Full model
@@ -596,7 +602,7 @@ test_results['dnn_latestPrice_model'] = dnn_latestPrice_model.evaluate(
 
 # In[48]:
 
-
+print(time_stamp() + 'Build and Compile dnn_model:')
 dnn_model = build_and_compile_model(normalizer)
 dnn_model.summary()
 
@@ -605,6 +611,7 @@ dnn_model.summary()
 
 
 # get_ipython().run_cell_magic('time', '', 'history = dnn_model.fit(\n    train_features, train_labels,\n    validation_split=0.2,\n    verbose=0, epochs=100)')
+print(time_stamp() + 'Fit dnn_model:')
 history = dnn_model.fit(
 	train_features, train_labels,
 	validation_split=0.2,
@@ -621,7 +628,7 @@ history = dnn_model.fit(
 
 # In[51]:
 
-
+print(time_stamp() + 'Evaluate dnn_model:')
 test_results['dnn_model'] = dnn_model.evaluate(test_features, test_labels, verbose=0)
 
 
@@ -631,7 +638,7 @@ test_results['dnn_model'] = dnn_model.evaluate(test_features, test_labels, verbo
 
 # In[52]:
 
-
+print(time_stamp() + 'Test Results all models:')
 df = pd.DataFrame(test_results, index=['Mean absolute error [target]']).T
 print(df)
 
@@ -643,8 +650,10 @@ print(df)
 
 # In[53]:
 
-
+print(time_stamp() + 'Predict dnn_model:')
 test_predictions = dnn_model.predict(test_features).flatten()
+print(time_stamp() + f'test_labels (x):\n{test_labels}')
+print(time_stamp() + f'test_predictions (y):\n{test_predictions}')
 
 a = plt.axes(aspect='equal')
 plt.scatter(test_labels, test_predictions)
@@ -673,23 +682,24 @@ _ = plt.ylabel('Count')
 
 # In[55]:
 
-
-dnn_model.save('dnn_model')
+print(time_stamp() + 'Save ' + ticker.lower() + '_model:')
+dnn_model.save('misc/models/' + ticker.lower() + '_model')
 
 
 # If you reload the model, it gives identical output:
 
 # In[56]:
 
+print(time_stamp() + 'Load ' + ticker.lower() + '_model:')
+reloaded = tf.keras.models.load_model('misc/models/' + ticker.lower() + '_model')
 
-reloaded = tf.keras.models.load_model('dnn_model')
-
+print(time_stamp() + 'Evaluate loaded ' + ticker.lower() + '_model:')
 test_results['reloaded'] = reloaded.evaluate(test_features, test_labels, verbose=0)
 
 
 # In[57]:
 
-
+print(time_stamp() + 'Loaded Results dnn_model:')
 df = pd.DataFrame(test_results, index=['Mean absolute error [target]']).T
 print(df)
 print(time_stamp() + 'Finished.')
@@ -705,5 +715,4 @@ print(time_stamp() + 'Finished.')
 # * Overfitting is a common problem for DNN models, it wasn't a problem for this tutorial. See the [overfit and underfit](overfit_and_underfit.ipynb) tutorial for more help with this.
 # 
 
-# VBoxManage showhdinfo ~/VirtualBox\ VMs/Ubuntu/Ubuntu.vdi
-# VBoxManage modifyhd --resize 30720 ~/VirtualBox\ VMs/Ubuntu/Ubuntu.vdi
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price01.log 2>&1 &

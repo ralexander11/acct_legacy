@@ -135,6 +135,11 @@ def prep_data(path, data_mean=None, data_std=None, norm=False, train=True, v=Fal
 		unsure_cols = ['institutionPercent']
 		drop_cols = datetime_cols + all_zeros_cols + categorical_data_cols + all_nan_cols + has_nan_cols + unsure_cols
 		dataset = df.drop(drop_cols, axis=1, errors='ignore')
+		cols_kept = dataset.columns.values.tolist()
+		print('Columns Kept:' , cols_kept)
+		print(dataset.shape)
+		print(dataset.tail())
+		exit()
 		cols = ['changePercent', 'day50MovingAvg', 'latestPrice']
 		dataset = dataset[cols]
 		if v: print(dataset)#.head())
@@ -368,10 +373,10 @@ def main(tickers=None, merged_data=None, v=True):
 	predictions = pd.DataFrame(columns=['ticker','prediction','prior','changePercent','actual','actual_changePer'])
 	if tickers is not None:
 		if not isinstance(tickers, (list, tuple)):
-			tickers = [str(tickers)]
+			tickers = [x.strip() for x in tickers.split(',')]
 		for ticker in tickers:
 			ticker = ticker.lower()
-			merged = 'merged_final.csv'
+			merged = 'merged.csv' # 'merged_final.csv'
 			# print(combine_data.data_location + merged)
 			if merged_data is not None:
 				df = combine_data.comp_filter(ticker, merged_data)
@@ -405,10 +410,12 @@ def main(tickers=None, merged_data=None, v=True):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-t', '--train', action='store_true', help='Train a new model if existing model is not found.')
+	# TODO Finish args
+	parser.add_argument('-t', '--train', action='store_true', help='Train a new model if existing model is not found.') # TODO Use this
 	args = parser.parse_args()
 
-	predictions = main(['tsla','aapl'])
+	tickers = 'tsla' # ['tsla','aapl']
+	predictions = main(tickers)
 	with pd.option_context('display.max_columns', None):
 		print(time_stamp() + 'predictions:\n', predictions)
 
