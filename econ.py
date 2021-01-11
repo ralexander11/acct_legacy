@@ -30,7 +30,7 @@ END_DATE = None
 MAX_HOURS = 12
 WORK_DAY = 8
 PAY_PERIODS = 2
-GESTATION = 7
+GESTATION = 3 # 7
 MAX_CORPS = 2
 INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
@@ -1368,7 +1368,7 @@ class World:
 		print()
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		t4_start = time.perf_counter()
-		print('Check Demand List:')
+		print(time_stamp() + 'Check Demand List:')
 		for entity in factory.get(users=False):
 			#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
 			# entity.set_price() # TODO Is this needed?
@@ -1389,8 +1389,10 @@ class World:
 			if isinstance(entity, Individual) and not entity.user:
 				entity.address_needs(obtain=False, priority=False, method='consumption')
 
+		print(time_stamp() + 'WIP List Check:')
 		for entity in factory.get(users=False):
 			entity.wip_check()
+			print(time_stamp() + f'Demand List Check for {entity.name}:')
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual))
 			if isinstance(entity, Individual) and not entity.user:
 				entity.address_needs(obtain=False, v=False)
@@ -5072,43 +5074,47 @@ class Entity:
 				if isinstance(self, Individual) and not needs_only: # TODO Assumes land is never a direct need
 					to_drop = []
 					# Claim land items for self first
-					if self.entity_id in world.demand['entity_id'].values: # TODO Make this less ugly
+					if demand_item['entity_id'] == self.entity_id: # TODO Make this less ugly
 						self_demand = world.demand.loc[world.demand['entity_id'] == self.entity_id]
 						if not self_demand.empty:
-							for index, demand_row in self_demand.iterrows():
+							for idx, demand_row in self_demand.iterrows():
 								# item = demand_row['item_id']
 								# item_type = world.get_item_type(item)
 								# if item_type == 'Land':
 								if demand_row['item_id'] == item:
+									qty = demand_row['qty']
+									print(f'{self.name} attempting to claim {qty} {item} for its self from the demand table.')
 									result = self.claim_land(item, demand_row['qty'], account='Inventory')
 									if not result:
 										result = self.purchase(item, demand_row['qty'], acct_buy='Inventory')
 									if result:
 										if result[0][8] == demand_row['qty']:
-											to_drop.append(index)
+											to_drop.append(idx)
 										else:
-											world.demand.at[index, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
-											print('World Self Demand:\n{}'.format(world.demand))
+											world.demand.at[idx, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
+											print('World Self Demand Land:\n{}'.format(world.demand))
 							world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 							world.set_table(world.demand, 'demand')
 							if to_drop:
-								print('World Self Demand:\n{}'.format(world.demand))
+								print('World Self Demand Land:\n{}'.format(world.demand))
 					else: # TODO Test this better
-						for index, demand_row in world.demand.iterrows():
+						for idx, demand_row in world.demand.iterrows():
 							# item = demand_row['item_id']
 							# item_type = world.get_item_type(item)
 							# if item_type == 'Land':
 							if demand_row['item_id'] == item:
+								qty = demand_row['qty']
+								print(f'{self.name} attempting to claim {qty} {item} from the demand table.')
 								result = self.claim_land(item, demand_row['qty'], account='Inventory')
 								if not result:
 									result = self.purchase(item, demand_row['qty'], acct_buy='Inventory')
 								if result:
 									print(f'{self.name} demand land claim result qty for {item}: {result[0][8]}')
 									if result[0][8] == demand_row['qty']:
-										to_drop.append(index)
+										to_drop.append(idx)
 									else:
-										world.demand.at[index, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
-										print('World Demand:\n{}'.format(world.demand))
+										world.demand.at[idx, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
+										print('World Demand Land:\n{}'.format(world.demand))
 						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 						world.set_table(world.demand, 'demand')
 						if to_drop:
@@ -5122,7 +5128,7 @@ class Entity:
 			qty_existance = 0
 			# Filter for item and add up all qtys to support multiple entries
 			if multi:
-				for index, demand_row in world.demand.iterrows():
+				for idx, demand_row in world.demand.iterrows():
 					if item_type == 'Education': # TODO Maybe add Service also
 						if demand_row['entity_id'] == self.entity_id: # TODO Could filter df for entity_id first
 							if demand_row['item_id'] == item:
@@ -5134,7 +5140,7 @@ class Entity:
 							if demand_row['item_id'] == item:
 								qty += demand_row['qty']
 								qty = int(math.ceil(qty))
-								to_drop.append(index)
+								to_drop.append(idx)
 			else:
 				if item_type == 'Education': # TODO Maybe add Service also
 					if demand_item['entity_id'] == self.entity_id: # TODO Could filter df for entity_id first
