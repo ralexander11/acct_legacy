@@ -2,10 +2,10 @@ import acct
 import trade
 from market_data.market_data import MarketData
 from market_data.combine_data import CombineData
-from fut_price import get_price#, convert_lite
+from fut_price import get_fut_price
 import pandas as pd
 import argparse
-import datetime
+import datetime as dt
 import logging
 import random
 import time
@@ -26,7 +26,7 @@ WK52_REDUCE = 1 #10 # No longer needed
 def time_stamp(offset=0):
 	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
 		offset = 4
-	time_stamp = (datetime.datetime.now() + datetime.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
+	time_stamp = (dt.datetime.now() + dt.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
 	return time_stamp
 
 def delete_db(db_name=None):
@@ -140,9 +140,9 @@ class TradingAlgo(object):
 			if not isinstance(date, str):
 				weekday = date.weekday()
 			else:
-				weekday = datetime.datetime.strptime(date, '%Y-%m-%d').weekday()
+				weekday = dt.datetime.strptime(date, '%Y-%m-%d').weekday()
 		else:
-			weekday = datetime.datetime.today().weekday()
+			weekday = dt.datetime.today().weekday()
 
 		# Don't do anything on weekends
 		if weekday == 5 or weekday == 6:
@@ -150,7 +150,7 @@ class TradingAlgo(object):
 			return weekday
 
 	def check_holiday(self, date=None, v=True):
-		# TODO Use pandas to generate this list automatically from this source: https://www.nyse.com/markets/hours-calendars
+		# TODO Pull this data from IEX
 		us_trade_holidays = [
 							'2018-01-01',
 							'2018-01-15',
@@ -170,6 +170,26 @@ class TradingAlgo(object):
 							'2019-09-02',
 							'2019-11-28',
 							'2019-12-25',
+
+							'2020-01-01',
+							'2020-01-20',
+							'2020-02-17',
+							'2020-04-10',
+							'2020-05-25',
+							'2020-07-03',
+							'2020-09-07',
+							'2020-11-26',
+							'2020-12-25',
+
+							'2021-01-01',
+							'2021-01-18',
+							'2021-02-15',
+							'2021-04-02',
+							'2021-05-31',
+							'2021-07-05',
+							'2021-09-06',
+							'2021-11-25',
+							'2021-12-24',
 						]
 
 		# Don't do anything on trade holidays
@@ -179,7 +199,7 @@ class TradingAlgo(object):
 			else:
 				current_date = date
 		else:
-			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
+			current_date = dt.datetime.today().strftime('%Y-%m-%d')
 		for holiday in us_trade_holidays:
 			if holiday == current_date:
 				if v: print(time_stamp() + 'Today is a trade holiday. ({})'.format(date))
@@ -187,11 +207,11 @@ class TradingAlgo(object):
 
 	def check_hours(self, begin_time=None, end_time=None, check_time=None):
 		if begin_time is None:
-			begin_time = datetime.time(6, 30) # Market opens at 9:30 am EST
+			begin_time = dt.time(6, 30) # Market opens at 9:30 am EST
 		if end_time is None:
-			end_time = datetime.time(13) # Market closes at 4:00 pm EST
+			end_time = dt.time(13) # Market closes at 4:00 pm EST
 		# If check time is not given, default to current server (PST) time
-		check_time = check_time or datetime.datetime.now().time()
+		check_time = check_time or dt.datetime.now().time()
 		if begin_time < end_time:
 			return check_time >= begin_time and check_time <= end_time
 		else: # crosses midnight
@@ -201,14 +221,14 @@ class TradingAlgo(object):
 		if date is not None:
 			# print('date: {} | Type: {}'.format(date, type(date)))
 			if isinstance(date, str):
-				current_date = datetime.datetime.strptime(date, '%Y-%m-%d')
+				current_date = dt.datetime.strptime(date, '%Y-%m-%d')
 			else:
 				current_date = date
 		else:
-			current_date = datetime.datetime.today()
+			current_date = dt.datetime.today()
 		# print('current_date: {} | Type: {}'.format(current_date, type(current_date)))
-		next_day = (current_date + datetime.timedelta(days=1))#.date()
-		if isinstance(next_day, datetime.datetime):
+		next_day = (current_date + dt.timedelta(days=1))#.date()
+		if isinstance(next_day, dt.datetime):
 			next_day = next_day.date()
 		if self.check_weekend(next_day) is not None:
 			return self.get_next_day(next_day)
@@ -220,14 +240,14 @@ class TradingAlgo(object):
 		if date is not None:
 			# print('date: {} | Type: {}'.format(date, type(date)))
 			if isinstance(date, str):
-				current_date = datetime.datetime.strptime(date, '%Y-%m-%d')
+				current_date = dt.datetime.strptime(date, '%Y-%m-%d')
 			else:
 				current_date = date
 		else:
-			current_date = datetime.datetime.today()
+			current_date = dt.datetime.today()
 		# print('current_date: {} | Type: {}'.format(current_date, type(current_date)))
-		prior_day = (current_date - datetime.timedelta(days=1))#.date()
-		if isinstance(prior_day, datetime.datetime):
+		prior_day = (current_date - dt.timedelta(days=1))#.date()
+		if isinstance(prior_day, dt.datetime):
 			prior_day = prior_day.date()
 		if self.check_weekend(prior_day) is not None:
 			return self.get_prior_day(prior_day)
@@ -351,9 +371,9 @@ class TradingAlgo(object):
 	# First algo functions
 	def rank_wk52high(self, assets, norm=False, date=None): # TODO Make this able to be a percentage change calc
 		if date is not None:
-			date = datetime.datetime.strptime(date, '%Y-%m-%d').date() - datetime.timedelta(days=1)
+			date = dt.datetime.strptime(date, '%Y-%m-%d').date() - dt.timedelta(days=1)
 		if date is None:
-			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
+			date = dt.datetime.today().date() - dt.timedelta(days=1)
 		#print('Data Date: {}'.format(date))
 		end_point = 'quote'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
@@ -381,9 +401,9 @@ class TradingAlgo(object):
 
 	def rank_day50avg(self, assets, norm=False, date=None): # TODO Make this able to be a percentage change calc
 		if date is not None:
-			date = datetime.datetime.strptime(date, '%Y-%m-%d').date() - datetime.timedelta(days=1)
+			date = dt.datetime.strptime(date, '%Y-%m-%d').date() - dt.timedelta(days=1)
 		if date is None:
-			date = datetime.datetime.today().date() - datetime.timedelta(days=1)
+			date = dt.datetime.today().date() - dt.timedelta(days=1)
 		end_point = 'quote'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		if not os.path.exists(path):
@@ -519,31 +539,31 @@ class TradingAlgo(object):
 	def future_data(self, ticker, date=None, merged_data=None, train=False):
 		t2_start = time.perf_counter()
 		if date is None:
-			date = datetime.datetime.today()
+			date = dt.datetime.today()
 			if date.weekday() == 0:
 				delta = 3
 			# elif date.weekday() == 1:
 			# 	delta = 1#2
 			else:
 				delta = 0#1
-			date = date - datetime.timedelta(days=delta) # TODO Test support for Mondays and Tuesdays
+			date = date - dt.timedelta(days=delta) # TODO Test support for Mondays and Tuesdays
 			date = date.date()
-			if isinstance(date, datetime.datetime):
-				date = datetime.datetime.strftime('%Y-%m-%d', date)
+			if isinstance(date, dt.datetime):
+				date = dt.datetime.strftime('%Y-%m-%d', date)
 			print(time_stamp() + 'Date Inner 1: {}'.format(date))
 			self.set_table(date, 'date')
 		else:
 			# print('date: {} | {}'.format(date, type(date)))
-			if isinstance(date, datetime.datetime):
-				date = datetime.datetime.strftime('%Y-%m-%d', date)
+			if isinstance(date, dt.datetime):
+				date = dt.datetime.strftime('%Y-%m-%d', date)
 		dates = []
 		dates.append(date)
 		days = 2
 		date_prior = date
 		while len(dates) < days:
 			if isinstance(date_prior, str):
-				date_prior = datetime.datetime.strptime(date_prior, '%Y-%m-%d').date()
-			date_prior = date_prior - datetime.timedelta(days=1)
+				date_prior = dt.datetime.strptime(date_prior, '%Y-%m-%d').date()
+			date_prior = date_prior - dt.timedelta(days=1)
 			# date_prior = self.get_prior_day(date_prior)
 			# TODO Clean up file location logic
 			end_point = 'quote'
@@ -587,11 +607,12 @@ class TradingAlgo(object):
 			return
 		# print('Future Data Date: {} | {}'.format(date, type(date)))
 		# pred = 300.0
-		try:
-			pred_price = get_price(df, ticker, merged_data=merged_data, train=train)
-		except Exception as e:
-			print(time_stamp() + 'Error getting price for {}: {}\n{}'.format(ticker, repr(e), df))
-			return
+		# try:
+			# pred_price = get_price(df, ticker, merged_data=merged_data, train=train)
+		pred_price = get_fut_price(ticker, dates)
+		# except Exception as e:
+		# 	print(time_stamp() + 'Error getting price for {}: {}\n{}'.format(ticker, repr(e), df))
+		# 	return
 		if pred_price is None:
 			return
 		# print('pred_price:', pred_price)
@@ -661,10 +682,10 @@ class TradingAlgo(object):
 	def main(self, date=None, dates=None, norm=False, n=1, first=False, adv=False, tmp_n=None):
 		t3_start = time.perf_counter()
 		if date is None:
-			date = datetime.datetime.today()
+			date = dt.datetime.today()
 			date = date.date()
-			if isinstance(date, datetime.datetime):
-				date = datetime.datetime.strftime('%Y-%m-%d', date)
+			if isinstance(date, dt.datetime):
+				date = dt.datetime.strftime('%Y-%m-%d', date)
 		self.set_table(date, 'date')
 		print('=' * DISPLAY_WIDTH)
 		if trade.sim:
@@ -700,6 +721,8 @@ class TradingAlgo(object):
 			tickers = ['tsla'] + ['aapl'] #+ ['voo'] + ['ivv']
 		if args.mode == 'each':
 			tickers_repeated = list(itertools.chain.from_iterable([ticker, ticker, ticker, ticker] for ticker in args.tickers))
+		else:
+			tickers_repeated = [tickers]
 
 		for e in range(1, n+1):
 			if tmp_n is not None and first:
@@ -741,7 +764,10 @@ class TradingAlgo(object):
 
 			self.entities = accts.get_entities()
 			if e not in self.entities.index:
-				name = tickers + '-' + algo_type
+				if isinstance(tickers, (list, tuple)):
+					name = tickers[0] + '-' + algo_type
+				else:
+					name = tickers + '-' + algo_type
 				entity_data = [[name, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]] # Note: The 2nd to 5th values are for another program as well as the 6th to 19th values
 				accts.add_entity(entity_data)#, v=True)
 		
@@ -800,6 +826,7 @@ if __name__ == '__main__':
 	parser.add_argument('-t', '--tickers', type=str, default='ws_tickers.csv', help='A list of tickers to consider.')
 	parser.add_argument('-n', '--train_new', action='store_false', help='Train a new model if existing model is not found.')
 	parser.add_argument('-a', '--train', action='store_true', help='Train all new models.')
+	parser.add_argument('-since', '--since', action='store_false', help='Use all dates since a given date. On by default.')
 	args = parser.parse_args()
 	new_db = True
 	# print('Existing DB Check: {}'.format(os.path.exists('db/' + args.database)))
@@ -852,6 +879,11 @@ if __name__ == '__main__':
 		for fname in glob.glob(data_path):
 			fname_date = os.path.basename(fname)[-14:-4]
 			dates.append(fname_date)
+		print('dates len1:', len(dates))
+		if args.since:
+			# TODO Add option to provide since date
+			since = '2020-01-24'
+			dates = [date for date in dates if date > since]
 		dates.sort()
 		# print(dates)
 		print(time_stamp() + 'Number of Days: {}'.format(len(dates)))
@@ -918,11 +950,11 @@ if __name__ == '__main__':
 # python first_algo.py -db trade02.db -s 11 -t ws_tickers.csv -r
 # python first_algo.py -db first01.db -s 11 -t ws_tickers.csv -r
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/first_algo.py -db first01.db -s 11 -t tsla -sim >> /home/robale5/becauseinterfaces.com/acct/logs/first01.log 2>&1
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db first01.db -s 11 -t tsla -sim >> /home/robale5/becauseinterfaces.com/acct/logs/first01.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/first_algo.py -db trade01.db -s 11 -a >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -s 11 -a >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/first_algo.py -db test01.db -s 11 -m each -sim -t us_tickers.csv >> /home/robale5/becauseinterfaces.com/acct/logs/test01.log 2>&1
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db test01.db -s 11 -m each -sim -t us_tickers.csv >> /home/robale5/becauseinterfaces.com/acct/logs/test01.log 2>&1 &
 
 # crontab schedule
 # 00 07 * * *

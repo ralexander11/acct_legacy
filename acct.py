@@ -400,7 +400,7 @@ class Accounts:
 		else:
 			for entity in entity_data:
 				try:
-					entity = entity + ([None] * (22 - len(entity)))
+					entity = entity + ([None] * (23 - len(entity)))
 				except TypeError:
 					pass
 				entity = tuple(map(lambda x: np.nan if x == 'None' else x, entity))

@@ -99,14 +99,22 @@ class CombineData(object):
 
 	def date_filter(self, dates=None, since=False, data=None, merged=None, save=False, v=False):
 		if dates is None:
-			dates = args.dates
+			try:
+				dates = args.dates
+			except NameError:
+				pass
 			if dates is None:
 				dates = [str(self.current_date)]
 		else:
 			if not isinstance(dates, (list, tuple)):
 				dates = [x.strip() for x in dates.split(',')]
 		if not since:
-			since = args.since
+			try:
+				since = args.since
+				# since = ['2020-01-24']
+			except NameError:
+				# since = ['2020-01-24']
+				pass
 		if since:
 			if len(dates) != 1:
 				print('Must provide only 1 date with the "since" command.')
@@ -118,6 +126,7 @@ class CombineData(object):
 			merged = self.merge_data(dates=dates)
 		elif '.csv' in merged:
 			merged = pd.read_csv(self.data_location + merged)
+			merged = merged.loc[merged['date'].isin(dates)]
 		if data is not None:
 			merged = pd.concat(data, merged)
 		if v: print('Data filtered for dates:\n{}'.format(merged))
