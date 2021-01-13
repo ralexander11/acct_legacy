@@ -1389,10 +1389,11 @@ class World:
 			if isinstance(entity, Individual) and not entity.user:
 				entity.address_needs(obtain=False, priority=False, method='consumption')
 
-		print(time_stamp() + 'WIP List Check:')
 		for entity in factory.get(users=False):
+			print(time_stamp() + f'WIP List Check for: {entity.name}')
 			entity.wip_check()
-			print(time_stamp() + f'Demand List Check for {entity.name}:')
+		for entity in factory.get(users=False):
+			print(time_stamp() + f'Demand List Check for: {entity.name}')
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual))
 			if isinstance(entity, Individual) and not entity.user:
 				entity.address_needs(obtain=False, v=False)
