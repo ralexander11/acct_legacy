@@ -100,7 +100,7 @@ def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, 
 	train_features = train_dataset.copy()
 	test_features = test_dataset.copy()
 
-	if train:
+	if train or 'target' in dataset.columns.values.tolist():
 		train_labels = train_features.pop('target')
 		test_labels = test_features.pop('target')
 	else:
@@ -239,6 +239,8 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 			result = test_predictions[0]
 		else:
 			result = test_predictions
+	else:
+		result = dataset.copy()
 
 	if v: print(time_stamp() + f'Result:\n{result}')
 	return result
