@@ -5297,7 +5297,8 @@ class Entity:
 			qty = math.floor(entity.hours / (explore_time))
 			if qty == 0:
 				print('{} lacks time to claim {} units of {}. Can claim {} units with {} hours time.'.format(entity.name, orig_qty, item, qty, entity.hours))
-				self.item_demanded(item, orig_qty, priority=priority)
+				if account == 'Land':
+					self.item_demanded(item, orig_qty, priority=priority)
 				return
 			print('{} lacks time to claim {} units of {}. But can claim {} units with {} hours of time instead.'.format(entity.name, orig_qty, item, qty, entity.hours))
 			if self.user:
@@ -7914,7 +7915,7 @@ class Individual(Entity):
 		return 'Indv: {} | {}'.format(self.name, self.entity_id)
 
 	def set_hours(self, hours_delta=0):
-		# print('Set Hours Before: {}'.format(self.hours))
+		# print(f'Set Hours Before for {self.name}: {self.hours}')
 		self.hours -= hours_delta
 		if self.hours < 0:
 			self.hours = 0
@@ -7928,7 +7929,7 @@ class Individual(Entity):
 		cur.execute(set_need_query, values)
 		ledger.conn.commit()
 		cur.close()
-		# print('Set Hours After: {}'.format(self.hours))
+		# print('Set Hours After for {self.name}: {self.hours}')
 		return self.hours
 
 	def reset_hours(self):
