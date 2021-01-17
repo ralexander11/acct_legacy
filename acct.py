@@ -1480,11 +1480,13 @@ class Ledger:
 		for txn in txns:
 			rvsl_query = 'SELECT * FROM '+ self.ledger_name +' WHERE txn_id = '+ txn + ';' # TODO Use gl dataframe
 			cur.execute(rvsl_query)
-			rvsl = cur.fetchone()
+			rvsl = list(cur.fetchone())
 			logging.debug('rvsl: {}'.format(rvsl))
 			if '[RVSL]' in rvsl[6]:
 				print('Cannot reverse a reversal for txn_id: {}. Enter a new entry instead.'.format(txn))
 				continue
+			del rvsl[5]
+			rvsl = tuple(rvsl)
 			if date is None: # rvsl[7] or np.nan
 				date_raw = datetime.datetime.today().strftime('%Y-%m-%d')
 				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())

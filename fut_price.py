@@ -62,7 +62,7 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 	# dataset.drop(['symbol','date'], axis=1, inplace=True)
 	# print(time_stamp() + 'nan counts:')
 	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-	# 	print(dataset.isna().sum())
+		# print(dataset.isna().sum())
 	# dataset.dropna(axis=0, inplace=True)
 	if train:
 		dataset.dropna(axis=0, subset=['target'], inplace=True)
@@ -176,6 +176,9 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 	if not train:
 		frac_per = 1
 	train_features, test_features, train_labels, test_labels, dataset = get_features_and_labels(ticker=ticker, crypto=crypto, data=data, frac_per=frac_per, v=v)
+	if test_features.empty:
+		print(time_stamp() + f'No data for {ticker} to run model.')
+		return
 
 	if os.path.exists(file_name) and not train:
 		if v: print(time_stamp() + 'Load model from: ' + ticker.lower() + '_model')

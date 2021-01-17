@@ -412,6 +412,7 @@ class Trading(object):
 				for_factor = split.iloc[0,2]
 				ratio = to_factor / for_factor
 				qty = self.ledger.get_qty(symbol, ['Investments'])
+				# TODO Use balance_sheet
 				cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 				old_price = cost / qty
 				new_qty = qty * ratio # TODO Handle fractional shares

@@ -962,11 +962,11 @@ if __name__ == '__main__':
 # python first_algo.py -db trade02.db -s 11 -t ws_tickers.csv -r
 # python first_algo.py -db first01.db -s 11 -t ws_tickers.csv -r
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db first01.db -s 11 -t tsla -sim >> /home/robale5/becauseinterfaces.com/acct/logs/first01.log 2>&1 &
-
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -s 11 -a >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db test01.db -s 11 -m each -sim -t us_tickers.csv >> /home/robale5/becauseinterfaces.com/acct/logs/test01.log 2>&1 &
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -s 11 -t tsla -sim >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
 
 # crontab schedule
 # 00 07 * * *
