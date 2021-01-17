@@ -382,45 +382,63 @@ class Trading(object):
 				print(div_relieve_event)
 				self.ledger.journal_entry(div_relieve_event)
 
-	def splits(self, end_point='splits/3m', date=None): # TODO Add commenting
-		url = 'https://api.iextrading.com/1.0/stock/'
+	def splits(self, date=None, pull_data=False, end_point='splits/3m'):
+		# TODO Add comments
 		portfolio = self.ledger.get_qty(accounts=['Investments'])
+		# portfolio = pd.DataFrame({'item_id': ['TSLA']})#, index=None) # For testing
 		if portfolio.empty:
-			print('Stock Splits: No securities held.')
+			print('No securities held to check for stock splits.')
 			return
-		logging.debug('Looking for stock splits to book.')
+		if date == '':
+			date = None
+		if date is None:
+			date = datetime.datetime.today().strftime('%Y-%m-%d')
+		logging.debug(f'Looking for stock splits to book for {date}.')
 		for symbol in portfolio['item_id']:
-			logging.debug('\nGetting splits for ' + symbol)
-			try:
-				split = pd.read_json(url + symbol + '/' + end_point, typ='frame', orient='records')
-				if split.empty:
+			if pull_data:
+				# TODO This is for the old method
+				url = 'https://api.iextrading.com/1.0/stock/'
+				logging.debug('\nGetting splits for ' + symbol)
+				try:
+					split = pd.read_json(url + symbol + '/' + end_point, typ='frame', orient='records')
+					if split.empty:
+						continue
+				except:
+					logging.warning('Invalid ticker: ' + symbol)
+					logging.debug(url + symbol + '/' + end_point)
 					continue
-			except:
-				logging.warning('Invalid ticker: ' + symbol)
-				logging.debug(url + symbol + '/' + end_point)
-				continue
-			exdate = split.iloc[0,1]
-			if exdate is None:
-				logging.warning('Exdate is blank for: ' + symbol)
-				continue
-			exdate = datetime.datetime.strptime(exdate, '%Y-%m-%d')
-			current_date = datetime.datetime.today().strftime('%Y-%m-%d')
-			logging.debug('Exdate: {}'.format(exdate))
-			logging.debug('Current Date: {}'.format(current_date))
-			if current_date == exdate:
-				to_factor = split.iloc[0,6]
-				for_factor = split.iloc[0,2]
-				ratio = to_factor / for_factor
-				qty = self.ledger.get_qty(symbol, ['Investments'])
-				# TODO Use balance_sheet
-				cost = self.ledger.hist_cost(qty, symbol, 'Investments')
+				exdate = split.iloc[0,1]
+				if exdate is None:
+					logging.warning('Exdate is blank for: ' + symbol)
+					continue
+				exdate = datetime.datetime.strptime(exdate, '%Y-%m-%d')
+				logging.debug('Exdate: {}'.format(exdate))
+			else:
+				splits_data = pd.read_csv(self.data_location + 'splits/splits_data.csv')
+				# print('splits_data:\n', splits_data)
+				split = splits_data.loc[(splits_data['symbol'] == symbol) & (splits_data['exDate'] == date)]
+				print('split:\n', split)
+				if split.shape[0] > 1:
+					print(f'{symbol} has more than 1 stock splits on {date}.')
+					split = split[0]
+			# if date == exdate:
+			if not split.empty:
+				from_factor = split['fromFactor'].values[0]
+				to_factor = split['toFactor'].values[0]
+				multiplier = to_factor / from_factor
+				# ratio = split['ratio']
+				if symbol == 'TSLA' and date == '2020-08-31':
+					multiplier = 5
+				qty = self.ledger.get_qty(symbol, ['Investments'], v=True)
+				cost = self.ledger.balance_sheet(['Investments'], symbol)
+				# cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 				old_price = cost / qty
-				new_qty = qty * ratio # TODO Handle fractional shares
+				new_qty = qty * multiplier # TODO Handle fractional shares
 				new_price = cost / new_qty
 
 				logging.debug('To Factor: {}'.format(to_factor))
-				logging.debug('For Factor: {}'.format(for_factor))
-				logging.debug('Ratio: {}'.format(ratio))
+				logging.debug('For Factor: {}'.format(from_factor))
+				logging.debug('Multiplier: {}'.format(multiplier))
 				logging.debug('Ticker: {}'.format(symbol))
 				logging.debug('QTY: {}'.format(qty))
 				logging.debug('Cost: {}'.format(cost))
@@ -431,7 +449,7 @@ class Trading(object):
 				cost_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Stock split old', symbol, old_price, qty, 'Cash', 'Investments', cost ]
 				split_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Stock split new', symbol, new_price, new_qty, 'Investments', 'Cash', cost ]
 				split_event = [cost_entry, split_entry]
-				print(split_event)
+				# print(split_event)
 				self.ledger.journal_entry(split_event)
 
 def main(command=None, external=False):
@@ -455,11 +473,11 @@ def main(command=None, external=False):
 			command = input('\nType one of the following commands:\nbuy, sell, exit\n')
 		# TODO Allow command to be a single line in any order (i.e. buy tsla 10)
 		if command.lower() == 'buy':
-			symbol = input('Which ticker? ')
+			symbol = input('Which ticker? ').upper()
 			trade.buy_shares(symbol)
 			if args.command is not None: exit()
 		elif command.lower() == 'sell':
-			symbol = input('Which ticker? ')
+			symbol = input('Which ticker? ').upper()
 			trade.sell_shares(symbol)
 			if args.command is not None: exit()
 		elif command.lower() == 'int':
@@ -467,6 +485,10 @@ def main(command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'trueup':
 			trade.unrealized()
+			if args.command is not None: exit()
+		elif command.lower() == 'splits':
+			date = input('Which date? ')
+			trade.splits(date=date)
 			if args.command is not None: exit()
 		elif command.lower() == 'exit':
 			exit()

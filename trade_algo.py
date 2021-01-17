@@ -540,6 +540,8 @@ class TradingAlgo(object):
 	def future_price(self, ticker, date, v=False):
 		pred_price = get_fut_price(ticker, date)
 		if v: print('pred_price:\n', pred_price)
+		if pred_price is None:
+			return
 		pred_quote_df = pred_price.rename(columns={'latestPrice': 'prior'}, errors='ignore')
 		pred_quote_df['changePercent'] = (pred_quote_df['prediction'] - pred_quote_df['prior']) / pred_quote_df['prior']
 		pred_quote_df = pred_quote_df[['symbol', 'prediction', 'prior', 'changePercent']]
@@ -791,6 +793,7 @@ class TradingAlgo(object):
 				ticker = rank.index[0]
 				print('Ticker: {}'.format(ticker))
 				if not portfolio.empty:
+					self.trade.splits(date=date)
 					if ticker == portfolio['item_id'].iloc[0]:
 						print('No change from {}.'.format(ticker))
 						self.trade.unrealized(date=date)
