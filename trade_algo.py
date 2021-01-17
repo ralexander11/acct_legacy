@@ -707,13 +707,14 @@ class TradingAlgo(object):
 		else:
 			print(time_stamp() + 'Date: {}'.format(date))
 		print ('-' * DISPLAY_WIDTH)
+		nav_hist = pd.DataFrame()
+		nav_hist.index.rename('date', inplace=True)
 
 		if adv:
 			self.trade.int_exp(date=date) # TODO ensure this only runs daily
 			if not trade.sim: # TODO Temp restriction while historical CA data is missing
 				self.trade.dividends() # TODO Add perf timers
 				self.trade.div_accr()
-				self.trade.splits()
 			logging.info('-' * (DISPLAY_WIDTH - 32))
 		
 		# Don't do anything on weekends
@@ -819,6 +820,9 @@ class TradingAlgo(object):
 			nav = self.ledger.balance_sheet()
 			portfolio = self.ledger.get_qty(accounts=['Investments'])
 			print('Portfolio at End of Day: \n{}'.format(portfolio))
+			nav_hist.at[date, algo_type] = nav
+			self.set_table(nav_hist, 'nav_hist')
+			print('NAV Hist:\n', nav_hist.tail())
 			#ledger.bs_hist()
 
 		t3_end = time.perf_counter()
@@ -960,10 +964,10 @@ if __name__ == '__main__':
 			date = algo.get_table('date').values[0][0]
 		algo.main(norm=args.norm, date=date, n=n, first=new_db)
 
-# python first_algo.py -db first36.db -s 11 -sim -t ws_tickers.xlsx
+# python trade_algo.py -db first36.db -s 11 -sim -t ws_tickers.xlsx
 
-# python first_algo.py -db trade02.db -s 11 -t ws_tickers.csv -r
-# python first_algo.py -db first01.db -s 11 -t ws_tickers.csv -r
+# python trade_algo.py -db trade02.db -s 11 -t ws_tickers.csv -r
+# python trade_algo.py -db trade01.db -s 11 -t tsla -r
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -s 11 -a >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
 
@@ -974,4 +978,4 @@ if __name__ == '__main__':
 # crontab schedule
 # 00 07 * * *
 
-# nohup python first_algo.py -db test01.db -s 11 -m each -sim -t us_tickers.csv
+# nohup python trade_algo.py -db test01.db -s 11 -m each -sim -t us_tickers.csv
