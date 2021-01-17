@@ -489,7 +489,8 @@ class TradingAlgo(object):
 					# print('ticker:', ticker)
 					if isinstance(ticker, float): # xlsx causes last ticker to be nan
 						continue
-					quote_df = self.future_data(ticker, date=date, merged_data=merged_data, train=train)
+					# quote_df = self.future_data(ticker, date=date, merged_data=merged_data, train=train)
+					quote_df = self.future_price(ticker, date=date, v=True)
 					print(time_stamp() + 'Done predicting price for: {} ({} / {}) {:.0f}%'.format(ticker, i, len(tickers), (i/len(tickers)*100)))
 					if quote_df is None:
 						continue
@@ -535,6 +536,17 @@ class TradingAlgo(object):
 			quote_df = quote_df.iloc[0:0]
 			return quote_df
 		return quote_df
+
+	def future_price(self, ticker, date, v=False):
+		pred_price = get_fut_price(ticker, date)
+		if v: print('pred_price:\n', pred_price)
+		pred_quote_df = pred_price.rename(columns={'latestPrice': 'prior'}, errors='ignore')
+		pred_quote_df['changePercent'] = (pred_quote_df['prediction'] - pred_quote_df['prior']) / pred_quote_df['prior']
+		pred_quote_df = pred_quote_df[['symbol', 'prediction', 'prior', 'changePercent']]
+		pred_quote_df.set_index('symbol', inplace=True)
+		# pred_quote_df = pd.DataFrame(data={'symbol':[ticker], 'prediction':[pred_price], 'prior':[prior], 'changePercent':[(pred_price-prior)/prior]}, index=None).set_index('symbol')
+		if v: print('pred_quote_df:\n', pred_quote_df)
+		return pred_quote_df
 
 	def future_data(self, ticker, date=None, merged_data=None, train=False):
 		t2_start = time.perf_counter()
@@ -607,12 +619,12 @@ class TradingAlgo(object):
 			return
 		# print('Future Data Date: {} | {}'.format(date, type(date)))
 		# pred = 300.0
-		# try:
-			# pred_price = get_price(df, ticker, merged_data=merged_data, train=train)
-		pred_price = get_fut_price(ticker, dates)
-		# except Exception as e:
-		# 	print(time_stamp() + 'Error getting price for {}: {}\n{}'.format(ticker, repr(e), df))
-		# 	return
+		try:
+			pred_price = get_price(df, ticker, merged_data=merged_data, train=train)
+			# pred_price = get_fut_price(ticker, dates)
+		except Exception as e:
+			print(time_stamp() + 'Error getting price for {}: {}\n{}'.format(ticker, repr(e), df))
+			return
 		if pred_price is None:
 			return
 		# print('pred_price:', pred_price)

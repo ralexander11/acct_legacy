@@ -59,7 +59,7 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 
 	# if v: print(time_stamp() + f'Dataset tail 1.')
 	# if v: print(dataset.tail())
-	dataset.drop(['symbol','date'], axis=1, inplace=True)
+	# dataset.drop(['symbol','date'], axis=1, inplace=True)
 	# print(time_stamp() + 'nan counts:')
 	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 	# 	print(dataset.isna().sum())
@@ -106,6 +106,8 @@ def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, 
 	else:
 		train_labels = pd.DataFrame()
 		test_labels = pd.DataFrame()
+	train_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
+	test_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
 
 	return train_features, test_features, train_labels, test_labels, dataset
 
@@ -180,11 +182,11 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		model = tf.keras.models.load_model(file_name)
 		test_predictions = model.predict(test_features)
 		test_predictions = test_predictions.flatten()
-		dataset['predictions'] = pd.Series(test_predictions, index=test_features.index)
-		# if train:
-			# dataset['pred_dir'] = dataset['predictions'] - dataset['latestPrice']
-			# dataset['real_dir'] = dataset['predictions'] - dataset['target']
-			# dataset['dir_check'] = (dataset['pred_dir'] < 0) & (dataset['real_dir'] < 0)
+		dataset['prediction'] = pd.Series(test_predictions, index=test_features.index)
+		if 'target' in dataset.columns.values.tolist():
+			dataset['pred_dir'] = dataset['prediction'] - dataset['latestPrice']
+			dataset['real_dir'] = dataset['prediction'] - dataset['target']
+			dataset['dir_check'] = (dataset['pred_dir'] < 0) & (dataset['real_dir'] < 0)
 		if v: print('dataset:\n', dataset)
 		if v:
 			print(time_stamp() + 'Prediction Results:')

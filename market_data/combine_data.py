@@ -21,7 +21,7 @@ class CombineData(object):
 		self.data_location = data_location
 		if self.data_location is None:
 			if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
-				print('Server')
+				print(time_stamp() + 'Server')
 				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
 			else:
 				# self.data_location = '../market_data/data/'
