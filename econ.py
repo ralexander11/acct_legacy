@@ -4332,9 +4332,13 @@ class Entity:
 		rvsl_txns = ledger.gl[ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		# Get list of WIP txns for different item types
 		if items is not None:
-			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['item_id'].isin(items)) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			wip_done_txns = ledger.gl[(ledger.gl['credit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['item_id'].isin(items)) & (~ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
+			print('wip_done_txns for items:', wip_done_txns)
+			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['item_id'].isin(items)) & (~ledger.gl['event_id'].isin(rvsl_txns)) & (~ledger.gl['event_id'].isin(wip_done_txns))]
 		else:
-			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			wip_done_txns = ledger.gl[(ledger.gl['credit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
+			print('wip_done_txns:', wip_done_txns)
+			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns)) & (~ledger.gl['event_id'].isin(wip_done_txns))]
 		if v: print('WIP TXNs: \n{}'.format(wip_txns))
 		if not wip_txns.empty:
 			result = []
@@ -7915,7 +7919,7 @@ class Individual(Entity):
 		return 'Indv: {} | {}'.format(self.name, self.entity_id)
 
 	def set_hours(self, hours_delta=0):
-		# print(f'Set Hours Before for {self.name}: {self.hours}')
+		print(f'Set Hours Before for {self.name}: {self.hours}')
 		self.hours -= hours_delta
 		if self.hours < 0:
 			self.hours = 0
@@ -7929,7 +7933,7 @@ class Individual(Entity):
 		cur.execute(set_need_query, values)
 		ledger.conn.commit()
 		cur.close()
-		# print('Set Hours After for {self.name}: {self.hours}')
+		print(f'Set Hours After for {self.name}: {self.hours}')
 		return self.hours
 
 	def reset_hours(self):
@@ -9179,7 +9183,9 @@ if __name__ == '__main__':
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
-# (python econ.py -s 11 -p 4 -r -t 10 && say done) || say error
+# (python econ.py -db econ35.db -s 11 -p 4 -r -t 4 >> logs/econ35.log && say done) || say error
+
+# (python econ.py -s 11 -p 4 -r -t 4 && say done) || say error
 
 # TODO
 # Add a new column to items called fulfill

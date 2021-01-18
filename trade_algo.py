@@ -707,14 +707,13 @@ class TradingAlgo(object):
 		else:
 			print(time_stamp() + 'Date: {}'.format(date))
 		print ('-' * DISPLAY_WIDTH)
-		nav_hist = pd.DataFrame()
-		nav_hist.index.rename('date', inplace=True)
 
 		if adv:
 			self.trade.int_exp(date=date) # TODO ensure this only runs daily
 			if not trade.sim: # TODO Temp restriction while historical CA data is missing
 				self.trade.dividends() # TODO Add perf timers
 				self.trade.div_accr()
+				# self.trade.splits(date=date)
 			logging.info('-' * (DISPLAY_WIDTH - 32))
 		
 		# Don't do anything on weekends
@@ -753,6 +752,7 @@ class TradingAlgo(object):
 				self.ledger.default = e
 				self.ledger.reset()
 
+			self.trade.splits(date=date)
 			capital = self.check_capital()
 			print('Capital for entity {}: {}'.format(e, capital))
 			assets = self.ledger.balance_sheet(['Cash','Investments'])
@@ -794,7 +794,6 @@ class TradingAlgo(object):
 				ticker = rank.index[0]
 				print('Ticker: {}'.format(ticker))
 				if not portfolio.empty:
-					self.trade.splits(date=date)
 					if ticker == portfolio['item_id'].iloc[0]:
 						print('No change from {}.'.format(ticker))
 						self.trade.unrealized(date=date)
@@ -846,6 +845,7 @@ if __name__ == '__main__':
 	parser.add_argument('-n', '--train_new', action='store_false', help='Train a new model if existing model is not found.')
 	parser.add_argument('-a', '--train', action='store_true', help='Train all new models.')
 	parser.add_argument('-since', '--since', action='store_false', help='Use all dates since a given date. On by default.')
+	parser.add_argument('-sd', '--since_date', type=str, default='2020-01-24', help='Use dates from a given date.')
 	args = parser.parse_args()
 	new_db = True
 	# print('Existing DB Check: {}'.format(os.path.exists('db/' + args.database)))
@@ -877,7 +877,7 @@ if __name__ == '__main__':
 		print(time_stamp() + 'Will train all new models.')
 	if args.tickers:
 		if '.csv' not in args.tickers and '.xls' not in args.tickers:
-			args.tickers = [x.strip() for x in args.tickers.split(',')]
+			args.tickers = [x.strip().upper() for x in args.tickers.split(',')]
 		else:
 			args.tickers = algo.get_symbols(args.tickers)
 	# print('args.tickers:', args.tickers)
@@ -900,8 +900,7 @@ if __name__ == '__main__':
 			dates.append(fname_date)
 		print('dates len1:', len(dates))
 		if args.since:
-			# TODO Add option to provide since date
-			since = '2020-01-24'
+			since = args.since_date
 			dates = [date for date in dates if date > since]
 		dates.sort()
 		# print(dates)
@@ -934,6 +933,8 @@ if __name__ == '__main__':
 		else:
 			tmp_n = None
 		first = True
+		nav_hist = pd.DataFrame()
+		nav_hist.index.rename('date', inplace=True)
 		for date in dates[1:]: # TODO Data window is 2 days back, but this should be general
 			algo.set_table(date, 'date')
 			try:

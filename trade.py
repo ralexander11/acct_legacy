@@ -394,6 +394,11 @@ class Trading(object):
 		if date is None:
 			date = datetime.datetime.today().strftime('%Y-%m-%d')
 		logging.debug(f'Looking for stock splits to book for {date}.')
+		# if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
+		# 		print('Splits Server')
+		# 		self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
+		# else:
+		# 	self.data_location = '/Users/Robbie/Public/market_data/new/data/'
 		for symbol in portfolio['item_id']:
 			if pull_data:
 				# TODO This is for the old method
@@ -416,8 +421,8 @@ class Trading(object):
 			else:
 				splits_data = pd.read_csv(self.data_location + 'splits/splits_data.csv')
 				# print('splits_data:\n', splits_data)
-				split = splits_data.loc[(splits_data['symbol'] == symbol) & (splits_data['exDate'] == date)]
-				print('split:\n', split)
+				split = splits_data.loc[(splits_data['symbol'] == symbol.upper()) & (splits_data['exDate'] == date)]
+				print(f'split on {date} for {symbol}:\n{split}')
 				if split.shape[0] > 1:
 					print(f'{symbol} has more than 1 stock splits on {date}.')
 					split = split[0]
@@ -427,9 +432,9 @@ class Trading(object):
 				to_factor = split['toFactor'].values[0]
 				multiplier = to_factor / from_factor
 				# ratio = split['ratio']
-				if symbol == 'TSLA' and date == '2020-08-31':
-					multiplier = 5
-				qty = self.ledger.get_qty(symbol, ['Investments'], v=True)
+				# if symbol.upper() == 'TSLA' and date == '2020-08-31':
+				# 	multiplier = 5
+				qty = self.ledger.get_qty(symbol, ['Investments'])#, v=True)
 				cost = self.ledger.balance_sheet(['Investments'], symbol)
 				# cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 				old_price = cost / qty
