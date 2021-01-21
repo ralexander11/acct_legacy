@@ -44,7 +44,7 @@ class Trading(object):
 				# self.data_location = '../market_data/data/'
 				# self.data_location = '../market_data/test_data/'
 				# self.data_location = '/Users/Robbie/Public/market_data/data/'
-				print('Server')
+				print('Trade: Server')
 				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
 			else:
 				# self.data_location = 'market_data/data/'
@@ -435,8 +435,8 @@ class Trading(object):
 				# if symbol.upper() == 'TSLA' and date == '2020-08-31':
 				# 	multiplier = 5
 				qty = self.ledger.get_qty(symbol, ['Investments'])#, v=True)
-				cost = self.ledger.balance_sheet(['Investments'], symbol)
-				# cost = self.ledger.hist_cost(qty, symbol, 'Investments')
+				# cost = self.ledger.balance_sheet(['Investments'], symbol)
+				cost = self.ledger.hist_cost(qty, symbol, 'Investments')
 				old_price = cost / qty
 				new_qty = qty * multiplier # TODO Handle fractional shares
 				new_price = cost / new_qty

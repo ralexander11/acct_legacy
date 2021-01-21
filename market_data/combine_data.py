@@ -21,7 +21,7 @@ class CombineData(object):
 		self.data_location = data_location
 		if self.data_location is None:
 			if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
-				print(time_stamp() + 'Server')
+				print(time_stamp() + 'Combine Data: Server')
 				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
 			else:
 				# self.data_location = '../market_data/data/'
@@ -97,7 +97,7 @@ class CombineData(object):
 			print(time_stamp() + 'Saved merged data!\n{}'.format(merged.head()))
 		return merged
 
-	def date_filter(self, dates=None, since=False, data=None, merged=None, save=False, v=False):
+	def date_filter(self, dates=None, merged=None, since=False, data=None, save=False, v=False):
 		if dates is None:
 			try:
 				dates = args.dates
@@ -126,7 +126,8 @@ class CombineData(object):
 			merged = self.merge_data(dates=dates)
 		elif '.csv' in merged:
 			merged = pd.read_csv(self.data_location + merged)
-			merged = merged.loc[merged['date'].isin(dates)]
+		merged.reset_index(inplace=True)
+		merged = merged.loc[merged['date'].isin(dates)]
 		if data is not None:
 			merged = pd.concat(data, merged)
 		if v: print('Data filtered for dates:\n{}'.format(merged))
@@ -153,7 +154,8 @@ class CombineData(object):
 			if isinstance(symbol[-1], float): # xlsx causes last ticker to be nan
 				symbol = symbol[:-2]
 			symbol = list(map(str.upper, symbol))
-		merged = merged.reset_index()#level='symbol')
+		if 'level_0' not in merged.columns.values.tolist():
+			merged = merged.reset_index()#level='symbol')
 		if symbol:
 			merged = merged.loc[merged['symbol'].isin(symbol)]
 		if flatten:

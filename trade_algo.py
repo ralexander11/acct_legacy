@@ -538,7 +538,8 @@ class TradingAlgo(object):
 		return quote_df
 
 	def future_price(self, ticker, date, v=False):
-		pred_price = get_fut_price(ticker, date)
+		# print('merged_data:\n', merged_data)
+		pred_price = get_fut_price(ticker, date, global_merged_data)
 		if v: print('pred_price:\n', pred_price)
 		if pred_price is None:
 			return
@@ -935,6 +936,11 @@ if __name__ == '__main__':
 		first = True
 		nav_hist = pd.DataFrame()
 		nav_hist.index.rename('date', inplace=True)
+		merged = 'merged.csv'
+		print(time_stamp() + f'Loading combined data from: {combine_data.data_location + merged}')
+		global_merged_data = pd.read_csv(combine_data.data_location + merged)
+		# global_merged_data = global_merged_data.set_index(['symbol','date'])
+		print(time_stamp() + f'Finished loading combined data from: {combine_data.data_location + merged}')
 		for date in dates[1:]: # TODO Data window is 2 days back, but this should be general
 			algo.set_table(date, 'date')
 			try:

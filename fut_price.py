@@ -48,9 +48,11 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		dataset = dataset[column_names]
 		if v: print(dataset.shape)
 	elif isinstance(merged, pd.DataFrame):
-		if v: print('Data provided:')
+		print('Data provided:')
 		if v: print(merged.shape)
+		# dataset = combine_data.comp_filter(ticker, merged)
 		dataset = merged[column_names]
+		# dataset = dataset.set_index(['symbol','date'])
 		if v: print(dataset.shape)
 	else:
 		raw_dataset = pd.read_csv(url, names=column_names)
@@ -138,15 +140,17 @@ def build_and_compile_model(norm):
 				optimizer=tf.keras.optimizers.Adam(0.001))
 	return model
 
-def get_fut_price(ticker, date=None, crypto=False, only_price=False, v=False):
+def get_fut_price(ticker, date=None, data=None, crypto=False, only_price=False, v=False):
 	# TODO Maybe support multiple tickers and dates
 	if isinstance(ticker, (list, tuple)):
 		ticker = ticker[0]
 	if isinstance(date, (list, tuple)):
 		date = date[0]
 	combine_data = CombineData()
-	merged = 'merged.csv'
-	data = combine_data.comp_filter(ticker, combine_data.date_filter(date, merged=merged))
+	if data is None:
+		data = 'merged.csv'
+	data = combine_data.comp_filter(ticker, combine_data.date_filter(date, merged=data))
+	print('data after filter:\n', data.shape)
 	price = main(ticker, data=data, crypto=crypto, only_price=only_price)
 	return price
 
