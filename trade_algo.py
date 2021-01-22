@@ -899,7 +899,7 @@ if __name__ == '__main__':
 		for fname in glob.glob(data_path):
 			fname_date = os.path.basename(fname)[-14:-4]
 			dates.append(fname_date)
-		print('dates len1:', len(dates))
+		# print('dates len1:', len(dates))
 		if args.since:
 			since = args.since_date
 			dates = [date for date in dates if date > since]

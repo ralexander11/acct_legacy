@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import glob, os
 import datetime as dt
@@ -121,15 +122,16 @@ class CombineData(object):
 				return
 			dates = pd.date_range(start=dates[0], end=dt.datetime.today(), freq='D').to_pydatetime().tolist()
 			dates = [date.strftime('%Y-%m-%d') for date in dates]
-			print('Number of dates:', len(dates))
+			print(time_stamp() + f'Number of Days since {dates[0]}: {len(dates)}')
 		if merged is None:
 			merged = self.merge_data(dates=dates)
 		elif '.csv' in merged:
 			merged = pd.read_csv(self.data_location + merged)
-		merged.reset_index(inplace=True)
+		if merged.index.names[0] is not None:
+			merged.reset_index(inplace=True)
 		merged = merged.loc[merged['date'].isin(dates)]
 		if data is not None:
-			merged = pd.concat(data, merged)
+			merged = pd.concat([data, merged])
 		if v: print('Data filtered for dates:\n{}'.format(merged))
 		if save:
 			if len(dates) == 1:
@@ -154,8 +156,8 @@ class CombineData(object):
 			if isinstance(symbol[-1], float): # xlsx causes last ticker to be nan
 				symbol = symbol[:-2]
 			symbol = list(map(str.upper, symbol))
-		if 'level_0' not in merged.columns.values.tolist():
-			merged = merged.reset_index()#level='symbol')
+		if merged.index.names[0] is not None:
+			merged = merged.reset_index()
 		if symbol:
 			merged = merged.loc[merged['symbol'].isin(symbol)]
 		if flatten:
@@ -211,7 +213,9 @@ class CombineData(object):
 				df = self.date_filter()
 		elif '.csv' in merged:
 			df = pd.read_csv(self.data_location + merged)
-		print('splits df:\n', df)
+		else:
+			df = merged
+		# print('splits df:\n', df)
 		if splits is None:
 			# splits = input('Enter csv file name with split data: ')
 			if not splits:
@@ -221,17 +225,18 @@ class CombineData(object):
 		if 'factor' not in df.columns.values:
 			df['factor'] = 1
 		df['cur_factor'] = 1
-		# print(df)
 		for symbol, split_event in splits_data.iterrows():
 			# print('symbol:', symbol)
-			if symbol == 'TSLA':
-				split_event['ratio'] = 0.2
+			# if symbol == 'TSLA':
+			# 	split_event['ratio'] = 0.2 # Fixed this in the raw data now
 			# print(split_event)
 			df.loc[(df['symbol'] == symbol) & (df['date'] < split_event['exDate']), 'cur_factor'] *= split_event['ratio']
 		# Adjust data columns
 		adj_cols = ['factor','close','delayedPrice','extendedPrice','high','iexClose','iexRealtimePrice','latestPrice','low','oddLotDelayedPrice','open','previousClose','week52High','week52Low','day200MovingAvg','day50MovingAvg','week52high','week52low']
 		for col in adj_cols:
 			if col in df.columns.values:
+				# print(time_stamp() + 'splits column:', col)
+				df[col] = pd.to_numeric(df[col], errors='coerce')
 				df[col] *= df['cur_factor']
 		df.reset_index(drop=True, inplace=True)
 		if v: print('Data adjusted for stock splits:\n{}'.format(df))
@@ -335,34 +340,43 @@ class CombineData(object):
 			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(filename))
 		return df
 
-	def get(self, save=False, v=False):
-		if os.path.exists('data/merged.csv'):
-			if v: print('Merged data exists for get:')
-			merged = pd.read_csv('data/merged.csv')
-			args.dates = [merged['date'].max() + 1]
-			if v: print('Dates:', args.dates)
-			# args.tickers = merged['symbol'].unique().tolist()
-			# merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, data=merged, since=True))
-			merged = combine_data.date_filter(args.dates, data=merged, since=True)
-			merged = combine_data.splits(merged)
-			merged = combine_data.mark_miss(merged)
-			merged = combine_data.scrub(merged)
-			merged = combine_data.target(merged)
+	def get(self, dates=None, some=False, save=False, v=True):
+		if os.path.exists(self.data_location + 'merged.csv'):
+			if v: print(time_stamp() + f'Merged data exists for get. Save: {args.save}')
+			merged = pd.read_csv(self.data_location + 'merged.csv')
+			if v: print('merged tail:\n', merged.tail())
+			if v: print(time_stamp() + 'merged shape load:', merged.shape)
+			if v: print('date type:', type(merged['date'].max()))
+			dates = [dt.datetime.strptime(merged['date'].max(), '%Y-%m-%d').date() + dt.timedelta(days=1)]
+			if v: print(time_stamp() + 'Merged Max Date:', dates)
+			merged = combine_data.date_filter(dates, data=merged, since=True)
+			if v: print(time_stamp() + 'merged shape filter dates:', merged.shape)
+			if not some:
+				merged = combine_data.splits(merged)
+				if v: print(time_stamp() + 'merged shape splits:', merged.shape)
+				merged = combine_data.mark_miss(merged)
+				if v: print(time_stamp() + 'merged shape miss:', merged.shape)
+				merged = combine_data.scrub(merged)
+				if v: print(time_stamp() + 'merged shape scrub:', merged.shape)
+				merged = combine_data.target(merged)
+				if v: print(time_stamp() + 'merged shape end:', merged.shape)
 		else:
-			if args.dates is None:
-				args.dates = ['2020-01-24']
-			# if args.tickers is None:
-			# 	args.tickers = pd.read_csv('../data/ws_tickers.csv', header=None)
-				args.tickers = args.tickers.iloc[:,0].unique().tolist()
-			merged = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=True))
+			if v: print(time_stamp() + f'Merged data does not exist for get. Save: {args.save}')
+			if dates is None:
+				dates = ['2020-01-24']
+			# if tickers is None:
+			# 	tickers = pd.read_csv('../data/ws_tickers.csv', header=None)
+			# tickers = tickers.iloc[:,0].unique().tolist()
+			# merged = combine_data.comp_filter(tickers, combine_data.date_filter(dates, since=True))
+			merged = combine_data.date_filter(dates, since=True)
 			merged = combine_data.splits(merged)
 			merged = combine_data.mark_miss(merged)
 			merged = combine_data.scrub(merged)
 			merged = combine_data.target(merged)
 		if save:
-			filename = self.data_location + 'merged.csv'
+			filename = self.data_location + 'merged_test02.csv'
 			merged.to_csv(filename, index=False)
-			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(args.dates[0], filename))
+			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(dates[-1], filename))
 		return merged
 
 	def crypto_data(self, merged=None, prep=False, save=False, v=False):
@@ -649,6 +663,7 @@ if __name__ == '__main__':
 	parser.add_argument('-f', '--fields', type=str, help='The fields to filter data for.')
 	parser.add_argument('-m', '--mode', type=str, help='The mode to run: merged, missing, value, tickers.')
 	parser.add_argument('-since', '--since', action='store_true', help='Use all dates since a given date.')
+	parser.add_argument('-some', '--some', action='store_true', help='Get some.')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	args = parser.parse_args()
 
@@ -736,7 +751,7 @@ if __name__ == '__main__':
 		max_date = combine_data.max_date()
 
 	elif args.mode == 'get':
-		df = combine_data.get(merged, save=args.save)
+		df = combine_data.get(some=args.some, save=args.save)
 
 	else:
 		if args.dates and args.tickers and args.fields:
@@ -762,5 +777,7 @@ if __name__ == '__main__':
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/combine01.log 2>&1 &
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m fill -s >> /home/robale5/becauseinterfaces.com/acct/logs/fill03.log 2>&1 &
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m get -s >> /home/robale5/becauseinterfaces.com/acct/logs/get01.log 2>&1 &
 
 # splits, mark, scrub, tar
