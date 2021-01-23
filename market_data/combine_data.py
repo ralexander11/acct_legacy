@@ -224,6 +224,8 @@ class CombineData(object):
 			splits_data = pd.read_csv(self.data_location + 'splits/' + splits, index_col='symbol', encoding='utf-8')
 		if 'factor' not in df.columns.values:
 			df['factor'] = 1
+		else:
+			df['factor'].fillna(1, inplace=True)
 		df['cur_factor'] = 1
 		for symbol, split_event in splits_data.iterrows():
 			# print('symbol:', symbol)
@@ -279,7 +281,7 @@ class CombineData(object):
 			tmp_df['target'] = tmp_df.apply(lambda x: 'miss' if x['date'] in miss_dates else x['target'], axis=1)
 			dfs.append(tmp_df)
 		df = pd.concat(dfs)
-		print('Data marked for missing dates:\n{}'.format(df))
+		if v: print('Data marked for missing dates:\n{}'.format(df))
 		if save:
 			filename = self.data_location + 'merged.csv'
 			df.to_csv(filename, index=False)
@@ -340,7 +342,7 @@ class CombineData(object):
 			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(filename))
 		return df
 
-	def get(self, dates=None, some=False, save=False, v=True):
+	def get(self, dates=None, tickers=None, some=False, save=False, v=False):
 		if os.path.exists(self.data_location + 'merged.csv'):
 			if v: print(time_stamp() + f'Merged data exists for get. Save: {args.save}')
 			merged = pd.read_csv(self.data_location + 'merged.csv')
@@ -349,17 +351,28 @@ class CombineData(object):
 			if v: print('date type:', type(merged['date'].max()))
 			dates = [dt.datetime.strptime(merged['date'].max(), '%Y-%m-%d').date() + dt.timedelta(days=1)]
 			if v: print(time_stamp() + 'Merged Max Date:', dates)
-			merged = combine_data.date_filter(dates, data=merged, since=True)
-			if v: print(time_stamp() + 'merged shape filter dates:', merged.shape)
+			new_merged = combine_data.date_filter(dates, since=True)
+			if v: print(time_stamp() + 'new_merged shape filter dates:', new_merged.shape)
+			if tickers is not None:
+				if v: print(time_stamp() + 'Tickers:', tickers)
+				new_merged = combine_data.comp_filter(tickers, new_merged)
+				merged = combine_data.comp_filter(tickers, merged)
+				if v: print(time_stamp() + 'new_merged shape filter tickers:', merged.shape)
 			if not some:
-				merged = combine_data.splits(merged)
-				if v: print(time_stamp() + 'merged shape splits:', merged.shape)
-				merged = combine_data.mark_miss(merged)
-				if v: print(time_stamp() + 'merged shape miss:', merged.shape)
-				merged = combine_data.scrub(merged)
-				if v: print(time_stamp() + 'merged shape scrub:', merged.shape)
-				merged = combine_data.target(merged)
-				if v: print(time_stamp() + 'merged shape end:', merged.shape)
+				last_row = merged.tail(1)
+				merged = merged[:-1]
+				new_merged = pd.concat([last_row, new_merged], sort=True)
+				new_merged = combine_data.splits(new_merged)
+				if v: print(time_stamp() + 'new_merged shape splits:', new_merged.shape)
+				new_merged = combine_data.mark_miss(new_merged)
+				if v: print(time_stamp() + 'new_merged shape miss:', new_merged.shape)
+				new_merged = combine_data.scrub(new_merged)
+				if v: print(time_stamp() + 'new_merged shape scrub:', new_merged.shape)
+				new_merged = combine_data.target(new_merged)
+				if v: print(time_stamp() + 'new_merged shape end:', new_merged.shape)
+				new_merged['date'] = new_merged['date'].dt.date
+			merged = pd.concat([merged, new_merged], sort=True)
+			if v: print(time_stamp() + 'merged shape end:', merged.shape)
 		else:
 			if v: print(time_stamp() + f'Merged data does not exist for get. Save: {args.save}')
 			if dates is None:
@@ -374,7 +387,7 @@ class CombineData(object):
 			merged = combine_data.scrub(merged)
 			merged = combine_data.target(merged)
 		if save:
-			filename = self.data_location + 'merged_test02.csv'
+			filename = self.data_location + 'merged_test08.csv'
 			merged.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(dates[-1], filename))
 		return merged
@@ -751,7 +764,7 @@ if __name__ == '__main__':
 		max_date = combine_data.max_date()
 
 	elif args.mode == 'get':
-		df = combine_data.get(some=args.some, save=args.save)
+		df = combine_data.get(dates=args.dates, tickers=args.tickers, some=args.some, save=args.save, v=True)
 
 	else:
 		if args.dates and args.tickers and args.fields:
@@ -778,6 +791,6 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m fill -s >> /home/robale5/becauseinterfaces.com/acct/logs/fill03.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m get -s >> /home/robale5/becauseinterfaces.com/acct/logs/get01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m get -s >> /home/robale5/becauseinterfaces.com/acct/logs/get02.log 2>&1 &
 
 # splits, mark, scrub, tar
