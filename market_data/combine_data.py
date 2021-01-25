@@ -75,6 +75,7 @@ class CombineData(object):
 		# print('files:', files)
 		dfs = []
 		for fname in files:
+			print(time_stamp() + 'fname:', fname)
 			load_df = self.load_file(fname)
 			# if 'stats' in fname:
 			# 	load_df = load_df[~load_df['avg10Volume'].str.contains(':', na=False)]
@@ -346,6 +347,7 @@ class CombineData(object):
 		if os.path.exists(self.data_location + 'merged.csv'):
 			if v: print(time_stamp() + f'Merged data exists for get. Save: {args.save}')
 			merged = pd.read_csv(self.data_location + 'merged.csv')
+			cols = merged.columns.values.tolist()
 			if v: print('merged tail:\n', merged.tail())
 			if v: print(time_stamp() + 'merged shape load:', merged.shape)
 			if v: print('date type:', type(merged['date'].max()))
@@ -369,9 +371,10 @@ class CombineData(object):
 				new_merged = combine_data.scrub(new_merged)
 				if v: print(time_stamp() + 'new_merged shape scrub:', new_merged.shape)
 				new_merged = combine_data.target(new_merged)
-				if v: print(time_stamp() + 'new_merged shape end:', new_merged.shape)
 				new_merged['date'] = new_merged['date'].dt.date
-			merged = pd.concat([merged, new_merged], sort=True)
+				if v: print(time_stamp() + 'new_merged shape end:', new_merged.shape)
+			new_merged = new_merged[cols]
+			# merged = pd.concat([merged, new_merged], sort=True)
 			if v: print(time_stamp() + 'merged shape end:', merged.shape)
 		else:
 			if v: print(time_stamp() + f'Merged data does not exist for get. Save: {args.save}')
@@ -380,15 +383,21 @@ class CombineData(object):
 			# if tickers is None:
 			# 	tickers = pd.read_csv('../data/ws_tickers.csv', header=None)
 			# tickers = tickers.iloc[:,0].unique().tolist()
-			# merged = combine_data.comp_filter(tickers, combine_data.date_filter(dates, since=True))
-			merged = combine_data.date_filter(dates, since=True)
-			merged = combine_data.splits(merged)
-			merged = combine_data.mark_miss(merged)
-			merged = combine_data.scrub(merged)
-			merged = combine_data.target(merged)
+			# new_merged = combine_data.comp_filter(tickers, combine_data.date_filter(dates, since=True))
+			new_merged = combine_data.date_filter(dates, since=True)
+			new_merged = combine_data.splits(new_merged)
+			new_merged = combine_data.mark_miss(new_merged)
+			new_merged = combine_data.scrub(new_merged)
+			new_merged = combine_data.target(new_merged)
+			merged = None
 		if save:
-			filename = self.data_location + 'merged_test08.csv'
-			merged.to_csv(filename, index=False)
+			if tickers is not None:
+				filename = self.data_location + 'merged_' + tickers + '.csv'
+			else:
+				filename = self.data_location + 'merged.csv'
+			if merged is not None:
+				merged.to_csv(filename, index=False)
+			new_merged.to_csv(filename, index=False, mode='a', header=False)
 			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(dates[-1], filename))
 		return merged
 
@@ -436,6 +445,16 @@ class CombineData(object):
 		max_date = df['date'].max()
 		if v: print(time_stamp() + 'Max Date:', max_date)
 		return max_date
+
+	def min_date(self, merged='merged.csv', v=True):
+		if '.csv' not in merged:
+			print('Must be a .csv file name.')
+			return
+		if v: print(time_stamp() + 'Loading data from:', merged)
+		df = pd.read_csv('data/' + merged)
+		min_date = df['date'].min()
+		if v: print(time_stamp() + 'Min Date:', min_date)
+		return min_date
 
 	def fill_missing(self, missing=None, merged=None, save=False, v=False):
 		if v: print(time_stamp() + 'Missing File Save:', save)
@@ -762,6 +781,9 @@ if __name__ == '__main__':
 
 	elif args.mode == 'maxdate':
 		max_date = combine_data.max_date()
+
+	elif args.mode == 'mindate':
+		max_date = combine_data.min_date()
 
 	elif args.mode == 'get':
 		df = combine_data.get(dates=args.dates, tickers=args.tickers, some=args.some, save=args.save, v=True)
