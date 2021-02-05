@@ -24,10 +24,11 @@ class CombineData(object):
 			if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
 				print(time_stamp() + 'Combine Data: Server')
 				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
-			else:
-				# self.data_location = '../market_data/data/'
-				# self.data_location = '../market_data/test_data/'
+			elif os.path.exists('/Users/Robbie/Public/market_data/new/data/'):
 				self.data_location = '/Users/Robbie/Public/market_data/new/data/'
+			else:
+				self.data_location = '../market_data/data/'
+				# self.data_location = '../market_data/test_data/'
 
 	def load_file(self, infile):
 		with open(infile, 'r') as f:
@@ -356,14 +357,25 @@ class CombineData(object):
 			new_merged = combine_data.date_filter(dates, since=True)
 			if v: print(time_stamp() + 'new_merged shape filter dates:', new_merged.shape)
 			if tickers is not None:
+				if isinstance(tickers, str):
+					tickers = [x.strip() for x in tickers.split(',')]
 				if v: print(time_stamp() + 'Tickers:', tickers)
 				new_merged = combine_data.comp_filter(tickers, new_merged)
 				merged = combine_data.comp_filter(tickers, merged)
 				if v: print(time_stamp() + 'new_merged shape filter tickers:', merged.shape)
 			if not some:
-				last_row = merged.tail(1)
-				merged = merged[:-1]
-				new_merged = pd.concat([last_row, new_merged], sort=True)
+				mergeds = []
+				new_mergeds = []
+				for symbol in list(merged['symbol'].unique()):
+					tmp_merged = merged.loc[merged['symbol'] == symbol]
+					tmp_new_merged = new_merged.loc[new_merged['symbol'] == symbol]
+					last_row = tmp_merged.tail(1)
+					tmp_merged = tmp_merged[:-1]
+					tmp_new_merged = pd.concat([last_row, tmp_new_merged], sort=True)
+					mergeds.append(tmp_merged)
+					new_mergeds.append(tmp_new_merged)
+				merged = pd.concat(mergeds, sort=True)
+				new_merged = pd.concat(new_mergeds, sort=True)
 				new_merged = combine_data.splits(new_merged)
 				if v: print(time_stamp() + 'new_merged shape splits:', new_merged.shape)
 				new_merged = combine_data.mark_miss(new_merged)
@@ -373,6 +385,7 @@ class CombineData(object):
 				new_merged = combine_data.target(new_merged)
 				new_merged['date'] = new_merged['date'].dt.date
 				if v: print(time_stamp() + 'new_merged shape end:', new_merged.shape)
+			merged = merged[cols]
 			new_merged = new_merged[cols]
 			# merged = pd.concat([merged, new_merged], sort=True)
 			if v: print(time_stamp() + 'merged shape end:', merged.shape)
@@ -392,12 +405,19 @@ class CombineData(object):
 			merged = None
 		if save:
 			if tickers is not None:
-				filename = self.data_location + 'merged_' + tickers + '.csv'
+				if len(tickers) == 1:
+					filename = self.data_location + 'merged_' + tickers[0] + '.csv'
+				else:
+					filename = self.data_location + 'merged_' + tickers[0] + '_to_' + tickers[-1] + '.csv'
 			else:
 				filename = self.data_location + 'merged.csv'
 			if merged is not None:
 				merged.to_csv(filename, index=False)
 			new_merged.to_csv(filename, index=False, mode='a', header=False)
+			# Fix sorting
+			merged = pd.read_csv(filename)
+			merged = merged.sort_values(by=['symbol', 'date'])
+			merged.to_csv(filename, index=False)
 			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(dates[-1], filename))
 		return merged
 
@@ -699,12 +719,12 @@ if __name__ == '__main__':
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	args = parser.parse_args()
 
-	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
-		data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
-	else:
-		# data_location = '../../market_data/test_data/'
-		data_location = '/Users/Robbie/Public/market_data/new/data/'
-	combine_data = CombineData(data_location=data_location)
+	# if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
+	# 	data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
+	# else:
+	# 	# data_location = '../../market_data/test_data/'
+	# 	data_location = '/Users/Robbie/Public/market_data/new/data/'
+	combine_data = CombineData()#data_location=data_location)
 
 	if args.mode == 'fill':
 		merged = 'merged.csv' # 'ws_miss_merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
@@ -813,6 +833,6 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m fill -s >> /home/robale5/becauseinterfaces.com/acct/logs/fill03.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m get -s >> /home/robale5/becauseinterfaces.com/acct/logs/get02.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m get -t "aapl, tsla" -s >> /home/robale5/becauseinterfaces.com/acct/logs/get10.log 2>&1 &
 
 # splits, mark, scrub, tar
