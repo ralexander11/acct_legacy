@@ -33,7 +33,7 @@ class CombineData(object):
 	def load_file(self, infile):
 		with open(infile, 'r') as f:
 			try:
-				df = pd.read_csv(f, index_col='symbol', encoding='utf-8')
+				df = pd.read_csv(f, index_col='symbol', encoding='utf-8')#, encoding='ISO-8859-1')#
 				# df = pd.read_csv(f, header=None, index_col=None, skiprows=1)
 				# df = df.drop(labels=0, axis=1)
 			except pd.errors.EmptyDataError:

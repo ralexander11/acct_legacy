@@ -168,6 +168,7 @@ class World:
 			self.items = self.items.reset_index() # TODO Avoid this?
 			self.items['fulfill'] = self.items.apply(lambda x: x['item_id'] if x['fulfill'] is None else x['fulfill'], axis=1)
 			self.items = self.items.set_index('item_id') # TODO Avoid this?
+			self.econ_graph()
 			self.items_map = pd.DataFrame(columns=['item_id', 'child_of'], index=['item_id']).dropna() # TODO Is this needed still?
 			self.set_table(self.items_map, 'items_map')
 			self.global_needs = self.create_needs()
@@ -469,6 +470,26 @@ class World:
 		table.index.name = None
 		if v: print('Get table: {}\n{}'.format(table_name, table))
 		return table
+
+	def econ_graph(self, save=True, v=True):
+		if v: print(time_stamp() + 'Making Econ Graph.')
+		import networkx as nx
+		G = nx.DiGraph()
+		G.add_nodes_from(self.items.index)
+		colour_map = {'Time','Labour', 'Job', 'Equipment', 'Buildings', 'Subscription', 'Service', 'Commodity', 'Components', 'Education', 'Technology', 'Land'}
+		for item_id, item_row in self.items.iterrows():
+			item_type = self.get_item_type(item_id)
+			if item_row['requirements'] is not None:
+				requirements = [x.strip() for x in item_row['requirements'].split(',')]
+				for req in requirements:
+					G.add_edge(req, item_id)
+			else:
+				G.remove_node(item_id)
+		if save:
+			nx.drawing.nx_pydot.write_dot(G, 'data/econ_items.dot')
+		self.G = G
+		if v: print(time_stamp() + 'Econ Graph made.')
+		return self.G
 
 	def setup_prices(self, v=True):
 		# TODO Maybe make self.prices a multindex with item_id and entity_id
