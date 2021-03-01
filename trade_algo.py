@@ -469,7 +469,7 @@ class TradingAlgo(object):
 			quote_dfs = []
 			if not os.path.exists(path) or predict:
 				if train:
-					merged = 'merged_final.csv'
+					merged = 'merged.csv'
 					if os.path.exists(combine_data.data_location + merged):
 						print(time_stamp() + 'Merged data exists outer.')
 						merged_data = pd.read_csv(combine_data.data_location + merged)
@@ -954,6 +954,7 @@ if __name__ == '__main__':
 		print(time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:
 		date = None # '2019-12-26' # 
+		global_merged_data = None
 		cap = args.capital
 		if cap is None:
 			cap = float(1000)
@@ -963,6 +964,8 @@ if __name__ == '__main__':
 		elif args.mode == 'each':
 			n = len(args.tickers) * 4
 			print('Mode: {} | Number of entities: {}'.format(args.mode, n))
+		nav_hist = pd.DataFrame()
+		nav_hist.index.rename('date', inplace=True)
 		if algo.check_capital(['Cash','Chequing','Investments']) == 0:
 			for entity in range(1, n+1):
 				deposit_capital = [ [ledger.get_event(), entity, '', trade.trade_date(date), '', 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
@@ -980,7 +983,9 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db test01.db -s 11 -m each -sim -t us_tickers.csv >> /home/robale5/becauseinterfaces.com/acct/logs/test01.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -s 11 -t tsla -sim >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade02.db -s 11 -t tsla -sim >> /home/robale5/becauseinterfaces.com/acct/logs/trade02.log 2>&1 &
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade04.db -s 11 -t tsla >> /home/robale5/becauseinterfaces.com/acct/logs/trade04.log 2>&1 &
 
 # crontab schedule
 # 00 07 * * *

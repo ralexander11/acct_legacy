@@ -147,8 +147,8 @@ def get_fut_price(ticker, date=None, data=None, crypto=False, only_price=False, 
 	if isinstance(date, (list, tuple)):
 		date = date[0]
 	combine_data = CombineData()
-	if data is None:
-		data = 'merged.csv'
+	# if data is None:
+	# 	data = 'merged.csv'
 	data = combine_data.comp_filter(ticker, combine_data.date_filter(date, merged=data))
 	print('data after filter:\n', data.shape)
 	price = main(ticker, data=data, crypto=crypto, only_price=only_price)

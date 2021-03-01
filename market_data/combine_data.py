@@ -110,7 +110,10 @@ class CombineData(object):
 				dates = [str(self.current_date)]
 		else:
 			if not isinstance(dates, (list, tuple)):
-				dates = [x.strip() for x in dates.split(',')]
+				if isinstance(dates, str):
+					dates = [x.strip() for x in dates.split(',')]
+				else:
+					dates = [dates]
 		if not since:
 			try:
 				since = args.since
