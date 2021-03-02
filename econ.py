@@ -560,7 +560,7 @@ class World:
 		if v: print(self.now)
 		return self.now
 
-	def get_hours(self, computers=True, v=False):
+	def get_hours(self, computers=True, total=False, v=False):
 		self.hours = collections.OrderedDict()
 		if computers:
 			entities = world.gov.get(Individual)
@@ -572,6 +572,9 @@ class World:
 			print('Current entity hours:')
 			for entity_name, hours in self.hours.items():
 				print('{} | Hours: {}'.format(entity_name, hours))
+		if total:
+			total_hours = sum(self.hours.values())
+			return total_hours
 		return self.hours
 
 	def set_win(self, win_conditions=None, win_defaults=True, v=False):
@@ -1394,6 +1397,7 @@ class World:
 			#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
 			# entity.set_price() # TODO Is this needed?
 			entity.auto_produce()
+			if self.end_turn(check_hrs=True, user_check=user_check): return
 			# if isinstance(entity, Individual):
 			# 	entity.needs_decay()
 			# 	if entity.dead:
@@ -1404,21 +1408,27 @@ class World:
 				# else:
 				# 	priority = True
 				entity.address_needs(priority=True, method='consumption')
+				if self.end_turn(check_hrs=True, user_check=user_check): return
 				entity.address_needs(method='capital')
+				if self.end_turn(check_hrs=True, user_check=user_check): return
 				# print('{} {} need at: {}'.format(entity.name, need, entity.needs[need]['Current Need']))
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual), needs_only=True)
+			if self.end_turn(check_hrs=True, user_check=user_check): return
 			if isinstance(entity, Individual) and not entity.user:
 				entity.address_needs(obtain=False, priority=False, method='consumption')
+				if self.end_turn(check_hrs=True, user_check=user_check): return
 
 		for entity in factory.get(users=False):
 			print(time_stamp() + f'WIP List Check for: {entity.name}')
 			entity.wip_check()
+			if self.end_turn(check_hrs=True, user_check=user_check): return
 		for entity in factory.get(users=False):
 			print(time_stamp() + f'Demand List Check for: {entity.name}')
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual))
 			if isinstance(entity, Individual) and not entity.user:
 				entity.address_needs(obtain=False, v=False)
 			entity.check_inv()
+			if self.end_turn(check_hrs=True, user_check=user_check): return
 			entity.tech_motivation()
 		t4_end = time.perf_counter()
 		print(time_stamp() + '4: Demand list check took {:,.2f} min.'.format((t4_end - t4_start) / 60))
@@ -1431,6 +1441,7 @@ class World:
 			print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
 			entity.check_optional()
 			entity.check_inv()
+			if self.end_turn(check_hrs=True, user_check=user_check): return
 			# entity.tech_motivation()
 			if isinstance(entity, Corporation):
 				# entity.list_shareholders(largest=True)
@@ -1439,6 +1450,23 @@ class World:
 		print(time_stamp() + '5: Optional check took {:,.2f} min.'.format((t5_end - t5_start) / 60))
 		print()
 
+		self.end_turn(check_hrs=False)
+		t1_end = time.perf_counter()
+		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
+		print()
+
+	def end_turn(self, check_hrs=False, user_check=None):
+		end = False
+		if check_hrs:
+			if not args.early:
+				return
+			if user_check:
+				return
+		if check_hrs and self.get_hours(total=True) != 0:
+			return
+		if check_hrs and self.get_hours(total=True) == 0:
+			print(time_stamp() + 'Turn ending early because all hours are used up.')
+			end = True
 		# User and computer mode
 		print(time_stamp() + 'Current Date: {}'.format(self.now))
 		t6_start = time.perf_counter()
@@ -1478,6 +1506,8 @@ class World:
 		for typ in factory.registry.keys():
 			for entity in factory.get(typ):
 				entity.release_check()#v=True)
+		print()
+		self.get_hours(v=True)
 		print()
 		for typ in factory.registry.keys():
 			for entity in factory.get(typ):
@@ -1554,6 +1584,8 @@ class World:
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
 
 		self.checkpoint_entry()
+		self.ticktock(v=False) # TODO User
+		return end
 
 		# # Book End of Day entry
 		# eod_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
@@ -1587,10 +1619,6 @@ class World:
 		# # print('\nHist Hours: \n{}'.format(self.hist_hours))
 
 		# # print('\nItems Map: \n{}'.format(self.items_map))
-
-		t1_end = time.perf_counter()
-		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
-		self.ticktock(v=False) # TODO User
 
 	def handle_events(self):
 		self.paused = False
@@ -9121,6 +9149,7 @@ if __name__ == '__main__':
 	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
 	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
 	parser.add_argument('-auto', '--auto', action='store_true', help='Automatically run prepared commands when in user mode.')
+	parser.add_argument('-early', '--early', action='store_true', help='Automatically end the turn when no hours left when not in user mode.')
 	# TODO Add argparse for setting win conditions
 	# User would choose one or more goals for Wealth, Tech, Population, Land
 	# Or a time limit, with the highest of one or more of the above
@@ -9166,6 +9195,8 @@ if __name__ == '__main__':
 			random.seed()
 	if args.time is not None:
 		END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
+	if args.early:
+		print(time_stamp() + 'Econ Sim will end turns early if no hours available')
 	if END_DATE is None:
 		print(time_stamp() + 'Econ Sim has no end date and will end if everyone dies.')
 	else:
