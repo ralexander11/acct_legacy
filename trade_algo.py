@@ -699,7 +699,7 @@ class TradingAlgo(object):
 		if date is None:
 			date = dt.datetime.today()
 			date = date.date()
-			if isinstance(date, dt.datetime):
+			if not isinstance(date, str):
 				date = dt.datetime.strftime('%Y-%m-%d', date)
 		self.set_table(date, 'date')
 		print('=' * DISPLAY_WIDTH)

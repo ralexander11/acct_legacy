@@ -59,9 +59,14 @@ class CombineData(object):
 		date = ''
 		if dates:
 			if not isinstance(dates, (list, tuple)):
-				dates = [x.strip() for x in dates.split(',')]
+				if isinstance(dates, str):
+					dates = [x.strip() for x in dates.split(',')]
+				else:
+					dates = [dt.datetime.strftime('%Y-%m-%d', dates)]
 			if len(dates) == 1:
 				date = dates[0]
+				if not isinstance(date, str):
+					date = dt.datetime.strftime('%Y-%m-%d', date)
 		path = self.data_location + end_point + '/*' + str(date) + '.csv'
 		if not os.path.exists(path):
 			# print('Not Server')

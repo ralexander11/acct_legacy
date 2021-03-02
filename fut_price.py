@@ -48,8 +48,9 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		dataset = dataset[column_names]
 		if v: print(dataset.shape)
 	elif isinstance(merged, pd.DataFrame):
-		print('Data provided:')
-		if v: print(merged.shape)
+		print('Data provided:', merged.shape)
+		if 'target' not in merged.columns.values.tolist():
+			merged['target'] = np.nan
 		# dataset = combine_data.comp_filter(ticker, merged)
 		dataset = merged[column_names]
 		# dataset = dataset.set_index(['symbol','date'])
@@ -72,14 +73,16 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 	# if v: with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 	# 	if v: print(dataset.dtypes)
 	if v: print(time_stamp() + f'Convert to floats.')
-	# TODO Handle other feature typess
+	# TODO Handle other feature types
 	dataset = dataset.astype('float', errors='ignore')
-	# if v: with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+	# v = True
+	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 	# 	if v: print(dataset.dtypes)
-	if v: print(time_stamp() + f'Dataset tail 2.')
-	if v: print(dataset.tail())
+	# 	if v: print(time_stamp() + f'Dataset:')
+	# 	if v: print(dataset)
 	# file_name = 'data/' + ticker.lower() + '_dataset.csv'
 	# dataset.to_csv(file_name)
+
 	return dataset
 
 def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, v=True):
@@ -110,6 +113,8 @@ def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, 
 		test_labels = pd.DataFrame()
 	train_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
 	test_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
+
+	# test_features = test_features.apply(pd.to_numeric, errors='coerce')
 
 	return train_features, test_features, train_labels, test_labels, dataset
 
@@ -150,7 +155,8 @@ def get_fut_price(ticker, date=None, data=None, crypto=False, only_price=False, 
 	# if data is None:
 	# 	data = 'merged.csv'
 	data = combine_data.comp_filter(ticker, combine_data.date_filter(date, merged=data))
-	print('data after filter:\n', data.shape)
+	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+	print(time_stamp() + 'Model Input Data: {}\n{}'.format(data.shape, data))
 	price = main(ticker, data=data, crypto=crypto, only_price=only_price)
 	return price
 
@@ -190,10 +196,14 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		test_predictions = model.predict(test_features)
 		test_predictions = test_predictions.flatten()
 		dataset['prediction'] = pd.Series(test_predictions, index=test_features.index)
+		
+		dataset['pred_dir'] = dataset['prediction'] - dataset['latestPrice']
 		if 'target' in dataset.columns.values.tolist():
-			dataset['pred_dir'] = dataset['prediction'] - dataset['latestPrice']
 			dataset['real_dir'] = dataset['prediction'] - dataset['target']
 			dataset['dir_check'] = (dataset['pred_dir'] < 0) & (dataset['real_dir'] < 0)
+		else:
+			dataset['real_dir'] = None
+			dataset['dir_check'] = None
 		if v: print('dataset:\n', dataset)
 		if v:
 			print(time_stamp() + 'Prediction Results:')

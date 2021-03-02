@@ -1168,7 +1168,7 @@ class World:
 		return global_needs
 
 	def update_econ(self):
-		t1_start = time.perf_counter()
+		self.t1_start = time.perf_counter()
 		if not self.active_day:
 			if str(self.now) == str(ledger.gl['date'].min()):
 				# TODO Consider a better way to do this
@@ -1451,9 +1451,6 @@ class World:
 		print()
 
 		self.end_turn(check_hrs=False)
-		t1_end = time.perf_counter()
-		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (t1_end - t1_start) / 60))
-		print()
 
 	def end_turn(self, check_hrs=False, user_check=None):
 		end = False
@@ -1585,6 +1582,8 @@ class World:
 
 		self.checkpoint_entry()
 		self.ticktock(v=False) # TODO User
+		self.t1_end = time.perf_counter()
+		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (self.t1_end - self.t1_start) / 60))
 		return end
 
 		# # Book End of Day entry
