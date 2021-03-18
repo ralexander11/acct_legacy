@@ -407,6 +407,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-t', '--train', action='store_true', help='Train a new model if existing model is not found.')
 	args = parser.parse_args()
+	print(time_stamp() + str(sys.argv))
 
 	predictions = main(['tsla','aapl'])
 	with pd.option_context('display.max_columns', None):

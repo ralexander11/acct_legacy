@@ -3,7 +3,7 @@ import pandas as pd
 import datetime
 import argparse
 import time
-import os
+import os, sys
 import urllib
 import yaml
 # import combine_data
@@ -472,6 +472,7 @@ if __name__ == '__main__':
 	parser.add_argument('-m', '--mode', type=str, help='The name of the mode to pull data: missing, financials, divs, symbols, batch')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	args = parser.parse_args()
+	print(time_stamp() + str(sys.argv))
 	t0_start = time.perf_counter()
 	data = MarketData()
 	if args.tickers is None:

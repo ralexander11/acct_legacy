@@ -6,7 +6,7 @@ import datetime
 import urllib.request
 import json
 import yaml
-import os
+import os, sys
 
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
@@ -88,7 +88,7 @@ class Trading(object):
 			# https://cloud.iexapis.com/stable/stock/aapl/quote?token=YOUR_TOKEN_HERE
 			url = 'https://cloud.iexapis.com/stable/stock/'
 			# token = self.load_config()['api_token']
-			request_str = url + symbol + '/quote?token=' + self.token
+			request_str = url + symbol + '/quote?token=' + str(self.token)
 			try:
 				raw_quote = urllib.request.urlopen(request_str).read()
 			except Exception as e:
@@ -466,6 +466,7 @@ def main(command=None, external=False):
 	parser.add_argument('-c', '--command', type=str, help='A command for the program.')
 	parser.add_argument('-sim', '--simulation', action='store_true', help='Run on historical data.')
 	args = parser.parse_args()
+	print(time_stamp() + str(sys.argv))
 
 	accts = acct.Accounts(conn=args.database, standard_accts=trade_accts)
 	ledger = acct.Ledger(accts, ledger_name=args.ledger, entity=args.entity)

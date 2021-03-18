@@ -10,7 +10,7 @@ import logging
 import random
 import time
 import yaml
-import glob, os
+import glob, os, sys
 import itertools
 
 DISPLAY_WIDTH = 98
@@ -468,14 +468,14 @@ class TradingAlgo(object):
 				tickers = [tickers]
 			quote_dfs = []
 			if not os.path.exists(path) or predict:
-				if train:
-					merged = 'merged.csv'
-					if os.path.exists(combine_data.data_location + merged):
-						print(time_stamp() + 'Merged data exists outer.')
-						merged_data = pd.read_csv(combine_data.data_location + merged)
-						merged_data = merged_data.set_index(['symbol','date'])
-				else:
-					merged_data = None
+				# if train:
+				# 	merged = 'merged.csv'
+				# 	if os.path.exists(combine_data.data_location + merged):
+				# 		print(time_stamp() + 'Merged data exists outer.')
+				# 		merged_data = pd.read_csv(combine_data.data_location + merged)
+				# 		merged_data = merged_data.set_index(['symbol','date'])
+				# else:
+				# 	merged_data = None
 				if algo.quote_df is not None:
 					quote_df = algo.quote_df.copy(deep=True)
 					quote_dfs.append(algo.quote_df)
@@ -490,7 +490,7 @@ class TradingAlgo(object):
 					if isinstance(ticker, float): # xlsx causes last ticker to be nan
 						continue
 					# quote_df = self.future_data(ticker, date=date, merged_data=merged_data, train=train)
-					quote_df = self.future_price(ticker, date=date, v=True)
+					quote_df = self.future_price(ticker, date=date, train=train, v=True)
 					print(time_stamp() + 'Done predicting price for: {} ({} / {}) {:.0f}%'.format(ticker, i, len(tickers), (i/len(tickers)*100)))
 					if quote_df is None:
 						continue
@@ -537,9 +537,9 @@ class TradingAlgo(object):
 			return quote_df
 		return quote_df
 
-	def future_price(self, ticker, date, v=False):
+	def future_price(self, ticker, date, train=False, v=False):
 		# print('merged_data:\n', merged_data)
-		pred_price = get_fut_price(ticker, date, global_merged_data)
+		pred_price = get_fut_price(ticker, date, global_merged_data, train=train)
 		if v: print('pred_price:\n', pred_price)
 		if pred_price is None:
 			return
@@ -699,8 +699,10 @@ class TradingAlgo(object):
 		if date is None:
 			date = dt.datetime.today()
 			date = date.date()
+			# date = date - dt.timedelta(days=3)
+			# print('trade date:', date)
 			if not isinstance(date, str):
-				date = dt.datetime.strftime('%Y-%m-%d', date)
+				date = date.strftime('%Y-%m-%d')
 		self.set_table(date, 'date')
 		print('=' * DISPLAY_WIDTH)
 		if trade.sim:
@@ -848,6 +850,7 @@ if __name__ == '__main__':
 	parser.add_argument('-since', '--since', action='store_false', help='Use all dates since a given date. On by default.')
 	parser.add_argument('-sd', '--since_date', type=str, default='2020-01-24', help='Use dates from a given date.')
 	args = parser.parse_args()
+	print(time_stamp() + str(sys.argv))
 	new_db = True
 	# print('Existing DB Check: {}'.format(os.path.exists('db/' + args.database)))
 	if os.path.exists('db/' + args.database):
@@ -874,6 +877,7 @@ if __name__ == '__main__':
 		ledger.default = args.entity
 	if args.train_new:
 		print(time_stamp() + 'Will train new models if they don\'t already exist.')
+		# TODO Implement this
 	if args.train:
 		print(time_stamp() + 'Will train all new models.')
 	if args.tickers:

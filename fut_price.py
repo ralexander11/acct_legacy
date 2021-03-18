@@ -9,7 +9,7 @@ from tensorflow.keras.layers.experimental import preprocessing
 from market_data.combine_data import CombineData
 import datetime as dt
 import argparse
-import os
+import os, sys
 
 # Make numpy printouts easier to read
 np.set_printoptions(precision=3, suppress=True)
@@ -74,18 +74,22 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 	# 	if v: print(dataset.dtypes)
 	if v: print(time_stamp() + f'Convert to floats.')
 	# TODO Handle other feature types
+	# dataset.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
+	symbol_col = dataset.pop('symbol')
+	date_col = dataset.pop('date')
 	dataset = dataset.astype('float', errors='ignore')
+	dataset = pd.merge(date_col, dataset, left_index=True, right_index=True, sort=False)
+	dataset = pd.merge(symbol_col, dataset, left_index=True, right_index=True, sort=False)
+	print('dataset shape:', dataset.shape)
 	# v = True
 	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+	# 	if v: print('dataset types:')
 	# 	if v: print(dataset.dtypes)
 	# 	if v: print(time_stamp() + f'Dataset:')
 	# 	if v: print(dataset)
-	# file_name = 'data/' + ticker.lower() + '_dataset.csv'
-	# dataset.to_csv(file_name)
-
 	return dataset
 
-def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, v=True):
+def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, train=False, v=True):
 	if frac_per == 1:
 		train = False
 	data = prep_data(ticker=ticker, merged=data, crypto=crypto, train=train, v=v)
@@ -111,17 +115,18 @@ def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, 
 	else:
 		train_labels = pd.DataFrame()
 		test_labels = pd.DataFrame()
-	train_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
-	test_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
+	# train_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
+	# test_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
+	test_features['symbol'] = 0
+	test_features['date'] = 0
 
-	# test_features = test_features.apply(pd.to_numeric, errors='coerce')
 
 	return train_features, test_features, train_labels, test_labels, dataset
 
-def normalize_data(train_features=None, v=True):
+def normalize_data(train_features=None, data=None, v=True):
 	if v: print(time_stamp() + 'Normalize training features')
 	if train_features is None:
-		train_features = get_features_and_labels(v=v)[0]
+		train_features = get_features_and_labels(data=data, train=True, v=v)[0]
 	normalizer = preprocessing.Normalization()
 	normalizer.adapt(np.array(train_features))
 	if v: print(time_stamp() + 'Normalized Mean:')
@@ -145,7 +150,7 @@ def build_and_compile_model(norm):
 				optimizer=tf.keras.optimizers.Adam(0.001))
 	return model
 
-def get_fut_price(ticker, date=None, data=None, crypto=False, only_price=False, v=False):
+def get_fut_price(ticker, date=None, data=None, crypto=False, only_price=False, train=False, v=False):
 	# TODO Maybe support multiple tickers and dates
 	if isinstance(ticker, (list, tuple)):
 		ticker = ticker[0]
@@ -157,7 +162,7 @@ def get_fut_price(ticker, date=None, data=None, crypto=False, only_price=False, 
 	data = combine_data.comp_filter(ticker, combine_data.date_filter(date, merged=data))
 	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 	print(time_stamp() + 'Model Input Data: {}\n{}'.format(data.shape, data))
-	price = main(ticker, data=data, crypto=crypto, only_price=only_price)
+	price = main(ticker, data=data, crypto=crypto, only_price=only_price, train=train)
 	return price
 
 def plot_prediction(x, y, train_features, train_labels):
@@ -185,14 +190,28 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 
 	if not train:
 		frac_per = 1
+	else:
+		frac_per = 0.8
 	train_features, test_features, train_labels, test_labels, dataset = get_features_and_labels(ticker=ticker, crypto=crypto, data=data, frac_per=frac_per, v=v)
+		# print('test_features:')
+		# print(test_features)
 	if test_features.empty:
 		print(time_stamp() + f'No data for {ticker} to run model.')
 		return
 
 	if os.path.exists(file_name) and not train:
 		if v: print(time_stamp() + 'Load model from: ' + ticker.lower() + '_model')
+		v = True
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			if v: print('test_features types:')
+			if v: print(test_features.dtypes)
+			if v: print(time_stamp() + f'test_features:')
+			if v: print(test_features)
+			if v: print(time_stamp() + 'test_features shape:', test_features.shape)
+		v = False
 		model = tf.keras.models.load_model(file_name)
+		print(model.summary())
+		print(time_stamp() + 'test_features shape:', test_features.shape)
 		test_predictions = model.predict(test_features)
 		test_predictions = test_predictions.flatten()
 		dataset['prediction'] = pd.Series(test_predictions, index=test_features.index)
@@ -217,7 +236,7 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 			test_results = {}
 			test_results['reloaded'] = model.evaluate(test_features, test_labels, verbose=0)
 	else:
-		normalizer = normalize_data(train_features, v=v)
+		normalizer = normalize_data(train_features, data=data, v=v)
 
 		if v: print(time_stamp() + 'Build and compile model')
 		model = build_and_compile_model(normalizer)
@@ -272,6 +291,7 @@ if __name__ == '__main__':
 	parser.add_argument('-n', '--train', action='store_true', help='Train a new model.')
 	parser.add_argument('-c', '--crypto', action='store_true', help='If using for cryptocurrencies.')
 	args = parser.parse_args()
+	print(time_stamp() + str(sys.argv))
 
 	result = main(args.ticker, train=args.train, crypto=args.crypto, save=args.save, v=True)
 

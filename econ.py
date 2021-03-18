@@ -9165,6 +9165,7 @@ if __name__ == '__main__':
 	USE_PIN = args.pin
 
 	print(time_stamp() + 'Start Econ Sim | Governments: {} | Population per Gov: {}'.format(args.governments, args.population))
+	print(time_stamp() + str(sys.argv))
 	if args.players:
 		print(time_stamp() + 'Play the sim as a government by entering commands. Type "help" for more info.')
 		if args.players == -1:

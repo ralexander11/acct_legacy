@@ -3,6 +3,7 @@ import pandas as pd
 import glob, os
 import datetime as dt
 import argparse
+import sys
 
 DISPLAY_WIDTH = 97
 pd.set_option('display.width',DISPLAY_WIDTH)
@@ -726,6 +727,7 @@ if __name__ == '__main__':
 	parser.add_argument('-some', '--some', action='store_true', help='Get some.')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	args = parser.parse_args()
+	print(time_stamp() + str(sys.argv))
 
 	# if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
 	# 	data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
