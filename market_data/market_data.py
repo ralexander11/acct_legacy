@@ -472,9 +472,9 @@ if __name__ == '__main__':
 	parser.add_argument('-m', '--mode', type=str, help='The name of the mode to pull data: missing, financials, divs, symbols, batch')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	args = parser.parse_args()
-	print(time_stamp() + str(sys.argv))
 	t0_start = time.perf_counter()
 	data = MarketData()
+	print(data.time_stamp() + str(sys.argv))
 	if args.tickers is None:
 		source = 'iex' # input('Which ticker source? ').lower()
 	else:
@@ -573,3 +573,5 @@ if __name__ == '__main__':
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m missing -s >> /home/robale5/becauseinterfaces.com/acct/logs/missing12.log 2>&1 &
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m splits -t 'all_tickers.csv' -s >> /home/robale5/becauseinterfaces.com/acct/logs/splits02.log 2>&1 &
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/market_data.log 2>&1 &

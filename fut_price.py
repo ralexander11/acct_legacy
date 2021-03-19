@@ -117,8 +117,8 @@ def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, 
 		test_labels = pd.DataFrame()
 	# train_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
 	# test_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
-	test_features['symbol'] = 0
-	test_features['date'] = 0
+	# test_features['symbol'] = 0
+	# test_features['date'] = 0
 
 
 	return train_features, test_features, train_labels, test_labels, dataset
@@ -184,7 +184,7 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		ticker = 'tsla'
 	if ticker is None and crypto:
 		ticker = 'BTCUSDT'
-	file_name = 'misc/models/' + ticker.lower() + '_model'
+	file_name = 'models/' + ticker.lower() + '_model'
 	# if v: print(time_stamp() + f'File Name: {file_name}')
 	# if v: print(time_stamp() + f'Model exists:', os.path.exists(file_name))
 
@@ -210,9 +210,10 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 			if v: print(time_stamp() + 'test_features shape:', test_features.shape)
 		v = False
 		model = tf.keras.models.load_model(file_name)
+		print(model.to_yaml())
 		print(model.summary())
 		print(time_stamp() + 'test_features shape:', test_features.shape)
-		test_predictions = model.predict(test_features)
+		test_predictions = model.predict(test_features, verbose=1)
 		test_predictions = test_predictions.flatten()
 		dataset['prediction'] = pd.Series(test_predictions, index=test_features.index)
 		
