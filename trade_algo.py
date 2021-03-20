@@ -548,7 +548,7 @@ class TradingAlgo(object):
 		pred_quote_df = pred_quote_df[['symbol', 'prediction', 'prior', 'changePercent']]
 		pred_quote_df.set_index('symbol', inplace=True)
 		# pred_quote_df = pd.DataFrame(data={'symbol':[ticker], 'prediction':[pred_price], 'prior':[prior], 'changePercent':[(pred_price-prior)/prior]}, index=None).set_index('symbol')
-		if v: print('pred_quote_df:\n', pred_quote_df)
+		# if v: print('pred_quote_df:\n', pred_quote_df)
 		return pred_quote_df
 
 	def future_data(self, ticker, date=None, merged_data=None, train=False):
@@ -699,7 +699,7 @@ class TradingAlgo(object):
 		if date is None:
 			date = dt.datetime.today()
 			date = date.date()
-			# date = date - dt.timedelta(days=3)
+			# date = date - dt.timedelta(days=4)
 			# print('trade date:', date)
 			if not isinstance(date, str):
 				date = date.strftime('%Y-%m-%d')
@@ -852,13 +852,15 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	print(time_stamp() + str(sys.argv))
 	new_db = True
-	# print('Existing DB Check: {}'.format(os.path.exists('db/' + args.database)))
+	# print('Existing DB Check {}: {}'.format(args.database, os.path.exists('db/' + args.database)))
 	if os.path.exists('db/' + args.database):
+		new_db = False
+	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/db/' + args.database):
 		new_db = False
 	if args.reset:
 		delete_db(args.database)
 		new_db = True
-	# print('New DB:', new_db)
+	print('New DB:', new_db)
 	if args.seed:
 		random.seed(args.seed)
 	else:
@@ -974,14 +976,14 @@ if __name__ == '__main__':
 			for entity in range(1, n+1):
 				deposit_capital = [ [ledger.get_event(), entity, '', trade.trade_date(date), '', 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
 				ledger.journal_entry(deposit_capital)
-		if not new_db and not args.reset:
-			date = algo.get_table('date').values[0][0]
+		# if not new_db and not args.reset:
+		# 	date = algo.get_table('date').values[0][0]
 		algo.main(norm=args.norm, date=date, n=n, first=new_db)
 
 # python trade_algo.py -db first36.db -s 11 -sim -t ws_tickers.xlsx
 
-# python trade_algo.py -db trade02.db -s 11 -t ws_tickers.csv -r
-# python trade_algo.py -db trade01.db -s 11 -t tsla -r
+# python trade_algo.py -db trade03.db -s 11 -t ws_tickers.csv -r
+# python trade_algo.py -db trade02.db -s 11 -t tsla -r
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -s 11 -a >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
 
@@ -994,4 +996,4 @@ if __name__ == '__main__':
 # crontab schedule
 # 00 07 * * *
 
-# nohup python trade_algo.py -db test01.db -s 11 -m each -sim -t us_tickers.csv
+# nohup python trade_algo.py -db trade01.db -s 11 -sim -t tsla

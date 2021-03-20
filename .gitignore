@@ -109,3 +109,4 @@ logs/
 *.txt
 *.sh
 stmt_scrub.py
+~*.xlsx

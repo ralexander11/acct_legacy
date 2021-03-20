@@ -74,13 +74,13 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 	# 	if v: print(dataset.dtypes)
 	if v: print(time_stamp() + f'Convert to floats.')
 	# TODO Handle other feature types
-	# dataset.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
 	symbol_col = dataset.pop('symbol')
 	date_col = dataset.pop('date')
 	dataset = dataset.astype('float', errors='ignore')
 	dataset = pd.merge(date_col, dataset, left_index=True, right_index=True, sort=False)
 	dataset = pd.merge(symbol_col, dataset, left_index=True, right_index=True, sort=False)
-	print('dataset shape:', dataset.shape)
+	print('Dataset Shape:', dataset.shape)
+	# dataset.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
 	# v = True
 	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 	# 	if v: print('dataset types:')
@@ -115,10 +115,11 @@ def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, 
 	else:
 		train_labels = pd.DataFrame()
 		test_labels = pd.DataFrame()
-	# train_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
-	# test_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
+	train_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
+	test_features.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
 	# test_features['symbol'] = 0
 	# test_features['date'] = 0
+	# train_features.to_csv('train_features01.csv')
 
 
 	return train_features, test_features, train_labels, test_labels, dataset
@@ -185,8 +186,10 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 	if ticker is None and crypto:
 		ticker = 'BTCUSDT'
 	file_name = 'models/' + ticker.lower() + '_model'
-	# if v: print(time_stamp() + f'File Name: {file_name}')
-	# if v: print(time_stamp() + f'Model exists:', os.path.exists(file_name))
+	if not os.path.exists(file_name):
+		file_name = '/home/robale5/becauseinterfaces.com/acct/' + file_name
+	if v: print(time_stamp() + f'File Name: {file_name}')
+	if v: print(time_stamp() + f'Model exists:', os.path.exists(file_name))
 
 	if not train:
 		frac_per = 1
@@ -201,16 +204,16 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 
 	if os.path.exists(file_name) and not train:
 		if v: print(time_stamp() + 'Load model from: ' + ticker.lower() + '_model')
-		v = True
+		# v = True
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			if v: print('test_features types:')
 			if v: print(test_features.dtypes)
 			if v: print(time_stamp() + f'test_features:')
 			if v: print(test_features)
 			if v: print(time_stamp() + 'test_features shape:', test_features.shape)
-		v = False
+		# v = False
 		model = tf.keras.models.load_model(file_name)
-		print(model.to_yaml())
+		# print(model.to_yaml())
 		print(model.summary())
 		print(time_stamp() + 'test_features shape:', test_features.shape)
 		test_predictions = model.predict(test_features, verbose=1)
@@ -296,4 +299,6 @@ if __name__ == '__main__':
 
 	result = main(args.ticker, train=args.train, crypto=args.crypto, save=args.save, v=True)
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -n -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -n -t tsla -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price08.log 2>&1 &
+
+# nohup python -u fut_price.py -n -t tsla -s >> logs/fut_price02.log 2>&1 &
