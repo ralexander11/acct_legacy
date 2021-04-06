@@ -1910,7 +1910,7 @@ def main(conn=None, command=None, external=False):
 	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
 	parser.add_argument('-auto', '--auto', action='store_true', help='Automatically run prepared commands when in user mode.')
 	args = parser.parse_args()
-	print(time_stamp() + str(sys.argv))
+	print(str(sys.argv))
 
 	if args.database is not None:
 		conn = args.database

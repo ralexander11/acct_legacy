@@ -931,12 +931,17 @@ if __name__ == '__main__':
 				if args.mode == 'each':
 					tickers_repeated = list(itertools.chain.from_iterable([ticker, ticker, ticker, ticker] for ticker in args.tickers))
 				# TODO Only assumes it stopped during the 4th algo
-				tmp_n = tickers_repeated.index(ticker)+1 + 3 + 4
+				try:
+					tmp_n = tickers_repeated.index(ticker)+1 + 3 + 4
+				except NameError as e:
+					tmp_n = None
 			else:
 				tmp_n = 4
 			date = algo.get_table('date').values[0][0]
 			date_index = dates.index(date)
 			dates = dates[date_index-1:]
+			nav_hist = algo.get_table('nav_hist')
+			print('nav_hist load:\n', nav_hist)
 		else:
 			tmp_n = None
 		first = True
@@ -969,15 +974,19 @@ if __name__ == '__main__':
 			n = 4
 		elif args.mode == 'each':
 			n = len(args.tickers) * 4
-			print('Mode: {} | Number of entities: {}'.format(args.mode, n))
-		nav_hist = pd.DataFrame()
-		nav_hist.index.rename('date', inplace=True)
+		print('Mode: {} | Number of entities: {}'.format(args.mode, n))
+		if not new_db and not args.reset:
+			# date = algo.get_table('date').values[0][0]
+			nav_hist = algo.get_table('nav_hist')
+			print('nav_hist load:\n', nav_hist)
+			algo.quote_df = None
+		else:
+			nav_hist = pd.DataFrame()
+			nav_hist.index.rename('date', inplace=True)
 		if algo.check_capital(['Cash','Chequing','Investments']) == 0:
 			for entity in range(1, n+1):
 				deposit_capital = [ [ledger.get_event(), entity, '', trade.trade_date(date), '', 'Deposit capital', '', '', '', 'Cash', 'Equity', cap] ]
 				ledger.journal_entry(deposit_capital)
-		# if not new_db and not args.reset:
-		# 	date = algo.get_table('date').values[0][0]
 		algo.main(norm=args.norm, date=date, n=n, first=new_db)
 
 # python trade_algo.py -db first36.db -s 11 -sim -t ws_tickers.xlsx
