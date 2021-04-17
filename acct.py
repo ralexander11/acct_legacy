@@ -859,6 +859,7 @@ class Ledger:
 # Exp    - Debit  bal - Pos : Dr. = pos & Cr. = neg
 
 	def balance_sheet(self, accounts=None, item=None, v=False): # TODO Needs to be optimized with:
+		# t1_start = time.perf_counter()
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		all_accts = False
 		if item is not None: # TODO Add support for multiple items maybe
@@ -906,7 +907,8 @@ class Ledger:
 				continue
 
 		# Create Balance Sheet dataframe to return
-		self.bs = pd.DataFrame(columns=['line_item','balance']) # TODO Make line_item the index
+		if all_accts:
+			self.bs = pd.DataFrame(columns=['line_item','balance']) # TODO Make line_item the index
 
 		# TODO The below repeated sections can probably be handled more elegantly. Maybe by putting the 5 account type lists in a list and using a double loop
 
@@ -915,15 +917,17 @@ class Ledger:
 		for acct in assets:
 			if v: print('Asset Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
 				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Asset Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
 				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Asset Credit Error: {} | {}'.format(e, repr(e)))
@@ -932,111 +936,133 @@ class Ledger:
 			asset_bal += bal
 			if v: print('Balance for {}: {}'.format(acct, bal))
 			#if bal != 0: # TODO Not sure if should display empty accounts
-			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-		self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
+			if all_accts:
+				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+		if all_accts:
+			self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
 
 		liab_bal = 0
 		for acct in liabilities:
 			if v: print('Liability Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
 				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Liabilities Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
 				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Liabilities Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			liab_bal += bal
-			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-		self.bs = self.bs.append({'line_item':'Total Liabilities:', 'balance':liab_bal}, ignore_index=True)
+			if all_accts:
+				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+		if all_accts:
+			self.bs = self.bs.append({'line_item':'Total Liabilities:', 'balance':liab_bal}, ignore_index=True)
 
 		equity_bal = 0
 		for acct in equity:
 			if v: print('Equity Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
 				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Equity Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
 				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Equity Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			equity_bal += bal
-			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-		self.bs = self.bs.append({'line_item':'Total Equity:', 'balance':equity_bal}, ignore_index=True)
+			if all_accts:
+				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+		if all_accts:
+			self.bs = self.bs.append({'line_item':'Total Equity:', 'balance':equity_bal}, ignore_index=True)
 
 		rev_bal = 0
 		for acct in revenues:
 			if v: print('Revenue Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
 				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Revenues Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
 				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Revenues Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = credits - debits # Note reverse order of subtraction
 			rev_bal += bal
-			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-		self.bs = self.bs.append({'line_item':'Total Revenues:', 'balance':rev_bal}, ignore_index=True)
+			if all_accts:
+				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+		if all_accts:
+			self.bs = self.bs.append({'line_item':'Total Revenues:', 'balance':rev_bal}, ignore_index=True)
 
 		exp_bal = 0
 		for acct in expenses:
 			if v: print('Expense Account: {}'.format(acct))
 			try:
-				debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
+				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
 				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
+				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
 				if v: print('Debits: {}'.format(debits))
 			except KeyError as e:
 				if v: print('Expenses Debit Error: {} | {}'.format(e, repr(e)))
 				debits = 0
 			try:
-				credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
+				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
 				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
+				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
 				if v: print('Credits: {}'.format(credits))
 			except KeyError as e:
 				if v: print('Expenses Credit Error: {} | {}'.format(e, repr(e)))
 				credits = 0
 			bal = debits - credits
 			exp_bal += bal
-			self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-		self.bs = self.bs.append({'line_item':'Total Expenses:', 'balance':exp_bal}, ignore_index=True)
+			if all_accts:
+				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+		if all_accts:
+			self.bs = self.bs.append({'line_item':'Total Expenses:', 'balance':exp_bal}, ignore_index=True)
 
 		retained_earnings = rev_bal - exp_bal
-		self.bs = self.bs.append({'line_item':'Net Income:', 'balance':retained_earnings}, ignore_index=True)
+		if all_accts:
+			self.bs = self.bs.append({'line_item':'Net Income:', 'balance':retained_earnings}, ignore_index=True)
 
 		net_asset_value = asset_bal - liab_bal
 		if net_asset_value == 0: # Two ways to calc NAV depending on accounts
 			net_asset_value = equity_bal + retained_earnings
 
 		total_equity = net_asset_value + liab_bal
-		self.bs = self.bs.append({'line_item':'Equity+NI+Liab.:', 'balance':total_equity}, ignore_index=True)
+		if all_accts:
+			self.bs = self.bs.append({'line_item':'Equity+NI+Liab.:', 'balance':total_equity}, ignore_index=True)
 
 		check = asset_bal - total_equity
-		self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
+		if all_accts:
+			self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
 
-		self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
+		if all_accts:
+			self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
 
 		if all_accts:
 			if self.entity is None:
@@ -1046,6 +1072,8 @@ class Ledger:
 				self.bs.to_sql('balance_sheet_' + entities, self.conn, if_exists='replace')
 		if item is not None:
 			self.refresh_ledger()
+		# t1_end = time.perf_counter()
+		# print('BS check took {:,.10f} min.'.format((t1_end - t1_start) / 60))
 		return net_asset_value
 
 	def print_bs(self):

@@ -446,13 +446,106 @@ class TradingAlgo(object):
 		print('\nRank: {}\n{}'.format(date, rank.head()))
 		return rank
 
+	def future_data(self, ticker, date=None, merged_data=None, train=False):
+		t2_start = time.perf_counter()
+		if date is None:
+			date = dt.datetime.today()
+			if date.weekday() == 0:
+				delta = 3
+			# elif date.weekday() == 1:
+			# 	delta = 1#2
+			else:
+				delta = 0#1
+			date = date - dt.timedelta(days=delta) # TODO Test support for Mondays and Tuesdays
+			date = date.date()
+			if isinstance(date, dt.datetime):
+				date = dt.datetime.strftime('%Y-%m-%d', date)
+			print(time_stamp() + 'Date Inner 1: {}'.format(date))
+			self.set_table(date, 'date')
+		else:
+			# print('date: {} | {}'.format(date, type(date)))
+			if isinstance(date, dt.datetime):
+				date = dt.datetime.strftime('%Y-%m-%d', date)
+		dates = []
+		dates.append(date)
+		days = 2
+		date_prior = date
+		while len(dates) < days:
+			if isinstance(date_prior, str):
+				date_prior = dt.datetime.strptime(date_prior, '%Y-%m-%d').date()
+			date_prior = date_prior - dt.timedelta(days=1)
+			# date_prior = self.get_prior_day(date_prior)
+			# TODO Clean up file location logic
+			end_point = 'quote'
+			path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv'
+			if not os.path.exists(path):
+				path = trade.data_location + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv'
+			print('path:', path)
+			if not os.path.exists(path):
+				print('File does not exist for: {}'.format(path))
+				continue
+			dates.append(date_prior)
+		dates = [str(dt) for dt in dates]
+		print('dates:', dates)
+		try:
+			if not trade.sim:
+				df1 = combine_data.comp_filter(ticker, combine_data.date_filter(dates[1:]))
+				if df1.empty:
+					print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
+					return
+				ticker_df = pd.DataFrame([ticker], columns=['symbol'])
+				df2 = data.get_data(ticker_df, 'quote', v=False)[0]
+				if df2.empty:
+					print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
+					return
+				df2['symbol'] = ticker.upper()
+				# cols = df2.columns.values.tolist()
+				# cols.insert(0, cols.pop(cols.index('symbol')))
+				# df2 = df2[cols]
+				df2['day50MovingAvg'] = ((df1['day50MovingAvg'].values[0] * 49) + df2['latestPrice']) / 50
+				df2['date'] = dates[0]
+				df2.set_index('date', inplace=True)
+				df = pd.concat([df1, df2], sort=True)
+				# print('df:\n', df[['symbol','day50MovingAvg','changePercent','latestPrice']])
+			else:
+				df = combine_data.comp_filter(ticker, combine_data.date_filter(dates))
+		except KeyError as e:
+			print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
+			return
+		if df.empty:
+			print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
+			return
+		# print('Future Data Date: {} | {}'.format(date, type(date)))
+		# pred = 300.0
+		try:
+			pred_price = get_price(df, ticker, merged_data=merged_data, train=train)
+			# pred_price = get_fut_price(ticker, dates)
+		except Exception as e:
+			print(time_stamp() + 'Error getting price for {}: {}\n{}'.format(ticker, repr(e), df))
+			return
+		if pred_price is None:
+			return
+		# print('pred_price:', pred_price)
+		prior = df.loc[str(date), 'latestPrice']
+		# print('prior:', prior)
+		change = (pred_price-prior)/prior
+		pred_quote_df = pd.DataFrame(data={'symbol':[ticker], 'prediction':[pred_price], 'prior':[prior], 'changePercent':[(pred_price-prior)/prior]}, index=None).set_index('symbol')
+		# print('pred_quote_df:\n', pred_quote_df)
+		print('changePercent {}: {}'.format(ticker, change))
+		t2_end = time.perf_counter()
+		print(time_stamp() + 'Done predicting price for: {} in: {:,.0f} sec'.format(ticker, (t2_end - t2_start))) # {:,.2f}
+		return pred_quote_df
+
 	def rank_change_percent(self, assets, date=None, tickers=None, predict=False, train=False):
 		t1_start = time.perf_counter()
 		if predict:
 			print('\n' + time_stamp() + 'Running predict future direction algo.')
 		else:
 			print('\n' + time_stamp() + 'Running known future direction algo.')
-		fut_date = self.get_next_day(date)
+		if trade.sim:
+			fut_date = self.get_next_day(date)
+		else:
+			fut_date = date
 		end_point = 'quote'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(fut_date)+'.csv'
 		if not os.path.exists(path):
@@ -549,96 +642,6 @@ class TradingAlgo(object):
 		pred_quote_df.set_index('symbol', inplace=True)
 		# pred_quote_df = pd.DataFrame(data={'symbol':[ticker], 'prediction':[pred_price], 'prior':[prior], 'changePercent':[(pred_price-prior)/prior]}, index=None).set_index('symbol')
 		# if v: print('pred_quote_df:\n', pred_quote_df)
-		return pred_quote_df
-
-	def future_data(self, ticker, date=None, merged_data=None, train=False):
-		t2_start = time.perf_counter()
-		if date is None:
-			date = dt.datetime.today()
-			if date.weekday() == 0:
-				delta = 3
-			# elif date.weekday() == 1:
-			# 	delta = 1#2
-			else:
-				delta = 0#1
-			date = date - dt.timedelta(days=delta) # TODO Test support for Mondays and Tuesdays
-			date = date.date()
-			if isinstance(date, dt.datetime):
-				date = dt.datetime.strftime('%Y-%m-%d', date)
-			print(time_stamp() + 'Date Inner 1: {}'.format(date))
-			self.set_table(date, 'date')
-		else:
-			# print('date: {} | {}'.format(date, type(date)))
-			if isinstance(date, dt.datetime):
-				date = dt.datetime.strftime('%Y-%m-%d', date)
-		dates = []
-		dates.append(date)
-		days = 2
-		date_prior = date
-		while len(dates) < days:
-			if isinstance(date_prior, str):
-				date_prior = dt.datetime.strptime(date_prior, '%Y-%m-%d').date()
-			date_prior = date_prior - dt.timedelta(days=1)
-			# date_prior = self.get_prior_day(date_prior)
-			# TODO Clean up file location logic
-			end_point = 'quote'
-			path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv'
-			if not os.path.exists(path):
-				path = trade.data_location + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv'
-			print('path:', path)
-			if not os.path.exists(path):
-				print('File does not exist for: {}'.format(path))
-				continue
-			dates.append(date_prior)
-		dates = [str(dt) for dt in dates]
-		print('dates:', dates)
-		try:
-			if not trade.sim:
-				df1 = combine_data.comp_filter(ticker, combine_data.date_filter(dates[1:]))
-				if df1.empty:
-					print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
-					return
-				ticker_df = pd.DataFrame([ticker], columns=['symbol'])
-				df2 = data.get_data(ticker_df, 'quote', v=False)[0]
-				if df2.empty:
-					print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
-					return
-				df2['symbol'] = ticker.upper()
-				# cols = df2.columns.values.tolist()
-				# cols.insert(0, cols.pop(cols.index('symbol')))
-				# df2 = df2[cols]
-				df2['day50MovingAvg'] = ((df1['day50MovingAvg'].values[0] * 49) + df2['latestPrice']) / 50
-				df2['date'] = dates[0]
-				df2.set_index('date', inplace=True)
-				df = pd.concat([df1, df2], sort=True)
-				# print('df:\n', df[['symbol','day50MovingAvg','changePercent','latestPrice']])
-			else:
-				df = combine_data.comp_filter(ticker, combine_data.date_filter(dates))
-		except KeyError as e:
-			print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
-			return
-		if df.empty:
-			print(time_stamp() + 'No data for {} on: {}'.format(ticker, dates))
-			return
-		# print('Future Data Date: {} | {}'.format(date, type(date)))
-		# pred = 300.0
-		try:
-			pred_price = get_price(df, ticker, merged_data=merged_data, train=train)
-			# pred_price = get_fut_price(ticker, dates)
-		except Exception as e:
-			print(time_stamp() + 'Error getting price for {}: {}\n{}'.format(ticker, repr(e), df))
-			return
-		if pred_price is None:
-			return
-		# print('pred_price:', pred_price)
-		prior = df.loc[str(date), 'latestPrice']
-		# print('prior:', prior)
-		change = (pred_price-prior)/prior
-		pred_quote_df = pd.DataFrame(data={'symbol':[ticker], 'prediction':[pred_price], 'prior':[prior], 'changePercent':[(pred_price-prior)/prior]}, index=None).set_index('symbol')
-		# print('pred_quote_df:\n', pred_quote_df)
-		print('changePercent {}: {}'.format(ticker, change))
-		t2_end = time.perf_counter()
-		print(time_stamp() + 'Done predicting price for: {} in: {:,.0f} sec'.format(ticker, (t2_end - t2_start))) # {:,.2f}
 		return pred_quote_df
 
 	def buy_single(self, symbol, date=None):
@@ -822,6 +825,7 @@ class TradingAlgo(object):
 			nav = self.ledger.balance_sheet()
 			portfolio = self.ledger.get_qty(accounts=['Investments'])
 			print('Portfolio at End of Day: \n{}'.format(portfolio))
+			# TODO Maybe subtract date by 1 for perf algo when not sim
 			nav_hist.at[date, algo_type] = nav
 			self.set_table(nav_hist, 'nav_hist')
 			print('NAV Hist:\n', nav_hist.tail())
