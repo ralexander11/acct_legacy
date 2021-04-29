@@ -2826,7 +2826,7 @@ class Entity:
 					incomplete = True
 				print('Land Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty)) # TODO Show the max possible above qty requested
 				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':land, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				# if (reqs == 'hold_req' or time_required):# and not incomplete: # TODO Test is "not incomplete" is still needed here`
+				# if (reqs == 'hold_req' or time_required):# and not incomplete: # TODO Test is "not incomplete" is still needed here
 				# TODO Handle land in use during one tick
 				# qty_needed = req_qty * (1-modifier) * qty
 				entries = self.in_use(req_item, qty_needed, price=price, buffer=True) # TODO Verify qty passed
@@ -9232,7 +9232,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/robale5/becauseinterfaces.com/acct/logs/econ01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ03.db -s 11 -r >> /home/robale5/becauseinterfaces.com/acct/logs/econ03.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 

@@ -44,9 +44,9 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		merged_data = pd.read_csv(combine_data.data_location + merged)
 		merged_data = merged_data.set_index(['symbol','date'])
 		dataset = combine_data.comp_filter(ticker, merged_data)
-		if v: print(dataset.shape)
+		if v: print('data filtered for ticker:', dataset.shape)
 		dataset = dataset[column_names]
-		if v: print(dataset.shape)
+		if v: print('Remove columns:', dataset.shape)
 	elif isinstance(merged, pd.DataFrame):
 		print('Data provided:', merged.shape)
 		if 'target' not in merged.columns.values.tolist():
@@ -54,7 +54,7 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		# dataset = combine_data.comp_filter(ticker, merged)
 		dataset = merged[column_names]
 		# dataset = dataset.set_index(['symbol','date'])
-		if v: print(dataset.shape)
+		if v: print('Remove columns:', dataset.shape)
 	else:
 		raw_dataset = pd.read_csv(url, names=column_names)
 		dataset = raw_dataset.copy()
@@ -69,7 +69,7 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 	# dataset.dropna(axis=0, inplace=True)
 	if train:
 		dataset.dropna(axis=0, subset=['target'], inplace=True)
-	if v: print(dataset.shape)
+		if v: print('target filter out nan:', dataset.shape)
 	# if v: with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 	# 	if v: print(dataset.dtypes)
 	if v: print(time_stamp() + f'Convert to floats.')
@@ -79,7 +79,7 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 	dataset = dataset.astype('float', errors='ignore')
 	dataset = pd.merge(date_col, dataset, left_index=True, right_index=True, sort=False)
 	dataset = pd.merge(symbol_col, dataset, left_index=True, right_index=True, sort=False)
-	print('Dataset Shape:', dataset.shape)
+	print(time_stamp() + 'Dataset Shape:', dataset.shape)
 	# dataset.drop(['symbol','date'], axis=1, errors='ignore', inplace=True)
 	# v = True
 	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -93,7 +93,12 @@ def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, 
 	if frac_per == 1:
 		train = False
 	data = prep_data(ticker=ticker, merged=data, crypto=crypto, train=train, v=v)
-	dataset = data.sample(frac=1)
+	try:
+		seed = args.seed
+		print('Random seed set as:', seed)
+	except Exception as e:
+		seed = None
+	dataset = data.sample(frac=1, random_state=seed)
 	frac = int(len(dataset) * frac_per)
 	if v: print(time_stamp() + f'dataset len: {len(dataset)}')
 	if v: print(time_stamp() + f'frac: {frac}')
@@ -195,7 +200,7 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		frac_per = 1
 	else:
 		frac_per = 0.8
-	train_features, test_features, train_labels, test_labels, dataset = get_features_and_labels(ticker=ticker, crypto=crypto, data=data, frac_per=frac_per, v=v)
+	train_features, test_features, train_labels, test_labels, dataset = get_features_and_labels(ticker=ticker, crypto=crypto, data=data, frac_per=frac_per, train=train, v=v)
 		# print('test_features:')
 		# print(test_features)
 	if test_features.empty:
@@ -222,8 +227,8 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		
 		dataset['pred_dir'] = dataset['prediction'] - dataset['latestPrice']
 		if 'target' in dataset.columns.values.tolist():
-			dataset['real_dir'] = dataset['prediction'] - dataset['target']
-			dataset['dir_check'] = (dataset['pred_dir'] < 0) & (dataset['real_dir'] < 0)
+			dataset['real_dir'] = dataset['target'] - dataset['latestPrice']
+			dataset['dir_check'] = dataset['pred_dir'] * dataset['real_dir'] >= 0
 		else:
 			dataset['real_dir'] = None
 			dataset['dir_check'] = None
@@ -285,20 +290,27 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		result = dataset.copy()
 
 	if v: print(time_stamp() + f'Result:\n{result}')
+	result.to_csv('data/tsla_result_tmp.csv')
 	return result
 
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
+	parser.add_argument('-md', '--merged', type=str, default='merged.csv', help='The file name of the merged data.')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the model for reuse.')
 	parser.add_argument('-t', '--ticker', type=str, help='A single ticker to use.')
 	parser.add_argument('-n', '--train', action='store_true', help='Train a new model.')
 	parser.add_argument('-c', '--crypto', action='store_true', help='If using for cryptocurrencies.')
+	parser.add_argument('-sd', '--seed', type=int, help='Set the seed number for the randomness in the sorting of the input data when training.')
+	parser.add_argument('-v', '--verbose', action='store_false', help='Display the result.')
 	args = parser.parse_args()
+	args.v = args.verbose
 	print(time_stamp() + str(sys.argv))
 
-	result = main(args.ticker, train=args.train, crypto=args.crypto, save=args.save, v=True)
+	result = main(args.ticker, train=args.train, crypto=args.crypto, data=args.merged, save=args.save, v=args.v)
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -n -t tsla -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price08.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -md merged_bak_2021-02-25.csv -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &
 
 # nohup python -u fut_price.py -n -t tsla -s >> logs/fut_price02.log 2>&1 &

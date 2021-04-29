@@ -23,8 +23,8 @@ class CombineData(object):
 		self.data_location = data_location
 		if self.data_location is None:
 			if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
-				print(time_stamp() + 'Combine Data: Server')
 				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
+				print(time_stamp() + 'Combine Data: Server')
 			elif os.path.exists('/Users/Robbie/Public/market_data/new/data/'):
 				self.data_location = '/Users/Robbie/Public/market_data/new/data/'
 			else:
@@ -190,13 +190,24 @@ class CombineData(object):
 			print(time_stamp() + 'Saved data filtered for symbols: {}\nTo: {}'.format(symbol, filename))
 		return merged
 
-	def data_point(self, fields, merged=None, v=False):
+	def data_point(self, fields, merged=None, save=False, v=False):
 		if merged is None:
 			# quote_df = self.load_data('quote')
 			# stats_df = self.load_data('stats')
 			merged = self.merge_data()#quote_df, stats_df)
+		if '.csv' in fields:
+			fields = pd.read_csv(self.data_location + fields, comment='#')
+			if 'fields' in fields.columns.values.tolist():
+				fields = fields['fields'].values.tolist()
+			elif 'features' in fields.columns.values.tolist():
+				fields = fields['features'].values.tolist()
+			else:
+				fields = fields.iloc[:,0].values.tolist()
+		cols = merged.columns.values.tolist()
 		if not isinstance(fields, (list, tuple)):
-			fields = [x.strip() for x in fields.split(',')]
+			fields = [x.strip() for x in fields.split(',') if x in cols]
+		else:
+			fields = [x for x in fields if x in cols]
 		merged = merged[fields]
 		if v: print('Data filtered for fields:\n{}'.format(merged))
 		if save:
@@ -353,7 +364,7 @@ class CombineData(object):
 			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(filename))
 		return df
 
-	def get(self, dates=None, tickers=None, some=False, save=False, v=False):
+	def get(self, dates=None, tickers=None, save=False, v=False):
 		if os.path.exists(self.data_location + 'merged.csv'):
 			if v: print(time_stamp() + f'Merged data exists for get. Save: {args.save}')
 			merged = pd.read_csv(self.data_location + 'merged.csv')
@@ -372,28 +383,27 @@ class CombineData(object):
 				new_merged = combine_data.comp_filter(tickers, new_merged)
 				merged = combine_data.comp_filter(tickers, merged)
 				if v: print(time_stamp() + 'new_merged shape filter tickers:', merged.shape)
-			if not some:
-				mergeds = []
-				new_mergeds = []
-				for symbol in list(merged['symbol'].unique()):
-					tmp_merged = merged.loc[merged['symbol'] == symbol]
-					tmp_new_merged = new_merged.loc[new_merged['symbol'] == symbol]
-					last_row = tmp_merged.tail(1)
-					tmp_merged = tmp_merged[:-1]
-					tmp_new_merged = pd.concat([last_row, tmp_new_merged], sort=True)
-					mergeds.append(tmp_merged)
-					new_mergeds.append(tmp_new_merged)
-				merged = pd.concat(mergeds, sort=True)
-				new_merged = pd.concat(new_mergeds, sort=True)
-				new_merged = combine_data.splits(new_merged)
-				if v: print(time_stamp() + 'new_merged shape splits:', new_merged.shape)
-				new_merged = combine_data.mark_miss(new_merged)
-				if v: print(time_stamp() + 'new_merged shape miss:', new_merged.shape)
-				new_merged = combine_data.scrub(new_merged)
-				if v: print(time_stamp() + 'new_merged shape scrub:', new_merged.shape)
-				new_merged = combine_data.target(new_merged)
-				new_merged['date'] = new_merged['date'].dt.date
-				if v: print(time_stamp() + 'new_merged shape end:', new_merged.shape)
+			mergeds = []
+			new_mergeds = []
+			for symbol in list(merged['symbol'].unique()):
+				tmp_merged = merged.loc[merged['symbol'] == symbol]
+				tmp_new_merged = new_merged.loc[new_merged['symbol'] == symbol]
+				last_row = tmp_merged.tail(1)
+				tmp_merged = tmp_merged[:-1]
+				tmp_new_merged = pd.concat([last_row, tmp_new_merged], sort=True)
+				mergeds.append(tmp_merged)
+				new_mergeds.append(tmp_new_merged)
+			merged = pd.concat(mergeds, sort=True)
+			new_merged = pd.concat(new_mergeds, sort=True)
+			new_merged = combine_data.splits(new_merged)
+			if v: print(time_stamp() + 'new_merged shape splits:', new_merged.shape)
+			new_merged = combine_data.mark_miss(new_merged)
+			if v: print(time_stamp() + 'new_merged shape miss:', new_merged.shape)
+			new_merged = combine_data.scrub(new_merged)
+			if v: print(time_stamp() + 'new_merged shape scrub:', new_merged.shape)
+			new_merged = combine_data.target(new_merged)
+			new_merged['date'] = new_merged['date'].dt.date
+			if v: print(time_stamp() + 'new_merged shape end:', new_merged.shape)
 			merged = merged[cols]
 			new_merged = new_merged[cols]
 			# merged = pd.concat([merged, new_merged], sort=True)
@@ -465,22 +475,26 @@ class CombineData(object):
 			print(time_stamp() + 'Saved tickers to:\n{}'.format(filename))
 		return df
 
-	def max_date(self, merged='merged.csv', v=True):
+	def max_date(self, merged, v=True):
+		if merged is None:
+			merged = 'merged.csv'
 		if '.csv' not in merged:
-			print('Must be a .csv file name.')
+			print('Must be a .csv file name:', merged)
 			return
-		if v: print(time_stamp() + 'Loading data from:', merged)
-		df = pd.read_csv('data/' + merged)
+		if v: print(time_stamp() + 'Loading data to check Max Date from:', merged)
+		df = pd.read_csv(self.data_location + merged)
 		max_date = df['date'].max()
 		if v: print(time_stamp() + 'Max Date:', max_date)
 		return max_date
 
-	def min_date(self, merged='merged.csv', v=True):
+	def min_date(self, merged, v=True):
+		if merged is None:
+			merged = 'merged.csv'
 		if '.csv' not in merged:
-			print('Must be a .csv file name.')
+			print('Must be a .csv file name:', merged)
 			return
-		if v: print(time_stamp() + 'Loading data from:', merged)
-		df = pd.read_csv('data/' + merged)
+		if v: print(time_stamp() + 'Loading data to check Min Date from:', merged)
+		df = pd.read_csv(self.data_location + merged)
 		min_date = df['date'].min()
 		if v: print(time_stamp() + 'Min Date:', min_date)
 		return min_date
@@ -719,14 +733,16 @@ class CombineData(object):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
+	parser.add_argument('-md', '--merged', type=str, default='merged.csv', help='The file name of the merged data.')
 	parser.add_argument('-d', '--dates', type=str, help='A list of dates to combine data for.')
 	parser.add_argument('-t', '--tickers', type=str, help='A list of tickers to filter data for.')
 	parser.add_argument('-f', '--fields', type=str, help='The fields to filter data for.')
 	parser.add_argument('-m', '--mode', type=str, help='The mode to run: merged, missing, value, tickers.')
 	parser.add_argument('-since', '--since', action='store_true', help='Use all dates since a given date.')
-	parser.add_argument('-some', '--some', action='store_true', help='Get some.')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
+	parser.add_argument('-v', '--verbose', action='store_true', help='Display the result.')
 	args = parser.parse_args()
+	args.v = args.verbose
 	print(time_stamp() + str(sys.argv))
 
 	# if os.path.exists('/home/robale5/becauseinterfaces.com/acct/market_data/data/'):
@@ -737,18 +753,18 @@ if __name__ == '__main__':
 	combine_data = CombineData()#data_location=data_location)
 
 	if args.mode == 'fill':
-		merged = 'merged.csv' # 'ws_miss_merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
+		# merged = 'merged.csv' # 'ws_miss_merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
 		missing = 'A_to_ZYME_hist_prices_2020-03-18_to_2020-03-19.csv'
 		# missing = 'A_to_ZZZ-CT_hist_prices_2019-08-26_to_2020-02-19.csv'
 		# 'AGR_to_ZZZD-CT_hist_prices_2019-09-11_to_2020-02-10.csv'
 		# 'a_to_zyne_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'aapl_to_aapl_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'a_to_zzz-ct_hist_prices_2018-05-22_to_2020-01-22' #'all_hist_prices'
-		df = combine_data.fill_missing(missing, merged, save=args.save, v=True)
+		df = combine_data.fill_missing(missing, args.merged, save=args.save, v=args.v)
 
 	elif args.mode == 'find':
-		data = 'merged.csv' # 'ws_miss_merged.csv' # None # 'all_hist_prices_new4_merged.csv'
-		df = combine_data.find_missing(data, save=args.save, v=False)
+		data = args.merged # 'merged.csv' # 'ws_miss_merged.csv' # None # 'all_hist_prices_new4_merged.csv'
+		df = combine_data.find_missing(data, save=args.save, v=args.v)
 
 	elif args.mode == 'merged' or args.mode == 'merge':
 		print(time_stamp() + 'Merged Save: ', args.save)
@@ -785,56 +801,52 @@ if __name__ == '__main__':
 			print('Value option only works when one field, date, and ticker are provided.')
 
 	elif args.mode == 'crypto':
-		df = combine_data.crypto_data(save=args.save, prep=True, v=True)
+		df = combine_data.crypto_data(save=args.save, prep=True, v=args.v)
 
 	elif args.mode == 'mark':
-		# merged = 'merged_TSLA_to_AAPL.csv'
-		# merged = 'merged.csv'
-		merged = None
-		df = combine_data.mark_miss(merged, save=args.save, v=False)
+		# args.merged = 'merged_TSLA_to_AAPL.csv'
+		args.merged = None
+		df = combine_data.mark_miss(args.merged, save=args.save, v=args.v)
 
 	elif args.mode == 'splits':
-		# merged = 'merged_TSLA_to_AAPL.csv'
-		merged = 'merged.csv'
-		df = combine_data.splits(merged, save=args.save, v=True)
+		# args.merged = 'merged_TSLA_to_AAPL.csv'
+		df = combine_data.splits(args.merged, save=args.save, v=args.v)
 
 	elif args.mode == 'tar' or args.mode == 'target':
-		merged = 'merged.csv'
-		df = combine_data.target(merged, save=args.save, v=True)
+		df = combine_data.target(args.merged, save=args.save, v=args.v)
 
 	elif args.mode == 'scrub':
-		merged = 'merged.csv'
-		df = combine_data.scrub(merged, save=args.save, v=True)
+		df = combine_data.scrub(args.merged, save=args.save, v=args.v)
 
 	elif args.mode == 'gettickers':
-		df = combine_data.get_tickers(save=args.save, v=True)
+		df = combine_data.get_tickers(save=args.save, v=args.v)
 
 	elif args.mode == 'maxdate':
-		max_date = combine_data.max_date()
+		max_date = combine_data.max_date(args.merged)
 
 	elif args.mode == 'mindate':
-		max_date = combine_data.min_date()
+		max_date = combine_data.min_date(args.merged)
 
 	elif args.mode == 'get':
-		df = combine_data.get(dates=args.dates, tickers=args.tickers, some=args.some, save=args.save, v=True)
+		df = combine_data.get(dates=args.dates, tickers=args.tickers, save=args.save, v=args.v)
 
 	else:
 		if args.dates and args.tickers and args.fields:
-			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since)), save=args.save)
+			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since)), save=args.save, v=args.v)
 		if args.dates and args.tickers and args.fields is None:
-			df = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since), save=args.save)
+			df = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since), save=args.save, v=args.v)
 		if args.dates and args.tickers is None and args.fields:
-			df = combine_data.data_point(args.fields, combine_data.date_filter(args.dates, since=args.since), save=args.save)
+			df = combine_data.data_point(args.fields, combine_data.date_filter(args.dates, since=args.since), save=args.save, v=args.v)
 		if args.dates is None and args.tickers and args.fields:
-			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers), save=args.save)
+			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers), save=args.save, v=args.v)
 		if args.dates and args.tickers is None and args.fields is None:
-			df = combine_data.date_filter(args.dates, since=args.since, save=args.save)
+			df = combine_data.date_filter(args.dates, since=args.since, save=args.save, v=args.v)
 		if args.dates is None and args.tickers and args.fields is None:
 			print('Merging all dates for:', args.tickers)
 			print('Save:', args.save)
-			df = combine_data.comp_filter(args.tickers, save=args.save)
+			df = combine_data.comp_filter(args.tickers, save=args.save, v=args.v)
 		if args.dates is None and args.tickers is None and args.fields:
-			df = combine_data.data_point(args.fields, save=args.save)
+			df = combine_data.data_point(args.fields, save=args.save, v=args.v)
 		if args.dates is None and args.tickers is None and args.fields is None:
 			print('Save:', args.save)
 			df = combine_data.merge_data(save=args.save)
