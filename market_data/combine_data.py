@@ -82,7 +82,7 @@ class CombineData(object):
 		# print('files:', files)
 		dfs = []
 		for fname in files:
-			print(time_stamp() + 'fname:', fname)
+			# print(time_stamp() + 'fname:', fname)
 			load_df = self.load_file(fname)
 			# if 'stats' in fname:
 			# 	load_df = load_df[~load_df['avg10Volume'].str.contains(':', na=False)]
@@ -364,10 +364,17 @@ class CombineData(object):
 			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(filename))
 		return df
 
-	def get(self, dates=None, tickers=None, save=False, v=False):
-		if os.path.exists(self.data_location + 'merged.csv'):
+	def get(self, dates=None, tickers=None, merged=None, filename=None, save=False, v=False):
+		if merged is None:
+			merged = 'merged.csv'
+		if filename is None:
+			filename = 'merged'
+		elif '.csv' == filename[-4:]:
+			filename = filename[:-4]
+		print(f'Get new data and save as: {filename}.csv')
+		if os.path.exists(self.data_location + merged):
 			if v: print(time_stamp() + f'Merged data exists for get. Save: {args.save}')
-			merged = pd.read_csv(self.data_location + 'merged.csv')
+			merged = pd.read_csv(self.data_location + merged)
 			cols = merged.columns.values.tolist()
 			if v: print('merged tail:\n', merged.tail())
 			if v: print(time_stamp() + 'merged shape load:', merged.shape)
@@ -425,19 +432,19 @@ class CombineData(object):
 		if save:
 			if tickers is not None:
 				if len(tickers) == 1:
-					filename = self.data_location + 'merged_' + tickers[0] + '.csv'
+					pathname = self.data_location + filename + '_' + tickers[0] + '.csv'
 				else:
-					filename = self.data_location + 'merged_' + tickers[0] + '_to_' + tickers[-1] + '.csv'
+					pathname = self.data_location + filename + '_' + tickers[0] + '_to_' + tickers[-1] + '.csv'
 			else:
-				filename = self.data_location + 'merged.csv'
+				pathname = self.data_location + filename + '.csv'
 			if merged is not None:
-				merged.to_csv(filename, index=False)
-			new_merged.to_csv(filename, index=False, mode='a', header=False)
+				merged.to_csv(pathname, index=False)
+			new_merged.to_csv(pathname, index=False, mode='a', header=False)
 			# Fix sorting
-			merged = pd.read_csv(filename)
+			merged = pd.read_csv(pathname)
 			merged = merged.sort_values(by=['symbol', 'date'])
-			merged.to_csv(filename, index=False)
-			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(dates[-1], filename))
+			merged.to_csv(pathname, index=False)
+			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(dates[-1], pathname))
 		return merged
 
 	def crypto_data(self, merged=None, prep=False, save=False, v=False):
@@ -734,6 +741,7 @@ class CombineData(object):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-md', '--merged', type=str, default='merged.csv', help='The file name of the merged data.')
+	parser.add_argument('-out', '--out_file', type=str, default='merged', help='The file name of the output with no .csv extension.')
 	parser.add_argument('-d', '--dates', type=str, help='A list of dates to combine data for.')
 	parser.add_argument('-t', '--tickers', type=str, help='A list of tickers to filter data for.')
 	parser.add_argument('-f', '--fields', type=str, help='The fields to filter data for.')
@@ -828,7 +836,7 @@ if __name__ == '__main__':
 		max_date = combine_data.min_date(args.merged)
 
 	elif args.mode == 'get':
-		df = combine_data.get(dates=args.dates, tickers=args.tickers, save=args.save, v=args.v)
+		df = combine_data.get(dates=args.dates, tickers=args.tickers, merged=args.merged, filename=args.out_file, save=args.save, v=args.v)
 
 	else:
 		if args.dates and args.tickers and args.fields:

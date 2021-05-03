@@ -72,6 +72,8 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		if v: print('target filter out nan:', dataset.shape)
 	# if v: with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 	# 	if v: print(dataset.dtypes)
+	print(time_stamp() + 'Dataset Min Date:', dataset['date'],min())
+	print(time_stamp() + 'Dataset Max Date:', dataset['date'],max())
 	if v: print(time_stamp() + f'Convert to floats.')
 	# TODO Handle other feature types
 	symbol_col = dataset.pop('symbol')
@@ -239,7 +241,8 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 				print(time_stamp() + f'test_labels (x):\n{test_labels}')
 				print(time_stamp() + f'test_predictions (y):\n{test_predictions}')
 
-			plot_prediction(test_labels, test_predictions, train_features, train_labels)
+			if not os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
+				plot_prediction(test_labels, test_predictions, train_features, train_labels)
 
 			print(time_stamp() + 'Evaluate loaded ' + ticker.lower() + '_model:')
 			test_results = {}
@@ -270,8 +273,8 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			if v: print(time_stamp() + f'test_labels (x):\n{test_labels}')
 			if v: print(time_stamp() + f'test_predictions (y):\n{test_predictions}')
-
-		plot_prediction(test_labels, test_predictions, train_features, train_labels)
+		if not os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
+			plot_prediction(test_labels, test_predictions, train_features, train_labels)
 
 		if save:
 			if v: print(time_stamp() + 'Saving model as: ' + ticker.lower() + '_model')
@@ -290,7 +293,7 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		result = dataset.copy()
 
 	if v: print(time_stamp() + f'Result:\n{result}')
-	result.to_csv('data/tsla_result_tmp.csv')
+	# result.to_csv('data/tsla_result_tmp.csv')
 	return result
 
 

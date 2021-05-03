@@ -702,7 +702,7 @@ class TradingAlgo(object):
 		if date is None:
 			date = dt.datetime.today()
 			date = date.date()
-			# date = date - dt.timedelta(days=4)
+			# date = date - dt.timedelta(days=1)
 			# print('trade date:', date)
 			if not isinstance(date, str):
 				date = date.strftime('%Y-%m-%d')
@@ -1010,3 +1010,5 @@ if __name__ == '__main__':
 # 00 07 * * *
 
 # nohup python trade_algo.py -db trade01.db -s 11 -sim -t tsla
+
+# 00 21 * * * nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -s 11 -t tsla >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
