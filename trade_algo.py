@@ -702,8 +702,8 @@ class TradingAlgo(object):
 		if date is None:
 			date = dt.datetime.today()
 			date = date.date()
-			# date = date - dt.timedelta(days=1)
-			# print('trade date:', date)
+			date = date - dt.timedelta(days=args.offset)
+			print('Trade date:', date)
 			if not isinstance(date, str):
 				date = date.strftime('%Y-%m-%d')
 		self.set_table(date, 'date')
@@ -724,9 +724,11 @@ class TradingAlgo(object):
 		
 		# Don't do anything on weekends
 		if self.check_weekend(date) is not None:
+			self.set_table(nav_hist, 'nav_hist')
 			return
 		# Don't do anything on trade holidays
 		if self.check_holiday(date) is not None:
+			self.set_table(nav_hist, 'nav_hist')
 			return
 
 		# if not self.trade.sim:
@@ -853,6 +855,7 @@ if __name__ == '__main__':
 	parser.add_argument('-a', '--train', action='store_true', help='Train all new models.')
 	parser.add_argument('-since', '--since', action='store_false', help='Use all dates since a given date. On by default.')
 	parser.add_argument('-sd', '--since_date', type=str, default='2020-01-24', help='Use dates from a given date.')
+	parser.add_argument('-o', '--offset', type=int, default=0, help='Number of days to run in the past.')
 	args = parser.parse_args()
 	print(time_stamp() + str(sys.argv))
 	new_db = True
