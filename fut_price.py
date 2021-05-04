@@ -66,14 +66,21 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 	# print(time_stamp() + 'nan counts:')
 	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 		# print(dataset.isna().sum())
-	# dataset.dropna(axis=0, inplace=True)
+	# print(dataset)
+	cols = dataset.columns.values.tolist()
+	cols.remove('target')
+	# print(cols)
+	# print('shape before remove na rows:', dataset.shape)
+	# TODO Better missing data handling
+	dataset.dropna(axis=0, subset=cols, inplace=True)
+	# print('shape after remove na rows:', dataset.shape)
 	if train:
 		dataset.dropna(axis=0, subset=['target'], inplace=True)
 		if v: print('target filter out nan:', dataset.shape)
 	# if v: with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 	# 	if v: print(dataset.dtypes)
-	print(time_stamp() + 'Dataset Min Date:', dataset['date'],min())
-	print(time_stamp() + 'Dataset Max Date:', dataset['date'],max())
+	print(time_stamp() + 'Dataset Min Date:', dataset['date'].min())
+	print(time_stamp() + 'Dataset Max Date:', dataset['date'].max())
 	if v: print(time_stamp() + f'Convert to floats.')
 	# TODO Handle other feature types
 	symbol_col = dataset.pop('symbol')
@@ -211,14 +218,12 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 
 	if os.path.exists(file_name) and not train:
 		if v: print(time_stamp() + 'Load model from: ' + ticker.lower() + '_model')
-		# v = True
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			if v: print('test_features types:')
-			if v: print(test_features.dtypes)
-			if v: print(time_stamp() + f'test_features:')
-			if v: print(test_features)
-			if v: print(time_stamp() + 'test_features shape:', test_features.shape)
-		# v = False
+		if v: print(test_features.dtypes)
+		if v: print(time_stamp() + f'test_features:')
+		if v: print(test_features)
+		if v: print(time_stamp() + 'test_features shape:', test_features.shape)
 		model = tf.keras.models.load_model(file_name)
 		# print(model.to_yaml())
 		print(model.summary())
@@ -267,8 +272,15 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		test_predictions = model.predict(test_features)
 		test_predictions = test_predictions.flatten()
 		if v: print(time_stamp() + 'Prediction Results:')
-		# s = pd.Series(test_predictions, index=test_features.index)
-		dataset['predictions'] = pd.Series(test_predictions, index=test_features.index)
+
+		dataset['prediction'] = pd.Series(test_predictions, index=test_features.index)
+		dataset['pred_dir'] = dataset['prediction'] - dataset['latestPrice']
+		if 'target' in dataset.columns.values.tolist():
+			dataset['real_dir'] = dataset['target'] - dataset['latestPrice']
+			dataset['dir_check'] = dataset['pred_dir'] * dataset['real_dir'] >= 0
+		else:
+			dataset['real_dir'] = None
+			dataset['dir_check'] = None
 		if v: print('dataset:\n', dataset)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			if v: print(time_stamp() + f'test_labels (x):\n{test_labels}')
@@ -293,7 +305,7 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 		result = dataset.copy()
 
 	if v: print(time_stamp() + f'Result:\n{result}')
-	# result.to_csv('data/tsla_result_tmp.csv')
+	# result.to_csv('data/tsla_result_tmp05.csv')
 	return result
 
 
