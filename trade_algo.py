@@ -777,10 +777,23 @@ class TradingAlgo(object):
 				rank = self.rand_algo(tickers)
 				algo_type = 'rand'
 			if args.mode == '3' or e == 3 or args.mode == 'perf_dir' or count == 3:
-				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=False)
+				if not trade.sim:
+					date_orig = date
+					date = self.get_prior_day(date)
+				if trade.sim or not first:
+					rank = self.rank_change_percent(assets, date, tickers=tickers, predict=False)
+				else:
+					print('Skipped the first day for perf algo.')
+					rank = pd.DataFrame()
 				algo_type = 'perf'
 			if args.mode == '4' or e == 4 or args.mode == 'pred_dir' or count == 4:
+				# try:
 				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True, train=args.train)
+				# except Exception as err:
+				# 	print('Error predicting price:')
+				# 	print(err)
+				# 	print(repr(err))
+				# 	rank = pd.DataFrame()
 				algo_type = 'pred'
 			# if args.mode == '5' or e == 5 or args.mode == 'test':
 			# 	rank = self.rank_combined(assets, norm, date, tickers=tickers)
@@ -827,10 +840,16 @@ class TradingAlgo(object):
 			nav = self.ledger.balance_sheet()
 			portfolio = self.ledger.get_qty(accounts=['Investments'])
 			print('Portfolio at End of Day: \n{}'.format(portfolio))
-			# TODO Maybe subtract date by 1 for perf algo when not sim
-			nav_hist.at[date, algo_type] = nav
+			if not trade.sim and algo_type == 'perf' and first:
+				nav_hist.at[str(date_orig), algo_type] = None
+				# pass
+			else:
+				nav_hist.at[str(date), algo_type] = nav
 			self.set_table(nav_hist, 'nav_hist')
+			if algo_type == 'perf':
+				date = date_orig
 			print('NAV Hist:\n', nav_hist.tail())
+			print('-' * DISPLAY_WIDTH)
 			#ledger.bs_hist()
 
 		t3_end = time.perf_counter()
