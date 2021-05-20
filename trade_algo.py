@@ -852,10 +852,14 @@ class TradingAlgo(object):
 			print('-' * DISPLAY_WIDTH)
 			#ledger.bs_hist()
 
+		# nav_hist.dropna(thresh=2, inplace=True)
+		# self.set_table(nav_hist, 'nav_hist')
+		# print('NAV Hist End:\n', nav_hist)
+		# print('-' * DISPLAY_WIDTH)
 		t3_end = time.perf_counter()
 		print(time_stamp() + 'Done trading for {}. It took {:,.2f} min.'.format(date, (t3_end - t3_start) / 60))
 		first = False
-		return nav
+		return nav_hist
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -878,14 +882,19 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	print(time_stamp() + str(sys.argv))
 	new_db = True
-	# print('Existing DB Check {}: {}'.format(args.database, os.path.exists('db/' + args.database)))
+	print('New DB start:', new_db)
+	print('Existing DB Check local {}: {}'.format(args.database, os.path.exists('db/' + args.database)))
+	print('Existing DB Check server {}: {}'.format(args.database, os.path.exists('/home/robale5/becauseinterfaces.com/acct/db/' + args.database)))
 	if os.path.exists('db/' + args.database):
 		new_db = False
-	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/db/' + args.database):
+		print('New DB local:', new_db)
+	elif os.path.exists('/home/robale5/becauseinterfaces.com/acct/db/' + args.database):
 		new_db = False
+		print('New DB server:', new_db)
 	if args.reset:
 		delete_db(args.database)
 		new_db = True
+		print('New DB reset:', new_db)
 	print('New DB:', new_db)
 	if args.seed:
 		random.seed(args.seed)
@@ -1033,4 +1042,4 @@ if __name__ == '__main__':
 
 # nohup python trade_algo.py -db trade01.db -s 11 -sim -t tsla
 
-# 00 21 * * * nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -s 11 -t tsla >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
+# 00 21 * * * nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -t tsla >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
