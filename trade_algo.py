@@ -632,11 +632,14 @@ class TradingAlgo(object):
 
 	def future_price(self, ticker, date, train=False, v=False):
 		# print('merged_data:\n', merged_data)
-		pred_price = get_fut_price(ticker, date, global_merged_data, train=train)
+		pred_price = get_fut_price(ticker, date, global_merged_data, model_name=model_name, train=train)
 		if v: print('pred_price:\n', pred_price)
 		if pred_price is None:
 			return
 		pred_quote_df = pred_price.rename(columns={'latestPrice': 'prior'}, errors='ignore')
+		## TODO This is a temp fix
+		pred_quote_df['prediction'] = pred_quote_df['prediction'] * 0.95
+		##########################
 		pred_quote_df['changePercent'] = (pred_quote_df['prediction'] - pred_quote_df['prior']) / pred_quote_df['prior']
 		pred_quote_df = pred_quote_df[['symbol', 'prediction', 'prior', 'changePercent']]
 		pred_quote_df.set_index('symbol', inplace=True)
@@ -876,6 +879,7 @@ if __name__ == '__main__':
 	parser.add_argument('-t', '--tickers', type=str, default='ws_tickers.csv', help='A list of tickers to consider.')
 	parser.add_argument('-n', '--train_new', action='store_false', help='Train a new model if existing model is not found.')
 	parser.add_argument('-a', '--train', action='store_true', help='Train all new models.')
+	parser.add_argument('-mn', '--model_name', type=str, help='The optional file name of the model.')
 	parser.add_argument('-since', '--since', action='store_false', help='Use all dates since a given date. On by default.')
 	parser.add_argument('-sd', '--since_date', type=str, default='2020-01-24', help='Use dates from a given date.')
 	parser.add_argument('-o', '--offset', type=int, default=0, help='Number of days to run in the past.')
@@ -926,6 +930,7 @@ if __name__ == '__main__':
 	# result = algo.future_data('scor', '2018-05-09')
 	# convert_lite(args.tickers)
 	# exit()
+	model_name = args.model_name
 
 	if trade.sim:
 		t0_start = time.perf_counter()

@@ -43,7 +43,8 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		if v: print(time_stamp() + 'Merged data exists.')
 		merged_data = pd.read_csv(combine_data.data_location + merged)
 		merged_data = merged_data.set_index(['symbol','date'])
-		dataset = combine_data.comp_filter(ticker, merged_data)
+		# dataset = combine_data.comp_filter(ticker, merged_data)
+		dataset = combine_data.data_point('fields.csv', combine_data.comp_filter(ticker, merged_data))
 		if v: print('data filtered for ticker:', dataset.shape)
 		dataset = dataset[column_names]
 		if v: print('Remove columns:', dataset.shape)
@@ -52,7 +53,8 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		if 'target' not in merged.columns.values.tolist():
 			merged['target'] = np.nan
 		# dataset = combine_data.comp_filter(ticker, merged)
-		dataset = merged[column_names]
+		# dataset = merged[column_names]
+		dataset = combine_data.data_point('fields.csv', merged)
 		# dataset = dataset.set_index(['symbol','date'])
 		if v: print('Remove columns:', dataset.shape)
 	else:
@@ -165,7 +167,7 @@ def build_and_compile_model(norm):
 				optimizer=tf.keras.optimizers.Adam(0.001))
 	return model
 
-def get_fut_price(ticker, date=None, data=None, crypto=False, only_price=False, train=False, v=False):
+def get_fut_price(ticker, date=None, data=None, crypto=False, only_price=False, model_name=None, train=False, v=False):
 	# TODO Maybe support multiple tickers and dates
 	if isinstance(ticker, (list, tuple)):
 		ticker = ticker[0]
@@ -177,7 +179,7 @@ def get_fut_price(ticker, date=None, data=None, crypto=False, only_price=False, 
 	data = combine_data.comp_filter(ticker, combine_data.date_filter(date, merged=data))
 	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 	print(time_stamp() + 'Model Input Data: {}\n{}'.format(data.shape, data))
-	price = main(ticker, data=data, crypto=crypto, only_price=only_price, train=train)
+	price = main(ticker, data=data, crypto=crypto, only_price=only_price, model_name=model_name, train=train)
 	return price
 
 def plot_prediction(x, y, train_features, train_labels):
@@ -189,7 +191,7 @@ def plot_prediction(x, y, train_features, train_labels):
 	plt.legend()
 	plt.show()
 
-def main(ticker=None, train=False, crypto=False, data=None, only_price=False, save=False, v=False):
+def main(ticker=None, train=False, crypto=False, data=None, only_price=False, model_name=None, save=False, v=False):
 	if v: print(time_stamp() + f'TensorFlow Version: {tf.__version__}')
 	if v: print(time_stamp() + f'Train: {train}')
 	if v: print(time_stamp() + f'Save: {save}')
@@ -200,6 +202,8 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 	if ticker is None and crypto:
 		ticker = 'BTCUSDT'
 	file_name = 'models/' + ticker.lower() + '_model'
+	if model_name:
+		file_name = 'models/' + model_name
 	if not os.path.exists(file_name):
 		file_name = '/home/robale5/becauseinterfaces.com/acct/' + file_name
 	if v: print(time_stamp() + f'File Name: {file_name}')
@@ -289,7 +293,10 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, sa
 			plot_prediction(test_labels, test_predictions, train_features, train_labels)
 
 		if save:
-			if v: print(time_stamp() + 'Saving model as: ' + ticker.lower() + '_model')
+			if model_name:
+				if v: print(time_stamp() + 'Saving model as: ' + model_name)
+			else:
+				if v: print(time_stamp() + 'Saving model as: ' + ticker.lower() + '_model')
 			model.save(file_name)
 			dataset.to_csv(file_name + '/assets/' + ticker.lower() + '_pred.csv')
 	if v: print(time_stamp() + 'Test Results:')
@@ -318,11 +325,12 @@ if __name__ == '__main__':
 	parser.add_argument('-c', '--crypto', action='store_true', help='If using for cryptocurrencies.')
 	parser.add_argument('-sd', '--seed', type=int, help='Set the seed number for the randomness in the sorting of the input data when training.')
 	parser.add_argument('-v', '--verbose', action='store_false', help='Display the result.')
+	parser.add_argument('-mn', '--model_name', type=str, help='The optional file name of the model.')
 	args = parser.parse_args()
 	args.v = args.verbose
 	print(time_stamp() + str(sys.argv))
 
-	result = main(args.ticker, train=args.train, crypto=args.crypto, data=args.merged, save=args.save, v=args.v)
+	result = main(args.ticker, train=args.train, crypto=args.crypto, data=args.merged, model_name=args.model_name, save=args.save, v=args.v)
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &
 
