@@ -1486,10 +1486,11 @@ class Ledger:
 
 	def remove_entries(self, txns=None): # TODO Don't keep this long term, only use rvsl instead
 		if txns is None:
-			txns = []
-			txns.append(input('Which transaction ID would you like to remove? '))
+			txns = input('Which transaction ID would you like to remove? ')
+			if txns == '':
+				return
 		if not isinstance(txns, (list, tuple)):
-			txns = [txns]
+			txns = [x.strip() for x in txns.split(',')]
 		cur = self.conn.cursor()
 		for txn in txns:
 			cur.execute('DELETE FROM '+ self.ledger_name +' WHERE txn_id=?', (txn,))
@@ -1500,10 +1501,11 @@ class Ledger:
 
 	def reversal_entry(self, txns=None, date=None): # This func effectively deletes a transaction
 		if txns is None:
-			txns = []
-			txns.append(input('Which txn_id to reverse? ')) # TODO Add check to ensure valid transaction number
+			txns = input('Which txn_id to reverse? ') # TODO Add check to ensure valid transaction number
+			if txns == '':
+				return
 		if not isinstance(txns, (list, tuple)):
-			txns = [txns]
+			txns = [x.strip() for x in txns.split(',')]
 		cur = self.conn.cursor()
 		rvsl_event = []
 		for txn in txns:
@@ -1511,7 +1513,7 @@ class Ledger:
 			cur.execute(rvsl_query)
 			rvsl = list(cur.fetchone())
 			logging.debug('rvsl: {}'.format(rvsl))
-			if '[RVSL]' in rvsl[6]:
+			if '[RVSL]' in rvsl[7]:
 				print('Cannot reverse a reversal for txn_id: {}. Enter a new entry instead.'.format(txn))
 				continue
 			del rvsl[5]
@@ -1521,7 +1523,7 @@ class Ledger:
 				date = str(pd.to_datetime(date_raw, format='%Y-%m-%d').date())
 			rvsl_entry = [ rvsl[1], rvsl[2], rvsl[3], date, rvsl[5], '[RVSL] ' + rvsl[6], rvsl[7], rvsl[8] or '' if rvsl[8] != 0 else rvsl[8], rvsl[9] or '' if rvsl[9] != 0 else rvsl[9], rvsl[11], rvsl[10], rvsl[12] ]
 			rvsl_event += [rvsl_entry]
-			cur.close()
+		cur.close()
 		self.journal_entry(rvsl_event)
 
 	def split(self, txn=None, debit_acct=None, credit_acct=None, amount=None, date=None):
@@ -1983,6 +1985,10 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'rvsl':
 			ledger.reversal_entry()
+			if args.command is not None: exit()
+		elif command.lower() == 'del':
+			# TODO Comment this command out for production
+			ledger.remove_entries()
 			if args.command is not None: exit()
 		elif command.lower() == 'split':
 			ledger.split()

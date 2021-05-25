@@ -109,8 +109,12 @@ class CombineData(object):
 	def date_filter(self, dates=None, merged=None, since=False, until=False, data=None, filename=None, save=False, v=False):
 		if filename is None:
 			filename = 'merged'
+			pathname = None
 		elif '.csv' == filename[-4:]:
 			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		# since with no date: jan to now
 		# since with date: date to now
 		# until with no date: start of data ['2018-05-08'] to now
@@ -154,15 +158,15 @@ class CombineData(object):
 					else:
 						start_date = '2020-01-24'
 				else:
-					if until:
-						if args.start_date:
-							start_date = args.start_date
-						else:
-							start_date = dates[0]
+					if args.start_date:
+						start_date = args.start_date
 					else:
 						start_date = dates[0]
 			else:
-				start_date = '2020-01-24'
+				if args.start_date:
+					start_date = args.start_date
+				else:
+					start_date = '2020-01-24'
 			dates = pd.date_range(start=start_date, end=end_date, freq='D').to_pydatetime().tolist()
 			dates = [date.strftime('%Y-%m-%d') for date in dates]
 			print(time_stamp() + f'Number of Days since {dates[0]}: {len(dates)}')
@@ -189,15 +193,16 @@ class CombineData(object):
 		merged = merged.loc[merged['date'].isin(dates)]
 		if data is not None:
 			merged = pd.concat([data, merged])
-		if v: print('Data filtered for dates:\n{}'.format(merged))
+		if v: print(time_stamp() + 'Data filtered for dates:\n{}'.format(merged))
 		if save:
-			if dates:
-				if len(dates) == 1:
-					pathname = self.data_location + filename + '_' + str(dates[0]) + '.csv'
+			if not pathname:
+				if dates:
+					if len(dates) == 1:
+						pathname = self.data_location + filename + '_' + str(dates[0]) + '.csv'
+					else:
+						pathname = self.data_location + filename + '_' + str(dates[0]) + '_to_' + str(dates[-1]) + '.csv'
 				else:
-					pathname = self.data_location + filename + '_' + str(dates[0]) + '_to_' + str(dates[-1]) + '.csv'
-			else:
-				pathname = self.data_location + filename + '.csv'
+					pathname = self.data_location + filename + '.csv'
 			merged.to_csv(pathname, index=True)
 			print(time_stamp() + 'Saved data filtered for dates: {}\nTo: {}'.format(dates, pathname))
 		return merged
@@ -205,8 +210,12 @@ class CombineData(object):
 	def comp_filter(self, symbol, merged=None, flatten=False, filename=None, save=False, v=False):
 		if filename is None:
 			filename = 'merged'
+			pathname = None
 		elif '.csv' == filename[-4:]:
 			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if merged is None:
 			# if os.path.exists('data/merged.csv'):
 			# 	merged = pd.read_csv('data/merged.csv')
@@ -232,13 +241,11 @@ class CombineData(object):
 			merged.columns = ['_'.join(reversed(c)) for c in merged.columns]
 		if v: print('Data filtered for symbols:\n{}'.format(merged))
 		if save:
-			if symbol:
+			if not pathname:
 				if len(symbol) == 1:
 					pathname = self.data_location + filename + '_' + str(symbol[0]).lower() + '.csv'
 				else:
 					pathname = self.data_location + filename + '_' + str(symbol[0]).lower() + '_to_' + str(symbol[-1]).lower() + '.csv'
-			else:
-				pathname = self.data_location + filename + '.csv'
 			merged.to_csv(pathname, index=False)
 			print(time_stamp() + 'Saved data filtered for symbols: {}\nTo: {}'.format(symbol, pathname))
 		return merged
@@ -246,8 +253,12 @@ class CombineData(object):
 	def data_point(self, fields, merged=None, filename=None, save=False, v=False):
 		if filename is None:
 			filename = 'merged'
+			pathname = None
 		elif '.csv' == filename[-4:]:
 			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if merged is None:
 			# quote_df = self.load_data('quote')
 			# stats_df = self.load_data('stats')
@@ -268,10 +279,11 @@ class CombineData(object):
 		merged = merged[fields]
 		if v: print('Data filtered for fields:\n{}'.format(merged))
 		if save:
-			if len(fields) == 1:
-				pathname = self.data_location + filename + '_' + str(fields[0]) + '.csv'
-			else:
-				pathname = self.data_location + filename + '_' + str(fields[0]) + '_to_' + str(fields[-1]) + '.csv'
+			if not pathname:
+				if len(fields) == 1:
+					pathname = self.data_location + filename + '_' + str(fields[0]) + '.csv'
+				else:
+					pathname = self.data_location + filename + '_' + str(fields[0]) + '_to_' + str(fields[-1]) + '.csv'
 			merged.to_csv(pathname, index=False)
 			print(time_stamp() + 'Saved data filtered for fields: {}\nTo: {}'.format(fields, pathname))
 		return merged#[fields]
