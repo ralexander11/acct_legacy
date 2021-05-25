@@ -243,7 +243,7 @@ class CombineData(object):
 			print(time_stamp() + 'Saved data filtered for symbols: {}\nTo: {}'.format(symbol, pathname))
 		return merged
 
-	def data_point(self, fields, merged=None, save=False, v=False):
+	def data_point(self, fields, merged=None, filename=None, save=False, v=False):
 		if filename is None:
 			filename = 'merged'
 		elif '.csv' == filename[-4:]:
@@ -926,5 +926,7 @@ if __name__ == '__main__':
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m fill -s >> /home/robale5/becauseinterfaces.com/acct/logs/fill03.log 2>&1 &
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m get -t "aapl, tsla" -s >> /home/robale5/becauseinterfaces.com/acct/logs/get10.log 2>&1 &
+
+# nohup python -u market_data/combine_data.py -sd None --until -d 2020-07-31 -out merged_all_until-2020-07 -s -v >> logs/combine02.log 2>&1 &
 
 # splits, mark, scrub, tar

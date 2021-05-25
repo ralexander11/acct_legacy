@@ -337,3 +337,5 @@ if __name__ == '__main__':
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -md merged_bak_2021-02-25.csv -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &
 
 # nohup python -u fut_price.py -n -t tsla -s >> logs/fut_price02.log 2>&1 &
+
+# nohup python -u fut_price.py -n -t tsla --seed 11 -md merged_all_until-2020-07 -mn tsla_wndw_model01 -v -s >> logs/fut_price011.log 2>&1 &

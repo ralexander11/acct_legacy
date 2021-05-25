@@ -1048,3 +1048,5 @@ if __name__ == '__main__':
 # nohup python trade_algo.py -db trade01.db -s 11 -sim -t tsla
 
 # 00 21 * * * nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -t tsla >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
+
+# nohup python trade_algo.py -db trade01.db -s 11 -sim -t tsla -mn tsla_wndw_model01 -sd 2020-01-24
