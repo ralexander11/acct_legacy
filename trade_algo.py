@@ -638,8 +638,10 @@ class TradingAlgo(object):
 			return
 		pred_quote_df = pred_price.rename(columns={'latestPrice': 'prior'}, errors='ignore')
 		## TODO This is a temp fix
-		pred_quote_df['prediction'] = pred_quote_df['prediction'] * 0.95
-		##########################
+		if args.haircut != 1:
+			haircut = 1 - args.haircut
+			pred_quote_df['prediction'] = pred_quote_df['prediction'] * haircut
+			print(time_stamp() + f'Applied {args.haircut * 100}% haircut to prediction.')
 		pred_quote_df['changePercent'] = (pred_quote_df['prediction'] - pred_quote_df['prior']) / pred_quote_df['prior']
 		pred_quote_df = pred_quote_df[['symbol', 'prediction', 'prior', 'changePercent']]
 		pred_quote_df.set_index('symbol', inplace=True)
@@ -883,6 +885,7 @@ if __name__ == '__main__':
 	parser.add_argument('-since', '--since', action='store_false', help='Use all dates since a given date. On by default.')
 	parser.add_argument('-sd', '--since_date', type=str, default='2020-01-24', help='Use dates from a given date.')
 	parser.add_argument('-o', '--offset', type=int, default=0, help='Number of days to run in the past.')
+	parser.add_argument('-haircut', '--haircut', type=float, default=1, help='Percent to reduce the predicted price by.')
 	args = parser.parse_args()
 	print(time_stamp() + str(sys.argv))
 	new_db = True

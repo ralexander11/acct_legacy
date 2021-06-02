@@ -38,6 +38,10 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		# merged = 'merged.csv'
 
 	if v: print(time_stamp() + f'Ticker: {ticker}')
+	if isinstance(merged, str):
+		if '.csv' not in merged:
+			merged = merged + '.csv'
+	if v: print(time_stamp() + f'Merged filename: {merged}')
 
 	if '.csv' in merged and os.path.exists(combine_data.data_location + merged) and not crypto:
 		if v: print(time_stamp() + 'Merged data exists.')
@@ -58,6 +62,7 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		# dataset = dataset.set_index(['symbol','date'])
 		if v: print('Remove columns:', dataset.shape)
 	else:
+		# TODO Maybe remove this
 		raw_dataset = pd.read_csv(url, names=column_names)
 		dataset = raw_dataset.copy()
 		dataset = dataset.loc[dataset['symbol'] == ticker]
@@ -327,10 +332,9 @@ if __name__ == '__main__':
 	parser.add_argument('-v', '--verbose', action='store_false', help='Display the result.')
 	parser.add_argument('-mn', '--model_name', type=str, help='The optional file name of the model.')
 	args = parser.parse_args()
-	args.v = args.verbose
 	print(time_stamp() + str(sys.argv))
 
-	result = main(args.ticker, train=args.train, crypto=args.crypto, data=args.merged, model_name=args.model_name, save=args.save, v=args.v)
+	result = main(args.ticker, train=args.train, crypto=args.crypto, data=args.merged, model_name=args.model_name, save=args.save, v=args.verbose)
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &
 
@@ -338,4 +342,4 @@ if __name__ == '__main__':
 
 # nohup python -u fut_price.py -n -t tsla -s >> logs/fut_price02.log 2>&1 &
 
-# nohup python -u fut_price.py -n -t tsla --seed 11 -md merged_all_until-2020-07 -mn tsla_wndw_model01 -v -s >> logs/fut_price011.log 2>&1 &
+# nohup python -u fut_price.py -n -t tsla --seed 11 -md merged_all_until-2020-07 -mn tsla_wndw_model01 -s >> logs/fut_price11.log 2>&1 &

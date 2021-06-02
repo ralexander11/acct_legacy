@@ -80,7 +80,9 @@ class Trading(object):
 		return config
 
 	def get_price(self, symbol, date=None):
-		if not self.sim:
+		# print('Get Price for Date:', date)
+		# print('Today:', datetime.datetime.today().date())
+		if not self.sim and (date is None or date == datetime.datetime.today().date()):
 			# url = 'https://api.iextrading.com/1.0/stock/' # Old Url
 			# 'https://cloud.iexapis.com/stable/tops?token=YOUR_TOKEN_HERE&symbols=aapl'
 			# url = 'https://cloud.iexapis.com/stable/tops?token='
@@ -104,7 +106,7 @@ class Trading(object):
 				print('Price for {}: {}'.format(name, price))
 				return price
 		else:
-			infile = self.data_location + 'quote/iex_quote_' + date + '.csv'
+			infile = self.data_location + 'quote/iex_quote_' + str(date) + '.csv'
 			try:
 				with open(infile, 'r') as f:
 					hist_df = pd.read_csv(f, index_col='symbol')

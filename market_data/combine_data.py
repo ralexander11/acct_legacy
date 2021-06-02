@@ -295,7 +295,16 @@ class CombineData(object):
 			merged = self.merge_data()#quote_df, stats_df)
 		return merged.xs((symbol.upper(), date))[field]
 
-	def splits(self, merged=None, splits=None, save=False, v=False):
+	def splits(self, merged=None, filename=None, splits=None, save=False, v=False):
+		if v: print(time_stamp() + 'Running splits.')
+		if filename is None:
+			filename = 'merged'
+			pathname = None
+		elif '.csv' == filename[-4:]:
+			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if merged is None:
 			if os.path.exists('data/merged.csv'):
 				df = pd.read_csv('data/merged.csv')
@@ -334,13 +343,22 @@ class CombineData(object):
 		df.reset_index(drop=True, inplace=True)
 		if v: print('Data adjusted for stock splits:\n{}'.format(df))
 		if save:
-			# filename = self.data_location + 'merged.csv'
-			filename = self.data_location + 'merged.csv'
-			df.to_csv(filename, index=False)
-			print(time_stamp() + 'Saved data adjusted for stock splits to:\n{}'.format(filename))
+			if not pathname:
+				pathname = self.data_location + 'merged.csv'
+			df.to_csv(pathname, index=False)
+			print(time_stamp() + 'Saved data adjusted for stock splits to:\n{}'.format(pathname))
 		return df
 
-	def mark_miss(self, merged=None, save=False, v=False):
+	def mark_miss(self, merged=None, filename=None, save=False, v=False):
+		if v: print(time_stamp() + 'Running mark miss.')
+		if filename is None:
+			filename = 'merged'
+			pathname = None
+		elif '.csv' == filename[-4:]:
+			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if merged is None:
 			if os.path.exists('data/merged.csv'):
 				df = pd.read_csv('data/merged.csv')
@@ -358,28 +376,39 @@ class CombineData(object):
 		if 'target' not in df.columns.values:
 			df['target'] = None
 		tickers = df['symbol'].unique().tolist()
+		print(time_stamp() + f'Numbers of tickers: {len(tickers)}')
 		dfs = []
 		for ticker in tickers:
 			tmp_df = df.loc[df['symbol'] == ticker]
 			min_date = tmp_df['date'].min()
 			max_date = tmp_df['date'].max()
-			if v: print('min_date:', min_date)
-			if v: print('max_date:', max_date)
+			# if v: print('min_date:', min_date)
+			# if v: print('max_date:', max_date)
 			tmp_df.set_index(pd.DatetimeIndex(tmp_df['date']), inplace=True)
 			miss_dates = pd.date_range(start=min_date, end=max_date).difference(tmp_df.index)
 			miss_dates = [(date - pd.to_timedelta(1, unit='d')).strftime('%Y-%m-%d') for date in miss_dates]
-			if v: print('miss_dates:\n', miss_dates)
+			# if v: print('miss_dates:\n', miss_dates)
 			tmp_df['target'] = tmp_df.apply(lambda x: 'miss' if x['date'] in miss_dates else x['target'], axis=1)
 			dfs.append(tmp_df)
 		df = pd.concat(dfs)
-		if v: print('Data marked for missing dates:\n{}'.format(df))
+		if v: print(time_stamp() + 'Data marked for missing dates:\n{}'.format(df))
 		if save:
-			filename = self.data_location + 'merged.csv'
-			df.to_csv(filename, index=False)
-			print(time_stamp() + 'Saved data marked for missing dates to:\n{}'.format(filename))
+			if not pathname:
+				pathname = self.data_location + 'merged.csv'
+			df.to_csv(pathname, index=False)
+			print(time_stamp() + 'Saved data marked for missing dates to:\n{}'.format(pathname))
 		return df
 
-	def scrub(self, df=None, save=False, v=False):
+	def scrub(self, df=None, filename=None, save=False, v=False):
+		if v: print(time_stamp() + 'Running scrub.')
+		if filename is None:
+			filename = 'merged'
+			pathname = None
+		elif '.csv' == filename[-4:]:
+			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if df is None:
 			if os.path.exists('data/merged.csv'):
 				df = pd.read_csv('data/merged.csv')
@@ -400,12 +429,22 @@ class CombineData(object):
 		df.reset_index(drop=True, inplace=True)
 		if v: print(df)
 		if save:
-			filename = self.data_location + 'merged.csv'
-			df.to_csv(filename, index=False)
-			print(time_stamp() + 'Saved data with weekends and US holidays scrubbed out to:\n{}'.format(filename))
+			if not pathname:
+				pathname = self.data_location + 'merged.csv'
+			df.to_csv(pathname, index=False)
+			print(time_stamp() + 'Saved data with weekends and US holidays scrubbed out to:\n{}'.format(pathname))
 		return df
 
-	def target(self, df=None, save=False, v=False):
+	def target(self, df=None, filename=None, save=False, v=False):
+		if v: print(time_stamp() + 'Running target.')
+		if filename is None:
+			filename = 'merged'
+			pathname = None
+		elif '.csv' == filename[-4:]:
+			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if df is None:
 			if os.path.exists('data/merged.csv'):
 				df = pd.read_csv('data/merged.csv')
@@ -428,9 +467,10 @@ class CombineData(object):
 		df.reset_index(drop=True, inplace=True)
 		if v: print('Target price added to data:\n{}'.format(df))
 		if save:
-			filename = self.data_location + 'merged.csv'
-			df.to_csv(filename, index=False)
-			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(filename))
+			if not pathname:
+				pathname = self.data_location + 'merged.csv'
+			df.to_csv(pathname, index=False)
+			print(time_stamp() + 'Saved data with target price added to:\n{}'.format(pathname))
 		return df
 
 	def get(self, dates=None, tickers=None, merged=None, filename=None, save=False, v=False):
@@ -438,8 +478,12 @@ class CombineData(object):
 			merged = 'merged.csv'
 		if filename is None:
 			filename = 'merged'
+			pathname = None
 		elif '.csv' == filename[-4:]:
 			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		print(f'Get new data and save as: {filename}.csv')
 		if os.path.exists(self.data_location + merged):
 			if v: print(time_stamp() + f'Merged data exists for get. Save: {args.save}')
@@ -500,13 +544,14 @@ class CombineData(object):
 			new_merged = combine_data.target(new_merged)
 			merged = None
 		if save:
-			if tickers is not None:
-				if len(tickers) == 1:
-					pathname = self.data_location + filename + '_' + tickers[0] + '.csv'
+			if not pathname:
+				if tickers is not None:
+					if len(tickers) == 1:
+						pathname = self.data_location + filename + '_' + tickers[0] + '.csv'
+					else:
+						pathname = self.data_location + filename + '_' + tickers[0] + '_to_' + tickers[-1] + '.csv'
 				else:
-					pathname = self.data_location + filename + '_' + tickers[0] + '_to_' + tickers[-1] + '.csv'
-			else:
-				pathname = self.data_location + filename + '.csv'
+					pathname = self.data_location + filename + '.csv'
 			if merged is not None:
 				merged.to_csv(pathname, index=False)
 			new_merged.to_csv(pathname, index=False, mode='a', header=False)
@@ -517,12 +562,21 @@ class CombineData(object):
 			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(dates[-1], pathname))
 		return merged
 
-	def crypto_data(self, merged=None, prep=False, save=False, v=False):
+	def crypto_data(self, merged=None, prep=False, filename=None, save=False, v=False):
 		if merged is None:
 			merged = 'merged.csv'
+		if filename is None:
+			filename = 'merged'
+			pathname = None
+		elif '.csv' == filename[-4:]:
+			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if v: print(time_stamp() + 'Loading data from:', merged)
 		df = pd.read_csv('data/' + merged)
 		df = df.loc[df['sector'] == 'cryptocurrency']
+		if v: print(time_stamp() + 'Prep:', prep)
 		if prep:
 			# Keep certain columns
 			# df.dropna(axis=1, how='all', inplace=True)
@@ -532,24 +586,33 @@ class CombineData(object):
 			df.dropna(inplace=True)
 		if v: print(df)
 		if args.save:
-			if prep:
-				filename = 'crypto_prep_merged.csv'
-			else:
-				filename = 'crypto_merged.csv'
-			path = self.data_location + filename
-			df.to_csv(path, date_format='%Y-%m-%d', index=False)
-			print(time_stamp() + 'Saved crypto data to: {}'.format(path))
+			if not pathname:
+				if prep:
+					pathname = self.data_location + 'crypto_prep_merged.csv'
+				else:
+					pathname = self.data_location + 'crypto_merged.csv'
+			df.to_csv(pathname, date_format='%Y-%m-%d', index=False)
+			print(time_stamp() + 'Saved crypto data to: {}'.format(pathname))
 		return df
 
-	def get_tickers(self, df=None, save=False, v=False):
+	def get_tickers(self, df=None, filename=None, save=False, v=False):
+		if filename is None:
+			filename = 'merged'
+			pathname = None
+		elif '.csv' == filename[-4:]:
+			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if df is None:
 			if os.path.exists('data/merged.csv'):
 				df = pd.read_csv('data/merged.csv')
 		df = pd.Series(df['symbol'].unique())
 		if save:
-			filename = self.data_location + 'all_tickers.csv'
-			df.to_csv(filename, index=False)
-			print(time_stamp() + 'Saved tickers to:\n{}'.format(filename))
+			if not pathname:
+				pathname = self.data_location + 'all_tickers.csv'
+			df.to_csv(pathname, index=False)
+			print(time_stamp() + 'Saved tickers to:\n{}'.format(pathname))
 		return df
 
 	def max_date(self, merged, v=True):
@@ -883,25 +946,22 @@ if __name__ == '__main__':
 			print('Value option only works when one field, date, and ticker are provided.')
 
 	elif args.mode == 'crypto':
-		df = combine_data.crypto_data(save=args.save, prep=True, v=args.v)
-
-	elif args.mode == 'mark':
-		# args.merged = 'merged_TSLA_to_AAPL.csv'
-		args.merged = None
-		df = combine_data.mark_miss(args.merged, save=args.save, v=args.v)
+		df = combine_data.crypto_data(prep=True, filename=args.out_file, save=args.save, v=args.v)
 
 	elif args.mode == 'splits':
-		# args.merged = 'merged_TSLA_to_AAPL.csv'
-		df = combine_data.splits(args.merged, save=args.save, v=args.v)
+		df = combine_data.splits(args.merged, filename=args.out_file, save=args.save, v=args.v)
 
-	elif args.mode == 'tar' or args.mode == 'target':
-		df = combine_data.target(args.merged, save=args.save, v=args.v)
+	elif args.mode == 'mark':
+		df = combine_data.mark_miss(args.merged, filename=args.out_file, save=args.save, v=args.v)
 
 	elif args.mode == 'scrub':
-		df = combine_data.scrub(args.merged, save=args.save, v=args.v)
+		df = combine_data.scrub(args.merged, filename=args.out_file, save=args.save, v=args.v)
+
+	elif args.mode == 'tar' or args.mode == 'target':
+		df = combine_data.target(args.merged, filename=args.out_file, save=args.save, v=args.v)
 
 	elif args.mode == 'gettickers':
-		df = combine_data.get_tickers(save=args.save, v=args.v)
+		df = combine_data.get_tickers(filename=args.out_file, save=args.save, v=args.v)
 
 	elif args.mode == 'maxdate':
 		max_date = combine_data.max_date(args.merged)
@@ -940,5 +1000,7 @@ if __name__ == '__main__':
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m get -t "aapl, tsla" -s >> /home/robale5/becauseinterfaces.com/acct/logs/get10.log 2>&1 &
 
 # nohup python -u market_data/combine_data.py -sd None --until -d 2020-07-31 -out merged_all_until-2020-07 -s -v >> logs/combine02.log 2>&1 &
+
+# nohup python -u market_data/combine_data.py -m splits -md merged_all_until-2020-07.csv -out merged_all_until-2020-07 -s -v >> logs/combine09.log 2>&1 &
 
 # splits, mark, scrub, tar
