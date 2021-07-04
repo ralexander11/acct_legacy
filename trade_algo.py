@@ -542,10 +542,10 @@ class TradingAlgo(object):
 			print('\n' + time_stamp() + 'Running predict future direction algo.')
 		else:
 			print('\n' + time_stamp() + 'Running known future direction algo.')
-		if trade.sim:
-			fut_date = self.get_next_day(date)
-		else:
-			fut_date = date
+		# if trade.sim:
+		fut_date = self.get_next_day(date)
+		# else:
+		# 	fut_date = date
 		end_point = 'quote'
 		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(fut_date)+'.csv'
 		if not os.path.exists(path):
