@@ -3836,9 +3836,9 @@ class Entity:
 								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty=req_qty_needed)#, buffer=True)
 								ledger.set_entity(self.entity_id)
 								if req_time_required:
-									edu_status = ledger.get_qty(items=req_item, accounts=['Studying Education'])
-									if edu_status == 0:
-										self.item_demanded(req_item, req_qty_needed)
+									edu_status_wip = ledger.get_qty(items=req_item, accounts=['Studying Education'])
+									if edu_status_wip == 0:
+										self.item_demanded(req_item, req_max_qty_possible)
 								if not result:
 									print('Studying Education not successfull for: {}'.format(req_item))
 									#entries = []
@@ -3976,6 +3976,10 @@ class Entity:
 		elif item_type == 'Education':
 			# Treat Education like a service
 			print('Cannot produce Education; will try and purchase it as a Service.')
+			# TODO This may be bugged and needs better handling logic
+			if produce_event:
+				qty = produce_event[0][8]
+				max_qty_possible = max(0, max_qty_possible - qty)
 			outcome = self.purchase(item, qty)
 			if not outcome:
 				return [], time_required, max_qty_possible, incomplete
@@ -4215,13 +4219,22 @@ class Entity:
 		for index, demand_item in world.demand.iterrows():
 			if qty_distribute == 0:
 				break
-			if demand_item['item_id'] == item:
-				if qty_distribute >= demand_item['qty']:
-					to_drop.append(index)
-					qty_distribute -= demand_item['qty']
-				else:
-					world.demand.at[index, 'qty'] -= qty_distribute
-					qty_distribute -= qty_distribute
+			if item_type == 'Education':
+				if demand_item['item_id'] == item and demand_item['entity_id'] == self.entity_id:
+					if qty_distribute >= demand_item['qty']:
+						to_drop.append(index)
+						qty_distribute -= demand_item['qty']
+					else:
+						world.demand.at[index, 'qty'] -= qty_distribute
+						qty_distribute -= qty_distribute
+			else:
+				if demand_item['item_id'] == item:
+					if qty_distribute >= demand_item['qty']:
+						to_drop.append(index)
+						qty_distribute -= demand_item['qty']
+					else:
+						world.demand.at[index, 'qty'] -= qty_distribute
+						qty_distribute -= qty_distribute
 		if to_drop:
 			world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 			world.set_table(world.demand, 'demand')
@@ -9148,8 +9161,8 @@ if __name__ == '__main__':
 	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
 	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
-	parser.add_argument('-auto', '--auto', action='store_true', help='Automatically run prepared commands when in user mode.')
 	parser.add_argument('-early', '--early', action='store_true', help='Automatically end the turn when no hours left when not in user mode.')
+	parser.add_argument('-auto', '--auto', action='store_true', help='Automatically run prepared commands when in user mode.')
 	# TODO Add argparse for setting win conditions
 	# User would choose one or more goals for Wealth, Tech, Population, Land
 	# Or a time limit, with the highest of one or more of the above
@@ -9232,7 +9245,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ03.db -s 11 -r >> /home/robale5/becauseinterfaces.com/acct/logs/econ03.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ01.db -s 11 -p 4 --early >> /home/robale5/becauseinterfaces.com/acct/logs/econ01.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
