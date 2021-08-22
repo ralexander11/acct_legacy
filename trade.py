@@ -106,10 +106,11 @@ class Trading(object):
 				print('Price for {}: {}'.format(name, price))
 				return price
 		else:
-			infile = self.data_location + 'quote/iex_quote_' + str(date) + '.csv'
+			infile = self.data_location + 'quote/iex_quote_' + str(date) + '.csv.gz'
 			try:
-				with open(infile, 'r') as f:
-					hist_df = pd.read_csv(f, index_col='symbol')
+				with open(infile, 'rb') as f:
+					hist_df = pd.read_csv(f, compression='gzip')
+					hist_df = hist_df.set_index('symbol')
 					price = float(hist_df.at[symbol.upper(),'latestPrice'])#'open']) # close for unrealized
 					if pd.isnull(price):
 						print('Price is blank for: '+ symbol + '\n')

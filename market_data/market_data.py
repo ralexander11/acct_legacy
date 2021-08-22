@@ -82,8 +82,8 @@ class MarketData(object):
 				#print(len(symbols_list))
 				#print(symbols)
 			symbols = pd.concat(symbols_array, sort=True) # Sort to suppress warning
-			outfile = flag + '_tickers' + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv'
-			symbols.to_csv(self.save_location + 'tickers/' + outfile)
+			outfile = flag + '_tickers' + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv.gz'
+			symbols.to_csv(self.save_location + 'tickers/' + outfile, compression='gzip')
 			return symbols, symbols_list, symbols_dict
 		
 		if flag == 'sp500':
@@ -241,9 +241,16 @@ class MarketData(object):
 	def save_data(self, data_feed, end_point='quote'):
 		if '/' in end_point:
 			end_point = end_point.replace('/','_')
-		outfile = source + '_' + end_point + time.strftime('_%Y-%m-%d', time.localtime()) + '.csv'
+		if end_point in ['quote', 'stats']:
+			extension = '.csv.gz'
+		else:
+			extension = '.csv'
+		outfile = source + '_' + end_point + time.strftime('_%Y-%m-%d', time.localtime()) + extension
 		path = self.save_location + end_point + '/' + outfile
-		data_feed.to_csv(path)
+		if end_point in ['quote', 'stats']:
+			data_feed.to_csv(path, compression='gzip')
+		else:
+			data_feed.to_csv(path)
 		print(self.time_stamp() + 'Data file saved to: {}'.format(path))
 
 	def save_errors(self, invalid_tickers, end_point='quote'):

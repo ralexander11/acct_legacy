@@ -3425,6 +3425,7 @@ class Entity:
 				qty_needed = qty * req_qty
 				subscription_state = ledger.get_qty(items=req_item, accounts=['Subscription Info'])
 				print(f'{self.name} requires {qty_needed} {req_item} subscription to {action} {qty} {item} and has: {subscription_state}')
+				qty_needed = 1 # TODO Test this as it was a quick fix for a bug
 				if subscription_state < qty_needed:
 					qty_remain = qty_needed - subscription_state
 					print('{} does not have {} {} subscription active. Will attempt to activate {}.'.format(self.name, qty_needed, req_item, qty_remain))
@@ -6045,6 +6046,7 @@ class Entity:
 		return counterparty
 
 	def order_subscription(self, item, counterparty=None, price=None, qty=1, priority=False, reason_need=False, buffer=False):
+		qty = 1 # TODO Test this as it was a quick fix for a bug
 		if counterparty is None:
 			counterparty = self.subscription_counterparty(item)
 		if counterparty is None:

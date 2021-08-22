@@ -26,21 +26,33 @@ class CombineData(object):
 				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
 				print(time_stamp() + 'Combine Data: Server')
 			elif os.path.exists('/Users/Robbie/Public/market_data/new/data/'):
-				self.data_location = '/Users/Robbie/Public/market_data/new/data/'
+				# self.data_location = '/Users/Robbie/Public/market_data/new/data/'
+				self.data_location = '/Users/Robbie/Public/market_data/test_data/'
 			else:
-				self.data_location = '../market_data/data/'
-				# self.data_location = '../market_data/test_data/'
+				# self.data_location = '../market_data/data/'
+				self.data_location = '../market_data/test_data/'
 
-	def load_file(self, infile):
-		with open(infile, 'r') as f:
+	def load_file(self, infile, compress=None):
+		if infile[-3:] == '.gz':
+			compress = True
+		if compress:
+			open_mode = 'rb'
+		else:
+			open_mode = 'r'
+		with open(infile, open_mode) as f:
 			try:
-				df = pd.read_csv(f, index_col='symbol', encoding='utf-8')#, encoding='ISO-8859-1')#
-				# df = pd.read_csv(f, header=None, index_col=None, skiprows=1)
-				# df = df.drop(labels=0, axis=1)
+				if compress:
+					df = pd.read_csv(f, compression='gzip')
+				else:
+					df = pd.read_csv(f, encoding='utf-8')
 			except pd.errors.EmptyDataError:
 				print('Empty file:', infile)
 				return
-			fname_date = os.path.basename(infile)[-14:-4]
+			df = df.set_index('symbol')
+			if compress:
+				fname_date = os.path.basename(infile)[-17:-7]
+			else:
+				fname_date = os.path.basename(infile)[-14:-4]
 			# print('fname_date:', fname_date)
 			df = df.assign(date=fname_date)
 			df = df.drop(['ZEXIT','ZIEXT','ZXIET','ZVZZT','ZWZZT','ZXZZT','NONE','NAN','TRUE','FALSE'], errors='ignore')
@@ -68,12 +80,16 @@ class CombineData(object):
 				date = dates[0]
 				if not isinstance(date, str):
 					date = dt.datetime.strftime('%Y-%m-%d', date)
-		path = self.data_location + end_point + '/*' + str(date) + '.csv'
-		if not os.path.exists(path):
-			# print('Not Server')
-			path = self.data_location + end_point + '/*' + str(date) + '.csv'
-		# print('Path:', path)
+		path = self.data_location + end_point + '/*' + str(date) + '.csv.gz'
+		compress = True
+		print('Path gz:', path)
 		files = glob.glob(path)
+		if not files:
+			# print('Data not Compressed')
+			path = self.data_location + end_point + '/*' + str(date) + '.csv'
+			compress = False
+			files = glob.glob(path)
+		print('Path:', path)
 		if dates:
 			files = [[file for file in files if date in file] for date in dates]
 			files = [val for sublist in files for val in sublist]
@@ -83,7 +99,7 @@ class CombineData(object):
 		dfs = []
 		for fname in files:
 			# print(time_stamp() + 'fname:', fname)
-			load_df = self.load_file(fname)
+			load_df = self.load_file(fname, compress=compress)
 			# if 'stats' in fname:
 			# 	load_df = load_df[~load_df['avg10Volume'].str.contains(':', na=False)]
 			# 	print('cleaned:', load_df)

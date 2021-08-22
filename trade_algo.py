@@ -376,12 +376,12 @@ class TradingAlgo(object):
 			date = dt.datetime.today().date() - dt.timedelta(days=1)
 		#print('Data Date: {}'.format(date))
 		end_point = 'quote'
-		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv.gz'
 		if not os.path.exists(path):
 			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		quote_df = self.combine_data.load_file(path)
 		end_point = 'stats'
-		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv.gz'
 		if not os.path.exists(path):
 			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		stats_df = self.combine_data.load_file(path)
@@ -405,12 +405,12 @@ class TradingAlgo(object):
 		if date is None:
 			date = dt.datetime.today().date() - dt.timedelta(days=1)
 		end_point = 'quote'
-		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv.gz'
 		if not os.path.exists(path):
 			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		quote_df = self.combine_data.load_file(path)
 		end_point = 'stats'
-		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(date)+'.csv.gz'
 		if not os.path.exists(path):
 			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(date)+'.csv'
 		stats_df = self.combine_data.load_file(path)
@@ -477,7 +477,7 @@ class TradingAlgo(object):
 			# date_prior = self.get_prior_day(date_prior)
 			# TODO Clean up file location logic
 			end_point = 'quote'
-			path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv'
+			path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv.gz'
 			if not os.path.exists(path):
 				path = trade.data_location + end_point + '/iex_' + end_point + '_' + str(date_prior) + '.csv'
 			print('path:', path)
@@ -547,7 +547,7 @@ class TradingAlgo(object):
 		# else:
 		# 	fut_date = date
 		end_point = 'quote'
-		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(fut_date)+'.csv'
+		path = '/home/robale5/becauseinterfaces.com/acct/market_data/data/' + end_point + '/iex_'+end_point+'_'+str(fut_date)+'.csv.gz'
 		if not os.path.exists(path):
 			path = self.data_location + end_point + '/iex_'+end_point+'_'+str(fut_date)+'.csv'
 			# print('Path: {}'.format(path))
@@ -943,10 +943,10 @@ if __name__ == '__main__':
 		print(time_stamp() + 'Start Simulation with ${:,.2f} capital:'.format(cap))
 		if (args.delay is not None) and (args.delay != 0):
 			print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))
-		data_path = algo.data_location + 'quote/*.csv'
+		data_path = algo.data_location + 'quote/*.csv.gz'
 		dates = []
 		for fname in glob.glob(data_path):
-			fname_date = os.path.basename(fname)[-14:-4]
+			fname_date = os.path.basename(fname)[-17:-7]
 			dates.append(fname_date)
 		# print('dates len1:', len(dates))
 		if args.since:
