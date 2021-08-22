@@ -1220,7 +1220,7 @@ class World:
 					return
 
 			print(('=' * ((DISPLAY_WIDTH - 14) // 2)) + ' Econ Updated ' + ('=' * ((DISPLAY_WIDTH - 14) // 2)))
-			print(time_stamp() + 'Current Date: {}'.format(self.now))
+			print(time_stamp() + 'Current Date 01: {}'.format(self.now))
 			self.entities = accts.get_entities().reset_index()
 			#prices_disp = self.entities[['entity_id','name']].merge(self.prices.reset_index(), on=['entity_id']).set_index('item_id')
 			self.population = len(factory.registry[Individual])
@@ -1242,7 +1242,7 @@ class World:
 			for individual in factory.get(Individual):
 				individual.birth_check()
 
-			print(time_stamp() + 'Current Date: {}'.format(self.now))
+			print(time_stamp() + 'Current Date 02: {}'.format(self.now))
 			t3_start = time.perf_counter()
 			for entity in factory.get():
 				#print('Entity: {}'.format(entity))
@@ -1286,7 +1286,7 @@ class World:
 		if user_check or self.paused:
 			for player in factory.get(Government):
 				print('~' * DISPLAY_WIDTH)
-				print(time_stamp() + 'Current Date: {}'.format(self.now))
+				print(time_stamp() + 'Current Date 03: {}'.format(self.now))
 				indv_player_check = any([e.user for e in player.get(Individual)])
 				if not player.user and not indv_player_check:
 					print()
@@ -1357,7 +1357,7 @@ class World:
 			print()
 
 		# Computer mode
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 04: {}'.format(self.now))
 		print(time_stamp() + 'Checking if corporations are needed for items demanded.')
 		t2_start = time.perf_counter()
 		# for individual in factory.get(Individual, users=False):
@@ -1390,7 +1390,7 @@ class World:
 		print(time_stamp() + '2: Corp needed check took {:,.2f} min.'.format((t2_end - t2_start) / 60))
 
 		print()
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 05: {}'.format(self.now))
 		t4_start = time.perf_counter()
 		print(time_stamp() + 'Check Demand List:')
 		for entity in factory.get(users=False):
@@ -1434,7 +1434,7 @@ class World:
 		print(time_stamp() + '4: Demand list check took {:,.2f} min.'.format((t4_end - t4_start) / 60))
 		print()
 
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 06: {}'.format(self.now))
 		t5_start = time.perf_counter()
 		print('Check Optional Items:')
 		for entity in factory.get(users=False):#(Corporation):
@@ -1465,7 +1465,7 @@ class World:
 			print(time_stamp() + 'Turn ending early because all hours are used up.')
 			end = True
 		# User and computer mode
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 07: {}'.format(self.now))
 		t6_start = time.perf_counter()
 		print('Check Prices:')
 		# for entity in factory.get():
@@ -1477,7 +1477,7 @@ class World:
 		print(time_stamp() + '6: Prices check took {:,.2f} min.'.format((t6_end - t6_start) / 60))
 		print()
 
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 08: {}'.format(self.now))
 		t7_start = time.perf_counter()
 		for individual in factory.get(Individual):
 			# priority_needs = {} # TODO Clean this up with address_needs()
@@ -1498,7 +1498,7 @@ class World:
 		print(time_stamp() + '7: Needs decay took {:,.2f} min.'.format((t7_end - t7_start) / 60))
 		print()
 
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 09: {}'.format(self.now))
 		t8_start = time.perf_counter()
 		for typ in factory.registry.keys():
 			for entity in factory.get(typ):
@@ -1566,7 +1566,7 @@ class World:
 		# 		individual.set_need('Hunger', -100, forced=True)
 
 		print()
-		print(time_stamp() + 'Current Date: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 10: {}'.format(self.now))
 		print()
 		with pd.option_context('display.max_rows', None):
 			print('World Demand End: \n{}'.format(world.demand))
@@ -4394,11 +4394,11 @@ class Entity:
 		# Get list of WIP txns for different item types
 		if items is not None:
 			wip_done_txns = ledger.gl[(ledger.gl['credit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['item_id'].isin(items)) & (~ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
-			print('wip_done_txns for items:', wip_done_txns)
+			print('wip_done_txns for items:\n', wip_done_txns)
 			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['item_id'].isin(items)) & (~ledger.gl['event_id'].isin(rvsl_txns)) & (~ledger.gl['event_id'].isin(wip_done_txns))]
 		else:
 			wip_done_txns = ledger.gl[(ledger.gl['credit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
-			print('wip_done_txns:', wip_done_txns)
+			print('wip_done_txns:\n', wip_done_txns)
 			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns)) & (~ledger.gl['event_id'].isin(wip_done_txns))]
 		if v: print('WIP TXNs: \n{}'.format(wip_txns))
 		if not wip_txns.empty:
@@ -4572,7 +4572,7 @@ class Entity:
 					hours = None
 				elif hours == 0:
 					hours = None
-				if date_done == world.now and (hours is None or hours is np.nan):
+				if date_done == world.now and (hours is None):# or hours is np.nan):
 					# Undo "in use" entries for related items
 					release_event = []
 					release_event += self.release(item, event_id=wip_lot['event_id'], qty=qty, reqs='requirements', amts='amount')#, v=True)
@@ -5221,7 +5221,7 @@ class Entity:
 			if isinstance(self, Corporation):
 				qty = math.ceil(qty / MAX_CORPS)
 			print()
-			print(time_stamp() + 'Current Date: {}'.format(world.now))
+			print(time_stamp() + 'Current Date when Checking Demand: {}'.format(world.now))
 			print('{} attempting to produce {} {} from the demand table. Max Corps: {}'.format(self.name, qty, item, MAX_CORPS))
 			item_demand = world.demand[world.demand['item_id'] == item]
 			# reason_need = False
@@ -7995,7 +7995,7 @@ class Individual(Entity):
 		cur.execute(set_need_query, values)
 		ledger.conn.commit()
 		cur.close()
-		print(f'Set Hours After for {self.name}: {self.hours}')
+		print(f'Set Hours After  for {self.name}: {self.hours}')
 		return self.hours
 
 	def reset_hours(self):
@@ -9245,7 +9245,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ01.db -s 11 -p 4 --early >> /home/robale5/becauseinterfaces.com/acct/logs/econ01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ01.db -s 11 -p 4 --early -i items03.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ01.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
