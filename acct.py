@@ -1132,6 +1132,7 @@ class Ledger:
 		if isinstance(accounts, str):
 			accounts = [x.strip() for x in accounts.split(',')]
 		accounts = list(filter(None, accounts))
+		accounts = [x for x in accounts if x != 'Accum. Depr.']
 		if by_entity:
 			inventory = pd.DataFrame(columns=['entity_id','item_id','account','qty'])
 		else:

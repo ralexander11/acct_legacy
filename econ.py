@@ -2368,10 +2368,14 @@ class Entity:
 			else:
 				print('{} does not have {} item to attack {}\'s {} with.'.format(self.name, item, counterparty.name, target))
 			return
-		incomplete, use_event, time_required, max_qty_possible = self.fulfill(item, qty=uses, reqs='usage_req', amts='use_amount', check=check)
+		v = False
+		if item == 'Hydroponics':
+			v = True
+		incomplete, use_event, time_required, max_qty_possible = self.fulfill(item, qty=uses, reqs='usage_req', amts='use_amount', check=check, v=v)
 		# TODO Maybe book journal entries within function and add buffer argument
 		if incomplete or check: # TODO Exit early on check after depreciation
-			print('{} cannot fulfill requirements to use {} item.'.format(self.name, item))
+			if not check:
+				print(f'{self.name} cannot fulfill requirements to use {item} item.')
 			return
 		if counterparty is not None and target is not None:
 			if self.hours < MAX_HOURS:
@@ -2729,6 +2733,37 @@ class Entity:
 				time_required = True
 				time_check = True
 				if v: print('Time Required: {}'.format(time_required))
+				modifier, items_info = self.check_productivity(req_item)
+				if v: print('Modifier: {}'.format(modifier))
+				ledger.reset()
+				ledger.set_entity(self.entity_id)
+				if modifier is not None:
+					mod_item = items_info['item_id'].iloc[0]
+					if v: print('Time Modifier Item: {}'.format(mod_item))
+					entries = self.use_item(mod_item, check=check)
+					ledger.set_entity(self.entity_id)
+					if not entries:
+						entries = []
+						modifier = 0
+					if entries is True:
+						entries = []
+					event += entries
+					if entries:
+						for entry in entries:
+							entry_df = pd.DataFrame([entry], columns=world.cols)
+							ledger.gl = ledger.gl.append(entry_df)
+						self.gl_tmp = ledger.gl.loc[ledger.gl['entity_id'] == self.entity_id]
+				else:
+					modifier = 0
+				if not self.gl_tmp.empty:
+					# if v: print('Tmp GL land: \n{}'.format(self.gl_tmp.tail()))
+					ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
+				req_qty = req_qty * (1 - modifier)
+				if v: print(f'Time Modifier End: {modifier} req_qty: {req_qty}')
+				if req_qty < 1:
+					time_required = False
+					time_check = False
+					print(f'{item} no longer requires {req_item} to produce due to {mod_item}.')
 
 			elif (req_item_type == 'Non-Profit' or req_item_type == 'Governmental') and partial is None:
 				if self.name.split('-')[0] == req_item:
@@ -6467,6 +6502,7 @@ class Entity:
 					self.depreciation(item, lifespan, metric)
 
 	def depreciation(self, item, lifespan, metric, uses=1, man=False, buffer=False, v=False):
+		# TODO Refactor to separate useage vs ticks apart
 		if (metric == 'ticks') or (metric == 'usage') or (metric == 'equipped'):
 			ledger.set_entity(self.entity_id)
 			asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Buildings In Use', 'Equipment In Use', 'Equipped'], item=item) # TODO Maybe support other accounts and remove Inventory
@@ -6487,7 +6523,7 @@ class Entity:
 			orig_uses = uses
 			if dep_amount > remaining_amount:
 				uses = math.floor(remaining_amount / (asset_bal / lifespan))
-				self.derecognize(item, 1) # TODO Handle more than 1 qty
+				self.derecognize(item, 1, metric) # TODO Handle more than 1 qty
 				dep_amount = (asset_bal / lifespan) * uses
 				new_qty = int(math.ceil((orig_uses - uses) / lifespan))
 				if new_qty == 1:
@@ -6589,29 +6625,43 @@ class Entity:
 		ledger.journal_entry(impairment_event)
 		return impairment_event
 
-	def derecognize(self, item, qty=1):
+	def derecognize(self, item, qty=1, metric=None, v=False):
+		if item == 'Hydroponics':
+			v = True
 		# TODO Check if item in use
 		# TODO Check if item uses land and release that land
 		# item_type = world.get_item_type(item)
 		ledger.set_entity(self.entity_id)
 		asset_bal = ledger.balance_sheet(accounts=['Buildings','Equipment','Buildings In Use', 'Equipment In Use', 'Equipped'], item=item)# TODO Maybe support other accounts
+		if v: print(f'derecognize bal for {item}: {asset_bal}')
 		if asset_bal == 0:
 			return
 		accum_dep_bal = ledger.balance_sheet(accounts=['Accum. Depr.'], item=item)
 		accum_imp_bal = ledger.balance_sheet(accounts=['Accum. Impairment Losses'], item=item)
 		ledger.reset()
 		accum_reduction = abs(accum_dep_bal) + abs(accum_imp_bal)
+		if v: print(f'derecognize accum for {item}: {accum_reduction}')
 		if accum_reduction >= asset_bal:
 			derecognition_event = []
 			item_info = world.items.loc[item]
-			reqs = 'usage_req' #'requirements' #
-			amts = 'use_amount' #'amount' #
-			if item_info[reqs] is None or item_info[amts] is None:
+			if (item_info['usage_req'] is None or item_info['use_amount'] is None) and (item_info['hold_req'] is None or item_info['hold_amount'] is None):
 				return None, [], None
-			requirements = [x.strip() for x in item_info[reqs].split(',')]
-			amounts = [x.strip() for x in item_info[amts].split(',')]
-			amounts = list(map(float, amounts))
-			#requirements_details = list(itertools.zip_longest(requirements, requirement_types, amounts))
+			if metric == 'usage':
+				requirements_use = [x.strip() for x in item_info['usage_req'].split(',') if x is not None]
+				amounts_use = [x.strip() for x in item_info['use_amount'].split(',') if x is not None]
+				amounts_use = list(map(float, amounts_use))
+			else:
+				requirements_use = []
+				amounts_use = []
+
+			requirements_hold = [x.strip() for x in item_info['hold_req'].split(',') if x is not None]
+			amounts_hold = [x.strip() for x in item_info['hold_amount'].split(',') if x is not None]
+			amounts_hold = list(map(float, amounts_hold))
+			requirements = requirements_use + requirements_hold
+			amounts = amounts_use + amounts_hold
+			if v: print(f'requirements of {item} for {metric}: {requirements}')
+			if v: print(f'amounts of {item} for {metric}: {amounts}')
+
 			for i, requirement in enumerate(requirements):
 				requirement_type = world.get_item_type(requirement)
 				if requirement_type == 'Land' or requirement_type == 'Buildings' or requirement_type == 'Equipment':
