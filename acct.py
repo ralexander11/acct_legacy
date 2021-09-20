@@ -858,9 +858,11 @@ class Ledger:
 # Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
 # Exp    - Debit  bal - Pos : Dr. = pos & Cr. = neg
 
-	def balance_sheet(self, accounts=None, item=None, v=False): # TODO Needs to be optimized with:
+	def balance_sheet(self, accounts=None, item=None, gl=None, v=False): # TODO Needs to be optimized with:
 		# t1_start = time.perf_counter()
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
+		if gl is not None:
+			self.gl = gl
 		all_accts = False
 		if item is not None: # TODO Add support for multiple items maybe
 			if v: print('BS Item: {}'.format(item))
@@ -1064,13 +1066,13 @@ class Ledger:
 		if all_accts:
 			self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
 
-		if all_accts:
+		if all_accts and gl is None:
 			if self.entity is None:
 				self.bs.to_sql('balance_sheet', self.conn, if_exists='replace')
 			else:
 				entities = '_'.join(str(e) for e in self.entity)
 				self.bs.to_sql('balance_sheet_' + entities, self.conn, if_exists='replace')
-		if item is not None:
+		if item is not None or gl is not None:
 			self.refresh_ledger()
 		# t1_end = time.perf_counter()
 		# print('BS check took {:,.10f} min.'.format((t1_end - t1_start) / 60))
@@ -1092,9 +1094,11 @@ class Ledger:
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, items=None, accounts=None, show_zeros=False, by_entity=False, single_item=False, always_df=False, credit=False, v=False):
+	def get_qty(self, items=None, accounts=None, gl=None, show_zeros=False, by_entity=False, single_item=False, always_df=False, credit=False, v=False):
 		# if items == 'Rocky Land':
 		# 	if v: print('Get Qty GL: \n{}'.format(self.gl))
+		if gl is not None:
+			self.gl = gl
 		if not credit:
 			acct_side = 'debit_acct'
 		else:
@@ -1210,13 +1214,97 @@ class Ledger:
 			return total_qty
 		if not show_zeros:
 			inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold
-		if all_accts and no_item:
+		if all_accts and no_item and gl is None:
 			if self.entity is None:
 				inventory.to_sql('inventory', self.conn, if_exists='replace')
 			else:
 				entities = '_'.join(str(e) for e in self.entity)
 				inventory.to_sql('inventory_' + entities, self.conn, if_exists='replace')
+		if gl is not None:
+			self.refresh_ledger()
 		return inventory
+
+	def get_util(self, entity_id=None, items=None, accounts=None, gl=None, ex_rvsl=True, save=None, v=True):
+		if save is None:
+			while True:
+				save = input('Save? [Y/n]: ')
+				if save == '':
+					save = 'Y'
+				if save.upper() == 'Y':
+					save = True
+					break
+				elif save.upper() == 'N':
+					save = False
+					break
+				else:
+					print('Not a valid entry. Must be "Y" or "N".')
+					continue
+		if gl is None:
+			gl = self.gl.copy(deep=True)
+
+		if not entity_id:
+			entity_id = None
+		if entity_id is not None:
+			if isinstance(entity_id, str):
+				entity_id = [x.strip() for x in entity_id.split(',')]
+		if not items:
+			items = None
+		if items is not None:
+			if isinstance(items, str):
+				items = [x.strip() for x in items.split(',')]
+		if not accounts:
+			accounts = None
+		if accounts is not None:
+			if isinstance(accounts, str):
+				accounts = [x.strip() for x in accounts.split(',')]
+		
+		if ex_rvsl:
+			rvsl_txns = gl[gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+			gl = gl[(~gl['event_id'].isin(rvsl_txns))]
+
+		if entity_id is not None:
+			if v: print('entity_id:', entity_id)
+			gl = gl[(gl['entity_id'].isin(entity_id))]
+		if items is not None:
+			if v: print('items:', items)
+			gl = gl[(gl['item_id'].isin(items))]
+		if accounts is not None:
+			if v: print('accounts:', accounts)
+			gl = gl[((gl['debit_acct'].isin(accounts)) | (gl['credit_acct'].isin(accounts)))]
+
+		gl['accts'] = gl['debit_acct'] + '|' + gl['credit_acct']
+		gl['debit_acct_type'] = gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
+		gl['credit_acct_type'] = gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
+		gl['types'] = gl['debit_acct_type'] + '|' + gl['credit_acct_type']
+
+		gl['dir'] = 0
+		if accounts is None:
+			gl['dir'] = gl.apply(lambda x: 1 if x['debit_acct_type'] == 'Asset' else x['dir'], axis=1)
+			gl['dir'] = gl.apply(lambda x: -1 if x['credit_acct_type'] == 'Asset' else x['dir'], axis=1)
+			gl['dir'] = gl.apply(lambda x: 0 if (x['debit_acct_type'] == 'Asset' and x['credit_acct_type'] == 'Asset') else x['dir'], axis=1)
+		else:
+			gl['dir'] = gl.apply(lambda x: 1 if x['debit_acct'] in accounts else x['dir'], axis=1)
+			gl['dir'] = gl.apply(lambda x: -1 if x['credit_acct'] in accounts else x['dir'], axis=1)
+			gl['dir'] = gl.apply(lambda x: 0 if (x['debit_acct'] in accounts and x['credit_acct'] in accounts) else x['dir'], axis=1)
+
+		gl['delta_amount'] = gl['amount'] * gl['dir']
+		gl['run_amount'] = gl['delta_amount'].cumsum()
+		gl['delta_qty'] = gl['qty'] * gl['dir']
+		gl['run_qty'] = gl['delta_qty'].cumsum()
+
+		if v:
+			print(f'GL for {entity_id} entities, for item {items} for accounts {accounts}:') #TODO Improve description logic
+			print(gl)
+		if save:
+			# TODO Improve save name logic
+			outfile = 'util_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
+			save_location = 'data/'
+			try:
+				gl.to_csv(save_location + outfile, date_format='%Y-%m-%d')
+				print('File saved as ' + save_location + outfile)
+			except Exception as e:
+				print('Error saving: {}'.format(e))
+		return gl
 
 	# Used when booking journal entries to match related transactions
 	def get_event(self):
@@ -2048,6 +2136,13 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'dur':
 			ledger.duration()
+			if args.command is not None: exit()
+		elif command.lower() == 'util':
+			entity_id = input('Which entitie(s)? ')
+			item = input('Which item or ticker? ')#.lower()
+			acct = input('Which account? ')#.title()
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				ledger.get_util(entity_id, item, acct)
 			if args.command is not None: exit()
 		elif command.lower() == 'entities':
 			accts.print_entities()
