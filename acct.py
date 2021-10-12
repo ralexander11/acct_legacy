@@ -1246,7 +1246,7 @@ class Ledger:
 			entity_id = None
 		if entity_id is not None:
 			if isinstance(entity_id, str):
-				entity_id = [x.strip() for x in entity_id.split(',')]
+				entity_id = [int(x.strip()) for x in entity_id.split(',')]
 		if not items:
 			items = None
 		if items is not None:
@@ -1265,13 +1265,25 @@ class Ledger:
 		if entity_id is not None:
 			if v: print('entity_id:', entity_id)
 			gl = gl[(gl['entity_id'].isin(entity_id))]
+			if gl.empty:
+				print('The GL is empty with the entity filter.')
+				return
 		if items is not None:
 			if v: print('items:', items)
 			gl = gl[(gl['item_id'].isin(items))]
+			if gl.empty:
+				print('The GL is empty with the item filter.')
+				return
 		if accounts is not None:
 			if v: print('accounts:', accounts)
 			gl = gl[((gl['debit_acct'].isin(accounts)) | (gl['credit_acct'].isin(accounts)))]
+			if gl.empty:
+				print('The GL is empty with the account filters.')
+				return
 
+		if gl.empty:
+			print('The GL is empty.')
+			return
 		gl['accts'] = gl['debit_acct'] + '|' + gl['credit_acct']
 		gl['debit_acct_type'] = gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		gl['credit_acct_type'] = gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
