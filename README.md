@@ -1,5 +1,5 @@
 # Preamble
-This is a hobby project created for personal use. I am an accountant by profession, but started this project to team myself programming skills. As such, the project grew organically over time and needs cleaning up, which is on my todo list but it has been more fun to add new features. :)
+This is a hobby project created for personal use. I am an accountant by profession, but started this project to teach myself programming skills. As such, the project grew organically over time and needs cleaning up, which is on my todo list but it has been more fun to add new features. :)
 
 ## Program Structure
 This repo is actually three projects that have grown over time. The first is a general purpose accounting system. This is contained in the file acct.py.
@@ -14,20 +14,20 @@ The third is an economic simulator in the econ.py file. This is sort of like a e
 
 This is a simple general purpose accounting system that can interface with other python applications.
 
+An example of the web based display interfaces (WIP):
 http://becauseinterfaces.com/
 
-## Instructions If Using a Clean DB File
+## Instructions
 
-The below instructions apply when not using the acct.db file included in the repository.
+The below instructions are just the bare minimum example. It will allow you to get started using the accounting system with the trading platform to make some simulated stock trades with real market data.
 
 ### Part I - Setup the accounts and capital
 
-0. Rename acct.db to acct_orig.db if it exists
 1. Run acct.py
-2. Type "gl" command
-3. Type "bs" command
-4. Type "accts" command
-5. Type "JE" command
+2. Type "gl" command. This displays the General Ledger
+3. Type "bs" command. This displays the Balance Sheet
+4. Type "accts" command. This displays the Chart of Accounts
+5. Type "je" command. This allows you to enter a Journal Entry
 6. Press enter 3 times until it asks you for a description
 7. Type "Deposit capital" for the description and hit enter
 8. Press enter 3 times until it asks you for an account to debit
@@ -59,14 +59,23 @@ Once the above config file is created, perform the below:
 After some time has passed for the market to change, do the following:
 1. Run trade.py
 2. Type "trueup" command
+3. Type "exit"
+4. Run acct.py
+5. Type "gl" command
+6. This is a list of all the trades and transactions you have made
+7. Type "bs" command
+8. The Net Asset Value is your current portfolio worth
+9. The Balance Check should always be zero
+10. Type "qty" command, press enter when it asks for a ticker to see for all
 
-3. Run acct.py
-4. Type "gl" command
-5. This is a list of all the trades and transactions you have made
-6. Type "bs" command
-7. The Net Asset Value is your current portfolio worth
-8. The Balance Check should always be zero
-9. Type "qty" command, press enter when it asks for a ticker to see for all
+## Econ Sim Instructions
+To get started with the econ sim, run the following command:  
+econ.py -u
+
+To use a custom save file name use the command:  
+econ.py -u -db my_econ.db
+
+Where "my_econ" can be whatever you like.
 
 ## Dependencies
 

@@ -9308,6 +9308,7 @@ if __name__ == '__main__':
 # (python econ.py -db econ35.db -s 11 -p 4 -r -t 4 >> logs/econ35.log && say done) || say error
 
 # (python econ.py -s 11 -p 4 -r -t 4 && say done) || say error
+# python econ.py -u
 
 # TODO
 # Add a new column to items called fulfill
