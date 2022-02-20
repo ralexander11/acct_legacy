@@ -242,6 +242,8 @@ class World:
 			for individual in factory.get(Individual):
 				for need in individual.needs:
 					self.hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
+			self.hist_hours = self.hist_hours.reset_index()
+			self.hist_hours = self.hist_hours.rename(columns={'index': 'entity_id'})
 			# print('\nHist Hours: \n{}'.format(self.hist_hours))
 			self.set_table(self.hist_hours, 'hist_hours')
 			# Set the default starting gov
@@ -1679,7 +1681,7 @@ class World:
 			self.entities = accts.get_entities().reset_index()
 			# if v: print('Entities: \n{}'.format(self.entities))
 			tmp_hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
-			tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id'])
+			tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id']) # TODO Does this need to be set as the index?
 			tmp_hist_hours['date'] = self.now
 			tmp_hist_hours = tmp_hist_hours[['date','hours']]
 			for need in self.global_needs:
@@ -1687,6 +1689,8 @@ class World:
 			for individual in factory.get(Individual):
 				for need in individual.needs:
 					tmp_hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
+			tmp_hist_hours = tmp_hist_hours.reset_index()
+			tmp_hist_hours = tmp_hist_hours.rename(columns={'index': 'entity_id'})
 			self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
 			self.set_table(self.hist_hours, 'hist_hours')
 			# if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
@@ -8486,9 +8490,9 @@ class Individual(Entity):
 			priority_needs[need] = self.needs[need]['Current Need']
 		priority_needs = {k: v for k, v in sorted(priority_needs.items(), key=lambda item: item[1])}#, reverse=priority)}
 		priority_needs = collections.OrderedDict(priority_needs)
-		if v: print(f'priority_needs {priority}: {priority_needs}')
 		if priority:
 			priority_needs = reversed(priority_needs)
+		if v: print(f'priority_needs is {priority}: {priority_needs}')
 		for need in priority_needs:
 			self.address_need(need, obtain=obtain, prod=prod, priority=priority, v=v)
 
@@ -8517,7 +8521,7 @@ class Individual(Entity):
 			if pd.isna(min_price):
 				raw_mats = self.get_raw(item, base=True)
 				min_price = raw_mats.iloc[-1]['qty'] * INIT_PRICE
-				print(f'Item Address Min Price for {item}: {min_price}')
+				print(f'Address {need} with {item} for min price of: {min_price}')
 				# min_price = INIT_PRICE # TODO Old method
 			item_prices.append(min_price)
 		item_prices = pd.Series(item_prices)
@@ -9297,7 +9301,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ01.db -s 11 -p 4 --early -i items03.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ01.db -s 11 -p 4 --early -i items_basic01.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ02.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 

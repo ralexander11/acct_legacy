@@ -5,6 +5,7 @@ import argparse
 import datetime
 import logging
 import warnings
+import rich
 import time
 import sys
 # from contextlib import contextmanager
@@ -1224,7 +1225,7 @@ class Ledger:
 			self.refresh_ledger()
 		return inventory
 
-	def get_util(self, entity_id=None, items=None, accounts=None, gl=None, ex_rvsl=True, save=None, v=True):
+	def get_util(self, entity_id=None, items=None, accounts=None, gl=None, ex_rvsl=True, mob=True, save=None, v=True):
 		if save is None:
 			while True:
 				save = input('Save? [Y/n]: ')
@@ -1306,7 +1307,10 @@ class Ledger:
 
 		if v:
 			print(f'GL for {entity_id} entities, for item {items} for accounts {accounts}:') #TODO Improve description logic
-			print(gl)
+			if mob:
+				rich.print(gl.to_dict('records'))
+			else:
+				print(gl)
 		if save:
 			# TODO Improve save name logic
 			outfile = 'util_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
