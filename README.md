@@ -75,7 +75,14 @@ econ.py -u
 To use a custom save file name use the command:  
 econ.py -u -db my_econ.db
 
-Where "my_econ" can be whatever you like.
+Where "my_econ" can be whatever you like. Note, if you do not complete at least one full day the save file needs to be removed before loading again.
+
+1. Type "needs" command. This will list the current status of your person's need levels. These go down by 1 each day, and if any of them reach 0 then your person dies.
+2. Type "hours" command. This will show you how many hours your person has left for the day.
+3. Type "items" then type "Berries". This first shows you all the items available. Then typing Berries shows you details on the Berries item. The main thing to note is the requirements, and the amounts below that. The values for the amounts are in order of the list of requirements.
+4. Type "claim" command. This lets you claim land for free, but it takes hours. Follow the prompts to claim some land.
+5. Type "produce" command. This lets you produce an item. Try to produce some berries on the land you just claimed.
+6. Type "help" command. This lists more commands, explore around and see what is possible!
 
 ## Dependencies
 
