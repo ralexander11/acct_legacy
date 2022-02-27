@@ -2119,7 +2119,9 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'inv':
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				pd.options.display.float_format = '{:,.2f}'.format
 				print(ledger.get_qty(by_entity=True))#, v=True))
+				pd.options.display.float_format = '${:,.2f}'.format
 			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()

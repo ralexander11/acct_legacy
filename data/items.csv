@@ -109,7 +109,7 @@ Scale Mail,None,None,continuous,Armour,"Metal, Leather, Blacksmither","40, 2, 30
 Plate Armour,None,None,continuous,Armour,"Metal, Leather, Blacksmither","80, 2, 40",1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,10000,None,None,Blacksmith
 Electricity,None,None,None,Technology,"Time, Metal Working","100, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, Blacksmith"
 Robot Plow,None,None,start,Equipment,"Electricity, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 12, 20, 40",12,None,None,None,None,None,None,None,Cultivator,1,20,usage,None,None,None,10000,None,None,Blacksmith
-Super Food,None,None,None,Commodity,"Time, Super Tech, Arable Land, Cultivator, Water","7, 1, 400, 0.1, 1",None,None,None,None,None,None,Hunger,10,None,None,21,spoilage,None,None,None,1,None,None,Individual
+Super Food,None,None,None,Commodity,"Super Tech, Arable Land, Cultivator, Water","1, 400, 0.1, 1",None,None,None,None,None,None,Hunger,10,None,None,21,spoilage,None,None,None,1,None,None,Individual
 Super Tech,None,None,None,Technology,"Time, Metal Working","100, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 #Engineer,None,None,None,Labour,"Electronics Class, Blacksmither","16, 1",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Engineer,None,None,None,Labour,Electronics Class,16,1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None

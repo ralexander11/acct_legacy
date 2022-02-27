@@ -406,7 +406,7 @@ class World:
 				entity.saved = True
 				self.active_day = True
 			print('Active Day:', self.active_day)
-			last_eod_index = max(last_eod_index, last_eot_index)
+			last_eod_index = max(last_eod_index, last_eot_index, last_save_index)
 			incomplete_cycle = ledger.gl.loc[ledger.gl.index > last_eod_index].index.values.tolist()
 			print('Number of incomplete transactions: {}'.format(len(incomplete_cycle)))
 			ledger.remove_entries(incomplete_cycle)
@@ -578,7 +578,7 @@ class World:
 		for individual in entities:
 			self.hours[individual.name] = individual.hours
 		if v:
-			print('Current entity hours:')
+			print('\nCurrent entity hours:')
 			for entity_name, hours in self.hours.items():
 				print('{} | Hours: {}'.format(entity_name, hours))
 		if total:
@@ -1192,6 +1192,7 @@ class World:
 						individual.loan(amount=self.start_capital, roundup=False)
 				self.gov = factory.get(Government)[0]
 				print('Start Government: {}'.format(self.gov))
+				self.checkpoint_entry(eod=False, save=True)
 
 			# Save prior days tables: entities, prices, demand, delay, produce_queue
 			self.prior_entities = self.entities
@@ -1659,18 +1660,18 @@ class World:
 		ledger.conn.commit()
 		cur.close()
 		# Book End of Day entry
-		if world.selection is None:
-			entity_id = 0
+		if self.selection is None:
+			entity_id = 1
 		else:
-			entity_id = world.selection.entity_id
+			entity_id = self.selection.entity_id
 		if eod:
-			eod_entry = [ ledger.get_event(), 0, 0, world.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
+			eod_entry = [ ledger.get_event(), 0, 0, self.now, '', 'End of day entry', '', '', '', 'Info', 'End of Day', 0 ]
 			ledger.journal_entry([eod_entry])
 		elif save:
-			save_entry = [ ledger.get_event(), entity_id, entity_id, world.now, '', 'End of day entry', '', '', '', 'Info', 'Save', 0 ]
+			save_entry = [ ledger.get_event(), entity_id, entity_id, self.now, '', 'Save point entry', '', '', '', 'Info', 'Save', 0 ]
 			ledger.journal_entry([save_entry])
 		else:
-			eot_entry = [ ledger.get_event(), entity_id, entity_id, world.now, '', 'End of turn entry', '', '', '', 'Info', 'End of Turn', 0 ]
+			eot_entry = [ ledger.get_event(), entity_id, entity_id, self.now, '', 'End of turn entry', '', '', '', 'Info', 'End of Turn', 0 ]
 			ledger.journal_entry([eot_entry])
 		if eod:
 			# Track historical prices
@@ -4424,7 +4425,7 @@ class Entity:
 		raw = pd.DataFrame(raw.items(), index=None, columns=['item_id', 'qty'])
 		total = raw['qty'].sum()
 		raw = raw.append({'item_id':'Total', 'qty':total}, ignore_index=True)
-		if v: print(f'Total resources needed to produce: {qty} {item}')
+		if v: print(f'\nTotal resources needed to produce: {qty} {item}')
 		with pd.option_context('float_format', '{:,.1f}'.format):
 			if v: print(raw)
 		return raw
@@ -7712,7 +7713,8 @@ class Entity:
 					print('Not a valid entry.')
 					continue
 			with pd.option_context('display.max_colwidth', 200):
-				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
+				print('{} raw data: \n{}\n'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
+			self.get_raw(item.title(), 1, base=False, v=True)
 		elif command.lower() == 'equipment':
 			equip_list = world.items.loc[world.items['child_of'] == 'Equipment']
 			print('Equipment Available:\n {}'.format(equip_list.index.values))
@@ -7797,7 +7799,8 @@ class Entity:
 					continue
 			with pd.option_context('display.max_colwidth', 200):
 				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
-		elif command.lower() == 'needs' or command.lower() == 'n':
+		elif command.lower() == 'needs' or command.lower() == 'need' or command.lower() == 'n':
+			print('Needs are max when at 100 and tick down by 1 each day. If any need reaches 0 then the individual dies.')
 			print('{} Needs:'.format(self.name))
 			for need in world.global_needs:
 				print('{}: {}'.format(need, self.needs[need]['Current Need']))
