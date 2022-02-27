@@ -168,7 +168,10 @@ class World:
 			self.items = self.items.reset_index() # TODO Avoid this?
 			self.items['fulfill'] = self.items.apply(lambda x: x['item_id'] if x['fulfill'] is None else x['fulfill'], axis=1)
 			self.items = self.items.set_index('item_id') # TODO Avoid this?
-			self.econ_graph()
+			try:
+				self.econ_graph()
+			except ImportError:
+				pass
 			self.items_map = pd.DataFrame(columns=['item_id', 'child_of'], index=['item_id']).dropna() # TODO Is this needed still?
 			self.set_table(self.items_map, 'items_map')
 			self.global_needs = self.create_needs()
@@ -450,8 +453,12 @@ class World:
 	def set_table(self, table, table_name, v=False):
 		if v: print('Orig set table: {}\n{}'.format(table_name, table))
 		if not isinstance(table, (pd.DataFrame, pd.Series)):
-			if not isinstance(table, collections.Iterable):
-				table = [table]
+			try:
+				if not isinstance(table, collections.abc.Iterable):
+					table = [table]
+			except AttributeError:
+				if not isinstance(table, collections.Iterable):
+					table = [table]
 			table = pd.DataFrame(data=table, index=None)
 			if v: print('Singleton set table: {}\n{}'.format(table_name, table))
 		try:
@@ -6943,7 +6950,7 @@ class Entity:
 				else:
 					print('Not a valid entry.')
 					continue
-			worker = self.worker_counterparty(item.title(), only_avail=True, qualified=True)
+			worker = self.worker_counterparty(item.title(), only_avail=True)#, qualified=True)
 			item_type = world.get_item_type(item.title())
 			if item_type == 'Job':
 				self.hire_worker(item.title(), worker)

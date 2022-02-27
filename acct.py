@@ -5,7 +5,6 @@ import argparse
 import datetime
 import logging
 import warnings
-import rich
 import time
 import sys
 # from contextlib import contextmanager
@@ -1308,7 +1307,11 @@ class Ledger:
 		if v:
 			print(f'GL for {entity_id} entities, for item {items} for accounts {accounts}:') #TODO Improve description logic
 			if mob:
-				rich.print(gl.to_dict('records'))
+				try:
+					import rich
+					rich.print(gl.to_dict('records'))
+				except ImportError:
+					pass
 			else:
 				print(gl)
 		if save:

@@ -87,7 +87,7 @@ Where "my_econ" can be whatever you like. Note, if you do not complete at least 
 ## Dependencies
 
 
-* Python >= 3.5
+* Python >= 3.6
 * Pandas >= 0.22
 
 
