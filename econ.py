@@ -353,6 +353,17 @@ class World:
 					print('Parents: {}'.format(entity.parents))
 					print('Current Hours:', entity.hours)
 					# factory.create(Individual, indiv['name'], indiv['outputs'], self.global_needs, int(indiv['government']), int(indiv['founder']), float(indiv['hours']), indiv['current_need'], indiv['parents'], indiv['user'], int(indiv['entity_id']))
+			if args.users:
+				existing_users = factory.get(Individual, users=True, computers=False)
+				if args.users > len(existing_users):
+					existing_ai = factory.get(Individual, users=False, computers=True)
+					tmp_users = args.users
+					for entity in existing_ai:
+						entity.user = True
+						print(f'{entity} turned into a user.')
+						tmp_users -= 1
+						if tmp_users == 0:
+							break
 			corps = self.entities.loc[self.entities['entity_type'] == 'Corporation']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Corporations: \n{}'.format(corps))
@@ -1351,8 +1362,11 @@ class World:
 						print('\nEntity Selected: {} | Hours: {}'.format(self.selection.name, self.selection.hours))
 					else:
 						print('\nEntity Selected: {}'.format(self.selection))
-					if not self.selection.hours and self.selection.auto_done:
-						result = self.selection.action('done')
+					if isinstance(self.selection, Individual):
+						if not self.selection.hours and self.selection.auto_done:
+							result = self.selection.action('done')
+						else:
+							result = self.selection.action()
 					else:
 						result = self.selection.action()
 					if self.selection is not None and isinstance(self.selection, Individual):
@@ -6706,9 +6720,15 @@ class Entity:
 				return
 		# TODO Add help command to list full list of commands
 		if command.lower() == 'select':
-			if not world.gov.user:
+			if not world.gov.user and isinstance(world.selection, Individual):
 				individual_ids = self.get_children(founder=True, ids=True)#, v=True) # TODO Maybe replace with self.founder check
 				individuals = [factory.get_by_id(entity_id) for entity_id in individual_ids]
+			elif isinstance(world.selection, Corporation):
+				largest_shareholder_id = self.list_shareholders(largest=True)
+				individual_ids = [largest_shareholder_id]
+				if largest_shareholder_id is None:
+					return
+				individuals = [factory.get_by_id(largest_shareholder_id)]
 			else:
 				individuals = world.gov.get(Individual, computers=False)
 			for entity in individuals:
@@ -6717,7 +6737,10 @@ class Entity:
 			banks = world.gov.get(Bank, computers=False)
 			for entity in banks:
 				print('{}'.format(entity))
-			corps = self.is_owner(world.gov.get(Corporation)) # TODO Maybe support seeing all corps owned by all individuals the player controls
+			# TODO Maybe support seeing all corps owned by all individuals the player controls
+			corps = []
+			if isinstance(self, (Individual, Corporation, Government, Governmental)):
+				corps = self.is_shareholder(world.gov.get(Corporation))
 			for entity in corps:
 				print('{}'.format(entity))
 			corp_ids = []
@@ -7400,6 +7423,10 @@ class Entity:
 				# target = factory.get_by_id(target)
 				break
 			self.use_item(item.title(), qty, counterparty, target)
+		elif command.lower() == 'players':
+			for entity in factory.get():
+				print(f'{entity}\t | User: {entity.user}')
+				# TODO Add owner, NAV, Cash
 		elif command.lower() == 'birth':
 			if not world.gov.user:
 				individual_ids = self.get_children(founder=True, ids=True)
@@ -7907,6 +7934,7 @@ class Entity:
 				'emance': 'Emancipation from parents to be treated like a founder.',
 				'changegov': 'Change which Government entity is subject to.',
 				'foundgov': 'Found a new Government.',
+				'players': 'Display all the entities and whether they are human or computer controlled.',
 				'user': 'Toggle selected entity between user or computer control.',
 				'seppuku': 'Kill the currently selected entity.',
 				'addplayer': 'Add a new human player under the selected government.',
@@ -8531,8 +8559,8 @@ class Individual(Entity):
 			if pd.isna(min_price):
 				raw_mats = self.get_raw(item, base=True)
 				min_price = raw_mats.iloc[-1]['qty'] * INIT_PRICE
-				print(f'Address {need} with {item} for min price of: {min_price}')
 				# min_price = INIT_PRICE # TODO Old method
+			print(f'Address {need} with {item} for min price of: {min_price}')
 			item_prices.append(min_price)
 		item_prices = pd.Series(item_prices)
 		items_info = items_info.assign(price=item_prices.values)
@@ -8617,7 +8645,7 @@ class Individual(Entity):
 				qty_held = ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 				ledger.reset()
 				if v: print(f'{self.name} has {qty_held} {item_choosen} out of {qty_needed} qty needed to address {need_needed} {need} need.')
-				# TODO Attempt to use item before aquiring some
+				# TODO Check all valid items if they are onhand and attempt to use consume before aquiring some
 				if qty_held < qty_needed and obtain:
 					qty_wanted = qty_needed - qty_held
 					# TODO Is the below needed?
@@ -8713,7 +8741,7 @@ class Individual(Entity):
 				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
 			print('{} {} need adjusted by: {} | Current {} Need: {}'.format(self.name, need, (float(satisfy_rates[i]) * qty), need, self.needs[need]['Current Need']))
 
-	def is_owner(self, corps):
+	def is_shareholder(self, corps):
 		if not isinstance(corps, (list, tuple)):
 			corps = [corps]
 		invested = [corp for corp in corps if corp.is_owner(self)] # TODO Try to make this a generator
@@ -8831,6 +8859,12 @@ class Corporation(Organization):
 		else:
 			return False
 
+	def is_shareholder(self, corps):
+		if not isinstance(corps, (list, tuple)):
+			corps = [corps]
+		invested = [corp for corp in corps if corp.is_owner(self)] # TODO Try to make this a generator
+		return invested
+
 	def declare_div(self, div_rate): # TODO Move this to corporation subclass
 		item = self.name
 		shareholders = ledger.get_qty(items=item, accounts='Investments', by_entity=True)
@@ -8943,6 +8977,12 @@ class Government(Organization):
 			entities = [e.entity_id for e in entities]
 		return entities
 
+	def is_shareholder(self, corps):
+		if not isinstance(corps, (list, tuple)):
+			corps = [corps]
+		invested = [corp for corp in corps if corp.is_owner(self)] # TODO Try to make this a generator
+		return invested
+
 	def create_bank(self):#, bank_items_produced=None):
 		# if bank_items_produced is None:
 		# 	bank_items_produced = world.items[world.items['producer'].str.contains('Individual', na=False)].reset_index()
@@ -8994,6 +9034,12 @@ class Governmental(Organization):
 		else:
 			self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
 		print('\nCreate Governmental Org: {} | entity_id: {}'.format(self.name, self.entity_id))
+
+	def is_shareholder(self, corps):
+		if not isinstance(corps, (list, tuple)):
+			corps = [corps]
+		invested = [corp for corp in corps if corp.is_owner(self)] # TODO Try to make this a generator
+		return invested
 
 	def __str__(self):
 		return 'Govn: {} | {}'.format(self.name, self.entity_id)
@@ -9216,7 +9262,7 @@ if __name__ == '__main__':
 	parser.add_argument('-c', '--command', type=str, help='A command for the program.')
 	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the sim!')
-	parser.add_argument('-rand', '--random', action='store_false', help='Remove randomness from the sim.') # TODO Is this needed?
+	parser.add_argument('-rand', '--random', action='store_false', help='Remove randomness from the sim.') # TODO Is this still needed?
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
 	parser.add_argument('-t', '--time', type=int, help='The number of days the sim will run for.')

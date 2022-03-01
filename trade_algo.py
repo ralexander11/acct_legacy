@@ -22,6 +22,7 @@ logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='
 
 # random.seed(11)
 WK52_REDUCE = 1 #10 # No longer needed
+END_DATE = None
 
 def time_stamp(offset=0):
 	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):

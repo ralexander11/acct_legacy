@@ -30,6 +30,13 @@ trade_accts = [
 		('Dividend Receivable','Asset'),
 		('Dividend Income','Revenue'),
 	]
+END_DATE = None
+
+def time_stamp(offset=0):
+	if END_DATE is None or False:
+		offset = 4
+	time_stamp = (datetime.datetime.now() + datetime.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
+	return time_stamp
 
 class Trading(object):
 	def __init__(self, ledger, comm=0.0, sim=False, date=None, data_location=None):
