@@ -261,7 +261,7 @@ class Trading(object):
 					self.ledger.journal_entry(int_exp_event)
 			cur.close()
 
-	def unrealized(self, rvsl=False, date=None): # TODO Add commenting
+	def unrealized(self, rvsl_only=False, date=None): # TODO Add commenting
 		inv = self.ledger.get_qty(accounts=['Investments'])
 		if inv.empty:
 			print('No securities held to true up.')
@@ -282,7 +282,7 @@ class Trading(object):
 				self.ledger.reversal_entry(str(txn[0]), date)
 		except:
 			logging.warning('Unrealized booking error.')
-		if rvsl:
+		if rvsl_only:
 			return
 
 		for index, item in inv.iterrows():

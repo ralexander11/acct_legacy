@@ -1,5 +1,6 @@
 import acct
 import pandas as pd
+import numpy as np
 # import pygame
 # from pygame.locals import *
 import collections
@@ -957,7 +958,7 @@ class World:
 	def edit_item(self, item=None, prpty=None, value=None, v=True):
 		if item is None:
 			while True:
-				item = input('Enter a item: ')
+				item = input('Enter an item: ')
 				if item == '':
 					return
 				if self.valid_item(item):
@@ -7728,7 +7729,27 @@ class Entity:
 				save_df.to_csv(file_name, index=True)
 				print(f'{df_name} saved as: {file_name}')
 		elif command.lower() == 'items' or command.lower() == 'item':
-			print('World Items Available: \n{}'.format(world.items.index.values))
+			print('Use "curitems" command to see the current items available.')
+			items = world.items.index.values
+			print('World Items Available: {}\n{}'.format(len(items), items))
+			print('\nNote: Enter an item type as a command to see a list of just those items. (i.e. Equipment)')
+			while True:
+				item = input('\nEnter an item to see all of its properties (enter to exit): ')
+				if item == '':
+					return
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			with pd.option_context('display.max_colwidth', 200):
+				print('{} raw data: \n{}\n'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
+			self.get_raw(item.title(), 1, base=False, v=True)
+		elif command.lower() == 'curitems' or command.lower() == 'curitem':
+			items = world.items.index.values
+			items = [item for item in items if self.check_eligible(item)]
+			items = np.array(items)
+			print('World Items Currently Available: {}\n{}'.format(len(items), items))
 			print('\nNote: Enter an item type as a command to see a list of just those items. (i.e. Equipment)')
 			while True:
 				item = input('\nEnter an item to see all of its properties (enter to exit): ')
@@ -7877,7 +7898,8 @@ class Entity:
 			command_help = {
 				'select': 'Choose a different entity (Individual or Corporation).',
 				'needs': 'List all needs and items that satisfy those needs.',
-				'items': 'List of all available items.',
+				'items': 'List of all items in the sim.',
+				'curitems': 'List of all currently available items.',
 				'raw': 'Total raw resources needed to produce an item.',
 				'productivity': 'List all requirements that can be made more efficient.',
 				'hours': 'See hours available for each entity.',
@@ -7940,6 +7962,7 @@ class Entity:
 				'addplayer': 'Add a new human player under the selected government.',
 				'addai': 'Add a new AI player under the selected government.',
 				'superselect': 'Select any entity, including computer users.',
+				'edititem': 'Edit the items date from within the sim.',
 				'acctmore': 'View more commands for the accounting system.',
 				'setwin': 'Set the win conditions.',
 				'win': 'See the win conditions.',

@@ -22,7 +22,6 @@ logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='
 
 # random.seed(11)
 WK52_REDUCE = 1 #10 # No longer needed
-END_DATE = None
 
 def time_stamp(offset=0):
 	if os.path.exists('/home/robale5/becauseinterfaces.com/acct/'):
@@ -827,7 +826,7 @@ class TradingAlgo(object):
 						# self.ledger.print_bs()
 						# return
 					else:
-						self.trade.unrealized(rvsl=True, date=date)
+						self.trade.unrealized(rvsl_only=True, date=date)
 						self.liquidate(portfolio, date)
 						capital = self.check_capital()
 						capital_remain, qty = self.buy_max(capital, ticker, date)
@@ -838,7 +837,7 @@ class TradingAlgo(object):
 			else:
 				print('No securities have positive change. Will go cash only.')
 				if not portfolio.empty:
-					self.trade.unrealized(rvsl=True, date=date)
+					self.trade.unrealized(rvsl_only=True, date=date)
 					self.liquidate(portfolio, date)
 
 			print('-' * DISPLAY_WIDTH)
