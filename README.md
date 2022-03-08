@@ -34,10 +34,13 @@ Where the number after -u is the number of players.
 1. Type the "needs" command. This will list the current status of your person's need levels. These go down by 1 each day, and if any of them reach 0 then your person dies.
 2. Type the "hours" command. This will show you how many hours your person has left for the day. The days are 12 hours long.
 3. Type the "items" then type "Berries". This first shows you all the items available. Then typing Berries shows you details on the Berries item. The main thing to note is the requirements, and the amounts below that. The values for the amounts are in order of the list of requirements.
-4. Type the "claim" command. This lets you claim land for free, but it takes hours. Follow the prompts to claim 5 Land.
+4. Type the "claim" command. This lets you claim land for free, but it takes hours. Follow the prompts to claim 6 Land.
 5. Type the "produce" command. This lets you produce an item. Try to produce 1 Berries on the Land you just claimed.
-6. On the next day, type the "consume" command to eat the Berries to improve your hunger.
-7. Type the "help" command. This lists more commands, explore around and see what is possible!
+6. Type the "produce" command again. Produce 1 Fresh Water on the remaining Land you just claimed that is unused.
+7. Type the "own" command. This will show you what items you currently own. You should see the Berries and Fresh Water you just produced.
+8. You now should have no hours left. Type the "done" command to end the day. This will also save the sim at the end of the day.
+9. Once the daily processing finishes, type the "address" command. This will consume the Berries and Fresh Water and restore 1 point of your Hunger and Thirst needs.
+10. Type the "help" command. This lists more commands, explore around and see what is possible!
 
 ## Trading Platform Instructions
 

@@ -2160,7 +2160,7 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'util':
 			entity_id = input('Which entitie(s)? ')
-			item = input('Which item or ticker? ')#.lower()
+			item = input('Which item or ticker (case sensitive)? ')#.lower()
 			acct = input('Which account? ')#.title()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				ledger.get_util(entity_id, item, acct)
@@ -2248,6 +2248,7 @@ def main(conn=None, command=None, external=False):
 				'adj': 'Adjust a journal entry to change either the price or qty.',
 				'txn': 'Set the date to view the Balance Sheet up to.',
 				'starttxn': 'Set the start date to view the Income Statement from.',
+				'util': 'Filter and export the General Ledger to csv with some analysis columns added.',
 				'exportgl': 'Export the General Ledger to csv.',
 				'importgl': 'Import the General Ledger from csv.',#'Also supports loading trasnactions from RBC online banking and a legacy account system.',
 				'exportaccts': 'Export the Chart of Accounts to csv.',

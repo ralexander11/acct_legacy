@@ -261,29 +261,30 @@ class Trading(object):
 					self.ledger.journal_entry(int_exp_event)
 			cur.close()
 
-	def unrealized(self, rvsl_only=False, date=None): # TODO Add commenting
+	def unrealized(self, rvsl=False, rvsl_only=False, date=None): # TODO Add commenting
 		inv = self.ledger.get_qty(accounts=['Investments'])
 		if inv.empty:
 			print('No securities held to true up.')
 			return
 		# print('Inventory: \n{}'.format(inv))
 
-		try:
-			# self.gl = self.ledger.gl
-			# print('gl: \n{}'.format(self.ledger.gl))
-			rvsl_txns = self.ledger.gl[self.ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
-			if rvsl_txns.empty:
-				print('First or second true up run.')
-			# print('RVSL TXNs: \n{}'.format(rvsl_txns))
-			# Get list of Unrealized Gain / Loss txns
-			inv_txns = self.ledger.gl[( (self.ledger.gl['debit_acct'] == 'Unrealized Loss') | (self.ledger.gl['credit_acct'] == 'Unrealized Gain') ) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]
-			# print('Inv TXNs: \n{}'.format(inv_txns))
-			for txn in inv_txns.iterrows():
-				self.ledger.reversal_entry(str(txn[0]), date)
-		except:
-			logging.warning('Unrealized booking error.')
-		if rvsl_only:
-			return
+		if rvsl or rvsl_only:
+			try:
+				# self.gl = self.ledger.gl
+				# print('gl: \n{}'.format(self.ledger.gl))
+				rvsl_txns = self.ledger.gl[self.ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+				if rvsl_txns.empty:
+					print('First or second true up run.')
+				# print('RVSL TXNs: \n{}'.format(rvsl_txns))
+				# Get list of Unrealized Gain / Loss txns
+				inv_txns = self.ledger.gl[( (self.ledger.gl['debit_acct'] == 'Unrealized Loss') | (self.ledger.gl['credit_acct'] == 'Unrealized Gain') ) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]
+				# print('Inv TXNs: \n{}'.format(inv_txns))
+				for txn in inv_txns.iterrows():
+					self.ledger.reversal_entry(str(txn[0]), date)
+			except:
+				logging.warning('Unrealized booking error.')
+			if rvsl_only:
+				return
 
 		for index, item in inv.iterrows():
 			symbol = item.loc['item_id']
@@ -292,16 +293,19 @@ class Trading(object):
 				return symbol
 			qty = item.loc['qty']
 			market_value = qty * price
-			hist_cost = self.ledger.hist_cost(qty, symbol, 'Investments')
+			if rvsl:
+				bal = self.ledger.hist_cost(qty, symbol, 'Investments')
+			else:
+				bal = self.ledger.balance_sheet('Investments', symbol)
 			unrealized_gain = None
 			unrealized_loss = None
-			if market_value == hist_cost:
+			if market_value == bal:
 				print('No gains due to no change in price.')
 				continue
-			elif market_value > hist_cost:
-				unrealized_gain = market_value - hist_cost
+			elif market_value > bal:
+				unrealized_gain = market_value - bal
 			else:
-				unrealized_loss = hist_cost - market_value
+				unrealized_loss = bal - market_value
 			if unrealized_gain is not None:
 				true_up_entry = [ self.ledger.get_event(), self.ledger.get_entity(), '', self.trade_date(date), '', 'Unrealized gain', symbol, price, '', 'Investments', 'Unrealized Gain', unrealized_gain ]
 				logging.debug(true_up_entry)
@@ -499,7 +503,7 @@ def main(command=None, external=False):
 		elif command.lower() == 'int':
 			trade.int_exp()
 			if args.command is not None: exit()
-		elif command.lower() == 'trueup':
+		elif command.lower() == 'trueup' or command.lower() == 'unrealized':
 			trade.unrealized()
 			if args.command is not None: exit()
 		elif command.lower() == 'splits':

@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import acct
 import pandas as pd
 import numpy as np
@@ -4440,7 +4442,10 @@ class Entity:
 		raw = pd.DataFrame(raw.items(), index=None, columns=['item_id', 'qty'])
 		total = raw['qty'].sum()
 		raw = raw.append({'item_id':'Total', 'qty':total}, ignore_index=True)
-		if v: print(f'\nTotal resources needed to produce: {qty} {item}')
+		if base:
+			if v: print(f'\nTotal base resources needed to produce: {qty} {item}')
+		else:
+			if v: print(f'\nTotal resources needed to produce: {qty} {item}')
 		with pd.option_context('float_format', '{:,.1f}'.format):
 			if v: print(raw)
 		return raw
@@ -7334,6 +7339,7 @@ class Entity:
 			if isinstance(self, Individual):
 				self.auto_address = not self.auto_address
 				print('Auto Address set to:', self.auto_address)
+				print('Will run at the end of the day.')
 		elif command.lower() == 'use':
 			while True:
 				item = input('Enter item to use: ') # TODO Some sort of check for non-usable items
@@ -7686,14 +7692,18 @@ class Entity:
 			ledger.set_entity(self.entity_id)
 			inv = ledger.get_qty()
 			ledger.reset()
+			pd.options.display.float_format = '{:,.2f}'.format
 			print(inv)
+			pd.options.display.float_format = '${:,.2f}'.format
 			print('Time taken:', timeit.default_timer() - start_time)
 		elif command.lower() == 'own' or command.lower() == 'o':
 			start_time = timeit.default_timer()
 			ledger.set_entity(self.entity_id)
 			inv = ledger.get_qty(accounts=['Cash', 'Investments', 'Land', 'Buildings', 'Equipment', 'Equipped', 'Inventory', 'WIP Inventory', 'WIP Equipment', 'Building Under Construction', 'Land In Use', 'Buildings In Use', 'Equipment In Use', 'Technology', 'Researching Technology'])
 			ledger.reset()
+			pd.options.display.float_format = '{:,.2f}'.format
 			print(inv)
+			pd.options.display.float_format = '${:,.2f}'.format
 			print('Time taken:', timeit.default_timer() - start_time)
 		elif command.lower() == 'labour':
 			start_time = timeit.default_timer()
@@ -7745,6 +7755,7 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200):
 				print('{} raw data: \n{}\n'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
 			self.get_raw(item.title(), 1, base=False, v=True)
+			self.get_raw(item.title(), 1, base=True, v=True)
 		elif command.lower() == 'curitems' or command.lower() == 'curitem':
 			items = world.items.index.values
 			items = [item for item in items if self.check_eligible(item)]
@@ -7763,6 +7774,7 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200):
 				print('{} raw data: \n{}\n'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
 			self.get_raw(item.title(), 1, base=False, v=True)
+			self.get_raw(item.title(), 1, base=True, v=True)
 		elif command.lower() == 'equipment':
 			equip_list = world.items.loc[world.items['child_of'] == 'Equipment']
 			print('Equipment Available:\n {}'.format(equip_list.index.values))
@@ -7863,7 +7875,7 @@ class Entity:
 					continue
 			need_items = world.items[world.items['satisfies'].str.contains(need.title(), na=False)].index.values
 			print('Items that satisfy {}: \n{}'.format(need.title(), need_items))
-		elif command.lower() == 'productivity':
+		elif command.lower() == 'productivity' or command.lower() == 'productive':
 			productivity_items = []
 			for _, item_efficiencies in world.items['productivity'].iteritems():
 				if item_efficiencies is None:
@@ -7906,7 +7918,7 @@ class Entity:
 				'own': 'See items owned for selected entity.',
 				'land': 'See land available to claim.',
 				'map': 'See all land in existence.',
-				'claim': 'Claim land for free, but it must be defended.',
+				'claim': 'Claim land for free, but it must be defended and takes time.',
 				# '\033[4mp\033[0mroduce': 'Produce items.',
 				'produce': 'Produce items.',
 				'consume': 'Consume items.',
@@ -7945,6 +7957,7 @@ class Entity:
 				'raisecap': 'Sell additional shares in the Corporation.',
 				'dividend': 'Declare dividends for a Corporation.',
 				'otherhire': 'Toggle setting to allow Individual to be hired by others.',
+				'world': 'See all land owned by the Environment.',
 				'gift': 'Gift cash or items between entities.',
 				'deposit': 'Deposit cash with the bank.',
 				'withdraw': 'Withdraw cash from the bank.',
@@ -7993,6 +8006,7 @@ class Entity:
 			else:
 				world.selection = None
 			world.checkpoint_entry(eod=False)
+			self.saved = False
 		elif command.lower() == 'superend': #'end'
 			# world.end = True
 			return 'end'
