@@ -1259,6 +1259,7 @@ class World:
 			with pd.option_context('display.max_rows', None):
 				print('\nPrices: \n{}\n'.format(self.prices))
 				print('Delays: \n{}\n'.format(self.delay))
+				print('Auto: \n{}\n'.format(self.produce_queue))
 
 			demand_items = self.demand.drop_duplicates(['item_id']) # TODO Is this needed?
 			self.set_table(self.demand, 'demand')
@@ -3986,7 +3987,7 @@ class Entity:
 				incomplete, event_max_possible, time_required, max_qty_possible = self.fulfill(item, max_qty_possible, man=man)
 				event += event_max_possible
 		else:
-			world.delay = tmp_delay.copy(deep=True) # TODO This would not factor in any changes to world.delay from a lower stack frame but might not matter
+			world.delay = tmp_delay.copy(deep=True) # TODO This would not factor in any changes to world.delay from a lower stack frame but that might not matter
 			world.set_table(world.delay, 'delay')
 			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
 			if not wip_choice or man:
@@ -4354,6 +4355,23 @@ class Entity:
 			print('It will be replaced with the new values below: ')
 		world.produce_queue = world.produce_queue.append({'item_id':item, 'entity_id':self.entity_id, 'qty':qty, 'freq':freq, 'last':freq, 'one_time':one_time, 'man':man,}, ignore_index=True)
 		world.produce_queue = pd.concat([world.produce_queue, current_pro_queue]).drop_duplicates(keep=False) # TODO There may be a better way to get the difference between two dfs
+
+		if one_time:
+			index = world.produce_queue.last_valid_index()
+			# print('Last index:', index)
+			result, time_required, max_qty_possible, incomplete = self.produce(item, qty, man=man)
+			if incomplete and max_qty_possible != 0 and one_time:
+				qty = max_qty_possible
+				result, time_required, max_qty_possible, incomplete = self.produce(item, qty, man=man)
+			if result:
+				world.produce_queue.loc[index, 'last'] = world.produce_queue.loc[index, 'freq']
+				world.produce_queue.loc[index, 'qty'] -= qty
+				if world.produce_queue.loc[index, 'qty'] <= 0:
+					world.produce_queue.drop([index], inplace=True)
+				else:
+					if self.hours > 0:
+						self.auto_produce(index)
+
 		world.set_table(world.produce_queue, 'produce_queue')
 		print('Set Produce Queue by {}: \n{}'.format(self.name, world.produce_queue))
 
@@ -4369,6 +4387,7 @@ class Entity:
 			if que_item['last'] == 0:
 				item = que_item['item_id']
 				man = que_item['man']
+				qty = que_item['qty']
 				if isinstance(man, str):
 					if man == 'True':
 						man = True
@@ -4387,14 +4406,16 @@ class Entity:
 						one_time = False
 				if not world.delay.loc[(world.delay['entity_id'] == self.entity_id) & (world.delay['item_id'] == item)].empty:
 					print(f'Skipping autoproduce for {item} as it is already a WIP.')
-					continue
-				result, time_required, max_qty_possible, incomplete = self.produce(item, que_item['qty'], man=man)
+					self.wip_check(time_only=not self.auto_wip)
+
+				result, time_required, max_qty_possible, incomplete = self.produce(item, qty, man=man)
 				if incomplete and max_qty_possible != 0 and one_time:
-					result, time_required, max_qty_possible, incomplete = self.produce(item, max_qty_possible, man=man)
+					qty = max_qty_possible
+					result, time_required, max_qty_possible, incomplete = self.produce(item, qty, man=man)
 				if result:
 					world.produce_queue.loc[index, 'last'] = que_item['freq']
 					if one_time:
-						world.produce_queue.loc[index, 'qty'] -= max_qty_possible
+						world.produce_queue.loc[index, 'qty'] -= qty
 						if world.produce_queue.loc[index, 'qty'] <= 0:
 							world.produce_queue.drop([index], inplace=True)
 						else:
@@ -4414,7 +4435,7 @@ class Entity:
 		# print(f'{item}:\n{item_info}')
 		if item_info['requirements'] is None or item_info['amount'] is None:
 			if base:
-				if item_type == 'Technology':
+				if item_type in ['Technology', 'Education']:
 					raw[item] = qty
 				else:
 					raw[item] += qty
@@ -4427,15 +4448,17 @@ class Entity:
 		if v: print(f'Requirements Details for {qty} {item}: \n{requirements_details}')
 		for requirement in requirements_details:
 			# TODO Make option for this to catch when items have no requirements only
-			if requirement[1] in ['Land', 'Commodity', 'Labour', 'Job', 'Technology', 'Time'] and not base:
+			if requirement[1] in ['Land', 'Commodity', 'Labour', 'Job', 'Education', 'Technology', 'Time'] and not base:
 				# print(f'inner: {item} {requirement}')
-				if requirement[1] == 'Technology':# or requirement[1] == 'Education':
+				if requirement[1] in ['Technology', 'Education']:
 					raw[requirement[0]] = requirement[2]
 				else:
 					raw[requirement[0]] += (requirement[2] * qty)
 			elif 'animal' in str(item_info['freq'] or ''):
 				raw[requirement[0]] += (requirement[2] * qty)
 			else:
+				if requirement[1] in ['Education']:
+					qty = 1
 				self.get_raw(requirement[0], requirement[2] * qty, raw, item, base=base, v=v)
 		if item != orig_item:
 			return raw
@@ -7222,10 +7245,10 @@ class Entity:
 						continue
 				if confirm:
 					self.produce(item.title(), qty=max_qty_possible)
-		elif command.lower() == 'autoproduce' or command.lower() == 'autoproduceonce' or command.lower() == 'mautoproduce' or command.lower() == 'rautoproduce' or command.lower() == 'a':
+		elif command.lower() == 'autoproduce' or command.lower() == 'queue' or command.lower() == 'autoproduceonce' or command.lower() == 'mautoproduce' or command.lower() == 'rautoproduce' or command.lower() == 'a':
 			one_time = False
 			man = False
-			if command.lower() == 'autoproduceonce':
+			if command.lower() == 'queue' or command.lower() == 'autoproduceonce':
 				one_time = True
 				man = True
 			if command.lower() == 'rautoproduce':
@@ -7271,9 +7294,9 @@ class Entity:
 						continue
 					break
 			self.set_produce(item.title(), qty, freq, one_time=one_time, man=man)
-			if command.lower() == 'autoproduceonce':
+			if command.lower() == 'queue' or command.lower() == 'autoproduceonce':
 				self.auto_produce(world.produce_queue.index[-1])
-		elif command.lower() == 'stopautoproduce':
+		elif command.lower() == 'stopautoproduce' or command.lower() == 'stopa':
 			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
 			idx = None
 			while True:
@@ -7913,6 +7936,7 @@ class Entity:
 				'items': 'List of all items in the sim.',
 				'curitems': 'List of all currently available items.',
 				'raw': 'Total raw resources needed to produce an item.',
+				'rawbase': 'Total base raw resources needed to produce an item.',
 				'productivity': 'List all requirements that can be made more efficient.',
 				'hours': 'See hours available for each entity.',
 				'own': 'See items owned for selected entity.',
