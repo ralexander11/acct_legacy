@@ -2272,7 +2272,18 @@ class Entity:
 			release_txns = ledger.gl[(ledger.gl['credit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))] # TODO Is this needed?
 			if v: print('Release TXNs:\n{}'.format(release_txns))
 			in_use_txns = ledger.gl[(ledger.gl['debit_acct'].str.contains('In Use', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			if v: print('All In Use TXNs:\n{}'.format(in_use_txns))
+
+			# Check for Events with WIP in debit but not in credit and exclude those
+			wip_in_use_txns = ledger.gl[(ledger.gl['debit_acct'].str.contains('WIP', na=False)) & (~ledger.gl['credit_acct'].str.contains('WIP', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			if v: print('All WIP In Use TXNs:\n{}'.format(wip_in_use_txns))
+			wip_in_use_txns_cr = ledger.gl[(~ledger.gl['debit_acct'].str.contains('WIP', na=False)) & (ledger.gl['credit_acct'].str.contains('WIP', na=False)) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['event_id'] == event_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]
+			if v: print('WIP In Use TXNs Cr:\n{}'.format(wip_in_use_txns_cr))
+			wip_in_use_txns = wip_in_use_txns[~(wip_in_use_txns['event_id'].isin(wip_in_use_txns_cr['event_id']))]
+			if v: print('WIP In Use TXNs:\n{}'.format(wip_in_use_txns))
+			in_use_txns = in_use_txns[~(in_use_txns['event_id'].isin(wip_in_use_txns['event_id']))]
 			if v: print('In Use TXNs:\n{}'.format(in_use_txns))
+
 			matches = []
 			for _, in_use_txn in in_use_txns.iterrows():
 				match = False
@@ -2308,6 +2319,7 @@ class Entity:
 				release_event += [release_entry]
 		ledger.reset()
 		if v: print('final release event: {}'.format(release_event))
+		if v: print(f'final hold_event_ids for {self.name}:', self.hold_event_ids)
 		return release_event
 
 	def consume(self, item, qty, need=None, buffer=False):
@@ -4485,11 +4497,11 @@ class Entity:
 		# Get list of WIP txns for different item types
 		if items is not None:
 			wip_done_txns = ledger.gl[(ledger.gl['credit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['item_id'].isin(items)) & (~ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
-			print('wip_done_txns for items:\n', wip_done_txns)
+			if v: print('wip_done_txns for items:\n', wip_done_txns)
 			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (ledger.gl['item_id'].isin(items)) & (~ledger.gl['event_id'].isin(rvsl_txns)) & (~ledger.gl['event_id'].isin(wip_done_txns))]
 		else:
 			wip_done_txns = ledger.gl[(ledger.gl['credit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
-			print('wip_done_txns:\n', wip_done_txns)
+			if v: print('wip_done_txns:\n', wip_done_txns)
 			wip_txns = ledger.gl[(ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (ledger.gl['entity_id'] == self.entity_id) & (~ledger.gl['event_id'].isin(rvsl_txns)) & (~ledger.gl['event_id'].isin(wip_done_txns))]
 		if v: print('WIP TXNs: \n{}'.format(wip_txns))
 		if not wip_txns.empty:
@@ -4736,7 +4748,10 @@ class Entity:
 			release_event += self.release(event_id=event_id, v=v)
 			# if v: print('release_event:\n', release_event)
 		ledger.journal_entry(release_event)
-		self.hold_event_ids = []
+		release_event_ids = [row[0] for row in release_event]
+		if v: print('release_event_ids:', release_event_ids)
+		self.hold_event_ids = [x for x in self.hold_event_ids if x not in release_event_ids]
+		if v: print('Release check hold_event_ids:', self.hold_event_ids)
 		self.hold_check()
 
 	def hold_check(self, v=False):
@@ -7722,7 +7737,7 @@ class Entity:
 		elif command.lower() == 'own' or command.lower() == 'o':
 			start_time = timeit.default_timer()
 			ledger.set_entity(self.entity_id)
-			inv = ledger.get_qty(accounts=['Cash', 'Investments', 'Land', 'Buildings', 'Equipment', 'Equipped', 'Inventory', 'WIP Inventory', 'WIP Equipment', 'Building Under Construction', 'Land In Use', 'Buildings In Use', 'Equipment In Use', 'Technology', 'Researching Technology'])
+			inv = ledger.get_qty(accounts=['Cash', 'Investments', 'Land', 'Buildings', 'Equipment', 'Equipped', 'Inventory', 'WIP Inventory', 'WIP Equipment', 'Building Under Construction', 'Land In Use', 'Buildings In Use', 'Equipment In Use', 'Education Expense', 'Technology', 'Researching Technology'])
 			ledger.reset()
 			pd.options.display.float_format = '{:,.2f}'.format
 			print(inv)
