@@ -4017,9 +4017,12 @@ class Entity:
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, wip=False, buffer=False, v=False):
 		# TODO Replace man with self.user
+		item_type = world.get_item_type(item)
+		if item_type == 'Land': # TODO This is a temp hackey fix
+			produce_event = self.claim_land(item, qty, buffer=buffer)
+			return produce_event, False, produce_event[-1][8], False
 		if not self.user:
 			if isinstance(self, Individual):
-				item_type = world.get_item_type(item)
 				if item_type == 'Education':
 					pass
 			elif item not in self.produces: # TODO Should this be kept long term?
@@ -4046,7 +4049,6 @@ class Entity:
 		# 	print('{} cannot hold {} {} it produced.'.format(self.name, qty, item))
 		# 	return [], hold_time_required, hold_max_qty_possible, hold_incomplete
 		# produce_event += in_use_event
-		item_type = world.get_item_type(item)
 		if item_type == 'Subscription':
 			print('Cannot produce a Subscription; will try and order it.')
 			outcome = self.order_subscription(item)
@@ -4372,10 +4374,14 @@ class Entity:
 			index = world.produce_queue.last_valid_index()
 			# print('Last index:', index)
 			result, time_required, max_qty_possible, incomplete = self.produce(item, qty, man=man)
+			if result:  # TODO This is a temp hackey fix
+				if result[-1][9] == 'Land':
+					qty = max_qty_possible
 			if incomplete and max_qty_possible != 0 and one_time:
 				qty = max_qty_possible
 				result, time_required, max_qty_possible, incomplete = self.produce(item, qty, man=man)
 			if result:
+				# print('result qty:', qty)
 				world.produce_queue.loc[index, 'last'] = world.produce_queue.loc[index, 'freq']
 				world.produce_queue.loc[index, 'qty'] -= qty
 				if world.produce_queue.loc[index, 'qty'] <= 0:
@@ -7309,8 +7315,8 @@ class Entity:
 						continue
 					break
 			self.set_produce(item.title(), qty, freq, one_time=one_time, man=man)
-			if command.lower() == 'queue' or command.lower() == 'autoproduceonce':
-				self.auto_produce(world.produce_queue.index[-1])
+			# if command.lower() == 'queue' or command.lower() == 'autoproduceonce':
+			# 	self.auto_produce(world.produce_queue.index[-1])
 		elif command.lower() == 'stopautoproduce' or command.lower() == 'stopa':
 			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
 			idx = None
