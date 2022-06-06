@@ -382,39 +382,61 @@ class MarketData(object):
 			prices_save.to_csv(path, index=False)
 		return prices_save
 
-	def get_financials(self, tickers=None, save=False, v=False):
-		# WARNING! Data weight is 5000 per call
+	def get_financials(self, tickers=None, transpose=True, save=False, v=False):
+		# WARNING! Data weight is 1000 per call
 		if tickers is None:
 			# tickers = 'ws_tickers.csv'
-			tickers = 'tsla'
+			tickers = ['tsla']
 		if '.csv' in tickers:
 			tickers = self.get_symbols(tickers)
 		if isinstance(tickers, str):
 			tickers = [x.strip() for x in tickers.split(',')]
-		base_url = 'https://cloud.iexapis.com/stable/time-series/REPORTED_FINANCIALS/'
+		base_url = 'https://cloud.iexapis.com/stable/time-series/reported_financials/'
 		financials = []
+		financials_save = None
+		if v: print('tickers:', tickers)
 		for ticker in tickers:
 			try:
-				result = pd.read_json(base_url + ticker + '?token=' + self.token, orient='index')
-			except:
+				result = pd.read_json(base_url + ticker + '?token=' + self.token, orient='records')
+				if transpose:
+					print(result)
+					result = result.T
+					print('after:')
+					print(result)
+			except Exception as e:
 				print(self.time_stamp() + 'Error: ' + base_url + ticker + '?token=TOKEN')
+				print('Error Msg: {}'.format(repr(e)))
 				continue
 			if result.empty:
 				print(self.time_stamp() + 'Empty: ' + base_url + ticker + '?token=TOKEN')
 				continue
-			result.reset_index(inplace=True)
+			if not transpose:
+				result.reset_index(inplace=True)
 			result['symbol'] = ticker.upper()
+			try:
+				if transpose:
+					year = result.loc['DocumentFiscalYearFocus'].values[0]
+					quarter = result.loc['DocumentFiscalPeriodFocus'].values[0]
+				else:
+					year = result['DocumentFiscalYearFocus'].values[0]
+					quarter = result['DocumentFiscalPeriodFocus'].values[0]
+				if v: print(year)
+				if v: print(quarter)
+			except KeyError as e:
+				print('Error Msg: {}'.format(repr(e)))
+				year = ''
+				quarter = ''
 			# if v: print('result:\n', result)
 			financials.append(result)
 			financials_save = pd.concat(financials, sort=True)
 			if v: print('financials_save:\n', financials_save)
 			if save:
 				if len(tickers) == 1:
-					path = self.save_location + 'financials/' + str(tickers[0]) + '_financials.csv'
+					path = self.save_location + 'financials/' + str(tickers[0]) + '_financials_' + str(year) + str(quarter) + '.csv'
 				else:
-					path = self.save_location + 'financials/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_financials.csv'
+					path = self.save_location + 'financials/' + str(tickers[0]) + '_to_' + str(tickers[-1]) + '_financials_' + str(year) + str(quarter) + '.csv'
 				print(self.time_stamp() + 'Saved: ', path)
-				financials_save.to_csv(path, index=False)
+				financials_save.to_csv(path)#, index=False)
 		return financials_save
 
 	def get_splits(self, tickers=None, range='1y', save=False, v=False):
@@ -477,6 +499,7 @@ if __name__ == '__main__':
 	parser.add_argument('-d', '--dates', type=str, help='The dates for when to pull data.')
 	parser.add_argument('-e', '--end_points', type=str, help='The end points to pull data.')
 	parser.add_argument('-m', '--mode', type=str, help='The name of the mode to pull data: missing, financials, divs, symbols, batch')
+	parser.add_argument('-v', '--verbose', action='store_true', help='Display the results on the screen.')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	args = parser.parse_args()
 	t0_start = time.perf_counter()
@@ -494,6 +517,7 @@ if __name__ == '__main__':
 		dates = args.dates
 	if args.end_points:
 		args.end_points = [x.strip() for x in args.end_points.split(',')]
+		end_points = args.end_points
 	print('=' * DISPLAY_WIDTH)
 	print(data.time_stamp() + 'Getting data from: {}'.format(source))
 	if args.mode is not None:
@@ -516,7 +540,7 @@ if __name__ == '__main__':
 
 	if args.mode == 'financials':
 		# args.tickers = ['aapl']
-		data.get_financials(args.tickers, save=args.save)
+		data.get_financials(args.tickers, save=args.save, v=args.verbose)
 		exit()
 
 	if args.mode == 'splits':

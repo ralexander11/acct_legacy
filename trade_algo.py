@@ -190,6 +190,16 @@ class TradingAlgo(object):
 							'2021-09-06',
 							'2021-11-25',
 							'2021-12-24',
+
+							'2022-01-17',
+							'2022-02-21',
+							'2022-04-15',
+							'2022-05-30',
+							'2022-06-20',
+							'2022-07-04',
+							'2022-09-05',
+							'2022-11-24',
+							'2022-12-26',
 						]
 
 		# Don't do anything on trade holidays
@@ -536,7 +546,7 @@ class TradingAlgo(object):
 		print(time_stamp() + 'Done predicting price for: {} in: {:,.0f} sec'.format(ticker, (t2_end - t2_start))) # {:,.2f}
 		return pred_quote_df
 
-	def rank_change_percent(self, assets, date=None, tickers=None, predict=False, train=False):
+	def rank_change_percent(self, assets, date=None, tickers=None, predict=False, model_name=None, train=False):
 		t1_start = time.perf_counter()
 		if predict:
 			print('\n' + time_stamp() + 'Running predict future direction algo.')
@@ -583,7 +593,7 @@ class TradingAlgo(object):
 					if isinstance(ticker, float): # xlsx causes last ticker to be nan
 						continue
 					# quote_df = self.future_data(ticker, date=date, merged_data=merged_data, train=train)
-					quote_df = self.future_price(ticker, date=date, train=train, v=True)
+					quote_df = self.future_price(ticker, date=date, model_name=model_name, train=train, v=True)
 					print(time_stamp() + 'Done predicting price for: {} ({} / {}) {:.0f}%'.format(ticker, i, len(tickers), (i/len(tickers)*100)))
 					if quote_df is None:
 						continue
@@ -630,7 +640,7 @@ class TradingAlgo(object):
 			return quote_df
 		return quote_df
 
-	def future_price(self, ticker, date, train=False, v=False):
+	def future_price(self, ticker, date, model_name=None, train=False, v=False):
 		# print('merged_data:\n', merged_data)
 		pred_price = get_fut_price(ticker, date, global_merged_data, model_name=model_name, train=train)
 		if v: print('pred_price:\n', pred_price)
@@ -756,9 +766,9 @@ class TradingAlgo(object):
 				e = e + tmp_n-1
 				if e > len(tickers_repeated):
 					break
-			count = e % 4
+			count = e % (3 + len(model_names))
 			if count == 0:
-				count = 4
+				count = 3 + len(model_names)
 			time.sleep(args.delay)
 			if n > 1:
 				print('\nAlgo Entity:', e)
@@ -791,15 +801,19 @@ class TradingAlgo(object):
 					print('Skipped the first day for perf algo.')
 					rank = pd.DataFrame()
 				algo_type = 'perf'
-			if args.mode == '4' or e == 4 or args.mode == 'pred_dir' or count == 4:
+			if args.mode == '4' or e == 4 or args.mode == 'pred_dir' or count >= 4:
 				# try:
-				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True, train=args.train)
+				model_name = model_names[count-4]
+				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True, model_name=model_name, train=args.train)
 				# except Exception as err:
 				# 	print('Error predicting price:')
 				# 	print(err)
 				# 	print(repr(err))
 				# 	rank = pd.DataFrame()
-				algo_type = 'pred'
+				if count == 4:
+					algo_type = 'pred'
+				else:
+					algo_type = model_name
 			# if args.mode == '5' or e == 5 or args.mode == 'test':
 			# 	rank = self.rank_combined(assets, norm, date, tickers=tickers)
 
@@ -851,7 +865,7 @@ class TradingAlgo(object):
 			else:
 				nav_hist.at[str(date), algo_type] = nav
 			self.set_table(nav_hist, 'nav_hist')
-			if algo_type == 'perf':
+			if algo_type == 'perf' and not trade.sim:
 				date = date_orig
 			print('NAV Hist:\n', nav_hist.tail())
 			print('-' * DISPLAY_WIDTH)
@@ -871,7 +885,7 @@ if __name__ == '__main__':
 	parser.add_argument('-db', '--database', type=str, default='trade01.db', help='The name of the database file.')
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
-	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
+	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each update.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
 	parser.add_argument('-m', '--mode', type=str, default='all', help='The name or number of the algo to run. Or each to run each ticker separately')
@@ -933,7 +947,10 @@ if __name__ == '__main__':
 	# result = algo.future_data('scor', '2018-05-09')
 	# convert_lite(args.tickers)
 	# exit()
-	model_name = args.model_name
+	if args.model_name:
+		model_names = [x.strip() for x in args.model_name.split(',')]
+	else:
+		model_names = [args.model_name]
 
 	if trade.sim:
 		t0_start = time.perf_counter()
@@ -958,9 +975,9 @@ if __name__ == '__main__':
 		# print(accts.coa)
 		n = 1
 		if args.mode == 'all':
-			n = 4
+			n = 3 + len(model_names)
 		elif args.mode == 'each':
-			n = len(args.tickers) * 4
+			n = len(args.tickers) * (3 + len(model_names))
 			print('Mode: {} | Number of entities: {}'.format(args.mode, n))
 		# print('Capital: {}'.format(algo.check_capital(['Cash','Chequing','Investments'])))
 		if algo.check_capital(['Cash','Chequing','Investments']) == 0:
@@ -975,11 +992,11 @@ if __name__ == '__main__':
 					tickers_repeated = list(itertools.chain.from_iterable([ticker, ticker, ticker, ticker] for ticker in args.tickers))
 				# TODO Only assumes it stopped during the 4th algo
 				try:
-					tmp_n = tickers_repeated.index(ticker)+1 + 3 + 4
+					tmp_n = tickers_repeated.index(ticker)+1 + 3 + (3+len(model_names))
 				except NameError as e:
 					tmp_n = None
 			else:
-				tmp_n = 4
+				tmp_n = 3 + len(model_names)
 			date = algo.get_table('date').values[0][0]
 			date_index = dates.index(date)
 			dates = dates[date_index-1:]
@@ -1014,9 +1031,9 @@ if __name__ == '__main__':
 			cap = float(1000)
 		n = 1
 		if args.mode == 'all':
-			n = 4
+			n = 3 + len(model_names)
 		elif args.mode == 'each':
-			n = len(args.tickers) * 4
+			n = len(args.tickers) * (3 + len(model_names))
 		print('Mode: {} | Number of entities: {}'.format(args.mode, n))
 		if not new_db and not args.reset:
 			# date = algo.get_table('date').values[0][0]
@@ -1035,7 +1052,7 @@ if __name__ == '__main__':
 # python trade_algo.py -db first36.db -s 11 -sim -t ws_tickers.xlsx
 
 # python trade_algo.py -db trade03.db -s 11 -t ws_tickers.csv -r
-# python trade_algo.py -db trade02.db -s 11 -t tsla -r
+# python trade_algo.py -db trade02.db -s 11 -t tsla -r -sim -mn "tsla_model, tsla_model2"
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -s 11 -a >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
 

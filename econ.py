@@ -6434,8 +6434,9 @@ class Entity:
 			if not init_debts.empty:
 				if init_debts['qty'].sum() != 0:
 					init_debts = debts.loc[debts['qty'] != 0]
-					debt_item = init_debts.loc[0, 'item_id']
-					amount = -(init_debts.loc[0, 'qty'])
+					init_debts = init_debts.reset_index(drop=True)
+					debt_item = init_debts['item_id'].iloc[0]
+					amount = -(init_debts['qty'].iloc[0])
 					amount = min(amount, 1000)
 					self.repay(amount, item=debt_item)
 				else:
@@ -9439,7 +9440,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ01.db -s 11 -p 4 --early -i items_basic01.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ02.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2022-05-18.db -s 11 -p 4 --early -i items03.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2022-05-18.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 

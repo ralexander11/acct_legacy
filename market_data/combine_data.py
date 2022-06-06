@@ -26,8 +26,8 @@ class CombineData(object):
 				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
 				print(time_stamp() + 'Combine Data: Server')
 			elif os.path.exists('/Users/Robbie/Public/market_data/new/data/'):
-				# self.data_location = '/Users/Robbie/Public/market_data/new/data/'
-				self.data_location = '/Users/Robbie/Public/market_data/test_data/'
+				self.data_location = '/Users/Robbie/Public/market_data/new/data/'
+				# self.data_location = '/Users/Robbie/Public/market_data/test_data/'
 			else:
 				# self.data_location = '../market_data/data/'
 				self.data_location = '../market_data/test_data/'
