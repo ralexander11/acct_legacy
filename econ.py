@@ -567,10 +567,10 @@ class World:
 			unused_land = ledger.get_qty(items=item, accounts=accounts, by_entity=True)
 		if entity_id is not None:
 			if v: print('Unused land of the world: \n{}'.format(unused_land))
-		elif item is None:
-			if v: print('Unused land claimed by the following entities: \n{}'.format(unused_land))
 		elif all_land:
 			if v: print('All land claimed by the following entities: \n{}'.format(unused_land))
+		elif item is None:
+			if v: print('Unused land claimed by the following entities: \n{}'.format(unused_land))
 		else: # TODO Other string combinations
 			if v: print('Unused {} claimed by the following entities: \n{}'.format(item, unused_land))
 		if entity_id is not None:
@@ -1452,7 +1452,13 @@ class World:
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 		for entity in factory.get(users=False):
 			print(time_stamp() + f'Demand List Check for: {entity.name}')
-			entity.check_demand(multi=True, others=not isinstance(entity, Individual))
+			while True:
+				if self.end_turn(check_hrs=True, user_check=user_check): return
+				tmp_demand = world.demand
+				entity.check_demand(multi=True, others=not isinstance(entity, Individual))
+				if tmp_demand is world.demand:
+					print(time_stamp() + f'No change in demand for: {entity.name}')
+					break
 			if isinstance(entity, Individual) and not entity.user:
 				entity.address_needs(obtain=False, v=False)
 			entity.check_inv()
@@ -1533,6 +1539,8 @@ class World:
 				entity.release_check()#v=True)
 		print()
 		self.get_hours(v=True)
+		print()
+		world.unused_land(all_land=True)
 		print()
 		for typ in factory.registry.keys():
 			for entity in factory.get(typ):
@@ -5331,7 +5339,8 @@ class Entity:
 			if qty == 0:
 				continue
 			if isinstance(self, Corporation):
-				qty = math.ceil(qty / MAX_CORPS)
+				if qty > 10:
+					qty = math.ceil(qty / MAX_CORPS)
 			print()
 			print(time_stamp() + 'Current Date when Checking Demand: {}'.format(world.now))
 			print('{} attempting to produce {} {} from the demand table. Max Corps: {}'.format(self.name, qty, item, MAX_CORPS))
@@ -9373,8 +9382,8 @@ if __name__ == '__main__':
 		command = args.command
 	USE_PIN = args.pin
 
-	print(time_stamp() + 'Start Econ Sim | Governments: {} | Population per Gov: {}'.format(args.governments, args.population))
 	print(time_stamp() + str(sys.argv))
+	print(time_stamp() + 'Start Econ Sim | Governments: {} | Population per Gov: {}'.format(args.governments, args.population))
 	if args.players:
 		print(time_stamp() + 'Play the sim as a government by entering commands. Type "help" for more info.')
 		if args.players == -1:
@@ -9440,7 +9449,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2022-05-18.db -s 11 -p 4 --early -i items03.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2022-05-18.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2022-07-26.db -s 11 -p 4 --early -i items03.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2022-07-26.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 

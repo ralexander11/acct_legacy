@@ -21,6 +21,7 @@ pd.set_option('display.max_rows', 30)
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
 # random.seed(11)
+END_DATE = None
 WK52_REDUCE = 1 #10 # No longer needed
 
 def time_stamp(offset=0):
@@ -801,7 +802,7 @@ class TradingAlgo(object):
 					print('Skipped the first day for perf algo.')
 					rank = pd.DataFrame()
 				algo_type = 'perf'
-			if args.mode == '4' or e == 4 or args.mode == 'pred_dir' or count >= 4:
+			if args.mode == '4' or e >= 4 or args.mode == 'pred_dir' or count >= 4:
 				# try:
 				model_name = model_names[count-4]
 				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True, model_name=model_name, train=args.train)
@@ -810,8 +811,11 @@ class TradingAlgo(object):
 				# 	print(err)
 				# 	print(repr(err))
 				# 	rank = pd.DataFrame()
-				if count == 4:
-					algo_type = 'pred'
+				if count == 4 or e == 4:
+					if model_name is None:
+						algo_type = 'pred'
+					else:
+						algo_type = model_name
 				else:
 					algo_type = model_name
 			# if args.mode == '5' or e == 5 or args.mode == 'test':
@@ -861,7 +865,6 @@ class TradingAlgo(object):
 			print('Portfolio at End of Day: \n{}'.format(portfolio))
 			if not trade.sim and algo_type == 'perf' and first:
 				nav_hist.at[str(date_orig), algo_type] = None
-				# pass
 			else:
 				nav_hist.at[str(date), algo_type] = nav
 			self.set_table(nav_hist, 'nav_hist')
@@ -887,8 +890,9 @@ if __name__ == '__main__':
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
 	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each update.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
+	parser.add_argument('-end', '--end_days', type=int, help='The number of days the sim will run for.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
-	parser.add_argument('-m', '--mode', type=str, default='all', help='The name or number of the algo to run. Or each to run each ticker separately')
+	parser.add_argument('-m', '--mode', type=str, default='all', help='The name or number of the algo to run. Or input "each" to run each ticker separately')
 	parser.add_argument('-norm', '--norm', action="store_true", help='Normalize stock prices in algo rankings.')
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the trading sim!')
@@ -954,6 +958,9 @@ if __name__ == '__main__':
 
 	if trade.sim:
 		t0_start = time.perf_counter()
+		# if args.end_days is not None:
+		# 	END_DATE = (dt.datetime(date[1]).date() + dt.timedelta(days=args.end_days)).strftime('%Y-%m-%d')
+		# 	print(time_stamp() + 'Trade Sim will end after {} days on {}.'.format(args.end_days, END_DATE))
 		cap = args.capital
 		if cap is None:
 			cap = float(1000)
@@ -961,9 +968,15 @@ if __name__ == '__main__':
 		if (args.delay is not None) and (args.delay != 0):
 			print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))
 		data_path = algo.data_location + 'quote/*.csv.gz'
+		fnames = glob.glob(data_path)
+		if not fnames:
+			data_path = algo.data_location + 'quote/*.csv'
 		dates = []
-		for fname in glob.glob(data_path):
-			fname_date = os.path.basename(fname)[-17:-7]
+		for fname in fnames:
+			if '.gz' in fname:
+				fname_date = os.path.basename(fname)[-17:-7]
+			else:
+				fname_date = os.path.basename(fname)[-14:-4]
 			dates.append(fname_date)
 		# print('dates len1:', len(dates))
 		if args.since:
@@ -1004,9 +1017,9 @@ if __name__ == '__main__':
 			print('nav_hist load:\n', nav_hist)
 		else:
 			tmp_n = None
+			nav_hist = pd.DataFrame()
+			nav_hist.index.rename('date', inplace=True)
 		first = True
-		nav_hist = pd.DataFrame()
-		nav_hist.index.rename('date', inplace=True)
 		merged = 'merged.csv'
 		print(time_stamp() + f'Loading combined data from: {combine_data.data_location + merged}')
 		global_merged_data = pd.read_csv(combine_data.data_location + merged)
@@ -1017,8 +1030,13 @@ if __name__ == '__main__':
 			try:
 				algo.main(date, dates, args.norm, n=n, first=first, tmp_n=tmp_n)
 			except FileNotFoundError as e:
-				print(time_stamp() + 'No data for prior date: {}'.format(date))
+				print(time_stamp() + 'No data for date prior to: {}'.format(date))
 				# print(time_stamp() + 'Error: {}'.format(repr(e)))
+			# if END_DATE is not None: # For debugging
+			# 	days_left = dt.datetime.strptime(date, '%Y-%m-%d').date() - dt.datetime.strptime(END_DATE, '%Y-%m-%d').date()
+			# 	print(f'Days left: {days_left}')
+			# 	if date == dt.datetime.strptime(END_DATE, '%Y-%m-%d').date():
+			# 		break
 		print('-' * DISPLAY_WIDTH)
 		ledger.print_bs() # Display final bs
 		t0_end = time.perf_counter()
