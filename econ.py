@@ -6309,23 +6309,23 @@ class Entity:
 		if not incomplete:
 			return pay_subscription_event
 
-	 # For testing
-	def collect_material(self, item, qty=1, price=None, account='Inventory'):
+	 # For testing and Jones (was collect_material())
+	def spawn_item(self, item, qty=1, price=None, counterparty=self, account='Inventory'):
 		if price is None:
 			price = world.get_price(item, 0)
-		collect_mat_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Forage ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
-		collect_mat_event = [collect_mat_entry]
-		ledger.journal_entry(collect_mat_event)
-		return collect_mat_event
+		spawn_item_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Spawn ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
+		spawn_item_event = [spawn_item_entry]
+		ledger.journal_entry(spawn_item_event)
+		return spawn_item_event
 
-	 # For testing
-	def find_item(self, item, qty=1, price=None, account='Equipment'):
+	 # For testing (was find_item())
+	def spawn_equip(self, item, qty=1, price=None, counterparty=self, account='Equipment'):
 		if price is None:
 			price = world.get_price(item, 0)
-		find_item_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Find ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
-		find_item_event = [find_item_entry]
-		ledger.journal_entry(find_item_event)
-		return find_item_event
+		spawn_equip_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Spawn Equipment ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
+		spawn_equip_event = [spawn_equip_entry]
+		ledger.journal_entry(spawn_equip_event)
+		return spawn_equip_event
 
 	def deposit(self, amount, counterparty=None):
 		# TODO Make only one bank allowed per gov and auto select that bank entity as the counter party
@@ -9367,6 +9367,7 @@ if __name__ == '__main__':
 	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
 	parser.add_argument('-early', '--early', action='store_true', help='Automatically end the turn when no hours left when not in user mode.')
 	parser.add_argument('-auto', '--auto', action='store_true', help='Automatically run prepared commands when in user mode.')
+	parser.add_argument('-j', '--jones', action='store_true', help='Enable game mode like Jones in the Fast Lane.')
 	# TODO Add argparse for setting win conditions
 	# User would choose one or more goals for Wealth, Tech, Population, Land
 	# Or a time limit, with the highest of one or more of the above
