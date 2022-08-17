@@ -214,6 +214,18 @@ class World:
 				self.indiv_items_produced = ', '.join(self.indiv_items_produced)
 				print('\nCreate founding population for government {}.'.format(gov.entity_id))
 				print('{} | Interest Rate: {}'.format(gov.bank, gov.bank.interest_rate))
+				if args.jones:
+					# Get list of businesses from items data
+					self.businesses = []
+					for index, producers in self.items['producer'].iteritems():
+						if producers is not None:
+							if isinstance(producers, str):
+								producers = [x.strip() for x in producers.split(',')]
+							self.businesses += producers
+					self.businesses = list(collections.OrderedDict.fromkeys(filter(None, self.businesses)))
+					self.businesses.remove('Individual')
+					self.businesses.remove('Bank')
+					print('Businesses:', self.businesses)
 				user_count = args.users
 				for person in range(1, self.population + 1):
 					print('\nPerson: {}'.format(person))
@@ -1206,6 +1218,15 @@ class World:
 						individual.loan(amount=self.start_capital, roundup=False)
 				self.gov = factory.get(Government)[0]
 				print('Start Government: {}'.format(self.gov))
+				if args.jones:
+					for business in self.businesses:
+						gov.incorporate(name=business)
+
+					ledger.set_entity(self.gov.bank.entity_id)
+					bank_cash = ledger.balance_sheet(['Cash'])
+					ledger.reset()
+					print('Central Bank Cash:', bank_cash)
+
 				self.checkpoint_entry(eod=False, save=True)
 
 			# Save prior days tables: entities, prices, demand, delay, produce_queue
@@ -1301,6 +1322,11 @@ class World:
 				# 	entity.wip_check()
 				# 	t3_7_end = time.perf_counter()
 				# 	print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
+				if isinstance(entity, Corporation):
+					t3_7_start = time.perf_counter()
+					entity.maintain_inv()
+					t3_7_end = time.perf_counter()
+					print(time_stamp() + '3.7: Inv check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
 			t3_end = time.perf_counter()
 			print(time_stamp() + '3: Entity check took {:,.2f} min.'.format((t3_end - t3_start) / 60))
 			print()
@@ -1453,7 +1479,9 @@ class World:
 		for entity in factory.get(users=False):
 			print(time_stamp() + f'Demand List Check for: {entity.name}')
 			while True:
-				if self.end_turn(check_hrs=True, user_check=user_check): return
+				# if self.end_turn(check_hrs=True, user_check=user_check): return
+				if self.get_hours(total=True) == 0:
+					break
 				tmp_demand = world.demand
 				entity.check_demand(multi=True, others=not isinstance(entity, Individual))
 				if tmp_demand is world.demand:
@@ -4892,6 +4920,8 @@ class Entity:
 			if self.hours < INC_TIME:
 				print('{} does not have enough time to incorporate {}. Requires a full day of {} hours.'.format(self.name, name, INC_TIME))
 				return
+		elif isinstance(self, Government):
+			pass
 		else:
 			largest_shareholder_id = self.list_shareholders(largest=True)
 			if largest_shareholder_id is None:
@@ -4904,7 +4934,7 @@ class Entity:
 				return
 		if price is None:
 			price = 1
-		if qty is None and founders is None:
+		if qty is None and founders is None and item is not None:
 			# qty = 5000 # TODO Fix temp defaults
 			demand_qty = world.demand.loc[world.demand['item_id'] == item]['qty'].sum()
 			raw_mats = self.get_raw(item, demand_qty)
@@ -4912,8 +4942,14 @@ class Entity:
 			print(f'{item} ({demand_qty}) incorp amount: {qty}')
 		if auth_qty is None:
 			auth_qty = 100000 # TODO Determine dynamically?
+		if qty is None:
+			qty = 5000 # TODO Fix temp defaults
 		if founders is None:
-			founders = {self: qty}
+			if args.jones:
+				if isinstance(self, Government):
+					founders = {self.bank: qty}
+			else:
+				founders = {self: qty}
 		if qty is None:
 			qty = sum(founders.values())
 		entities = accts.get_entities()
@@ -4957,10 +4993,11 @@ class Entity:
 			self.auth_shares(name, auth_qty, counterparty)
 			for founder, qty in founders.items():
 				founder.buy_shares(name, price, qty, counterparty)
-		if entity is None:
-			self.set_hours(INC_TIME)
-		else:
-			entity.set_hours(INC_TIME)
+		if INC_TIME:
+			if entity is None:
+				self.set_hours(INC_TIME)
+			else:
+				entity.set_hours(INC_TIME)
 		return corp
 
 	def corp_needed(self, item=None, qty=0, need=None, ticker=None, demand_index=None, v=False):
@@ -6310,7 +6347,9 @@ class Entity:
 			return pay_subscription_event
 
 	 # For testing and Jones (was collect_material())
-	def spawn_item(self, item, qty=1, price=None, counterparty=self, account='Inventory'):
+	def spawn_item(self, item, qty=1, price=None, counterparty=None, account='Inventory'):
+		if counterparty is None:
+			counterparty = self
 		if price is None:
 			price = world.get_price(item, 0)
 		spawn_item_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Spawn ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
@@ -6319,7 +6358,9 @@ class Entity:
 		return spawn_item_event
 
 	 # For testing (was find_item())
-	def spawn_equip(self, item, qty=1, price=None, counterparty=self, account='Equipment'):
+	def spawn_equip(self, item, qty=1, price=None, counterparty=None, account='Equipment'):
+		if counterparty is None:
+			counterparty = self
 		if price is None:
 			price = world.get_price(item, 0)
 		spawn_equip_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Spawn Equipment ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
@@ -7569,7 +7610,7 @@ class Entity:
 			self.emancipation()
 		elif command.lower() == 'changegov':
 			if isinstance(self, Government):
-				print('{} is a Govnernment and cannot change change allegiance.'.format(self.name))
+				print('{} is a Government and cannot change change allegiance.'.format(self.name))
 				return
 			while True:
 				try:
@@ -8156,6 +8197,8 @@ class Individual(Entity):
 		self.pregnant = None
 		self.hold_event_ids = []
 		self.prod_hold = []
+		if args.jones:
+			self.lose_time = False
 		self.setup_needs(entity_data)
 		for need in self.needs:
 			print('{} {} need start: {}'.format(self.name, need, self.needs[need]['Current Need']))
@@ -8186,6 +8229,11 @@ class Individual(Entity):
 
 	def reset_hours(self):
 		self.hours = MAX_HOURS
+		if args.jones:
+			if self.lose_time:
+				print(f'{self.name} lost time due to not satisfying immediate needs!')
+				self.hours = MAX_HOURS / 2
+			self.lose_time = True
 		return self.hours
 
 	def setup_needs(self, entity_data):
@@ -8763,7 +8811,10 @@ class Individual(Entity):
 						ledger.reset()
 						#print('QTY Held: {}'.format(qty_held))
 				if qty_held:
-					self.consume(item_choosen, min(qty_needed, qty_held), need)
+					result = self.consume(item_choosen, min(qty_needed, qty_held), need)
+					if args.jones:
+						if result:
+							self.lose_time = False
 				break
 
 			elif item_type == 'Equipment':
@@ -9014,6 +9065,25 @@ class Corporation(Organization):
 		for investor, qty in investors.items():
 			investor.buy_shares(self.name, price, qty, self)
 
+	# TODO Maybe move to Entity class
+	def maintain_inv(self, v=True):
+		if v: print('maintain_inv:')
+		for item_id in self.produces:
+			if v: print(item_id)
+			qty = 10
+			item_type = world.get_item_type(item_id)
+			if v: print('item_type:', item_type)
+			if item_type in ['Commodity', 'Components']:
+				qty = 1000
+			ledger.set_entity(self.entity_id)
+			inv_qty = ledger.get_qty(items=item_id, accounts=['Inventory'])
+			if inv_qty < qty:
+				qty = qty - inv_qty
+				if args.jones:
+					self.spawn_item(item_id, qty)
+				else:
+					self.produce(item_id, qty)
+
 class Government(Organization):
 	def __init__(self, name, items=None, user=False, entity_id=None):
 		super().__init__(name) # TODO Is this needed?
@@ -9037,6 +9107,8 @@ class Government(Organization):
 			user = False
 		self.user = user
 		self.government = self.entity_id
+		if args.jones:
+			self.founder = self.entity_id # TODO Clean up
 		self.hold_event_ids = []
 		self.auto_wip = True
 		self.auto_done = False
@@ -9366,7 +9438,6 @@ if __name__ == '__main__':
 	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
 	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
 	parser.add_argument('-early', '--early', action='store_true', help='Automatically end the turn when no hours left when not in user mode.')
-	parser.add_argument('-auto', '--auto', action='store_true', help='Automatically run prepared commands when in user mode.')
 	parser.add_argument('-j', '--jones', action='store_true', help='Enable game mode like Jones in the Fast Lane.')
 	# TODO Add argparse for setting win conditions
 	# User would choose one or more goals for Wealth, Tech, Population, Land

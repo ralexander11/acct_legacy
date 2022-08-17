@@ -2044,9 +2044,10 @@ def main(conn=None, command=None, external=False):
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital each player to start with.')
 	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	parser.add_argument('-P', '--players', type=int, nargs='?', const=-1, help='Play the sim as a government!')
-	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
 	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
-	parser.add_argument('-auto', '--auto', action='store_true', help='Automatically run prepared commands when in user mode.')
+	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
+	parser.add_argument('-early', '--early', action='store_true', help='Automatically end the turn when no hours left when not in user mode.')
+	parser.add_argument('-j', '--jones', action='store_true', help='Enable game mode like Jones in the Fast Lane.')
 	args = parser.parse_args()
 	print(str(sys.argv))
 
