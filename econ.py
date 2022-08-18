@@ -526,9 +526,12 @@ class World:
 		if v: print(time_stamp() + 'Econ Graph made.')
 		return self.G
 
-	def setup_prices(self, v=True):
+	def setup_prices(self, infile=None, v=True):
 		# TODO Maybe make self.prices a multindex with item_id and entity_id
 		self.prices = pd.DataFrame(columns=['entity_id','price'])
+		if infile is not None:
+			self.prices = accts.load_csv(infile)
+			# TODO load prices from file
 		self.prices.index.name = 'item_id'
 		if v: print('\nSetup Prices: \n{}'.format(self.prices))
 		return self.prices
@@ -1163,10 +1166,17 @@ class World:
 			self.set_table(self.prices, 'prices')
 			return cur_price
 		if new: # Base case
+			# Get optional default start price in items data
+			price = self.items.loc[item, 'start_price']
+			if price is not None:
+				price = float(price)
+				print(f'{item} has a default start price of: {price}')
+				return price
+
 			item_type = world.get_item_type(item)
 			if item_type in ['Education', 'Technology'] or item == 'Study' or item == 'Research':
 				return 0.0
-			print('No price seen for {} yet. Will use global default: {}'.format(item, INIT_PRICE))
+			print(f'No price seen for {item} yet. Will use global default: {INIT_PRICE}')
 			return INIT_PRICE
 		#print('Current Prices: \n{}'.format(current_prices))
 		price = current_prices['price'].min()

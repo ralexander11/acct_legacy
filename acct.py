@@ -241,6 +241,7 @@ class Accounts:
 				res text,
 				byproduct text,
 				byproduct_amt text,
+				start_price text,
 				producer text
 			);
 			''' # Metric can have values of 'ticks' or 'units' or 'spoilage'
@@ -271,6 +272,7 @@ class Accounts:
 				res,
 				byproduct,
 				byproduct_amt,
+				start_price,
 				producer
 				) VALUES (
 					'credit_line_01',
@@ -292,6 +294,7 @@ class Accounts:
 					NULL,
 					3650,
 					'ticks',
+					NULL,
 					NULL,
 					NULL,
 					NULL,
@@ -445,19 +448,20 @@ class Accounts:
 			res = input('Enter the list of amounts of damage resilience (if any) the item has: ')
 			byproduct = input('Enter the list of byproducts created (if any) when this item is produced: ')
 			byproduct_amt = input('Enter the list of amount of byproducts created (if any) when this item is produced: ')
+			start_price = input('Enter an optional start price for the item: ')
 			producer = input('Enter the producer of the item: ')
 
-			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,fulfill,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer)
-			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
+			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,fulfill,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,start_price,producer)
+			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 
 		else:
 			for item in item_data:
 				try:
-					item = item + ([None] * (26 - len(item)))
+					item = item + ([None] * (27 - len(item)))
 				except TypeError:
 					pass
 				item = tuple(map(lambda x: np.nan if x == 'None' else x, item))
-				insert_sql = 'INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+				insert_sql = 'INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
 				cur.execute(insert_sql, item)
 
 		self.conn.commit()
@@ -569,7 +573,7 @@ class Accounts:
 
 	def print_items(self, save=True): # TODO Add error checking if no items exist
 		#self.items = pd.read_sql_query('SELECT * FROM items;', self.conn, index_col=['item_id'])
-		self.items = get_items()
+		self.items = self.get_items()
 		if save:
 			self.items.to_csv('data/items.csv', index=True)
 		with pd.option_context('display.max_rows', None, 'display.max_columns', None):

@@ -1,138 +1,138 @@
-item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,fulfill,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,producer
-Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Study,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-#Exploration,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Job,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Buildings,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Subscription,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Service,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Components,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Education,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Technology,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Government,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Governmental,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Environment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Land,1,50000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Grassland,1,5000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Arable Land,1,10000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Forest,1,10000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Rocky Land,1,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Mountain,1,2000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Wetlands,1,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Lumberjack,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Miner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Tanner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Water Forage,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Fresh Water,None,None,None,Commodity,"Land, Water Forage","1, 3",None,None,None,None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,Individual
-Forage,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Berries,None,None,None,Commodity,"Land, Forage","5, 3",None,None,None,None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Individual
-Basket Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Basket,None,None,start,Equipment,Basket Weaving,18,12,None,None,None,None,None,None,None,Forage,0.5,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Water Skin,None,None,start,Equipment,"Tanner, Wild Leather","10, 2",10,None,None,None,None,None,None,None,Water Forage,0.5,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Strength,None,None,None,Education,"Study, Rock","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
-Hunter,None,None,None,Labour,Strength,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Wild Meat,None,None,None,Commodity,"Land, Hunter","15, 12",None,None,None,None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,Individual
-Wild Leather,None,None,None,Commodity,"Land, Hunter","15, 12",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Individual
-Ranged Weapon,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Bow And Arrow,None,None,continuous,Ranged Weapon,"Wood, Wild Leather","2, 1",1,None,None,None,None,None,None,None,Hunter,0.25,"100, 1000","usage, equipped",None,100,None,10,None,None,Individual
-Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Harvesting,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Spinning,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Basic Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator","12, 1, 1",None,None,None,None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,Farm
-Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water","8, 1, 1, 1",None,None,None,None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,Farm
-Rancher,None,None,None,Labour,Cultivator,5,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-#Cow,"Land, Rancher","100, 40",animal,Equipment,"Land, Cow, Rancher","10, 2, 1",10,Land,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
-#Milk,None,None,None,Commodity,"Cow, Rancher","1, 1",None,None,None,None,None,None,"Thirst, Hunger","2, 3",None,None,None,None,None,None,None,None,None,None,Ranch
-Gestation,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Beef Cow,"Land, Rancher","100, 1",animal,Commodity,"Gestation, Land, Beef Cow, Rancher","3, 10, 2, 1",None,Land,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
-#Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,Ranch
-Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,Ranch
-#Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,Farm
-#Drift Wood,None,None,None,Commodity,"Forest, Forage","1, 0.1",None,None,None,None,None,Wood,None,None,None,None,None,None,None,1,None,10,None,None,Individual
-Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,Lumbermill
-Clay,None,None,None,Commodity,"Wetlands, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,None,None,"Quarry, Mine"
-Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,None,None,"Quarry, Mine"
-Ore,None,None,None,Commodity,"Mountain, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,Mine
-Bellows,None,None,None,Components,"Wild Leather, Wood","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,Blacksmith
-Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","4, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Farm
-Yarn,None,None,None,Commodity,"Cotton, Spinning","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill
-Cloth,None,None,None,Commodity,"Yarn, Weaving","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Textile Mill
-Cotton Gin,None,None,start,Equipment,"Metal, Wood","2, 30",10,None,None,None,None,None,None,None,None,None,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
-Cotton Spinner,None,None,start,Equipment,"Metal, Wood, Cotton Gin","2, 30, 1",100,None,None,Cotton Gin,1,None,None,None,Spinning,0.50,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
-Tailor,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Clothing,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Basic Clothing,None,None,continuous,Clothing,"Cloth, Tailor","2, 10",1,None,None,None,None,None,Clothing,2,None,None,100,equipped,None,None,None,10,None,None,Textile Mill
-Small Tent,None,None,start,Equipment,"Cloth, Wood","2, 20",1,None,None,None,None,None,Shelter,5,None,None,"100, 2000","usage, ticks",None,None,None,10,None,None,Textile Mill
-#Leather Clothing,None,None,continuous,Clothing,"Leather, Tanner","20, 10",1,None,None,None,None,None,Clothing,1,None,None,100,equipped,None,None,None,40,None,None,Individual
-Forge,None,None,continuous,Equipment,"Bellows, Wood, Rock, Clay","1, 5, 30, 15",100,None,None,None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,Blacksmith
-Metal Working,None,None,None,Technology,"Time","100",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
-Metal,None,None,None,Commodity,"Metal Working, Forge, Ore","1, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,Smelter
-Anvil,None,None,continuous,Equipment,"Time, Land, Metal","2, 1, 50",1,"Land","2",None,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,Blacksmith
-Loom,None,None,start,Equipment,"Metal, Wood, Cloth","5, 50, 10",10,None,None,Cotton Gin,1,None,None,None,Weaving,0.50,"100, 2000","usage, ticks",None,None,None,100,None,None,Carpenter
-Pickaxe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Miner,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Axe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Lumberjack,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Shovel,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Cultivator,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-Hoe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Harvesting,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,Individual
-#Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
-Water Well,None,None,continuous,Equipment,"Land, Rock, Wood","10, 100, 20",4,Land,10,None,None,None,None,None,None,None,30,ticks,None,None,None,100,None,None,Well
-Water,None,None,None,Subscription,"Water Well","1",None,None,None,None,None,None,Thirst,100,None,None,None,None,None,None,None,None,None,None,Well
-Carpenter,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Toy,None,None,continuous,Equipment,Wood,10,None,None,None,None,None,None,Fun,10,None,None,"100, 200","usage, ticks",None,None,None,20,None,None,Carpenter
-Plow,None,None,start,Equipment,"Metal Working, Blacksmither, Metal, Wood","1, 1, 10, 20",12,None,None,None,None,None,None,None,Cultivator,0.5,"10, 100","usage, ticks",None,None,None,100,None,None,Blacksmith
-Pottery Wheel,None,None,continuous,Equipment,"Metal Working, Carpenter, Metal, Wood","1, 1, 10, 200",1,None,None,None,None,None,None,None,None,None,"40, 100","usage, ticks",None,None,None,80,None,None,Carpenter
-#Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-#Haircut,None,None,None,Service,Barber,1,None,None,None,None,None,None,Hygiene,100,None,None,None,None,None,None,None,None,None,None,Barber Shop
-Harvest,None,None,None,Service,Harvesting,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Harvest Guild
-#Manager,None,None,None,Job,Reading,1,2000,None,None,Paper,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-#Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,None,None,None,50,usage,None,None,None,50,None,None,Blacksmith
-#Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
-#Metal Working,None,None,None,Technology,"Time, Forge","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, Blacksmith" 
-Blacksmith Shop,None,None,continuous,Buildings,"Time, Land, Wood, Rock","2, 100, 100, 60",1,Land,100,None,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
-Blacksmither,None,None,None,Labour,Strength,5,2000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Wire,None,None,None,Commodity,"Metal Working, Metal","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Blacksmith
-Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,Lumbermill
-#Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",100,ticks,None,None,None,100,None,None,Blacksmith
-Hydroponics,None,None,continuous,Equipment,"Engineer, Wood, Metal","6, 100, 40",200,Land,10,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",100,ticks,None,None,None,100,None,None,Blacksmith
-Math,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
-Melee Weapon,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Sword,None,None,continuous,Melee Weapon,Metal,10,1,None,None,None,None,None,None,None,None,None,"100, 1000","usage, equipped",None,100,None,10,None,None,Blacksmith
-Armour,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Leather Armour,None,None,continuous,Armour,Leather,10,1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,50,None,None,Blacksmith
-Chain Mail,None,None,continuous,Armour,"Metal, Leather, Blacksmither","20, 2, 20",1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,100,None,None,Blacksmith
-Scale Mail,None,None,continuous,Armour,"Metal, Leather, Blacksmither","40, 2, 30",1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,1000,None,None,Blacksmith
-Plate Armour,None,None,continuous,Armour,"Metal, Leather, Blacksmither","80, 2, 40",1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,10000,None,None,Blacksmith
-Electricity,None,None,None,Technology,"Time, Metal Working","100, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, Blacksmith"
-Robot Plow,None,None,start,Equipment,"Electricity, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 12, 20, 40",12,None,None,None,None,None,None,None,Cultivator,1,20,usage,None,None,None,10000,None,None,Blacksmith
-Super Food,None,None,None,Commodity,"Time, Super Tech, Arable Land, Cultivator, Water","7, 1, 400, 0.1, 1",None,None,None,None,None,None,Hunger,10,None,None,21,spoilage,None,None,None,1,None,None,Individual
-Super Tech,None,None,None,Technology,"Time, Metal Working","100, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
-#Engineer,None,None,None,Labour,"Electronics Class, Blacksmither","16, 1",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Engineer,None,None,None,Labour,Electronics Class,16,1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-University,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-University Campus,None,None,continuous,Buildings,"University, Land, Wood, Rock","100, 100, 100",10,Land,100,None,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,University
-Electronics Class,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
-#Electronics Class,None,None,None,Education,"Study, University Campus","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
-Robot Lumberjack,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,None,None,None,Lumberjack,1,200,usage,None,None,None,10000,None,None,Blacksmith
-Robot Miner,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,None,None,None,Miner,1,200,usage,None,None,None,10000,None,None,Blacksmith
-Robot Rancher,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,None,None,None,Rancher,1,200,usage,None,None,None,10000,None,None,Blacksmith
-3D Printer,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,None,None,None,Carpenter,1,200,usage,None,None,None,10000,None,None,Blacksmith
-Robot Blacksmither,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 400, 800",12,None,None,None,None,None,None,None,Blacksmither,1,1000,usage,None,None,None,10000,None,None,Blacksmith
-#House,None,None,continuous,Buildings,"Time, Land, Wood, Rock","3, 100, 200, 100",5,Land,100,None,None,None,Shelter,100,None,None,10000,ticks,None,None,None,1000,None,None,Construction Company
-Shares,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Init Capital,0,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
-Credit Line 5,0.05,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
-Final Tech,None,None,repeatable,Technology,"Time, Super Tech, Electricity","100, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
-#
-#Factory,None,None,continuous,Buildings,"Land, Wood, Rock","100, 10, 6",100,Land,100,None,None,,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
-#Replicator,None,None,continuous,Equipment,"Factory, Wood, Rock","1, 10, 4",20,Factory,1,None,None,,None,None,None,None,100,ticks,None,None,None,100,None,None,Blacksmith
-#Widget,None,None,continuous,Components,"Replicator, Rock","1, 1",None,None,None,None,None,,None,None,None,None,None,None,None,None,None,10,None,None,Blacksmith
-#Factory2,None,None,continuous,Buildings,"Land, Rock, Wood","1, 1, 1",1,Land,1,None,None,,None,None,None,None,1000,ticks,None,None,None,1000,None,None,Construction Company
-#Replicator2,None,None,continuous,Equipment,"Factory2, Wood, Rock","10, 10, 4",20,Factory2,10,None,None,,None,None,None,None,100,ticks,None,None,None,100,None,None,Blacksmith
-#Widget2,None,None,continuous,Components,"Replicator2, Rock","1, 1",None,None,None,None,None,,None,None,None,None,None,None,None,None,None,10,None,None,Blacksmith
+item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,fulfill,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,start_price,producer
+Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Study,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+#Exploration,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Job,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Buildings,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Subscription,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Service,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Components,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Education,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Technology,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Government,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Governmental,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Environment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Land,1,50000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Grassland,1,5000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Arable Land,1,10000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Forest,1,10000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Rocky Land,1,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Mountain,1,2000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Wetlands,1,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Lumberjack,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Miner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Tanner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Water Forage,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Fresh Water,None,None,None,Commodity,"Land, Water Forage","1, 3",None,None,None,None,None,None,Thirst,1,None,None,None,None,None,None,None,None,None,None,None,Individual
+Forage,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Berries,None,None,None,Commodity,"Land, Forage","5, 3",None,None,None,None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,None,Individual
+Basket Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Basket,None,None,start,Equipment,Basket Weaving,18,12,None,None,None,None,None,None,None,Forage,0.5,"50, 2000","usage, ticks",None,None,None,100,None,None,None,Individual
+Water Skin,None,None,start,Equipment,"Tanner, Wild Leather","10, 2",10,None,None,None,None,None,None,None,Water Forage,0.5,"50, 2000","usage, ticks",None,None,None,100,None,None,None,Individual
+Strength,None,None,None,Education,"Study, Rock","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+Hunter,None,None,None,Labour,Strength,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Wild Meat,None,None,None,Commodity,"Land, Hunter","15, 12",None,None,None,None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,None,Individual
+Wild Leather,None,None,None,Commodity,"Land, Hunter","15, 12",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Individual
+Ranged Weapon,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Bow And Arrow,None,None,continuous,Ranged Weapon,"Wood, Wild Leather","2, 1",1,None,None,None,None,None,None,None,Hunter,0.25,"100, 1000","usage, equipped",None,100,None,10,None,None,None,Individual
+Cultivator,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Harvesting,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Spinning,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Basic Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator","12, 1, 1",None,None,None,None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water","8, 1, 1, 1",None,None,None,None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+Rancher,None,None,None,Labour,Cultivator,5,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+#Cow,"Land, Rancher","100, 40",animal,Equipment,"Land, Cow, Rancher","10, 2, 1",10,Land,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
+#Milk,None,None,None,Commodity,"Cow, Rancher","1, 1",None,None,None,None,None,None,"Thirst, Hunger","2, 3",None,None,None,None,None,None,None,None,None,None,None,Ranch
+Gestation,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Beef Cow,"Land, Rancher","100, 1",animal,Commodity,"Gestation, Land, Beef Cow, Rancher","3, 10, 2, 1",None,Land,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
+#Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,None,Ranch
+Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,None,Ranch
+#Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+#Drift Wood,None,None,None,Commodity,"Forest, Forage","1, 0.1",None,None,None,None,None,Wood,None,None,None,None,None,None,None,1,None,10,None,None,None,Individual
+Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,None,Lumbermill
+Clay,None,None,None,Commodity,"Wetlands, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,None,None,None,"Quarry, Mine"
+Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,None,None,None,"Quarry, Mine"
+Ore,None,None,None,Commodity,"Mountain, Miner","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,None,Mine
+Bellows,None,None,None,Components,"Wild Leather, Wood","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,None,Blacksmith
+Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","4, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Farm
+Yarn,None,None,None,Commodity,"Cotton, Spinning","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Textile Mill
+Cloth,None,None,None,Commodity,"Yarn, Weaving","1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Textile Mill
+Cotton Gin,None,None,start,Equipment,"Metal, Wood","2, 30",10,None,None,None,None,None,None,None,None,None,"100, 2000","usage, ticks",None,None,None,100,None,None,None,Carpenter
+Cotton Spinner,None,None,start,Equipment,"Metal, Wood, Cotton Gin","2, 30, 1",100,None,None,Cotton Gin,1,None,None,None,Spinning,0.5,"100, 2000","usage, ticks",None,None,None,100,None,None,None,Carpenter
+Tailor,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Clothing,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Basic Clothing,None,None,continuous,Clothing,"Cloth, Tailor","2, 10",1,None,None,None,None,None,Clothing,2,None,None,100,equipped,None,None,None,10,None,None,None,Textile Mill
+Small Tent,None,None,start,Equipment,"Cloth, Wood","2, 20",1,None,None,None,None,None,Shelter,5,None,None,"100, 2000","usage, ticks",None,None,None,10,None,None,None,Textile Mill
+#Leather Clothing,None,None,continuous,Clothing,"Leather, Tanner","20, 10",1,None,None,None,None,None,Clothing,1,None,None,100,equipped,None,None,None,40,None,None,None,Individual
+Forge,None,None,continuous,Equipment,"Bellows, Wood, Rock, Clay","1, 5, 30, 15",100,None,None,None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,None,Blacksmith
+Metal Working,None,None,None,Technology,Time,100,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+Metal,None,None,None,Commodity,"Metal Working, Forge, Ore","1, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,None,Smelter
+Anvil,None,None,continuous,Equipment,"Time, Land, Metal","2, 1, 50",1,Land,2,None,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,None,Blacksmith
+Loom,None,None,start,Equipment,"Metal, Wood, Cloth","5, 50, 10",10,None,None,Cotton Gin,1,None,None,None,Weaving,0.5,"100, 2000","usage, ticks",None,None,None,100,None,None,None,Carpenter
+Pickaxe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Miner,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,None,Individual
+Axe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Lumberjack,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,None,Individual
+Shovel,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Cultivator,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,None,Individual
+Hoe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Harvesting,0.25,"50, 2000","usage, ticks",None,None,None,100,None,None,None,Individual
+#Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Lumbermill
+Water Well,None,None,continuous,Equipment,"Land, Rock, Wood","10, 100, 20",4,Land,10,None,None,None,None,None,None,None,30,ticks,None,None,None,100,None,None,None,Well
+Water,None,None,None,Subscription,Water Well,1,None,None,None,None,None,None,Thirst,100,None,None,None,None,None,None,None,None,None,None,None,Well
+Carpenter,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Toy,None,None,continuous,Equipment,Wood,10,None,None,None,None,None,None,Fun,10,None,None,"100, 200","usage, ticks",None,None,None,20,None,None,None,Carpenter
+Plow,None,None,start,Equipment,"Metal Working, Blacksmither, Metal, Wood","1, 1, 10, 20",12,None,None,None,None,None,None,None,Cultivator,0.5,"10, 100","usage, ticks",None,None,None,100,None,None,None,Blacksmith
+Pottery Wheel,None,None,continuous,Equipment,"Metal Working, Carpenter, Metal, Wood","1, 1, 10, 200",1,None,None,None,None,None,None,None,None,None,"40, 100","usage, ticks",None,None,None,80,None,None,None,Carpenter
+#Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+#Haircut,None,None,None,Service,Barber,1,None,None,None,None,None,None,Hygiene,100,None,None,None,None,None,None,None,None,None,None,None,Barber Shop
+Harvest,None,None,None,Service,Harvesting,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Harvest Guild
+#Manager,None,None,None,Job,Reading,1,2000,None,None,Paper,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+#Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,None,None,None,50,usage,None,None,None,50,None,None,None,Blacksmith
+#Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+#Metal Working,None,None,None,Technology,"Time, Forge","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, Blacksmith "
+Blacksmith Shop,None,None,continuous,Buildings,"Time, Land, Wood, Rock","2, 100, 100, 60",1,Land,100,None,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,None,Construction Company
+Blacksmither,None,None,None,Labour,Strength,5,2000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Wire,None,None,None,Commodity,"Metal Working, Metal","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Blacksmith
+Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Lumbermill
+#Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",100,ticks,None,None,None,100,None,None,None,Blacksmith
+Hydroponics,None,None,continuous,Equipment,"Engineer, Wood, Metal","6, 100, 40",200,Land,10,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",100,ticks,None,None,None,100,None,None,None,Blacksmith
+Math,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+Melee Weapon,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Sword,None,None,continuous,Melee Weapon,Metal,10,1,None,None,None,None,None,None,None,None,None,"100, 1000","usage, equipped",None,100,None,10,None,None,None,Blacksmith
+Armour,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Leather Armour,None,None,continuous,Armour,Leather,10,1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,50,None,None,None,Blacksmith
+Chain Mail,None,None,continuous,Armour,"Metal, Leather, Blacksmither","20, 2, 20",1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,100,None,None,None,Blacksmith
+Scale Mail,None,None,continuous,Armour,"Metal, Leather, Blacksmither","40, 2, 30",1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,1000,None,None,None,Blacksmith
+Plate Armour,None,None,continuous,Armour,"Metal, Leather, Blacksmither","80, 2, 40",1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,10000,None,None,None,Blacksmith
+Electricity,None,None,None,Technology,"Time, Metal Working","100, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, Blacksmith"
+Robot Plow,None,None,start,Equipment,"Electricity, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 12, 20, 40",12,None,None,None,None,None,None,None,Cultivator,1,20,usage,None,None,None,10000,None,None,None,Blacksmith
+Super Food,None,None,None,Commodity,"Time, Super Tech, Arable Land, Cultivator, Water","7, 1, 400, 0.1, 1",None,None,None,None,None,None,Hunger,10,None,None,21,spoilage,None,None,None,1,None,None,None,Individual
+Super Tech,None,None,None,Technology,"Time, Metal Working","100, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+#Engineer,None,None,None,Labour,"Electronics Class, Blacksmither","16, 1",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Engineer,None,None,None,Labour,Electronics Class,16,1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Hospital,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+University,None,None,None,Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+University Campus,None,None,continuous,Buildings,"University, Land, Wood, Rock","100, 100, 100",10,Land,100,None,None,None,None,None,None,None,1000,ticks,None,None,None,1000,None,None,None,University
+Electronics Class,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
+#Electronics Class,None,None,None,Education,"Study, University Campus","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,University
+Robot Lumberjack,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,None,None,None,Lumberjack,1,200,usage,None,None,None,10000,None,None,None,Blacksmith
+Robot Miner,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,None,None,None,Miner,1,200,usage,None,None,None,10000,None,None,None,Blacksmith
+Robot Rancher,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,None,None,None,Rancher,1,200,usage,None,None,None,10000,None,None,None,Blacksmith
+3D Printer,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,None,None,None,Carpenter,1,200,usage,None,None,None,10000,None,None,None,Blacksmith
+Robot Blacksmither,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 400, 800",12,None,None,None,None,None,None,None,Blacksmither,1,1000,usage,None,None,None,10000,None,None,None,Blacksmith
+#House,None,None,continuous,Buildings,"Time, Land, Wood, Rock","3, 100, 200, 100",5,Land,100,None,None,None,Shelter,100,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
+Shares,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Init Capital,0,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
+Credit Line 5,0.05,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
+Final Tech,None,None,repeatable,Technology,"Time, Super Tech, Electricity","100, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+#,,,,,,,,,,,,,,,,,,,,,,,,,,
+#Factory,None,None,continuous,Buildings,"Land, Wood, Rock","100, 10, 6",100,Land,100,None,None,,None,None,None,None,1000,ticks,None,None,None,1000,None,None,,Construction Company
+#Replicator,None,None,continuous,Equipment,"Factory, Wood, Rock","1, 10, 4",20,Factory,1,None,None,,None,None,None,None,100,ticks,None,None,None,100,None,None,,Blacksmith
+#Widget,None,None,continuous,Components,"Replicator, Rock","1, 1",None,None,None,None,None,,None,None,None,None,None,None,None,None,None,10,None,None,,Blacksmith
+#Factory2,None,None,continuous,Buildings,"Land, Rock, Wood","1, 1, 1",1,Land,1,None,None,,None,None,None,None,1000,ticks,None,None,None,1000,None,None,,Construction Company
+#Replicator2,None,None,continuous,Equipment,"Factory2, Wood, Rock","10, 10, 4",20,Factory2,10,None,None,,None,None,None,None,100,ticks,None,None,None,100,None,None,,Blacksmith
+#Widget2,None,None,continuous,Components,"Replicator2, Rock","1, 1",None,None,None,None,None,,None,None,None,None,None,None,None,None,None,10,None,None,,Blacksmith
