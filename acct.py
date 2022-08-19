@@ -451,7 +451,8 @@ class Accounts:
 			start_price = input('Enter an optional start price for the item: ')
 			producer = input('Enter the producer of the item: ')
 
-			details = (item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,fulfill,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,start_price,producer)
+			details = [item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,fulfill,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,start_price,producer]
+			details = [None if x is '' else x for x in details]
 			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 
 		else:
@@ -537,6 +538,15 @@ class Accounts:
 		self.conn.commit()
 		cur.close()
 		self.refresh_accts()
+
+	def remove_item(self, item=None):
+		if item is None:
+			item = input('Which item would you like to remove? ')
+		cur = self.conn.cursor()
+		cur.execute('DELETE FROM ' + self.items_table_name + ' WHERE item_id=?', (item,))
+		self.conn.commit()
+		cur.close()
+		self.items = self.get_items()
 
 	def get_entities(self, entities_table_name=None):
 		if entities_table_name is None:
@@ -2181,6 +2191,9 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'additem':
 			accts.add_item()
+			if args.command is not None: exit()
+		elif command.lower() == 'removeitem':
+			accts.remove_item()
 			if args.command is not None: exit()
 		elif command.lower() == 'loadentities':
 			accts.load_entities()

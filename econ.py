@@ -223,8 +223,10 @@ class World:
 								producers = [x.strip() for x in producers.split(',')]
 							self.businesses += producers
 					self.businesses = list(collections.OrderedDict.fromkeys(filter(None, self.businesses)))
-					self.businesses.remove('Individual')
-					self.businesses.remove('Bank')
+					if 'Individual' in self.businesses:
+						self.businesses.remove('Individual')
+					if 'Bank' in self.businesses:
+						self.businesses.remove('Bank')
 					print('Businesses:', self.businesses)
 				user_count = args.users
 				for person in range(1, self.population + 1):
@@ -8122,6 +8124,8 @@ class Entity:
 		# 	print('"{}" is not a valid command. Type "exit" to close or "help" for more options.'.format(command))
 		else:
 			acct.main(conn=ledger.conn, command=command, external=True)
+			if command == 'additem' or command == 'removeitem':
+				world.items = accts.get_items()
 		if external:
 			# break
 			return 'end'
@@ -8254,6 +8258,9 @@ class Individual(Entity):
 		decay_rate = [x.strip() for x in str(entity_data[0][14]).split(',')]
 		threshold = [x.strip() for x in str(entity_data[0][15]).split(',')]
 		current_need = [x.strip() for x in str(entity_data[0][16]).split(',')]
+		print('needs_names:', needs_names)
+		if needs_names[0] == '':
+			return
 		for need in needs_names:
 			self.needs[need] = {}
 			for i in range(len(needs_names)): # TODO Fix pointless looping over all needs when not all needs are in dict
