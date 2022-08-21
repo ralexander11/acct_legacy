@@ -7967,7 +7967,7 @@ class Entity:
 			with pd.option_context('display.max_colwidth', 200):
 				print('{}: \n{}'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
 		elif command.lower() == 'needs' or command.lower() == 'need' or command.lower() == 'n':
-			print('Needs are max when at 100 and tick down by 1 each day. If any need reaches 0 then the individual dies.')
+			print('\nNeeds are max when 100 and tick down by 1 each day. If any need reaches 0 then the individual dies.')
 			print('{} Needs:'.format(self.name))
 			for need in world.global_needs:
 				print('{}: {}'.format(need, self.needs[need]['Current Need']))
@@ -8126,6 +8126,30 @@ class Entity:
 			acct.main(conn=ledger.conn, command=command, external=True)
 			if command == 'additem' or command == 'removeitem':
 				world.items = accts.get_items()
+				global_needs_tmp = world.global_needs
+				print('global_needs_tmp:', global_needs_tmp)
+				world.global_needs = world.create_needs()
+				print('world.global_needs:', world.global_needs)
+				if world.global_needs is not global_needs_tmp:
+					for individual in factory.get(Individual):
+						individual.setup_needs()
+				if args.jones:
+					# TODO Maybe turn this into a function
+					# Get list of businesses from items data
+					new_businesses = []
+					for index, producers in world.items['producer'].iteritems():
+						if producers is not None:
+							if isinstance(producers, str):
+								producers = [x.strip() for x in producers.split(',')]
+							new_businesses += producers
+					new_businesses = list(collections.OrderedDict.fromkeys(filter(None, new_businesses)))
+					if 'Individual' in new_businesses:
+						new_businesses.remove('Individual')
+					if 'Bank' in new_businesses:
+						new_businesses.remove('Bank')
+					new_businesses = [x for x in new_businesses if x not in world.businesses]
+					for business in new_businesses:
+						world.gov.incorporate(name=business)
 		if external:
 			# break
 			return 'end'
@@ -8250,16 +8274,23 @@ class Individual(Entity):
 			self.lose_time = True
 		return self.hours
 
-	def setup_needs(self, entity_data):
+	def setup_needs(self, entity_data=None):
 		# self.needs = collections.defaultdict(dict)
 		self.needs = collections.OrderedDict()
-		needs_names = [x.strip() for x in entity_data[0][12].split(',')]
-		needs_max = [x.strip() for x in str(entity_data[0][13]).split(',')]
-		decay_rate = [x.strip() for x in str(entity_data[0][14]).split(',')]
-		threshold = [x.strip() for x in str(entity_data[0][15]).split(',')]
-		current_need = [x.strip() for x in str(entity_data[0][16]).split(',')]
+		if entity_data:
+			needs_names = [x.strip() for x in entity_data[0][12].split(',')]
+			needs_max = [x.strip() for x in str(entity_data[0][13]).split(',')]
+			decay_rate = [x.strip() for x in str(entity_data[0][14]).split(',')]
+			threshold = [x.strip() for x in str(entity_data[0][15]).split(',')]
+			current_need = [x.strip() for x in str(entity_data[0][16]).split(',')]
+		else:
+			needs_names = list(world.global_needs.keys())
+			needs_max = [100] * len(needs_names)
+			decay_rate = [1] * len(needs_names)
+			threshold = [100] * len(needs_names)
+			current_need = [100] * len(needs_names)
 		print('needs_names:', needs_names)
-		if needs_names[0] == '':
+		if not needs_names or needs_names[0] == '':
 			return
 		for need in needs_names:
 			self.needs[need] = {}
@@ -9464,8 +9495,6 @@ if __name__ == '__main__':
 
 	if args.database is None:
 		args.database = 'econ01.db'
-	if args.capital is None:
-		args.capital = 1000000
 	command = None
 	if command is None:
 		command = args.command
@@ -9491,6 +9520,11 @@ if __name__ == '__main__':
 			args.population = args.users
 	else: # TODO Could use a default=0 argument
 		args.users = 0
+	if args.capital is None:
+		if args.jones:
+			args.capital = 300 * args.population
+		else:
+			args.capital = 1000000
 	if (args.delay is not None) and (args.delay != 0):
 		print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))	
 	if args.random:
