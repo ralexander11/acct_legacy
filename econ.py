@@ -1224,7 +1224,10 @@ class World:
 					# individual.capitalize(amount=capital)#25000 # Hardcoded
 				for gov in factory.get(Government):
 					self.gov = gov
-					self.gov.bank.print_money(args.capital)
+					if args.jones:
+						self.gov.bank.print_money(1000000)
+					else:
+						self.gov.bank.print_money(args.capital)
 					for individual in self.gov.get(Individual):
 						self.start_capital = args.capital / self.population
 						individual.loan(amount=self.start_capital, roundup=False)
@@ -2103,7 +2106,7 @@ class Entity:
 		prices_tmp.rename(columns={'index': 'item_id'}, inplace=True)
 		global_inv = global_inv.merge(prices_tmp, on=['entity_id','item_id'])
 		global_inv.sort_values(by=['price'], ascending=True, inplace=True)
-		# print('Global purchase inventory for: {} \n{}'.format(item, global_inv))
+		print('Global purchase inventory for: {} \n{}'.format(item, global_inv))
 		if item_type in ['Commodity', 'Components']:
 			global_inv = global_inv.loc[global_inv['entity_id'] != self.entity_id]
 		if self.entity_id in global_inv['entity_id'].values:
@@ -7176,7 +7179,7 @@ class Entity:
 				counterparty = factory.get_by_id(counterparty)
 				break
 			self.gift(item.title(), qty, counterparty)
-		elif command.lower() == 'purchase':
+		elif command.lower() == 'purchase' or command.lower() == 'buy':
 			while True:
 				item = input('Enter item to purchase: ')
 				if item == '':
@@ -8149,7 +8152,9 @@ class Entity:
 						new_businesses.remove('Bank')
 					new_businesses = [x for x in new_businesses if x not in world.businesses]
 					for business in new_businesses:
-						world.gov.incorporate(name=business)
+						new_business = world.gov.incorporate(name=business)
+						# TODO Spawn newly added items for existing businesses
+						new_business.maintain_inv()
 		if external:
 			# break
 			return 'end'
