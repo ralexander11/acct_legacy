@@ -2103,10 +2103,11 @@ class Entity:
 		# TODO Consider if want to purchase none inventory assets by replacing Inventory below with acct_buy
 		global_inv = ledger.get_qty(item, ['Inventory'], by_entity=True)#, v=True)
 		prices_tmp = world.prices.reset_index()
+		# print('prices_tmp:', prices_tmp)
 		prices_tmp.rename(columns={'index': 'item_id'}, inplace=True)
 		global_inv = global_inv.merge(prices_tmp, on=['entity_id','item_id'])
 		global_inv.sort_values(by=['price'], ascending=True, inplace=True)
-		print('Global purchase inventory for: {} \n{}'.format(item, global_inv))
+		# print('Global purchase inventory for: {} \n{}'.format(item, global_inv))
 		if item_type in ['Commodity', 'Components']:
 			global_inv = global_inv.loc[global_inv['entity_id'] != self.entity_id]
 		if self.entity_id in global_inv['entity_id'].values:
@@ -6366,7 +6367,7 @@ class Entity:
 		if counterparty is None:
 			counterparty = self
 		if price is None:
-			price = world.get_price(item, 0)
+			price = world.get_price(item, self.entity_id)
 		spawn_item_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Spawn ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
 		spawn_item_event = [spawn_item_entry]
 		ledger.journal_entry(spawn_item_event)
@@ -6377,7 +6378,7 @@ class Entity:
 		if counterparty is None:
 			counterparty = self
 		if price is None:
-			price = world.get_price(item, 0)
+			price = world.get_price(item, self.entity_id)
 		spawn_equip_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Spawn Equipment ' + item, item, price, qty, account, 'Natural Wealth', qty * price ]
 		spawn_equip_event = [spawn_equip_entry]
 		ledger.journal_entry(spawn_equip_event)
@@ -7080,7 +7081,7 @@ class Entity:
 				break
 			price = 0
 			self.claim_land(item.title(), qty, price, counterparty)
-		elif command.lower() == 'hire':
+		elif command.lower() == 'hire' or command.lower() == 'work':
 			while True:
 				item = input('Enter type of job to hire for: ')
 				if item == '':
