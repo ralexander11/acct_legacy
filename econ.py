@@ -2065,6 +2065,8 @@ class Entity:
 					quirk = ''
 				if item_type == 'Education' and 'Individual' in producers and isinstance(self, Individual):
 					counterparty = self
+				elif args.jones:
+					counterparty = factory.get_by_name('Hi-Tech U', generic=True)
 				elif self.user:
 					entities = world.gov.get(computers=True, ids=True, envs=False)
 					while True:
@@ -3945,7 +3947,7 @@ class Entity:
 
 			elif req_item_type == 'Education' and partial is None:
 				modifier = 0
-				if item_type == 'Job' or item_type == 'Labour':
+				if item_type == 'Job' or item_type == 'Labour' or item_type == 'Education':
 					# if type(self) == Individual:
 					if isinstance(self, Individual):
 						edu_status = ledger.get_qty(items=req_item, accounts=['Education','Education Expense'])
@@ -7092,6 +7094,10 @@ class Entity:
 					print('Not a valid entry.')
 					continue
 			worker = self.worker_counterparty(item.title(), only_avail=True)#, qualified=True)
+			if worker == 'none_qualify':
+				print(f'No one is qualified to work as a {item.title()}.')
+				return
+			print('worker:', worker)
 			item_type = world.get_item_type(item.title())
 			if item_type == 'Job':
 				self.hire_worker(item.title(), worker)
@@ -7849,6 +7855,11 @@ class Entity:
 				file_name = 'data/' + df_name + '_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
 				save_df.to_csv(file_name, index=True)
 				print(f'{df_name} saved as: {file_name}')
+		elif command.lower() == 'cash' or command.lower() == 'money':
+			ledger.set_entity(self.entity_id)
+			self.cash = ledger.balance_sheet(['Cash'])
+			print('{} Cash: {}'.format(self.name, self.cash))
+			ledger.reset()
 		elif command.lower() == 'items' or command.lower() == 'item':
 			print('Use "curitems" command to see the current items available.')
 			items = world.items.index.values
@@ -8917,7 +8928,7 @@ class Individual(Entity):
 
 	def adj_needs(self, item, qty=1):
 		indiv_needs = list(self.needs.keys())
-		#print('Indiv Needs: \n{}'.format(indiv_needs))
+		# print('Indiv Needs: \n{}'.format(indiv_needs))
 		satisfies = world.items.loc[item, 'satisfies']
 		satisfies = [x.strip() for x in satisfies.split(',')]
 		#print('Satisfies: \n{}'.format(satisfies))
@@ -8936,6 +8947,9 @@ class Individual(Entity):
 				self.needs[need]['Current Need'] = new_need
 			else:
 				self.needs[need]['Current Need'] = self.needs[need]['Max Need']
+			if args.jones:
+				if world.global_needs[need] == 'consumption':
+					self.lose_time = False
 			print('{} {} need adjusted by: {} | Current {} Need: {}'.format(self.name, need, (float(satisfy_rates[i]) * qty), need, self.needs[need]['Current Need']))
 
 	def is_shareholder(self, corps):
@@ -9120,18 +9134,20 @@ class Corporation(Organization):
 			investor.buy_shares(self.name, price, qty, self)
 
 	# TODO Maybe move to Entity class
-	def maintain_inv(self, v=True):
+	def maintain_inv(self, v=False):
 		if v: print('maintain_inv:')
 		for item_id in self.produces:
 			if v: print(item_id)
 			qty = 10
 			item_type = world.get_item_type(item_id)
 			if v: print('item_type:', item_type)
+			if item_type not in ['Commodity', 'Components', 'Equipment', 'Buildings']:
+				continue
 			if item_type in ['Commodity', 'Components']:
 				qty = 1000
 			ledger.set_entity(self.entity_id)
 			inv_qty = ledger.get_qty(items=item_id, accounts=['Inventory'])
-			if inv_qty < qty:
+			if inv_qty < qty * 0.8: # Buffer of 20%
 				qty = qty - inv_qty
 				if args.jones:
 					self.spawn_item(item_id, qty)
@@ -9447,9 +9463,9 @@ class EntityFactory:
 		for typ in self.registry.keys():
 			for entity in self.get(typ):
 				if generic:
-					if name == entity.name.split('-')[0]:
-						#print('Entity by Name: {}'.format(entity))
-						#print('Entity Name by Name: {}'.format(entity.name))
+					if name == entity.name.rsplit('-', 1)[0]:
+						# print('Entity by Name: {}'.format(entity))
+						# print('Entity Name by Name: {}'.format(entity.name))
 						return entity
 				else:
 					if name == entity.name:

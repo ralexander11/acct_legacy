@@ -1,0 +1,86 @@
+﻿item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amounts,capacity,hold_req,hold_amount,usage_req,use_amount,fulfill,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,start_price,producer
+Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Study,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+#Exploration,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Job,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Buildings,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Subscription,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Service,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Components,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Education,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Technology,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Government,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Governmental,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Environment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Land,1,50000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Clerk,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,6,"Z-Mart, Monolith Burgers, Socket City"
+Assistant Manager,None,None,None,Labour,"Clerk, Dress Clothes","30, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,"Z-Mart, Monolith Burgers, QT Clothing, Bank, Black's Market"
+Manager,None,None,None,Labour,"Assistant Manager, Business Admin, Business Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,13,"Z-Mart, Monolith Burgers, QT Clothing, Socket City, Bank, Black's Market"
+Cook,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,Monolith Burgers
+Janitor,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,6,"QT Clothing, Hi-Tech U, Factory, Bank, Black's Market"
+Salesperson,None,None,None,Labour,"Clerk, Dress Clothes","30, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,8,"QT Clothing, Socket City"
+Electronics Repairman,None,None,None,Labour,"Cook, Clerk, Electronics","20, 20, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,11,Socket City
+Teacher,None,None,None,Labour,"Assistant Manager, Academic, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,11,Hi-Tech U
+Professor,None,None,None,Labour,"Teacher, Research, Dress Clothes","50, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,Hi-Tech U
+Assembly Worker,None,None,None,Labour,"Janitor, Trade School","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,8,Factory
+Secretary,None,None,None,Labour,"Clerk, Junior College, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,9,Factory
+Machinist's Helper,None,None,None,Labour,"Assembly Worker, Pre-Engineering","40, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,Factory
+Executive Secretary,None,None,None,Labour,"Secretary, Business Admin, Business Clothes","50, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,18,Factory
+Machinist,None,None,None,Labour,"Machinist's Helper, Engineering","50, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,19,Factory
+Department Manager,None,None,None,Labour,"Manager, Junior College, Engineering, Business Clothes","60, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,22,Factory
+Engineer,None,None,None,Labour,"Machinist, Junior College, Engineering, Business Clothes","60, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,23,Factory
+General Manager,None,None,None,Labour,"Department Manager, Engineer, Business Admin, Engineering, Business Clothes","35, 35, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,25,Factory
+Teller,None,None,None,Labour,"Clerk, Junior College, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,Bank
+Broker,None,None,None,Labour,"Teller, Executive Secretary, Business Admin, Academic, Business Clothes","40, 30, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,22,Bank
+Checker,None,None,None,Labour,Clerk,20,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,8,Black's Market
+Butcher,None,None,None,Labour,"Cook, Trade School","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,12,Black's Market
+Groundskeeper,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,7,Rent Office
+Apartment Manager,None,None,None,Labour,"Groundskeeper, Junior College","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,9,Rent Office
+Junior College,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Trade School,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Business Admin,None,None,None,Education,"Junior College, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Academic,None,None,None,Education,"Junior College, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Electronics,None,None,None,Education,"Trade School, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Pre-Engineering,None,None,None,Education,Trade School,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Engineering,None,None,None,Education,"Pre-Engineering, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Graduate School,None,None,None,Education,"Academic, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Post-Doctoral,None,None,None,Education,"Graduate School, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Research,None,None,None,Education,"Post-Doctoral, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Publishing,None,None,None,Education,"Research, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
+Hamburgers,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,2,None,None,None,None,None,None,None,None,None,None,79,Monolith Burgers
+Cheeseburger,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,3,None,None,None,None,None,None,None,None,None,None,89,Monolith Burgers
+Astro Chicken,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,4,None,None,None,None,None,None,None,None,None,None,124,Monolith Burgers
+Fries,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,1,None,None,None,None,None,None,None,None,None,None,65,Monolith Burgers
+Food for 1 week,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,1,None,None,None,None,None,None,None,None,None,None,55,Black's Market
+Food for 2 weeks,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,2,None,None,None,None,None,None,None,None,None,None,100,Black's Market
+Food for 4 weeks,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,4,None,None,None,None,None,None,None,None,None,None,190,Black's Market
+Refrigerator,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,876,Socket City
+Freezer,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,513,Socket City
+Stove,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,570,Socket City
+Color TV,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,525,Socket City
+VCR,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,333,Socket City
+Black & White TV,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,110,Socket City
+Stereo,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,412,Socket City
+Microwave,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,330,Socket City
+Hot Tub,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1255,Socket City
+Computer,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1599,Socket City
+Casual Clothes,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,11,ticks,None,None,None,None,None,None,73,QT Clothing
+Dress Clothes,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,13,ticks,None,None,None,None,None,None,125,QT Clothing
+Business Clothes,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,13,ticks,None,None,None,None,None,None,295,QT Clothing
+Encyclopedia,None,None,None,Equipment,"Dictionary, Atlas","1, 1",None,"Dictionary, Atlas","1, 1",None,None,None,None,None,study,0.2,None,None,None,None,None,None,None,None,475,Z-Mart
+Dictionary,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,70,Z-Mart
+Atlas,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,55,Z-Mart
+Baseball Tickets,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,45,Z-Mart
+Theatre Tickets,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,30,Z-Mart
+Concert Tickets,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,40,Z-Mart
+10 Lottery Tickets,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,Black's Market
+Cola,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,69,Monolith Burgers
+Shake,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,102,Monolith Burgers
+Newspaper,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,Black's Market
+Dog Food,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,18,Z-Mart
+8-Track Player,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,75,Z-Mart
+Works of Capote,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Z-Mart
