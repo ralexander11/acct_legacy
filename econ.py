@@ -7095,7 +7095,10 @@ class Entity:
 					continue
 			worker = self.worker_counterparty(item.title(), only_avail=True)#, qualified=True)
 			if worker == 'none_qualify':
-				print(f'No one is qualified to work as a {item.title()}.')
+				if args.jones:
+					print(f'You are not qualified to work as a {item.title()}.')
+				else:
+					print(f'No one is qualified to work as a {item.title()}.')
 				return
 			print('worker:', worker)
 			item_type = world.get_item_type(item.title())
@@ -7116,7 +7119,19 @@ class Entity:
 						if hours <= 0:
 							continue
 						break
-				self.accru_wages(item.title(), worker, hours)
+				if args.jones:
+					businesses = world.items.loc[item.title(), 'producer']
+					businesses = [x.strip() for x in businesses.split(',')]
+					# TODO This is a temp fix until the business can be chosen by the user
+					if args.random:
+						counterparty = random.choice(businesses)
+					else:
+						counterparty = businesses[0]
+					counterparty = factory.get_by_name(counterparty, generic=True)
+					# TODO Function settings to pay wages immediately
+					counterparty.accru_wages(item.title(), worker, hours)
+				else:
+					self.accru_wages(item.title(), worker, hours)
 		elif command.lower() == 'study' or command.lower() == 'rstudy':
 			man = True
 			if command.lower() == 'rstudy':
