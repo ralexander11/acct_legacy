@@ -51,13 +51,13 @@ Graduate School,None,None,None,Education,"Academic, Study","10, 1",None,None,Non
 Post-Doctoral,None,None,None,Education,"Graduate School, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
 Research,None,None,None,Education,"Post-Doctoral, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
 Publishing,None,None,None,Education,"Research, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
-Hamburgers,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,2,None,None,None,None,None,None,None,None,None,None,79,Monolith Burgers
-Cheeseburger,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,3,None,None,None,None,None,None,None,None,None,None,89,Monolith Burgers
-Astro Chicken,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,4,None,None,None,None,None,None,None,None,None,None,124,Monolith Burgers
-Fries,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,1,None,None,None,None,None,None,None,None,None,None,65,Monolith Burgers
-Food for 1 week,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,1,None,None,None,None,None,None,None,None,None,None,55,Black's Market
-Food for 2 weeks,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,2,None,None,None,None,None,None,None,None,None,None,100,Black's Market
-Food for 4 weeks,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,4,None,None,None,None,None,None,None,None,None,None,190,Black's Market
+Hamburgers,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,2,None,None,1,ticks,None,None,None,None,None,None,79,Monolith Burgers
+Cheeseburger,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,3,None,None,1,ticks,None,None,None,None,None,None,89,Monolith Burgers
+Astro Chicken,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,4,None,None,1,ticks,None,None,None,None,None,None,124,Monolith Burgers
+Fries,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,1,None,None,1,ticks,None,None,None,None,None,None,65,Monolith Burgers
+Food for 1 week,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,1,None,None,1,ticks,None,None,None,None,None,None,55,Black's Market
+Food for 2 weeks,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,2,None,None,1,ticks,None,None,None,None,None,None,100,Black's Market
+Food for 4 weeks,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,4,None,None,1,ticks,None,None,None,None,None,None,190,Black's Market
 Refrigerator,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,876,Socket City
 Freezer,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,513,Socket City
 Stove,None,None,None,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,570,Socket City
@@ -84,3 +84,4 @@ Newspaper,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,
 Dog Food,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,18,Z-Mart
 8-Track Player,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,75,Z-Mart
 Works of Capote,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Z-Mart
+Low Cost Apartment,None,None,None,Subscription,None,None,None,None,None,None,None,None,Housing,100,None,None,None,None,None,None,None,None,None,None,328,Rent Office

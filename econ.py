@@ -164,7 +164,10 @@ class World:
 			self.set_table(self.now, 'date')
 			print(self.now)
 			if args.items is None:
-				items_file = 'data/items.csv'
+				if args.jones:
+					items_file = 'data/items_jones.csv'
+				else:
+					items_file = 'data/items.csv'
 			else:
 				items_file = 'data/' + args.items
 			self.items = accts.load_items(items_file) # TODO Change config file to JSON and load into a graph structure
@@ -1231,6 +1234,8 @@ class World:
 					for individual in self.gov.get(Individual):
 						self.start_capital = args.capital / self.population
 						individual.loan(amount=self.start_capital, roundup=False)
+						if args.jones:
+							individual.start_items(['Casual Clothes'])
 				self.gov = factory.get(Government)[0]
 				print('Start Government: {}'.format(self.gov))
 				if args.jones:
@@ -2015,13 +2020,14 @@ class Entity:
 		else:
 			# qty_possible = math.floor(cash / price)
 			print('{} does not have enough cash to purchase {} units of {} for {} each. Cash: {} | Qty Possible: {}'.format(self.name, qty, item, price, cash, qty_possible))
-			cost = True
-			result = self.loan(amount=((qty * price) - cash), item='Credit Line 5')
-			if result:
-				purchase_event, cost = self.transact(item, price, qty, counterparty, acct_buy=acct_buy, acct_sell=acct_sell, acct_rev=acct_rev, desc_pur=desc_pur, desc_sell=desc_sell, item_type=item_type, buffer=buffer)
-			if result is False:
-				self.bankruptcy()
-			# counterparty.adj_price(item, qty, direction='down')
+			if not self.user:
+				cost = True
+				result = self.loan(amount=((qty * price) - cash), item='Credit Line 5')
+				if result:
+					purchase_event, cost = self.transact(item, price, qty, counterparty, acct_buy=acct_buy, acct_sell=acct_sell, acct_rev=acct_rev, desc_pur=desc_pur, desc_sell=desc_sell, item_type=item_type, buffer=buffer)
+				if result is False:
+					self.bankruptcy()
+				# counterparty.adj_price(item, qty, direction='down')
 			return purchase_event, cost
 
 	def purchase(self, item, qty, acct_buy=None, acct_sell='Inventory', acct_rev='Sales', wip_acct='WIP Inventory', priority=False, reason_need=False, buffer=False):
@@ -6386,6 +6392,10 @@ class Entity:
 		ledger.journal_entry(spawn_equip_event)
 		return spawn_equip_event
 
+	def start_items(self, items, account='Equipment'):
+		for item in items:
+			self.spawn_item(item, account=account)
+
 	def deposit(self, amount, counterparty=None):
 		# TODO Make only one bank allowed per gov and auto select that bank entity as the counter party
 		if counterparty is None:
@@ -9156,7 +9166,7 @@ class Corporation(Organization):
 			qty = 10
 			item_type = world.get_item_type(item_id)
 			if v: print('item_type:', item_type)
-			if item_type not in ['Commodity', 'Components', 'Equipment', 'Buildings']:
+			if item_type not in ['Commodity', 'Components', 'Equipment', 'Buildings', 'Subscription']:
 				continue
 			if item_type in ['Commodity', 'Components']:
 				qty = 1000
