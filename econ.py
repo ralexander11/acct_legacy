@@ -1235,7 +1235,7 @@ class World:
 						self.start_capital = args.capital / self.population
 						individual.loan(amount=self.start_capital, roundup=False)
 						if args.jones:
-							individual.start_items(['Casual Clothes'])
+							individual.start_items(['Casual Clothes', 'Low Cost Apartment'])
 				self.gov = factory.get(Government)[0]
 				print('Start Government: {}'.format(self.gov))
 				if args.jones:
@@ -2022,7 +2022,7 @@ class Entity:
 			print('{} does not have enough cash to purchase {} units of {} for {} each. Cash: {} | Qty Possible: {}'.format(self.name, qty, item, price, cash, qty_possible))
 			if not self.user:
 				cost = True
-				result = self.loan(amount=((qty * price) - cash), item='Credit Line 5')
+				result = self.loan(amount=((qty * price) - cash), item='Credit Line 5', auto=True)
 				if result:
 					purchase_event, cost = self.transact(item, price, qty, counterparty, acct_buy=acct_buy, acct_sell=acct_sell, acct_rev=acct_rev, desc_pur=desc_pur, desc_sell=desc_sell, item_type=item_type, buffer=buffer)
 				if result is False:
@@ -2107,6 +2107,10 @@ class Entity:
 			elif item_type == 'Education':
 				acct_buy = 'Education Expense'
 				acct_sell = 'Education Revenue'
+		elif item_type == 'Subscription':
+			print(f'Ordering a Subscription for {item}.')
+			result = self.order_subscription(item, qty=qty)
+			return result
 		ledger.reset()
 		# TODO Consider if want to purchase none inventory assets by replacing Inventory below with acct_buy
 		global_inv = ledger.get_qty(item, ['Inventory'], by_entity=True)#, v=True)
@@ -5709,7 +5713,7 @@ class Entity:
 							counterparty.adj_price(job, labour_hours, direction='up_low')
 					else:
 						print('{} does not have enough cash to pay {} in wages for {}\'s {} work. Cash: {}'.format(self.name, wages_payable, counterparty.name, job, cash))
-						result = self.loan(amount=(wages_payable - cash), item='Credit Line 5')
+						result = self.loan(amount=(wages_payable - cash), item='Credit Line 5', auto=True)
 						if result:
 							self.pay_wages(self, jobs=jobs, counterparty=counterparty, v=v)
 						if result is False:
@@ -6174,7 +6178,7 @@ class Entity:
 		else:
 			if not incomplete:
 				print('{} does not have enough cash to pay {} for {} salary. Cash: {}'.format(self.name, (salary * labour_hours), job, cash))
-				result = self.loan(amount=((salary * labour_hours) - cash), item='Credit Line 5')
+				result = self.loan(amount=((salary * labour_hours) - cash), item='Credit Line 5', auto=True)
 				if result:
 					self.pay_salary(job, counterparty, salary=salary, labour_hours=labour_hours, buffer=buffer, first=first, check=check)
 				if result is False:
@@ -6238,7 +6242,8 @@ class Entity:
 		ledger.set_entity(self.entity_id)
 		cash = ledger.balance_sheet(['Cash'])
 		ledger.reset()
-		if cash >= price:
+		# TODO Allow ordering a subscription even without enough cash
+		if cash >= price or args.jones:
 			order_subscription_event = []
 			first_payment = []
 			incomplete, entries, time_required, max_qty_possible = counterparty.fulfill(item, qty, man=counterparty.user)
@@ -6252,8 +6257,9 @@ class Entity:
 			order_subscription_entry = [ ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Ordered ' + item, item, price, qty, 'Subscription Info', 'Order Subscription', 0 ]
 			sell_subscription_entry = [ ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Sold ' + item, item, price, 0, 'Sell Subscription', 'Subscription Info', 0 ]
 			order_subscription_event += [order_subscription_entry, sell_subscription_entry]
-			for _ in range(int(qty)):
-				first_payment += self.pay_subscription(item, counterparty, buffer=buffer, first=True)
+			if not args.jones:
+				for _ in range(int(qty)):
+					first_payment += self.pay_subscription(item, counterparty, buffer=buffer, first=True)
 			event_id = max([entry[0] for entry in order_subscription_event])
 			for entry in order_subscription_event:
 				if entry[0] != event_id:
@@ -6262,7 +6268,7 @@ class Entity:
 						counterparty.hold_event_ids = [event_id if x == entry[0] else x for x in counterparty.hold_event_ids]
 					print('Sub Orig event_id: {} | New event_id: {} | {} | {}'.format(entry[0], event_id, self.hold_event_ids, counterparty.hold_event_ids))
 					entry[0] = event_id
-			if not first_payment:
+			if not first_payment and not args.jones:
 				order_subscription_event = []
 				first_payment = []
 			elif buffer:
@@ -6273,7 +6279,7 @@ class Entity:
 			return True #TODO Make return order_subscription_event
 		else:
 			print('{} does not have enough cash to pay {} for {} subscription. Cash: {}'.format(self.name, price, item, cash))
-			result = self.loan(amount=(price - cash), item='Credit Line 5')
+			result = self.loan(amount=(price - cash), item='Credit Line 5', auto=True)
 			if result:
 				self.order_subscription(item, counterparty=counterparty, price=price, qty=qty, buffer=buffer)
 			if result is False:
@@ -6300,6 +6306,17 @@ class Entity:
 		if not subscriptions_list.empty:
 			for index, subscription in subscriptions_list.iterrows():
 				item = subscription['item_id']
+				freq = world.items.loc[item, 'freq']
+				if freq is None:
+					freq = 1
+				print(f'{item} payment freq: {freq}')
+				days = (world.now - datetime.datetime(1986,10,1).date()).days
+				print('Current day:', days)
+				if (args.jones and world.now == datetime.datetime(1986,10,1).date()):
+					print('No rent due on first day of play.')
+					return
+				if days % freq != 0:
+					return
 				counterparty, event_id = self.get_counterparty(subscriptions_txns, rvsl_txns, item, 'Sell Subscription') # Gets counterparty from new field in txn
 				# Check if fulltime job is still required
 				items_req = world.items[world.items['requirements'].str.contains(item, na=False)].reset_index()
@@ -6357,7 +6374,7 @@ class Entity:
 			else:
 				if not incomplete:
 					print('{} does not have enough cash to pay {} for {} subscription. Cash: {}'.format(self.name, price, item, cash))
-					result = self.loan(amount=(price - cash), item='Credit Line 5')
+					result = self.loan(amount=(price - cash), item='Credit Line 5', auto=True)
 					if result:
 						pay_subscription_event = self.pay_subscription(item, counterparty, price=price, qty=qty, buffer=buffer, first=first, check=check)
 						return pay_subscription_event
@@ -6394,7 +6411,11 @@ class Entity:
 
 	def start_items(self, items, account='Equipment'):
 		for item in items:
-			self.spawn_item(item, account=account)
+			item_type = world.get_item_type(item)
+			if item_type == 'Subscription':
+				self.order_subscription(item)
+			else:
+				self.spawn_item(item, account=account)
 
 	def deposit(self, amount, counterparty=None):
 		# TODO Make only one bank allowed per gov and auto select that bank entity as the counter party
@@ -6447,7 +6468,9 @@ class Entity:
 			return True
 		return False
 
-	def loan(self, amount=1000, counterparty=None, item=None, roundup=True):
+	def loan(self, amount=1000, counterparty=None, item=None, roundup=True, auto=False):
+		if args.jones and auto:
+			return
 		# TODO Maybe remove default amount
 		if roundup:
 			if amount < 1000:
@@ -6579,7 +6602,7 @@ class Entity:
 					return int_exp_event
 				else:
 					print('{} does not have {} to pay interest to {}. Cash held: {}'.format(self.name, int_amount, counterparty.name, cash))
-					result = self.loan(amount=(int_amount - cash), item='Credit Line 5')
+					result = self.loan(amount=(int_amount - cash), item='Credit Line 5', auto=True)
 					if result:
 						self.check_interest(items)
 					if result is False:
@@ -7841,7 +7864,7 @@ class Entity:
 		elif command.lower() == 'own' or command.lower() == 'o':
 			start_time = timeit.default_timer()
 			ledger.set_entity(self.entity_id)
-			inv = ledger.get_qty(accounts=['Cash', 'Investments', 'Land', 'Buildings', 'Equipment', 'Equipped', 'Inventory', 'WIP Inventory', 'WIP Equipment', 'Building Under Construction', 'Land In Use', 'Buildings In Use', 'Equipment In Use', 'Education Expense', 'Technology', 'Researching Technology'])
+			inv = ledger.get_qty(accounts=['Cash', 'Investments', 'Land', 'Buildings', 'Equipment', 'Equipped', 'Subscription Info', 'Inventory', 'WIP Inventory', 'WIP Equipment', 'Building Under Construction', 'Land In Use', 'Buildings In Use', 'Equipment In Use', 'Education Expense', 'Technology', 'Researching Technology'])
 			ledger.reset()
 			pd.options.display.float_format = '{:,.2f}'.format
 			print(inv)

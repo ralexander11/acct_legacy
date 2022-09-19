@@ -84,4 +84,4 @@ Newspaper,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,
 Dog Food,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,18,Z-Mart
 8-Track Player,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,75,Z-Mart
 Works of Capote,None,None,None,Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Z-Mart
-Low Cost Apartment,None,None,None,Subscription,None,None,None,None,None,None,None,None,Housing,100,None,None,None,None,None,None,None,None,None,None,328,Rent Office
+Low Cost Apartment,None,None,4,Subscription,None,None,None,None,None,None,None,None,Housing,100,None,None,None,None,None,None,None,None,None,None,328,Rent Office
