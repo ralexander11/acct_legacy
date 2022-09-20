@@ -2813,7 +2813,8 @@ class Entity:
 
 		item_freq = world.items.loc[item, 'freq']
 		if item_freq is not None:
-			item_freq = [x.strip() for x in item_freq.split(',')]
+			if isinstance(item_freq, str):
+				item_freq = [x.strip() for x in item_freq.split(',')]
 		else:
 			item_freq = []
 		results = pd.DataFrame(columns=['item_id', 'qty', 'modifier', 'qty_req', 'qty_held', 'incomplete', 'max_qty'], index=None)
@@ -2830,7 +2831,8 @@ class Entity:
 			if v: print('Requirement: {}'.format(requirement))
 			req_freq = world.items.loc[req_item, 'freq']
 			if req_freq is not None:
-				req_freq = [x.strip() for x in req_freq.split(',')]
+				if isinstance(req_freq, str):
+					req_freq = [x.strip() for x in req_freq.split(',')]
 			else:
 				req_freq = []
 

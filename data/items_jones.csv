@@ -17,29 +17,29 @@ Governmental,None,None,None,None,None,None,None,None,None,None,None,None,None,No
 Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Environment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Land,1,50000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Clerk,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,6,"Z-Mart, Monolith Burgers, Socket City"
-Assistant Manager,None,None,None,Labour,"Clerk, Dress Clothes","30, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,"Z-Mart, Monolith Burgers, QT Clothing, Bank, Black's Market"
-Manager,None,None,None,Labour,"Assistant Manager, Business Admin, Business Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,13,"Z-Mart, Monolith Burgers, QT Clothing, Socket City, Bank, Black's Market"
-Cook,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,Monolith Burgers
-Janitor,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,6,"QT Clothing, Hi-Tech U, Factory, Bank, Black's Market"
-Salesperson,None,None,None,Labour,"Clerk, Dress Clothes","30, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,8,"QT Clothing, Socket City"
-Electronics Repairman,None,None,None,Labour,"Cook, Clerk, Electronics","20, 20, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,11,Socket City
-Teacher,None,None,None,Labour,"Assistant Manager, Academic, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,11,Hi-Tech U
-Professor,None,None,None,Labour,"Teacher, Research, Dress Clothes","50, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,Hi-Tech U
-Assembly Worker,None,None,None,Labour,"Janitor, Trade School","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,8,Factory
-Secretary,None,None,None,Labour,"Clerk, Junior College, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,9,Factory
-Machinist's Helper,None,None,None,Labour,"Assembly Worker, Pre-Engineering","40, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,Factory
-Executive Secretary,None,None,None,Labour,"Secretary, Business Admin, Business Clothes","50, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,18,Factory
-Machinist,None,None,None,Labour,"Machinist's Helper, Engineering","50, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,19,Factory
-Department Manager,None,None,None,Labour,"Manager, Junior College, Engineering, Business Clothes","60, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,22,Factory
-Engineer,None,None,None,Labour,"Machinist, Junior College, Engineering, Business Clothes","60, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,23,Factory
-General Manager,None,None,None,Labour,"Department Manager, Engineer, Business Admin, Engineering, Business Clothes","35, 35, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,25,Factory
-Teller,None,None,None,Labour,"Clerk, Junior College, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,Bank
-Broker,None,None,None,Labour,"Teller, Executive Secretary, Business Admin, Academic, Business Clothes","40, 30, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,22,Bank
-Checker,None,None,None,Labour,Clerk,20,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,8,Black's Market
-Butcher,None,None,None,Labour,"Cook, Trade School","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,12,Black's Market
-Groundskeeper,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,7,Rent Office
-Apartment Manager,None,None,None,Labour,"Groundskeeper, Junior College","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,9,Rent Office
+Clerk,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,30,"Z-Mart, Monolith Burgers, Socket City"
+Assistant Manager,None,None,None,Labour,"Clerk, Dress Clothes","30, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,50,"Z-Mart, Monolith Burgers, QT Clothing, Bank, Black's Market"
+Manager,None,None,None,Labour,"Assistant Manager, Business Admin, Business Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,65,"Z-Mart, Monolith Burgers, QT Clothing, Socket City, Bank, Black's Market"
+Cook,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,25,Monolith Burgers
+Janitor,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,30,"QT Clothing, Hi-Tech U, Factory, Bank, Black's Market"
+Salesperson,None,None,None,Labour,"Clerk, Dress Clothes","30, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,40,"QT Clothing, Socket City"
+Electronics Repairman,None,None,None,Labour,"Cook, Clerk, Electronics","20, 20, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,55,Socket City
+Teacher,None,None,None,Labour,"Assistant Manager, Academic, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,55,Hi-Tech U
+Professor,None,None,None,Labour,"Teacher, Research, Dress Clothes","50, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Hi-Tech U
+Assembly Worker,None,None,None,Labour,"Janitor, Trade School","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,40,Factory
+Secretary,None,None,None,Labour,"Clerk, Junior College, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,45,Factory
+Machinist's Helper,None,None,None,Labour,"Assembly Worker, Pre-Engineering","40, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,50,Factory
+Executive Secretary,None,None,None,Labour,"Secretary, Business Admin, Business Clothes","50, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,90,Factory
+Machinist,None,None,None,Labour,"Machinist's Helper, Engineering","50, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,95,Factory
+Department Manager,None,None,None,Labour,"Manager, Junior College, Engineering, Business Clothes","60, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,110,Factory
+Engineer,None,None,None,Labour,"Machinist, Junior College, Engineering, Business Clothes","60, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,115,Factory
+General Manager,None,None,None,Labour,"Department Manager, Engineer, Business Admin, Engineering, Business Clothes","35, 35, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,125,Factory
+Teller,None,None,None,Labour,"Clerk, Junior College, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,50,Bank
+Broker,None,None,None,Labour,"Teller, Executive Secretary, Business Admin, Academic, Business Clothes","40, 30, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,110,Bank
+Checker,None,None,None,Labour,Clerk,20,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,40,Black's Market
+Butcher,None,None,None,Labour,"Cook, Trade School","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,60,Black's Market
+Groundskeeper,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,35,Rent Office
+Apartment Manager,None,None,None,Labour,"Groundskeeper, Junior College","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,45,Rent Office
 Junior College,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
 Trade School,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
 Business Admin,None,None,None,Education,"Junior College, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
