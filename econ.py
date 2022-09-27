@@ -3160,8 +3160,9 @@ class Entity:
 				capacity = world.items.loc[req_item, 'capacity']
 				if capacity is None or pd.isna(capacity):
 					capacity = 1
-				if 'animal' in item_freq and 'animal' in req_freq:
-					capacity = 1
+				if isinstance(item_freq, str):
+					if 'animal' in item_freq and 'animal' in req_freq:
+						capacity = 1
 				capacity = float(capacity)
 				qty_needed = qty * (1-modifier) * req_qty
 				print(f'{self.name} requires {req_qty} {req_item} equipment (Capacity: {capacity}) to {action} {qty} {item} and has: {equip_qty}')
@@ -3185,6 +3186,7 @@ class Entity:
 							# if v: print('Equip Purchase Result:', result)
 							req_time_required = False
 							if not result:
+								# TODO Needs if isinstance(item_freq, str):
 								if 'animal' in item_freq and 'animal' in req_freq and equip_qty < 2 and not man:
 									required_qty = 1
 									print('{} will attempt to catch remaining {} {} in the wild.'.format(self.name, required_qty, req_item))
@@ -3405,30 +3407,31 @@ class Entity:
 					pass
 				material_qty_held = ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=True)
 
-				if 'animal' in item_freq and 'animal' in req_freq and material_qty_held < 2 and not man:
-					# qty_needed = max((req_qty * (1 - modifier) * qty) - material_qty_held, 0)
-					if material_qty_held == 1:
-						qty_needed = 1
-					else:
-						qty_needed = 1 #2
-					print('{} will attempt to catch {} {} in the wild.'.format(self.name, qty_needed, req_item))
-					result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, reqs='int_rate_fix', amts='int_rate_var') # TODO This is a bit hackey
-					material_qty_held += req_max_qty_possible
-					if not req_incomplete:
-						if material_qty_held < 2:
-							incomplete = True
-							max_qty_possible = 0
-						continue
-					else:
-						if req_max_qty_possible == 0:
-							incomplete = True
-							max_qty_possible = 0
+				if isinstance(item_freq, str) and isinstance(req_freq, str):
+					if 'animal' in item_freq and 'animal' in req_freq and material_qty_held < 2 and not man:
+						# qty_needed = max((req_qty * (1 - modifier) * qty) - material_qty_held, 0)
+						if material_qty_held == 1:
+							qty_needed = 1
+						else:
+							qty_needed = 1 #2
+						print('{} will attempt to catch {} {} in the wild.'.format(self.name, qty_needed, req_item))
+						result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, reqs='int_rate_fix', amts='int_rate_var') # TODO This is a bit hackey
+						material_qty_held += req_max_qty_possible
+						if not req_incomplete:
+							if material_qty_held < 2:
+								incomplete = True
+								max_qty_possible = 0
 							continue
-						req_qty = req_max_qty_possible # TODO Investigate this further
-					# return req_incomplete, result, req_time_required, req_max_qty_possible
-					# if result:
-						# req_qty = req_max_qty_possible # TODO Investigate this further
-					# 	incomplete = True # So the animal isn't breed in same round it is captured
+						else:
+							if req_max_qty_possible == 0:
+								incomplete = True
+								max_qty_possible = 0
+								continue
+							req_qty = req_max_qty_possible # TODO Investigate this further
+						# return req_incomplete, result, req_time_required, req_max_qty_possible
+						# if result:
+							# req_qty = req_max_qty_possible # TODO Investigate this further
+						# 	incomplete = True # So the animal isn't breed in same round it is captured
 
 				qty_needed = req_qty * (1 - modifier) * qty
 				print(f'{self.name} requires {qty_needed} {req_item} commodity to {action} {qty} {item} and has: {material_qty_held}')
@@ -3442,8 +3445,9 @@ class Entity:
 						return self.fulfill(item, max_qty_possible, man=man)
 					print('{} {} is greater than or equal to the whole qty of {}. Max Qty Possible: {}'.format(qty, item, whole_qty, max_qty_possible))
 				qty_needed = max(qty_needed - material_qty_held, 0)
-				if 'animal' in req_freq and 'animal' not in item_freq:
-					qty_needed = max(qty_needed - material_qty_held + 2, 0)
+				if isinstance(req_freq, str):
+					if 'animal' in req_freq and 'animal' not in item_freq:
+						qty_needed = max(qty_needed - material_qty_held + 2, 0)
 				print('material_qty_held: {} | req_qty: {} | modifier: {} | qty: {} | qty_needed: {}'.format(material_qty_held, req_qty, modifier, qty, qty_needed))
 				if qty_needed > 0:
 					print('{} does not have enough {} commodity and requires {} more units.'.format(self.name, req_item, qty_needed))
@@ -3465,6 +3469,7 @@ class Entity:
 								qty_needed = max(qty_needed - purchased_qty, 0)
 						req_time_required = False
 						if not result or partial_qty:
+							# TODO Needs if isinstance(item_freq, str) and isinstance(req_freq, str):
 							if 'animal' in item_freq and 'animal' in req_freq and (material_qty_held + purchased_qty) < 2 and not man:
 								# if incomplete:
 								# 	continue
@@ -3511,6 +3516,7 @@ class Entity:
 				material_qty = ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=True)
 				print('Item: {} | qty: {} | req_item: {} | req_qty: {} | material_qty: {} | modifier: {} | max_qty_possible: {}'.format(item, qty, req_item, req_qty, material_qty, modifier, max_qty_possible))
 				try:
+					# TODO Needs if isinstance(req_freq, str):
 					if 'animal' in req_freq and material_qty <= 2:
 						max_qty_possible = 0
 						constraint_qty = 0
@@ -3528,6 +3534,7 @@ class Entity:
 				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':material_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 				if not check:
 					consume_qty = req_qty * (1 - modifier) * qty # TODO Should this be qty_needed?
+					# TODO Needs if isinstance(item_freq, str) and isinstance(req_freq, str):
 					if not 'animal' in req_freq or not 'animal' in item_freq:
 						entries = self.consume(req_item, qty=consume_qty, buffer=True) # TODO Verify fix for how this assumed all required qty was obtained # req_qty * (1 - modifier) * qty # Old was qty=material_qty
 						if not entries:
@@ -5761,6 +5768,8 @@ class Entity:
 			return True
 
 	def accru_wages(self, job, counterparty, labour_hours, wage=None, accrual=False, buffer=False, check=False):
+		if isinstance(counterparty, tuple):
+			counterparty = counterparty[0]
 		if accrual:
 			desc_exp = job + ' wages paid'
 			desc_rev = job + ' wages pay received'
@@ -7889,6 +7898,9 @@ class Entity:
 			world.unused_land(entity_id=world.env.entity_id)
 		elif command.lower() == 'demand':
 			print('World Demand as of {}: \n{}'.format(world.now, world.demand))
+		elif command.lower() == 'prices':
+			with pd.option_context('display.max_rows', None):
+				print('\nPrices as of {}: \n{}\n'.format(world.now, world.prices))
 		elif command.lower() == 'delay' or command.lower() == 'd':
 			print('Delayed items as of {}: \n{}'.format(world.now, world.delay))
 		elif command.lower() == 'auto':
@@ -7947,6 +7959,11 @@ class Entity:
 				print('{} raw data: \n{}\n'.format(item.title(), world.items.loc[[item.title()]].squeeze()))
 			self.get_raw(item.title(), 1, base=False, v=True)
 			self.get_raw(item.title(), 1, base=True, v=True)
+		elif command.lower() == 'itemcat':
+			item_cat = input('Enter an item category to see all items of that type: ')
+			item_cat = item_cat.title()
+			item_list = world.items.loc[world.items['child_of'] == item_cat]
+			print(item_list.index.values)
 		elif command.lower() == 'equipment':
 			equip_list = world.items.loc[world.items['child_of'] == 'Equipment']
 			print('Equipment Available:\n {}'.format(equip_list.index.values))

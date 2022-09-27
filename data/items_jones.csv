@@ -51,7 +51,7 @@ Graduate School,None,None,None,Education,"Academic, Study","10, 1",None,None,Non
 Post-Doctoral,None,None,None,Education,"Graduate School, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
 Research,None,None,None,Education,"Post-Doctoral, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
 Publishing,None,None,None,Education,"Research, Study","10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,4,Hi-Tech U
-Hamburgers,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,2,None,None,1,ticks,None,None,None,None,None,None,79,Monolith Burgers
+Hamburger,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,2,None,None,1,ticks,None,None,None,None,None,None,79,Monolith Burgers
 Cheeseburger,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,3,None,None,1,ticks,None,None,None,None,None,None,89,Monolith Burgers
 Astro Chicken,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,4,None,None,1,ticks,None,None,None,None,None,None,124,Monolith Burgers
 Fries,None,None,None,Commodity,None,None,None,None,None,None,None,None,Hunger,1,None,None,1,ticks,None,None,None,None,None,None,65,Monolith Burgers
