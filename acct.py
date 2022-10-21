@@ -953,9 +953,13 @@ class Ledger:
 			if v: print('Balance for {}: {}'.format(acct, bal))
 			#if bal != 0: # TODO Not sure if should display empty accounts
 			if all_accts:
-				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 		if all_accts:
-			self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
+			# self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
+			tmp_df = pd.DataFrame({'line_item':['Total Assets:'], 'balance':[asset_bal]})
+			self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 
 		liab_bal = 0
 		for acct in liabilities:
@@ -979,9 +983,13 @@ class Ledger:
 			bal = credits - debits # Note reverse order of subtraction
 			liab_bal += bal
 			if all_accts:
-				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 		if all_accts:
-			self.bs = self.bs.append({'line_item':'Total Liabilities:', 'balance':liab_bal}, ignore_index=True)
+			# self.bs = self.bs.append({'line_item':'Total Liabilities:', 'balance':liab_bal}, ignore_index=True)
+			tmp_df = pd.DataFrame({'line_item':['Total Liabilities:'], 'balance':[liab_bal]})
+			self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 
 		equity_bal = 0
 		for acct in equity:
@@ -1005,9 +1013,13 @@ class Ledger:
 			bal = credits - debits # Note reverse order of subtraction
 			equity_bal += bal
 			if all_accts:
-				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 		if all_accts:
-			self.bs = self.bs.append({'line_item':'Total Equity:', 'balance':equity_bal}, ignore_index=True)
+			# self.bs = self.bs.append({'line_item':'Total Equity:', 'balance':equity_bal}, ignore_index=True)
+			tmp_df = pd.DataFrame({'line_item':['Total Equity:'], 'balance':[equity_bal]})
+			self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 
 		rev_bal = 0
 		for acct in revenues:
@@ -1031,9 +1043,13 @@ class Ledger:
 			bal = credits - debits # Note reverse order of subtraction
 			rev_bal += bal
 			if all_accts:
-				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 		if all_accts:
-			self.bs = self.bs.append({'line_item':'Total Revenues:', 'balance':rev_bal}, ignore_index=True)
+			# self.bs = self.bs.append({'line_item':'Total Revenues:', 'balance':rev_bal}, ignore_index=True)
+			tmp_df = pd.DataFrame({'line_item':['Total Revenues:'], 'balance':[rev_bal]})
+			self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 
 		exp_bal = 0
 		for acct in expenses:
@@ -1057,13 +1073,19 @@ class Ledger:
 			bal = debits - credits
 			exp_bal += bal
 			if all_accts:
-				self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
+				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 		if all_accts:
-			self.bs = self.bs.append({'line_item':'Total Expenses:', 'balance':exp_bal}, ignore_index=True)
+			# self.bs = self.bs.append({'line_item':'Total Expenses:', 'balance':exp_bal}, ignore_index=True)
+			tmp_df = pd.DataFrame({'line_item':['Total Expenses:'], 'balance':[exp_bal]})
+			self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 
 		retained_earnings = rev_bal - exp_bal
 		if all_accts:
-			self.bs = self.bs.append({'line_item':'Net Income:', 'balance':retained_earnings}, ignore_index=True)
+			# self.bs = self.bs.append({'line_item':'Net Income:', 'balance':retained_earnings}, ignore_index=True)
+			tmp_df = pd.DataFrame({'line_item':['Net Income:'], 'balance':[retained_earnings]})
+			self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 
 		net_asset_value = asset_bal - liab_bal
 		if net_asset_value == 0: # Two ways to calc NAV depending on accounts
@@ -1071,14 +1093,20 @@ class Ledger:
 
 		total_equity = net_asset_value + liab_bal
 		if all_accts:
-			self.bs = self.bs.append({'line_item':'Equity+NI+Liab.:', 'balance':total_equity}, ignore_index=True)
+			# self.bs = self.bs.append({'line_item':'Equity+NI+Liab.:', 'balance':total_equity}, ignore_index=True)
+			tmp_df = pd.DataFrame({'line_item':['Equity+NI+Liab.:'], 'balance':[total_equity]})
+			self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 
 		check = asset_bal - total_equity
 		if all_accts:
-			self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
+			# self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
+			tmp_df = pd.DataFrame({'line_item':['Balance Check:'], 'balance':[check]})
+			self.bs = pd.concat([self.bs, tmp_df], ignore_index=True)
 
 		if all_accts:
-			self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
+			# self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
+			tmp_df = pd.DataFrame({'line_item':['Net Asset Value:'], 'balance':[net_asset_value]})
+			self.bs = pd.concat([self.bs, tmp_df])
 
 		if all_accts and gl is None:
 			if self.entity is None:
@@ -1194,7 +1222,9 @@ class Ledger:
 							credits = 0
 						qty = round(debits - credits, 0)
 						if v: print('QTY: {}\n'.format(qty))
-						inventory = inventory.append({'entity_id':entity_id, 'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
+						# inventory = inventory.append({'entity_id':entity_id, 'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
+						tmp_df = pd.DataFrame({'entity_id':[entity_id], 'item_id':[item], 'account':[acct], 'qty':[qty]})
+						inventory = pd.concat([inventory, tmp_df], ignore_index=True)
 						inventory = inventory.sort_values(by='entity_id', ascending=True)
 						#if v: print(inventory)
 						self.reset()
@@ -1221,7 +1251,9 @@ class Ledger:
 					if single_item and not always_df:
 						total_qty += qty
 					else:
-						inventory = inventory.append({'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
+						# inventory = inventory.append({'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
+						tmp_df = pd.DataFrame({'item_id':[item], 'account':[acct], 'qty':[qty]})
+						inventory = pd.concat([inventory, tmp_df], ignore_index=True)
 						#if v: print(inventory)
 		if single_item and not by_entity and not always_df:
 			if v: print('Return Total Qty: ', total_qty)
@@ -1885,7 +1917,9 @@ class Ledger:
 				if v: print('Qty Left to be Sold 1: {}'.format(qty))
 				if v: print('Current TXN Qty: {} | {}'.format(qty_txns_gl.loc[current_index]['qty'], self.gl.loc[current_index]['qty']))
 				if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
-					price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(qty, 0), 'avail_qty':self.gl.loc[current_index]['qty'], 'event_id':self.gl.loc[current_index]['event_id']}, ignore_index=True)
+					# price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(qty, 0), 'avail_qty':self.gl.loc[current_index]['qty'], 'event_id':self.gl.loc[current_index]['event_id']}, ignore_index=True)
+					tmp_df = pd.DataFrame({'price':[self.gl.loc[current_index]['price']], 'qty':[max(qty, 0)], 'avail_qty':[self.gl.loc[current_index]['qty']], 'event_id':[self.gl.loc[current_index]['event_id']]})
+					price_chart = pd.concat([price_chart, tmp_df], ignore_index=True)
 					if price_chart.shape[0] >= 2:
 						print('Historical Cost Price Chart: \n{}'.format(price_chart))
 					if event_id:
@@ -1894,7 +1928,9 @@ class Ledger:
 					print('Historical Cost Case | Two for {} {}: {}'.format(qty, item, amount))
 					return amount
 				
-				price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0), 'avail_qty':self.gl.loc[current_index]['qty'], 'event_id':self.gl.loc[current_index]['event_id']}, ignore_index=True)
+				# price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0), 'avail_qty':self.gl.loc[current_index]['qty'], 'event_id':self.gl.loc[current_index]['event_id']}, ignore_index=True)
+				tmp_df = pd.DataFrame({'price':[self.gl.loc[current_index]['price']], 'qty':[max(self.gl.loc[current_index]['qty'], 0)], 'avail_qty':[self.gl.loc[current_index]['qty']], 'event_id':[self.gl.loc[current_index]['event_id']]})
+				price_chart = pd.concat([price_chart, tmp_df], ignore_index=True)
 				qty = qty - self.gl.loc[current_index]['qty']
 				if v: print('Qty Left to be Sold 2: {}'.format(qty))
 				count += 1

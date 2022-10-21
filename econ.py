@@ -5164,7 +5164,7 @@ class Entity:
 					continue
 				else:
 					return False
-		if v: print('No tech needed for item: {}'.format(item))
+		if v: print('No new tech needed for item: {}'.format(item))
 		return True
 
 	def qty_demand(self, item, need=None, item_type=None):
@@ -9205,6 +9205,8 @@ class Corporation(Organization):
 		if v: print('maintain_inv:')
 		for item_id in self.produces:
 			if v: print(item_id)
+			if not self.check_eligible(item_id):
+				continue
 			qty = 10
 			item_type = world.get_item_type(item_id)
 			if v: print('item_type:', item_type)
