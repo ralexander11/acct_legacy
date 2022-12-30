@@ -1168,6 +1168,7 @@ class World:
 			# print('After appending: \n{}'.format(new_price))
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print(self.prices)
+			# self.prices = self.prices.sort_values(['item_id'])
 			self.set_table(self.prices, 'prices')
 			return cur_price
 		if new: # Base case
@@ -3980,7 +3981,7 @@ class Entity:
 							incomplete = True
 							max_qty_possible = 0
 						else:
-							if not man:
+							if not man and not check:
 								req_qty_needed = req_qty - (edu_status + edu_status_wip)
 								print('Studying Education: {} | Hours Needed: {}'.format(req_item, req_qty_needed))
 								req_time_required = False
@@ -4054,7 +4055,7 @@ class Entity:
 				constraint_qty = None
 				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':tech_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 			ledger.reset()
-		if incomplete:
+		if incomplete or check:
 			for individual in world.gov.get(Individual):
 				if v: print('Reset hours for {} from {} to {}.'.format(individual.name, individual.hours, individual.hours+hours_deltas[individual.name]))
 				individual.set_hours(-hours_deltas[individual.name])
@@ -4064,7 +4065,7 @@ class Entity:
 			for individual in world.gov.get(Individual):
 				print('{} Hours: {}'.format(individual.name, individual.hours))
 			print()
-			if max_qty_possible and not man and not wip_choice and whole_qty <= max_qty_possible:
+			if max_qty_possible and not man and not check and not wip_choice and whole_qty <= max_qty_possible:
 				event = []
 				# print('tmp_gl before recur for item: {} \n{}'.format(item, self.gl_tmp))
 				self.gl_tmp = pd.DataFrame(columns=world.cols) # TODO Confirm this is needed
@@ -5139,8 +5140,8 @@ class Entity:
 					if outcome:
 						return tech
 
-	def check_eligible(self, item, v=False):
-		if v: print('Eligible Item Check: {}'.format(item))
+	def check_eligible(self, item, check=False, v=False):
+		if v: print(f'Eligible Item Check: {item} | Check all: {check}')
 		if world.items.loc[item, 'requirements'] is None: # Base case
 			return True
 		requirements = [x.strip() for x in world.items.loc[item, 'requirements'].split(',')]
@@ -5160,7 +5161,7 @@ class Entity:
 				if item == requirement:
 					if v: print('{} requires itself: {}'.format(requirement))
 					continue # TODO Test this better
-				if self.check_eligible(requirement):
+				if self.check_eligible(requirement, check=check):
 					continue
 				else:
 					return False
@@ -7735,7 +7736,7 @@ class Entity:
 			except AttributeError as e:
 				print('Only Corporations can pay dividends, but an {} is selected.'.format(self.__class__.__name__))
 				print('Error: {}'.format(repr(e)))
-		elif command.lower() == 'price':
+		elif command.lower() == 'setprice':
 			while True:
 				item = input('Enter item to set the price of: ')
 				if item == '':
@@ -7901,6 +7902,15 @@ class Entity:
 		elif command.lower() == 'prices':
 			with pd.option_context('display.max_rows', None):
 				print('\nPrices as of {}: \n{}\n'.format(world.now, world.prices))
+		elif command.lower() == 'wages':
+			with pd.option_context('display.max_rows', None):
+				labour_items = world.items.loc[world.items['child_of'] == 'Labour'].index.values.tolist()
+				print(labour_items)
+				print(type(labour_items))
+				# wages = world.prices.loc[labour_items]
+				wages = world.prices[world.prices.index.isin(labour_items)]
+				# wages = world.prices.loc[world.prices.index.intersection(labour_items), :]
+				print('\nWages as of {}: \n{}\n'.format(world.now, wages))
 		elif command.lower() == 'delay' or command.lower() == 'd':
 			print('Delayed items as of {}: \n{}'.format(world.now, world.delay))
 		elif command.lower() == 'auto':
@@ -7923,7 +7933,7 @@ class Entity:
 			print('{} Cash: {}'.format(self.name, self.cash))
 			ledger.reset()
 		elif command.lower() == 'items' or command.lower() == 'item':
-			print('Use "curitems" command to see the current items available.')
+			print('Use "curitems" command to see the items available at the current tech.')
 			items = world.items.index.values
 			print('World Items Available: {}\n{}'.format(len(items), items))
 			print('\nNote: Enter an item type as a command to see a list of just those items. (i.e. Equipment)')
@@ -7964,6 +7974,18 @@ class Entity:
 			item_cat = item_cat.title()
 			item_list = world.items.loc[world.items['child_of'] == item_cat]
 			print(item_list.index.values)
+		elif command.lower() == 'curitemcat':
+			item_cat = input('Enter an item category to see all items of that type that are currently available: ')
+			item_cat = item_cat.title()
+			item_list = world.items.loc[world.items['child_of'] == item_cat]
+			# items = [item for item in item_list.index.values if self.check_eligible(item, check=True)]
+			items = []
+			for item in item_list.index.values:
+				print('item check:', item)
+				incomplete, entries, time_required, max_qty_possible = self.fulfill(item, qty=1, check=True)
+				if not incomplete:
+					items.append(item)
+			print(items)
 		elif command.lower() == 'equipment':
 			equip_list = world.items.loc[world.items['child_of'] == 'Equipment']
 			print('Equipment Available:\n {}'.format(equip_list.index.values))
@@ -8100,7 +8122,9 @@ class Entity:
 				'select': 'Choose a different entity (Individual or Corporation).',
 				'needs': 'List all needs and items that satisfy those needs.',
 				'items': 'List of all items in the sim.',
-				'curitems': 'List of all currently available items.',
+				'curitems': 'List of all items available for the current tech.',
+				'itemcat': 'List all items of a specified category.',
+				'curitemcat': 'List all items available of a specified category.',
 				'raw': 'Total raw resources needed to produce an item.',
 				'rawbase': 'Total base raw resources needed to produce an item.',
 				'productivity': 'List all requirements that can be made more efficient.',
@@ -8155,7 +8179,7 @@ class Entity:
 				'repay': 'Repay cash borrowed from the bank.',
 				'bankruptcy': 'Declare bankruptcy with the bank.',
 				'adjrate': 'Adjust central bank interest rate.',
-				'price': 'Set the price of items.',
+				'setprice': 'Set the price of items.',
 				'emance': 'Emancipation from parents to be treated like a founder.',
 				'changegov': 'Change which Government entity is subject to.',
 				'foundgov': 'Found a new Government.',
@@ -9211,6 +9235,7 @@ class Corporation(Organization):
 			item_type = world.get_item_type(item_id)
 			if v: print('item_type:', item_type)
 			if item_type not in ['Commodity', 'Components', 'Equipment', 'Buildings', 'Subscription']:
+				_ = world.get_price(item_id, self.entity_id)
 				continue
 			if item_type in ['Commodity', 'Components']:
 				qty = 1000

@@ -28,9 +28,9 @@ Teacher,None,None,None,Labour,"Assistant Manager, Academic, Dress Clothes","40, 
 Professor,None,None,None,Labour,"Teacher, Research, Dress Clothes","50, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Hi-Tech U
 Assembly Worker,None,None,None,Labour,"Janitor, Trade School","30, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,40,Factory
 Secretary,None,None,None,Labour,"Clerk, Junior College, Dress Clothes","40, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,45,Factory
-Machinist's Helper,None,None,None,Labour,"Assembly Worker, Pre-Engineering","40, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,50,Factory
+Machinist Helper,None,None,None,Labour,"Assembly Worker, Pre-Engineering","40, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,50,Factory
 Executive Secretary,None,None,None,Labour,"Secretary, Business Admin, Business Clothes","50, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,90,Factory
-Machinist,None,None,None,Labour,"Machinist's Helper, Engineering","50, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,95,Factory
+Machinist,None,None,None,Labour,"Machinist Helper, Engineering","50, 10",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,95,Factory
 Department Manager,None,None,None,Labour,"Manager, Junior College, Engineering, Business Clothes","60, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,110,Factory
 Engineer,None,None,None,Labour,"Machinist, Junior College, Engineering, Business Clothes","60, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,115,Factory
 General Manager,None,None,None,Labour,"Department Manager, Engineer, Business Admin, Engineering, Business Clothes","35, 35, 10, 10, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,125,Factory
