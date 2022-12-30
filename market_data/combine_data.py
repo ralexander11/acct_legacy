@@ -107,6 +107,9 @@ class CombineData(object):
 			if load_df is None:
 				continue
 			dfs.append(load_df)
+		if all(e is None for e in dfs):
+			print(time_stamp() + f'No data for {end_point}.')
+			return pd.DataFrame()
 		df = pd.concat(dfs, sort=True) # Sort to suppress warning
 		df = df.set_index('date', append=True)
 		return df

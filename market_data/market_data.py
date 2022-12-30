@@ -606,3 +606,5 @@ if __name__ == '__main__':
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -m splits -t 'all_tickers.csv' -s >> /home/robale5/becauseinterfaces.com/acct/logs/splits02.log 2>&1 &
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/market_data.log 2>&1 &
+
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/market_data.py -e stats >> /home/robale5/becauseinterfaces.com/acct/logs/market_data_tmp.log 2>&1 &

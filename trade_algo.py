@@ -898,7 +898,7 @@ if __name__ == '__main__':
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the trading sim!')
 	parser.add_argument('-t', '--tickers', type=str, default='ws_tickers.csv', help='A list of tickers to consider.')
 	parser.add_argument('-n', '--train_new', action='store_false', help='Train a new model if existing model is not found.')
-	parser.add_argument('-a', '--train', action='store_true', help='Train all new models.')
+	parser.add_argument('-a', '--train', action='store_true', help='Train all new models and override any existing models.')
 	parser.add_argument('-mn', '--model_name', type=str, help='The optional file name of the model.')
 	parser.add_argument('-since', '--since', action='store_false', help='Use all dates since a given date. On by default.')
 	parser.add_argument('-sd', '--since_date', type=str, default='2020-01-24', help='Use dates from a given date.')
@@ -1042,7 +1042,7 @@ if __name__ == '__main__':
 		t0_end = time.perf_counter()
 		print(time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:
-		date = None # '2019-12-26' # 
+		date = None # '2022-10-21' # 
 		global_merged_data = None
 		cap = args.capital
 		if cap is None:
@@ -1085,6 +1085,6 @@ if __name__ == '__main__':
 
 # nohup python trade_algo.py -db trade01.db -s 11 -sim -t tsla
 
-# 00 21 * * * nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db -t tsla >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.log 2>&1 &
+# 00 21 * * * nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/trade_algo.py -db trade01.db.bak02 -t tsla -haircut 0 >> /home/robale5/becauseinterfaces.com/acct/logs/trade01.bak02.log 2>&1 &
 
 # nohup python trade_algo.py -db trade01.db -s 11 -sim -t tsla -mn tsla_wndw_model01 -sd 2020-01-24
