@@ -504,6 +504,16 @@ class CombineData(object):
 		else:
 			pathname = self.data_location + filename + '.csv'
 		print(f'Get new data and save as: {filename}.csv')
+		if dates is not None:
+			if not isinstance(dates, (list, tuple)):
+				if isinstance(dates, str):
+					if '.csv' in dates:
+						# TODO Load file
+						pass
+					else:
+						dates = [x.strip() for x in dates.split(',')]
+				else:
+					dates = [dates]
 		if os.path.exists(self.data_location + merged):
 			if v: print(time_stamp() + f'Merged data exists for get. Save: {args.save}')
 			merged = pd.read_csv(self.data_location + merged)
@@ -511,9 +521,12 @@ class CombineData(object):
 			if v: print('merged tail:\n', merged.tail())
 			if v: print(time_stamp() + 'merged shape load:', merged.shape)
 			if v: print('date type:', type(merged['date'].max()))
-			dates = [dt.datetime.strptime(merged['date'].max(), '%Y-%m-%d').date() + dt.timedelta(days=1)]
-			if v: print(time_stamp() + 'Merged Max Date:', dates)
-			new_merged = combine_data.date_filter(dates, since=True)
+			if dates is None:
+				dates = [dt.datetime.strptime(merged['date'].max(), '%Y-%m-%d').date() + dt.timedelta(days=1)]
+				if v: print(time_stamp() + 'Merged Max Date:', dates)
+				new_merged = combine_data.date_filter(dates, since=True)
+			else:
+				new_merged = combine_data.date_filter(dates)
 			if v: print(time_stamp() + 'new_merged shape filter dates:', new_merged.shape)
 			if tickers is not None:
 				if isinstance(tickers, str):
@@ -626,6 +639,7 @@ class CombineData(object):
 		if df is None:
 			if os.path.exists('data/merged.csv'):
 				df = pd.read_csv('data/merged.csv')
+		# TODO Add check to df to look for .csv in name and if so, then load that file
 		df = pd.Series(df['symbol'].unique())
 		if save:
 			if not pathname:
@@ -658,12 +672,20 @@ class CombineData(object):
 		if v: print(time_stamp() + 'Min Date:', min_date)
 		return min_date
 
-	def fill_missing(self, missing=None, merged=None, save=False, v=False):
+	def fill_missing(self, missing=None, filename=None, merged=None, save=False, v=False):
 		if v: print(time_stamp() + 'Missing File Save:', save)
+		if filename is None:
+			filename = 'merged_filled'
+			pathname = None
+		elif '.csv' == filename[-4:]:
+			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if isinstance(missing, str):
 			if '.csv' in missing:
 				print(time_stamp() + 'Loading missing data from:', missing)
-				missing = pd.read_csv(data_location + 'hist_prices/' + missing)
+				missing = pd.read_csv(self.data_location + 'hist_prices/' + missing)
 				if 'close' in missing.columns.values:
 					missing = missing.rename(columns={'close': 'hist_close', 'changePercent': 'hist_changePercent', 'change': 'hist_change', 'changeOverTime': 'hist_changeOverTime', 'high': 'hist_high', 'low': 'hist_low', 'open': 'hist_open', 'volume': 'hist_volume', 'label': 'hist_label'})
 				missing['comment_miss'] = 'missing'
@@ -854,12 +876,21 @@ class CombineData(object):
 			display_dates = ['2019-09-13','2019-09-16','2019-10-01']
 			# if v: print(time_stamp() + 'missing_merged:\n', df.loc[df.index.get_level_values('date').isin(display_dates)])
 		if save:
-			path = self.data_location + 'merged_filled.csv'
-			df.to_csv(path, date_format='%Y-%m-%d', index=True)
+			if not pathname:
+				pathname = self.data_location + 'merged_filled.csv'
+			df.to_csv(pathname, date_format='%Y-%m-%d', index=True)
 			print(time_stamp() + 'Saved merged missing data to: {}'.format(path))
 		return df
 
-	def find_missing(self, data=None, dates_only=False, save=False, v=False):
+	def find_missing(self, data=None, filename=None, dates_only=False, save=False, v=False):
+		if filename is None:
+			filename = 'miss_merged'
+			pathname = None
+		elif '.csv' == filename[-4:]:
+			filename = filename[:-4]
+			pathname = self.data_location + filename + '.csv'
+		else:
+			pathname = self.data_location + filename + '.csv'
 		if data is None:
 			missing = None
 			merged = 'merged.csv' # None #
@@ -878,9 +909,9 @@ class CombineData(object):
 		with pd.option_context('display.max_columns', None, 'display.max_rows', None):
 			if v: print(time_stamp() + 'Found Missing Fields: {}\n{}'.format(len(df), df))
 		if save:
-			filename = 'miss_merged.csv'
-			path = self.data_location + filename
-			df.to_csv(path, date_format='%Y-%m-%d', index=True)
+			if not pathname:
+				pathname = self.data_location + 'miss_merged.csv'
+			df.to_csv(pathname, date_format='%Y-%m-%d', index=True)
 			print(time_stamp() + 'Saved found missing fields to: {}'.format(path))
 		return df
 
@@ -897,7 +928,7 @@ if __name__ == '__main__':
 	parser.add_argument('-d', '--dates', type=str, help='A list of dates to combine data for.')
 	parser.add_argument('-t', '--tickers', type=str, help='A list of tickers to filter data for.')
 	parser.add_argument('-f', '--fields', type=str, help='The fields to filter data for.')
-	parser.add_argument('-m', '--mode', type=str, help='The mode to run: merged, missing, value, tickers.')
+	parser.add_argument('-m', '--mode', type=str, help='The mode to run: merged, find, missing, tickers, value, crypto, splits, mark, scrub, tar, gettickers, maxdate, mindate, and get.')
 	parser.add_argument('-since', '--since', action='store_true', help='Use all dates since a given date.')
 	parser.add_argument('-until', '--until', action='store_true', help='Use all dates up to a given date.')
 	parser.add_argument('-sd', '--start_date', type=str, help='The date to start using data from.')
@@ -916,7 +947,7 @@ if __name__ == '__main__':
 	# 	data_location = '/Users/Robbie/Public/market_data/new/data/'
 	combine_data = CombineData()#data_location=data_location)
 
-	if args.mode == 'fill':
+	if args.mode == 'fill' or args.mode == 'missing':
 		# merged = 'merged.csv' # 'ws_miss_merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
 		missing = 'A_to_ZYME_hist_prices_2020-03-18_to_2020-03-19.csv'
 		# missing = 'A_to_ZZZ-CT_hist_prices_2019-08-26_to_2020-02-19.csv'
@@ -924,11 +955,11 @@ if __name__ == '__main__':
 		# 'a_to_zyne_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'aapl_to_aapl_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'a_to_zzz-ct_hist_prices_2018-05-22_to_2020-01-22' #'all_hist_prices'
-		df = combine_data.fill_missing(missing, args.merged, save=args.save, v=args.v)
+		df = combine_data.fill_missing(missing, args.merged, filename=args.out_file, save=args.save, v=args.v)
 
 	elif args.mode == 'find':
 		data = args.merged # 'merged.csv' # 'ws_miss_merged.csv' # None # 'all_hist_prices_new4_merged.csv'
-		df = combine_data.find_missing(data, save=args.save, v=args.v)
+		df = combine_data.find_missing(data, filename=args.out_file, save=args.save, v=args.v)
 
 	elif args.mode == 'merged' or args.mode == 'merge':
 		print(time_stamp() + 'Merged Save: ', args.save)
@@ -956,7 +987,7 @@ if __name__ == '__main__':
 		if not isinstance(args.tickers, (list, tuple)):
 			args.tickers = [x.strip() for x in args.tickers.split(',')]
 		if len(args.fields) == 1 and len(args.dates) == 1 and len(args.tickers) == 1:
-			print('{} value for {} on {}:'.format(args.fields[0], args.tickers[0], dates[0]))
+			print('{} value for {} on {}:'.format(args.fields[0], args.tickers[0], args.dates[0]))
 			result = combine_data.value(args.dates, args.tickers, args.fields)
 			print(result)
 			print('-' * DISPLAY_WIDTH)
