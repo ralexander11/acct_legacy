@@ -270,6 +270,8 @@ class TradingAlgo(object):
 		base_dir = '/Users/Robbie/Documents/Development/Python/acct/data/'
 		if not os.path.exists(base_dir):
 			base_dir = '/home/robale5/becauseinterfaces.com/acct/data/'
+		if not os.path.exists(base_dir):
+			base_dir = '/home/robbie/dev/acct_legacy/data/'
 		if '.csv' in flag:
 			symbols = pd.read_csv(base_dir + flag, header=None)
 			if 'symbol' in symbols.columns.values.tolist(): # TODO This is not possible with header=None
@@ -888,7 +890,7 @@ if __name__ == '__main__':
 	parser.add_argument('-db', '--database', type=str, default='trade01.db', help='The name of the database file.')
 	parser.add_argument('-l', '--ledger', type=str, help='The name of the ledger.')
 	parser.add_argument('-e', '--entity', type=int, help='A number for the entity.')
-	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each update.')
+	parser.add_argument('-w', '--delay', type=int, default=0, help='The amount of seconds to delay each update.')
 	parser.add_argument('-sim', '--simulation', action="store_true", help='Run on historical data.')
 	parser.add_argument('-end', '--end_days', type=int, help='The number of days the sim will run for.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital to start with.')
@@ -897,12 +899,13 @@ if __name__ == '__main__':
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the trading sim!')
 	parser.add_argument('-t', '--tickers', type=str, default='ws_tickers.csv', help='A list of tickers to consider.')
+	parser.add_argument('-d', '--data', type=str, help='The file name of the merged data.')
 	parser.add_argument('-n', '--train_new', action='store_false', help='Train a new model if existing model is not found.')
 	parser.add_argument('-a', '--train', action='store_true', help='Train all new models and override any existing models.')
 	parser.add_argument('-mn', '--model_name', type=str, help='The optional file name of the model.')
 	parser.add_argument('-since', '--since', action='store_false', help='Use all dates since a given date. On by default.')
 	parser.add_argument('-sd', '--since_date', type=str, default='2020-01-24', help='Use dates from a given date.')
-	parser.add_argument('-o', '--offset', type=int, default=0, help='Number of days to run in the past.')
+	parser.add_argument('-os', '--offset', type=int, default=0, help='Number of days to run in the past.')
 	parser.add_argument('-haircut', '--haircut', type=float, default=1, help='Percent to reduce the predicted price by.')
 	args = parser.parse_args()
 	print(time_stamp() + str(sys.argv))
@@ -947,6 +950,9 @@ if __name__ == '__main__':
 			args.tickers = [x.strip().upper() for x in args.tickers.split(',')]
 		else:
 			args.tickers = algo.get_symbols(args.tickers)
+	if args.data:
+		if '.csv' not in args.data:
+			args.data = args.data + '.csv'
 	# print('args.tickers:', args.tickers)
 	# result = algo.future_data('scor', '2018-05-09')
 	# convert_lite(args.tickers)
@@ -1020,7 +1026,10 @@ if __name__ == '__main__':
 			nav_hist = pd.DataFrame()
 			nav_hist.index.rename('date', inplace=True)
 		first = True
-		merged = 'merged.csv'
+		if args.data is not None:
+			merged = args.data
+		else:
+			merged = 'merged.csv'
 		print(time_stamp() + f'Loading combined data from: {combine_data.data_location + merged}')
 		global_merged_data = pd.read_csv(combine_data.data_location + merged)
 		# global_merged_data = global_merged_data.set_index(['symbol','date'])
@@ -1043,7 +1052,12 @@ if __name__ == '__main__':
 		print(time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:
 		date = None # '2022-10-21' # 
-		global_merged_data = None
+		if args.data is not None:
+			merged = args.data
+			print(time_stamp() + f'Loading combined data from: {combine_data.data_location + merged}')
+			global_merged_data = pd.read_csv(combine_data.data_location + merged)
+		else:
+			global_merged_data = None
 		cap = args.capital
 		if cap is None:
 			cap = float(1000)

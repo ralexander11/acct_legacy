@@ -29,8 +29,12 @@ class CombineData(object):
 				self.data_location = '/Users/Robbie/Public/market_data/new/data/'
 				# self.data_location = '/Users/Robbie/Public/market_data/test_data/'
 			else:
-				# self.data_location = '../market_data/data/'
-				self.data_location = '../market_data/test_data/'
+				if os.getcwd().split('/')[-1] != 'market_data':
+					self.data_location = 'market_data/data/'
+				else:
+					self.data_location = '../market_data/data/'
+					# self.data_location = '../market_data/test_data/'
+		print('data location:', self.data_location)
 
 	def load_file(self, infile, compress=None):
 		if infile[-3:] == '.gz':
@@ -42,9 +46,9 @@ class CombineData(object):
 		with open(infile, open_mode) as f:
 			try:
 				if compress:
-					df = pd.read_csv(f, compression='gzip')
+					df = pd.read_csv(f, compression='gzip', na_filter = False)
 				else:
-					df = pd.read_csv(f, encoding='utf-8')
+					df = pd.read_csv(f, encoding='utf-8', na_filter = False)
 			except pd.errors.EmptyDataError:
 				print('Empty file:', infile)
 				return
@@ -134,6 +138,15 @@ class CombineData(object):
 			pathname = self.data_location + filename + '.csv'
 		else:
 			pathname = self.data_location + filename + '.csv'
+		if dates is not None:
+			if '.csv' in dates:
+				dates = pd.read_csv(self.data_location + '../../data/' + dates, header=None, comment='#')
+				if 'date' in dates.columns.values.tolist():
+					dates = dates['date'].values.tolist()
+				elif 'dates' in dates.columns.values.tolist():
+					dates = dates['dates'].values.tolist()
+				else:
+					dates = dates.iloc[:,0].values.tolist()
 		# since with no date: jan to now
 		# since with date: date to now
 		# until with no date: start of data ['2018-05-08'] to now
@@ -160,8 +173,10 @@ class CombineData(object):
 						dates = [dates]
 			if len(dates) > 1:
 				# TODO Raise an exception
-				print('Must provide only 1 date with the "since" or "until" commands.')
-				return
+				print('Must provide only 1 date with the "since" or "until" commands. Will use the max date.')
+				dates = [max(dates)]
+				print('Date:', dates)
+				#return
 			if until:
 				if not dates:
 					end_date = dt.datetime.today()
@@ -180,12 +195,16 @@ class CombineData(object):
 					if args.start_date:
 						start_date = args.start_date
 					else:
-						start_date = dates[0]
+						if isinstance(dates, (list, tuple)):
+							start_date = dates[0]
+						else:
+							start_date = dates
 			else:
 				if args.start_date:
 					start_date = args.start_date
 				else:
 					start_date = '2020-01-24'
+			if v: print('start_date:', start_date)
 			dates = pd.date_range(start=start_date, end=end_date, freq='D').to_pydatetime().tolist()
 			dates = [date.strftime('%Y-%m-%d') for date in dates]
 			print(time_stamp() + f'Number of Days since {dates[0]}: {len(dates)}')
@@ -235,6 +254,18 @@ class CombineData(object):
 			pathname = self.data_location + filename + '.csv'
 		else:
 			pathname = self.data_location + filename + '.csv'
+		if '.csv' in symbol:
+			symbol = pd.read_csv(self.data_location + '../../data/' + symbol, header=None, comment='#')
+			if 'symbol' in symbol.columns.values.tolist():
+				symbol = symbol['symbol'].values.tolist()
+			elif 'symbols' in symbol.columns.values.tolist():
+				symbol = symbol['symbols'].values.tolist()
+			elif 'ticker' in symbol.columns.values.tolist():
+				symbol = symbol['ticker'].values.tolist()
+			elif 'tickers' in symbol.columns.values.tolist():
+				symbol = symbol['tickers'].values.tolist()
+			else:
+				symbol = symbol.iloc[:,0].values.tolist()
 		if merged is None:
 			# if os.path.exists('data/merged.csv'):
 			# 	merged = pd.read_csv('data/merged.csv')
@@ -388,10 +419,10 @@ class CombineData(object):
 			df = pd.read_csv(self.data_location + merged)
 		else:
 			df = merged.copy(deep=True)
-		if args.tickers:
-			if not isinstance(args.tickers, (list, tuple)):
-				args.tickers = [x.strip().upper() for x in args.tickers.split(',')]
-			df = df.loc[df['symbol'].isin(args.tickers)]
+		# if args.tickers: # TODO Having .csv in tickers arg causes issues
+		# 	if not isinstance(args.tickers, (list, tuple)):
+		# 		args.tickers = [x.strip().upper() for x in args.tickers.split(',')]
+		# 	df = df.loc[df['symbol'].isin(args.tickers)]
 		if 'target' not in df.columns.values:
 			df['target'] = None
 		tickers = df['symbol'].unique().tolist()
@@ -438,6 +469,8 @@ class CombineData(object):
 			df = pd.read_csv(self.data_location + df)
 		df['date'] = pd.to_datetime(df['date'])
 		if v: print(df)
+		if 'sector' not in df.columns.values:
+			df['sector'] = None
 		df = df.loc[(df['date'].dt.dayofweek < 5) | (df['sector'] == 'cryptocurrency')]
 		if v: print(df)
 		holidays = pd.read_csv(self.data_location + 'holidays.csv')
@@ -508,8 +541,13 @@ class CombineData(object):
 			if not isinstance(dates, (list, tuple)):
 				if isinstance(dates, str):
 					if '.csv' in dates:
-						# TODO Load file
-						pass
+						dates = pd.read_csv(self.data_location + '../../data/' + dates, header=None, comment='#')
+						if 'date' in dates.columns.values.tolist():
+							dates = dates['date'].values.tolist()
+						elif 'dates' in dates.columns.values.tolist():
+							dates = dates['dates'].values.tolist()
+						else:
+							dates = dates.iloc[:,0].values.tolist()
 					else:
 						dates = [x.strip() for x in dates.split(',')]
 				else:
@@ -518,19 +556,33 @@ class CombineData(object):
 			if v: print(time_stamp() + f'Merged data exists for get. Save: {args.save}')
 			merged = pd.read_csv(self.data_location + merged)
 			cols = merged.columns.values.tolist()
+			if v: print('cols:', cols)
 			if v: print('merged tail:\n', merged.tail())
 			if v: print(time_stamp() + 'merged shape load:', merged.shape)
 			if v: print('date type:', type(merged['date'].max()))
 			if dates is None:
 				dates = [dt.datetime.strptime(merged['date'].max(), '%Y-%m-%d').date() + dt.timedelta(days=1)]
 				if v: print(time_stamp() + 'Merged Max Date:', dates)
-				new_merged = combine_data.date_filter(dates, since=True)
 			else:
-				new_merged = combine_data.date_filter(dates)
+				dates = max(dates)
+			new_merged = combine_data.date_filter(dates, since=True)
 			if v: print(time_stamp() + 'new_merged shape filter dates:', new_merged.shape)
 			if tickers is not None:
 				if isinstance(tickers, str):
-					tickers = [x.strip() for x in tickers.split(',')]
+					if '.csv' in tickers:
+						tickers = pd.read_csv(self.data_location + '../../data/' + tickers, header=None, comment='#')
+						if 'symbol' in tickers.columns.values.tolist():
+							tickers = tickers['symbol'].values.tolist()
+						elif 'symbols' in tickers.columns.values.tolist():
+							tickers = tickers['symbols'].values.tolist()
+						elif 'ticker' in tickers.columns.values.tolist():
+							tickers = tickers['ticker'].values.tolist()
+						elif 'tickers' in tickers.columns.values.tolist():
+							tickers = tickers['tickers'].values.tolist()
+						else:
+							tickers = tickers.iloc[:,0].values.tolist()
+					else:
+						tickers = [x.strip() for x in tickers.split(',')]
 				if v: print(time_stamp() + 'Tickers:', tickers)
 				new_merged = combine_data.comp_filter(tickers, new_merged)
 				merged = combine_data.comp_filter(tickers, merged)
@@ -584,11 +636,14 @@ class CombineData(object):
 						pathname = self.data_location + filename + '_' + tickers[0] + '_to_' + tickers[-1] + '.csv'
 				else:
 					pathname = self.data_location + filename + '.csv'
+			header = True
 			if merged is not None:
+				header = False
 				merged.to_csv(pathname, index=False)
-			new_merged.to_csv(pathname, index=False, mode='a', header=False)
+			new_merged.to_csv(pathname, index=False, mode='a', header=header)
 			# Fix sorting
 			merged = pd.read_csv(pathname)
+			# print(merged.head())
 			merged = merged.sort_values(by=['symbol', 'date'])
 			merged.to_csv(pathname, index=False)
 			print(time_stamp() + 'Saved merged data for {} to:\n{}'.format(dates[-1], pathname))
@@ -924,7 +979,7 @@ class CombineData(object):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-md', '--merged', type=str, default='merged.csv', help='The file name of the merged data.')
-	parser.add_argument('-out', '--out_file', type=str, default='merged', help='The file name of the output with no .csv extension.')
+	parser.add_argument('-o', '--output', type=str, default='merged', help='The file name of the output with no .csv extension.')
 	parser.add_argument('-d', '--dates', type=str, help='A list of dates to combine data for.')
 	parser.add_argument('-t', '--tickers', type=str, help='A list of tickers to filter data for.')
 	parser.add_argument('-f', '--fields', type=str, help='The fields to filter data for.')
@@ -955,11 +1010,11 @@ if __name__ == '__main__':
 		# 'a_to_zyne_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'aapl_to_aapl_hist_prices_2018-05-22_to_2020-01-22.csv'
 		# 'a_to_zzz-ct_hist_prices_2018-05-22_to_2020-01-22' #'all_hist_prices'
-		df = combine_data.fill_missing(missing, args.merged, filename=args.out_file, save=args.save, v=args.v)
+		df = combine_data.fill_missing(missing, args.merged, filename=args.output, save=args.save, v=args.v)
 
 	elif args.mode == 'find':
 		data = args.merged # 'merged.csv' # 'ws_miss_merged.csv' # None # 'all_hist_prices_new4_merged.csv'
-		df = combine_data.find_missing(data, filename=args.out_file, save=args.save, v=args.v)
+		df = combine_data.find_missing(data, filename=args.output, save=args.save, v=args.v)
 
 	elif args.mode == 'merged' or args.mode == 'merge':
 		print(time_stamp() + 'Merged Save: ', args.save)
@@ -996,22 +1051,22 @@ if __name__ == '__main__':
 			print('Value option only works when one field, date, and ticker are provided.')
 
 	elif args.mode == 'crypto':
-		df = combine_data.crypto_data(prep=True, filename=args.out_file, save=args.save, v=args.v)
+		df = combine_data.crypto_data(prep=True, filename=args.output, save=args.save, v=args.v)
 
 	elif args.mode == 'splits':
-		df = combine_data.splits(args.merged, filename=args.out_file, save=args.save, v=args.v)
+		df = combine_data.splits(args.merged, filename=args.output, save=args.save, v=args.v)
 
 	elif args.mode == 'mark':
-		df = combine_data.mark_miss(args.merged, filename=args.out_file, save=args.save, v=args.v)
+		df = combine_data.mark_miss(args.merged, filename=args.output, save=args.save, v=args.v)
 
 	elif args.mode == 'scrub':
-		df = combine_data.scrub(args.merged, filename=args.out_file, save=args.save, v=args.v)
+		df = combine_data.scrub(args.merged, filename=args.output, save=args.save, v=args.v)
 
 	elif args.mode == 'tar' or args.mode == 'target':
-		df = combine_data.target(args.merged, filename=args.out_file, save=args.save, v=args.v)
+		df = combine_data.target(args.merged, filename=args.output, save=args.save, v=args.v)
 
 	elif args.mode == 'gettickers':
-		df = combine_data.get_tickers(filename=args.out_file, save=args.save, v=args.v)
+		df = combine_data.get_tickers(filename=args.output, save=args.save, v=args.v)
 
 	elif args.mode == 'maxdate':
 		max_date = combine_data.max_date(args.merged)
@@ -1020,25 +1075,25 @@ if __name__ == '__main__':
 		max_date = combine_data.min_date(args.merged)
 
 	elif args.mode == 'get':
-		df = combine_data.get(dates=args.dates, tickers=args.tickers, merged=args.merged, filename=args.out_file, save=args.save, v=args.v)
+		df = combine_data.get(dates=args.dates, tickers=args.tickers, merged=args.merged, filename=args.output, save=args.save, v=args.v)
 
 	else:
 		if args.dates and args.tickers and args.fields:
-			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since, until=args.until)), filename=args.out_file, save=args.save, v=args.v)
+			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since, until=args.until)), filename=args.output, save=args.save, v=args.v)
 		if args.dates and args.tickers and args.fields is None:
-			df = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since, until=args.until), filename=args.out_file, save=args.save, v=args.v)
+			df = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, since=args.since, until=args.until), filename=args.output, save=args.save, v=args.v)
 		if args.dates and args.tickers is None and args.fields:
-			df = combine_data.data_point(args.fields, combine_data.date_filter(args.dates, since=args.since, until=args.until), filename=args.out_file, save=args.save, v=args.v)
+			df = combine_data.data_point(args.fields, combine_data.date_filter(args.dates, since=args.since, until=args.until), filename=args.output, save=args.save, v=args.v)
 		if args.dates is None and args.tickers and args.fields:
-			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers), filename=args.out_file, save=args.save, v=args.v)
+			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers), filename=args.output, save=args.save, v=args.v)
 		if args.dates and args.tickers is None and args.fields is None:
-			df = combine_data.date_filter(args.dates, since=args.since, until=args.until, filename=args.out_file, save=args.save, v=args.v)
+			df = combine_data.date_filter(args.dates, since=args.since, until=args.until, filename=args.output, save=args.save, v=args.v)
 		if args.dates is None and args.tickers and args.fields is None:
 			print('Merging all dates for:', args.tickers)
 			print('Save:', args.save)
-			df = combine_data.comp_filter(args.tickers, filename=args.out_file, save=args.save, v=args.v)
+			df = combine_data.comp_filter(args.tickers, filename=args.output, save=args.save, v=args.v)
 		if args.dates is None and args.tickers is None and args.fields:
-			df = combine_data.data_point(args.fields, filename=args.out_file, save=args.save, v=args.v)
+			df = combine_data.data_point(args.fields, filename=args.output, save=args.save, v=args.v)
 		if args.dates is None and args.tickers is None and args.fields is None:
 			print('Save:', args.save)
 			df = combine_data.merge_data(save=args.save)
@@ -1049,8 +1104,8 @@ if __name__ == '__main__':
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m get -t "aapl, tsla" -s >> /home/robale5/becauseinterfaces.com/acct/logs/get10.log 2>&1 &
 
-# nohup python -u market_data/combine_data.py -sd None --until -d 2020-07-31 -out merged_all_until-2020-07 -s -v >> logs/combine02.log 2>&1 &
+# nohup python -u market_data/combine_data.py -sd None --until -d 2020-07-31 -o merged_all_until-2020-07 -s -v >> logs/combine02.log 2>&1 &
 
-# nohup python -u market_data/combine_data.py -m splits -md merged_all_until-2020-07.csv -out merged_all_until-2020-07 -s -v >> logs/combine09.log 2>&1 &
+# nohup python -u market_data/combine_data.py -m splits -md merged_all_until-2020-07.csv -o merged_all_until-2020-07 -s -v >> logs/combine09.log 2>&1 &
 
 # splits, mark, scrub, tar

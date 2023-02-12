@@ -323,23 +323,26 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, mo
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-md', '--merged', type=str, default='merged.csv', help='The file name of the merged data.')
+	parser.add_argument('-d', '--data', type=str, default='merged.csv', help='The file name of the merged data.')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the model for reuse.')
 	parser.add_argument('-t', '--ticker', type=str, help='A single ticker to use.')
 	parser.add_argument('-n', '--train', action='store_true', help='Train a new model.')
 	parser.add_argument('-c', '--crypto', action='store_true', help='If using for cryptocurrencies.')
-	parser.add_argument('-sd', '--seed', type=int, help='Set the seed number for the randomness in the sorting of the input data when training.')
+	parser.add_argument('-seed', '--seed', type=int, help='Set the seed number for the randomness in the sorting of the input data when training.')
 	parser.add_argument('-v', '--verbose', action='store_false', help='Display the result.')
+	parser.add_argument('-o', '--output', type=str, help='The optional file name of the model.')
 	parser.add_argument('-mn', '--model_name', type=str, help='The optional file name of the model.')
 	args = parser.parse_args()
 	print(time_stamp() + str(sys.argv))
+	if args.output:
+		args.model_name = args.output
 
-	result = main(args.ticker, train=args.train, crypto=args.crypto, data=args.merged, model_name=args.model_name, save=args.save, v=args.verbose)
+	result = main(args.ticker, train=args.train, crypto=args.crypto, data=args.data, model_name=args.model_name, save=args.save, v=args.verbose)
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -md merged_bak_2021-02-25.csv -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -d merged_bak_2021-02-25.csv -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &
 
 # nohup python -u fut_price.py -n -t tsla -s >> logs/fut_price02.log 2>&1 &
 
-# nohup python -u fut_price.py -n -t tsla --seed 11 -md merged_all_until-2020-07 -mn tsla_wndw_model01 -s >> logs/fut_price11.log 2>&1 &
+# nohup python -u fut_price.py -n -t tsla --seed 11 -md merged_all_until-2020-07 -o tsla_wndw_model01 -s >> logs/fut_price11.log 2>&1 &
