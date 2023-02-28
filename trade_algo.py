@@ -637,6 +637,11 @@ class TradingAlgo(object):
 		print('greatest_changePercent: {}'.format(change))
 		t1_end = time.perf_counter()
 		print(time_stamp() + 'Done ranking {} securities by change percentage in: {:,.2f} min.'.format(quote_df.shape[0], (t1_end - t1_start) / 60))
+		print('change:', change)
+		if isinstance(change, str):
+			print('change is a ', type(change))
+			print('change str:', change)
+			return quote_df
 		if change <= 0:
 			print('No Positive Change Rank: \n{}'.format(quote_df.head()))
 			quote_df = quote_df.iloc[0:0]

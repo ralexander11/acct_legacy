@@ -58,9 +58,9 @@ class MarketData(object):
 			exchanges = ['iex']
 		if flag == 'iex':
 			symbols_array = []
-			exchanges += ['tse','tsx']
+			exchanges += ['xtse','xtsx']
 			for exchange in exchanges:
-				# print('Getting data from exchange: {}'.format(exchange))
+				print('Getting data from exchange: {}'.format(exchange))
 				if exchange == 'iex':
 					exchange_url = ''
 				else:
