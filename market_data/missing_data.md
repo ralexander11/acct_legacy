@@ -1,6 +1,6 @@
-#Missing Data
+# Missing Data
 
-##Market Data
+## Market Data
 
 start_date: 2018-05-08
 
@@ -61,7 +61,6 @@ Not resolved.
 2018-08-18
 Not resolved.
 
-
 # Unsure Data
 
 ## Market Data
@@ -72,5 +71,19 @@ Not resolved.
 2018-06-30
 
 # Started pulling Canadian data on 2020-01-19
+# Canadian data stopped on 2021-12-01
+# Started pulling Canadian data again on 2022-02-28
 
 # Changed data pull time to 9:20 pm on 2020-01-24
+
+Missing Quote data from:
+2022-10-06 to 2022-10-18
+
+Missing Stats data from:
+2022-10-06 to 2022-11-04
+
+Have only Stats for:
+2022-10-22
+
+Missing:
+2023-02-12

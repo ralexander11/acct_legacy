@@ -967,8 +967,36 @@ class CombineData(object):
 			if not pathname:
 				pathname = self.data_location + 'miss_merged.csv'
 			df.to_csv(pathname, date_format='%Y-%m-%d', index=True)
-			print(time_stamp() + 'Saved found missing fields to: {}'.format(path))
+			print(time_stamp() + 'Saved found missing fields to: {}'.format(pathname))
 		return df
+
+	def cols(self, data=None, filename=None, save=False, v=False):
+		if filename is None or filename == 'merged':
+			filename = 'cols'
+			# pathname = None
+			pathname = self.data_location + filename + '.csv'
+		elif '.csv' == filename[-4:]:
+			pathname = self.data_location + filename
+		else:
+			pathname = self.data_location + filename + '.csv'
+		if data is None:
+			data = 'merged.csv'
+		if isinstance(data, str):
+			if '.csv' != data[-4:]:
+				if v: print('Adding .csv to file name:\n', data)
+				data = data + '.csv'
+			print(time_stamp() + 'Loading data to get the columns from:', data)
+			data = pd.read_csv(self.data_location + data)
+		cols = data.columns.values.tolist()
+		print(time_stamp() + 'Columns:')
+		print(cols)
+		df = pd.DataFrame(cols)
+		if save:
+			if not pathname: # TODO is this needed?
+				pathname = self.data_location + 'cols.csv'
+			df.to_csv(pathname, index=False, header=False)
+			print(time_stamp() + 'Saved column fields to: {}'.format(pathname))
+		return df		
 
 	def front(self, n):
 		return self.iloc[:, :n]
@@ -987,6 +1015,7 @@ if __name__ == '__main__':
 	parser.add_argument('-since', '--since', action='store_true', help='Use all dates since a given date.')
 	parser.add_argument('-until', '--until', action='store_true', help='Use all dates up to a given date.')
 	parser.add_argument('-sd', '--start_date', type=str, help='The date to start using data from.')
+	parser.add_argument('-ed', '--end_date', type=str, help='The date to use data up to.')
 	parser.add_argument('-s', '--save', action='store_true', help='Save the results to csv.')
 	parser.add_argument('-v', '--verbose', action='store_true', help='Display the result.')
 	args = parser.parse_args()
@@ -1010,6 +1039,8 @@ if __name__ == '__main__':
 		print(time_stamp() + 'Loading data from: ', merged)
 		merged = pd.read_csv(merged)
 		print(time_stamp() + 'Data loaded.')
+	else:
+		merged = None
 
 	if args.mode == 'fill' or args.mode == 'missing':
 		# merged = 'merged.csv' # 'ws_miss_merged.csv' #'merged_AAPl.csv' #'aapl_tsla_quote.csv'
@@ -1082,6 +1113,9 @@ if __name__ == '__main__':
 
 	elif args.mode == 'mindate':
 		max_date = combine_data.min_date(args.merged)
+
+	elif args.mode == 'cols':
+		cols = combine_data.cols(data=merged, filename=args.output, save=args.save, v=args.v)
 
 	elif args.mode == 'get':
 		df = combine_data.get(dates=args.dates, tickers=args.tickers, merged=merged, filename=args.output, save=args.save, v=args.v)

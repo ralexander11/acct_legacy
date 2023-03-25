@@ -20,11 +20,13 @@ def time_stamp(offset=0):
 	time_stamp = (dt.datetime.now() + dt.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
 	return time_stamp
 
-def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
+def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, v=True):
 	if v: print(time_stamp() + 'Prepare data')
 	combine_data = CombineData()
 	if merged is None:
 		merged = 'merged.csv'
+	if fields is None:
+		fields = 'fields.csv'
 	if crypto:
 		url = 'http://becauseinterfaces.com/acct/market_data/data/crypto_prep_merged.csv'
 		column_names = ['symbol','date','askPrice','askSize','bidPrice','bidSize','latestPrice','target']
@@ -48,17 +50,17 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 		merged_data = pd.read_csv(combine_data.data_location + merged)
 		merged_data = merged_data.set_index(['symbol','date'])
 		# dataset = combine_data.comp_filter(ticker, merged_data)
-		dataset = combine_data.data_point('fields.csv', combine_data.comp_filter(ticker, merged_data))
-		if v: print('data filtered for ticker:', dataset.shape)
-		dataset = dataset[column_names]
-		if v: print('Remove columns:', dataset.shape)
+		dataset = combine_data.data_point(fields, combine_data.comp_filter(ticker, merged_data))
+		if v: print(time_stamp() + 'Data filtered for ticker and fields:', dataset.shape)
+		# dataset = dataset[column_names] # TODO change to fields
+		# if v: print('Remove columns:', dataset.shape)
 	elif isinstance(merged, pd.DataFrame):
 		print('Data provided:', merged.shape)
 		if 'target' not in merged.columns.values.tolist():
 			merged['target'] = np.nan
 		# dataset = combine_data.comp_filter(ticker, merged)
 		# dataset = merged[column_names]
-		dataset = combine_data.data_point('fields.csv', merged)
+		dataset = combine_data.data_point(fields, merged)
 		# dataset = dataset.set_index(['symbol','date'])
 		if v: print('Remove columns:', dataset.shape)
 	else:
@@ -78,9 +80,11 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 	cols.remove('target')
 	# print(cols)
 	# print('shape before remove na rows:', dataset.shape)
+	# print(dataset)
+	# dataset.to_csv('test_data.csv')
 	# TODO Better missing data handling
 	dataset.dropna(axis=0, subset=cols, inplace=True)
-	# print('shape after remove na rows:', dataset.shape)
+	print('shape after remove na rows:', dataset.shape)
 	if train:
 		dataset.dropna(axis=0, subset=['target'], inplace=True)
 		if v: print('target filter out nan:', dataset.shape)
@@ -105,10 +109,10 @@ def prep_data(ticker=None, merged=None, crypto=False, train=False, v=True):
 	# 	if v: print(dataset)
 	return dataset
 
-def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, train=False, v=True):
+def get_features_and_labels(ticker=None, data=None, fields=None, crypto=False, frac_per=0.8, train=False, v=True):
 	if frac_per == 1:
 		train = False
-	data = prep_data(ticker=ticker, merged=data, crypto=crypto, train=train, v=v)
+	data = prep_data(ticker=ticker, merged=data, fields=fields, crypto=crypto, train=train, v=v)
 	try:
 		seed = args.seed
 		print('Random seed set as:', seed)
@@ -145,10 +149,10 @@ def get_features_and_labels(ticker=None, data=None, crypto=False, frac_per=0.8, 
 
 	return train_features, test_features, train_labels, test_labels, dataset
 
-def normalize_data(train_features=None, data=None, v=True):
+def normalize_data(train_features=None, data=None, fields=None, v=True):
 	if v: print(time_stamp() + 'Normalize training features')
 	if train_features is None:
-		train_features = get_features_and_labels(data=data, train=True, v=v)[0]
+		train_features = get_features_and_labels(data=data, fields=fields, train=True, v=v)[0]
 	normalizer = preprocessing.Normalization()
 	normalizer.adapt(np.array(train_features))
 	if v: print(time_stamp() + 'Normalized Mean:')
@@ -196,7 +200,7 @@ def plot_prediction(x, y, train_features, train_labels):
 	plt.legend()
 	plt.show()
 
-def main(ticker=None, train=False, crypto=False, data=None, only_price=False, model_name=None, save=False, v=False):
+def main(ticker=None, train=False, fields=None, crypto=False, data=None, only_price=False, model_name=None, save=False, v=False):
 	if v: print(time_stamp() + f'TensorFlow Version: {tf.__version__}')
 	if v: print(time_stamp() + f'Train: {train}')
 	if v: print(time_stamp() + f'Save: {save}')
@@ -218,7 +222,7 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, mo
 		frac_per = 1
 	else:
 		frac_per = 0.8
-	train_features, test_features, train_labels, test_labels, dataset = get_features_and_labels(ticker=ticker, crypto=crypto, data=data, frac_per=frac_per, train=train, v=v)
+	train_features, test_features, train_labels, test_labels, dataset = get_features_and_labels(ticker=ticker, fields=fields, crypto=crypto, data=data, frac_per=frac_per, train=train, v=v)
 		# print('test_features:')
 		# print(test_features)
 	if test_features.empty:
@@ -262,7 +266,7 @@ def main(ticker=None, train=False, crypto=False, data=None, only_price=False, mo
 			test_results = {}
 			test_results['reloaded'] = model.evaluate(test_features, test_labels, verbose=0)
 	else:
-		normalizer = normalize_data(train_features, data=data, v=v)
+		normalizer = normalize_data(train_features, data=data, fields=fields, v=v)
 
 		if v: print(time_stamp() + 'Build and compile model')
 		model = build_and_compile_model(normalizer)
@@ -332,12 +336,13 @@ if __name__ == '__main__':
 	parser.add_argument('-v', '--verbose', action='store_false', help='Display the result.')
 	parser.add_argument('-o', '--output', type=str, help='The optional file name of the model.')
 	parser.add_argument('-mn', '--model_name', type=str, help='The optional file name of the model.')
+	parser.add_argument('-f', '--fields', type=str, help='The fields to use in the model.')
 	args = parser.parse_args()
 	print(time_stamp() + str(sys.argv))
 	if args.output:
 		args.model_name = args.output
 
-	result = main(args.ticker, train=args.train, crypto=args.crypto, data=args.data, model_name=args.model_name, save=args.save, v=args.verbose)
+	result = main(args.ticker, train=args.train, fields=args.fields, crypto=args.crypto, data=args.data, model_name=args.model_name, save=args.save, v=args.verbose)
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &
 
@@ -345,4 +350,6 @@ if __name__ == '__main__':
 
 # nohup python -u fut_price.py -n -t tsla -s >> logs/fut_price02.log 2>&1 &
 
-# nohup python -u fut_price.py -n -t tsla --seed 11 -md merged_all_until-2020-07 -o tsla_wndw_model01 -s >> logs/fut_price11.log 2>&1 &
+# nohup python -u fut_price.py -n -t tsla --seed 11 -d merged_all_until-2020-07 -o tsla_wndw_model01 -s >> logs/fut_price11.log 2>&1 &
+
+# python fut_price.py -n -t vfv-ct -o vfv-test01 -s -d vfv-ct_merged_test01
