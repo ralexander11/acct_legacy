@@ -29,14 +29,16 @@ def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, 
 		fields = 'fields.csv'
 	if crypto:
 		url = 'http://becauseinterfaces.com/acct/market_data/data/crypto_prep_merged.csv'
-		column_names = ['symbol','date','askPrice','askSize','bidPrice','bidSize','latestPrice','target']
+		fields = ['symbol','date','askPrice','askSize','bidPrice','bidSize','latestPrice','target']
+		column_names = fields
 		if ticker is None:
 			ticker = 'BTCUSDT'
 		merged = 'crypto_prep_merged.csv'
 		if v: print(time_stamp() + f'URL: {url}')
 	else:
 		url = 'http://becauseinterfaces.com/acct/market_data/data/merged.csv'
-		column_names = ['symbol', 'date', 'avgTotalVolume', 'change', 'changePercent', 'close', 'delayedPrice', 'extendedChange', 'extendedChangePercent', 'extendedPrice', 'high', 'iexMarketPercent', 'iexRealtimePrice', 'iexRealtimeSize', 'iexVolume', 'latestPrice', 'latestVolume', 'low', 'marketCap', 'open', 'peRatio', 'previousClose', 'previousVolume', 'volume', 'week52High', 'week52Low', 'ytdChange', 'avg10Volume', 'avg30Volume', 'beta', 'day200MovingAvg', 'day30ChangePercent', 'day50MovingAvg', 'day5ChangePercent', 'marketcap', 'maxChangePercent', 'month1ChangePercent', 'month3ChangePercent', 'month6ChangePercent', 'sharesOutstanding', 'ttmEPS', 'week52change', 'week52high', 'week52low', 'year1ChangePercent', 'year2ChangePercent', 'year5ChangePercent', 'ytdChangePercent', 'target']
+		fields = ['symbol', 'date', 'avgTotalVolume', 'change', 'changePercent', 'close', 'delayedPrice', 'extendedChange', 'extendedChangePercent', 'extendedPrice', 'high', 'iexMarketPercent', 'iexRealtimePrice', 'iexRealtimeSize', 'iexVolume', 'latestPrice', 'latestVolume', 'low', 'marketCap', 'open', 'peRatio', 'previousClose', 'previousVolume', 'volume', 'week52High', 'week52Low', 'ytdChange', 'avg10Volume', 'avg30Volume', 'beta', 'day200MovingAvg', 'day30ChangePercent', 'day50MovingAvg', 'day5ChangePercent', 'marketcap', 'maxChangePercent', 'month1ChangePercent', 'month3ChangePercent', 'month6ChangePercent', 'sharesOutstanding', 'ttmEPS', 'week52change', 'week52high', 'week52low', 'year1ChangePercent', 'year2ChangePercent', 'year5ChangePercent', 'ytdChangePercent', 'target']
+		column_names = fields
 		# merged = 'merged.csv'
 
 	if v: print(time_stamp() + f'Ticker: {ticker}')
@@ -52,7 +54,7 @@ def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, 
 		# dataset = combine_data.comp_filter(ticker, merged_data)
 		dataset = combine_data.data_point(fields, combine_data.comp_filter(ticker, merged_data))
 		if v: print(time_stamp() + 'Data filtered for ticker and fields:', dataset.shape)
-		# dataset = dataset[column_names] # TODO change to fields
+		# dataset = dataset[fields]
 		# if v: print('Remove columns:', dataset.shape)
 	elif isinstance(merged, pd.DataFrame):
 		print('Data provided:', merged.shape)
@@ -65,7 +67,8 @@ def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, 
 		if v: print('Remove columns:', dataset.shape)
 	else:
 		# TODO Maybe remove this
-		raw_dataset = pd.read_csv(url, names=column_names)
+		print('Load data from:', url)
+		raw_dataset = pd.read_csv(url, names=column_names) # TODO change column_names to fields
 		dataset = raw_dataset.copy()
 		dataset = dataset.loc[dataset['symbol'] == ticker]
 
@@ -76,15 +79,26 @@ def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, 
 	# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 		# print(dataset.isna().sum())
 	# print(dataset)
+
+	cols = dataset.columns.values.tolist()
+	print('cols 1:', cols)
+	print('shape before remove na cols:', dataset.shape)
+	dataset.dropna(axis=1, how='all', inplace=True)
+	print('shape after remove na cols:', dataset.shape)
+	dataset = dataset.loc[:, (dataset != 0).any(axis=0)]
+	# dataset = dataset.loc[:, (dataset != 0 | ~dataset.isna()).any(axis=0)]
+	dataset.drop('ttmEPS', axis=1, inplace=True) # TODO temp solution
+	
 	cols = dataset.columns.values.tolist()
 	cols.remove('target')
-	# print(cols)
-	# print('shape before remove na rows:', dataset.shape)
-	# print(dataset)
+	print('cols:', cols)
+	print('shape before remove na rows:', dataset.shape)
+	print(dataset)
 	# dataset.to_csv('test_data.csv')
 	# TODO Better missing data handling
 	dataset.dropna(axis=0, subset=cols, inplace=True)
 	print('shape after remove na rows:', dataset.shape)
+	# exit()
 	if train:
 		dataset.dropna(axis=0, subset=['target'], inplace=True)
 		if v: print('target filter out nan:', dataset.shape)
@@ -213,10 +227,11 @@ def main(ticker=None, train=False, fields=None, crypto=False, data=None, only_pr
 	file_name = 'models/' + ticker.lower() + '_model'
 	if model_name:
 		file_name = 'models/' + model_name
-	if not os.path.exists(file_name):
+	if os.path.exists('/home/robale5/becauseinterfaces.com/'):
 		file_name = '/home/robale5/becauseinterfaces.com/acct/' + file_name
 	if v: print(time_stamp() + f'File Name: {file_name}')
 	if v: print(time_stamp() + f'Model exists:', os.path.exists(file_name))
+	os.makedirs(file_name, exist_ok=True)
 
 	if not train:
 		frac_per = 1
@@ -306,6 +321,7 @@ def main(ticker=None, train=False, fields=None, crypto=False, data=None, only_pr
 				if v: print(time_stamp() + 'Saving model as: ' + model_name)
 			else:
 				if v: print(time_stamp() + 'Saving model as: ' + ticker.lower() + '_model')
+			print('file_name:', file_name)
 			model.save(file_name)
 			dataset.to_csv(file_name + '/assets/' + ticker.lower() + '_pred.csv')
 	if v: print(time_stamp() + 'Test Results:')
@@ -333,10 +349,10 @@ if __name__ == '__main__':
 	parser.add_argument('-n', '--train', action='store_true', help='Train a new model.')
 	parser.add_argument('-c', '--crypto', action='store_true', help='If using for cryptocurrencies.')
 	parser.add_argument('-seed', '--seed', type=int, help='Set the seed number for the randomness in the sorting of the input data when training.')
+	parser.add_argument('-f', '--fields', type=str, help='The fields to use in the model.')
 	parser.add_argument('-v', '--verbose', action='store_false', help='Display the result.')
 	parser.add_argument('-o', '--output', type=str, help='The optional file name of the model.')
 	parser.add_argument('-mn', '--model_name', type=str, help='The optional file name of the model.')
-	parser.add_argument('-f', '--fields', type=str, help='The fields to use in the model.')
 	args = parser.parse_args()
 	print(time_stamp() + str(sys.argv))
 	if args.output:

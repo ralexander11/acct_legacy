@@ -41,6 +41,8 @@ Use the *fut_price.py* script to create a new model.
 
 ```nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -d merged_bak_2021-02-25.csv -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &```
 
+```python fut_price.py -n -t vfv-ct -o vfv-test01 -s -d vfv-ct_merged_test01```
+
 ## Use the Model
 Use the *trade_algo.py* script to test and use the model.
     -db the database name to save the results in.
