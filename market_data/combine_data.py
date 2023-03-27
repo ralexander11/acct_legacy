@@ -327,7 +327,7 @@ class CombineData(object):
 		else:
 			fields = [x for x in fields if x in cols]
 		merged = merged[fields]
-		if v: print('Data filtered for fields:\n{}'.format(merged))
+		if v: print('Data filtered for fields:\n{}'.format(fields))
 		if save:
 			if not pathname:
 				if len(fields) == 1:

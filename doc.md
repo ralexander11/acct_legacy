@@ -30,6 +30,8 @@ Use the *combine_data.py* script in the market_data dir.
 
 ```nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py -m get -t "aapl, tsla" -s >> /home/robale5/becauseinterfaces.com/acct/logs/get14.log 2>&1 &```
 
+```python market_data/combine_data.py -t vfv-ct -md merged -o vfv-ct_merged_test01 -s```
+
 ## Create the Model
 Use the *fut_price.py* script to create a new model.
     -t with a single ticker to run the model for that ticker.
@@ -40,6 +42,8 @@ Use the *fut_price.py* script to create a new model.
     -s to save the model.
 
 ```nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/fut_price.py -d merged_bak_2021-02-25.csv -n -t tsla --seed 11 -s >> /home/robale5/becauseinterfaces.com/acct/logs/fut_price09.log 2>&1 &```
+
+```python fut_price.py -n -t vfv-ct -o vfv-test01 -s -d vfv-ct_merged_test01```
 
 ## Use the Model
 Use the *trade_algo.py* script to test and use the model.
