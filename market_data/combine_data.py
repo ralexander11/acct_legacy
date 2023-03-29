@@ -86,14 +86,14 @@ class CombineData(object):
 					date = dt.datetime.strftime('%Y-%m-%d', date)
 		path = self.data_location + end_point + '/*' + str(date) + '.csv.gz'
 		compress = True
-		print('Path gz:', path)
+		# print('Path gz:', path)
 		files = glob.glob(path)
 		if not files:
 			# print('Data not Compressed')
 			path = self.data_location + end_point + '/*' + str(date) + '.csv'
 			compress = False
 			files = glob.glob(path)
-		print('Path:', path)
+		# print('Path:', path)
 		if dates:
 			files = [[file for file in files if date in file] for date in dates]
 			files = [val for sublist in files for val in sublist]
@@ -147,13 +147,24 @@ class CombineData(object):
 					dates = dates['dates'].values.tolist()
 				else:
 					dates = dates.iloc[:,0].values.tolist()
-		# since with no date: jan to now
+		# since with no date: 2020-01-24 to now
 		# since with date: date to now
+		#	if date is a list take min
 		# until with no date: start of data ['2018-05-08'] to now
 		# until with date: jan to date?
 		# add start date (sd) arg?
 		# until with sd: sd to date?
 		# if sd == 'None' then = None
+		start_date = None
+		end_date = None
+		try:
+			if args.start_date:
+				start_date = args.start_date
+			if args.end_date:
+				end_date = args.end_date
+		except NameError:
+			pass
+
 		if not since:
 			try:
 				since = args.since
@@ -171,40 +182,38 @@ class CombineData(object):
 						dates = [x.strip() for x in dates.split(',')]
 					else:
 						dates = [dates]
-			if len(dates) > 1:
-				# TODO Raise an exception
-				print('Must provide only 1 date with the "since" or "until" commands. Will use the max date.')
-				dates = [max(dates)]
-				print('Date:', dates)
-				#return
-			if until:
-				if not dates:
+			# if len(dates) > 1:
+			# 	# TODO Raise an exception?
+			# 	if since:
+			# 		print('Must provide only 1 date with the "since" or "until" commands. Will use the min date.')
+			# 		dates = [min(dates)]
+			# 	else:
+			# 		print('Must provide only 1 date with the "since" or "until" commands. Will use the max date.')
+			# 		dates = [max(dates)]
+			# 	print('Date:', dates)
+			if not end_date:
+				if until:
+					if not dates:
+						end_date = dt.datetime.today()
+					else:
+						end_date = max(dates)
+						# end_date = dt.datetime.strptime(end_date, '%Y-%m-%d')
+						if len(dates) > 1:
+							print('Must provide only one date with the "until" command. Will use the max date.')
+				else:
 					end_date = dt.datetime.today()
-				else:
-					end_date = dates[-1]
-					end_date = dt.datetime.strptime(end_date, '%Y-%m-%d')
-			else:
-				end_date = dt.datetime.today()
-			if since:
-				if not dates:
-					if args.start_date:
-						start_date = args.start_date
-					else:
+			if not start_date:
+				if since:
+					if not dates:
 						start_date = '2020-01-24'
-				else:
-					if args.start_date:
-						start_date = args.start_date
 					else:
-						if isinstance(dates, (list, tuple)):
-							start_date = dates[0]
-						else:
-							start_date = dates
-			else:
-				if args.start_date:
-					start_date = args.start_date
+						start_date = min(dates)
+						if len(dates) > 1:
+							print('Must provide only one date with the "since" command. Will use the min date.')
 				else:
-					start_date = '2020-01-24'
+					start_date = '2020-01-24' # '2018-05-08'
 			if v: print('start_date:', start_date)
+			if v: print('end_date:', end_date)
 			dates = pd.date_range(start=start_date, end=end_date, freq='D').to_pydatetime().tolist()
 			dates = [date.strftime('%Y-%m-%d') for date in dates]
 			print(time_stamp() + f'Number of Days since {dates[0]}: {len(dates)}')
@@ -215,7 +224,19 @@ class CombineData(object):
 				except NameError:
 					pass
 				if dates is None:
-					dates = [str(self.current_date)]
+					if start_date or end_date:
+						if start_date and not end_date:
+							end_date = dt.datetime.today()
+						elif not start_date and end_date:
+							start_date = '2020-01-24'
+						if v: print('start_date:', start_date)
+						if v: print('end_date:', end_date)
+						dates = pd.date_range(start=start_date, end=end_date, freq='D').to_pydatetime().tolist()
+						dates = [date.strftime('%Y-%m-%d') for date in dates]
+						print(time_stamp() + f'Number of Days since {dates[0]}: {len(dates)}')
+					else:
+						dates = [str(self.current_date)]
+						print('Will use current date:', dates)
 			else:
 				if not isinstance(dates, (list, tuple)):
 					if isinstance(dates, str):
@@ -1121,23 +1142,23 @@ if __name__ == '__main__':
 		df = combine_data.get(dates=args.dates, tickers=args.tickers, merged=merged, filename=args.output, save=args.save, v=args.v)
 
 	else:
-		if args.dates and args.tickers and args.fields:
+		if (args.dates or args.start_date or args.end_date) and args.tickers and args.fields:
 			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, merged=merged, since=args.since, until=args.until)), filename=args.output, save=args.save, v=args.v)
-		if args.dates and args.tickers and args.fields is None:
+		if (args.dates or args.start_date or args.end_date) and args.tickers and args.fields is None:
 			df = combine_data.comp_filter(args.tickers, combine_data.date_filter(args.dates, merged=merged, since=args.since, until=args.until), filename=args.output, save=args.save, v=args.v)
-		if args.dates and args.tickers is None and args.fields:
+		if (args.dates or args.start_date or args.end_date) and args.tickers is None and args.fields:
 			df = combine_data.data_point(args.fields, combine_data.date_filter(args.dates, merged=merged, since=args.since, until=args.until), filename=args.output, save=args.save, v=args.v)
-		if args.dates is None and args.tickers and args.fields:
+		if args.dates is None and args.start_date is None and args.end_date is None and args.tickers and args.fields:
 			df = combine_data.data_point(args.fields, combine_data.comp_filter(args.tickers, merged=merged), filename=args.output, save=args.save, v=args.v)
-		if args.dates and args.tickers is None and args.fields is None:
+		if (args.dates or args.start_date or args.end_date) and args.tickers is None and args.fields is None:
 			df = combine_data.date_filter(args.dates, merged=merged, since=args.since, until=args.until, filename=args.output, save=args.save, v=args.v)
-		if args.dates is None and args.tickers and args.fields is None:
+		if args.dates is None and args.start_date is None and args.end_date is None and args.tickers and args.fields is None:
 			print('Merging all dates for:', args.tickers)
 			print('Save:', args.save)
 			df = combine_data.comp_filter(args.tickers, merged=merged, filename=args.output, save=args.save, v=args.v)
-		if args.dates is None and args.tickers is None and args.fields:
+		if args.dates is None and args.start_date is None and args.end_date is None and args.tickers is None and args.fields:
 			df = combine_data.data_point(args.fields, merged=merged, filename=args.output, save=args.save, v=args.v)
-		if args.dates is None and args.tickers is None and args.fields is None:
+		if args.dates is None and args.start_date is None and args.end_date is None and args.tickers is None and args.fields is None:
 			print('Save:', args.save)
 			df = combine_data.merge_data(save=args.save) # TODO Add filename support
 
