@@ -80,14 +80,15 @@ def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, 
 		# print(dataset.isna().sum())
 	# print(dataset)
 
-	cols = dataset.columns.values.tolist()
-	print('cols 1:', cols)
+	# cols = dataset.columns.values.tolist()
+	# cols.remove('target')
+	# print('cols 1:', cols)
 	print('shape before remove na cols:', dataset.shape)
-	dataset.dropna(axis=1, how='all', inplace=True)
+	dataset.iloc[:, :-2].dropna(axis=1, how='all', inplace=True)
 	print('shape after remove na cols:', dataset.shape)
 	dataset = dataset.loc[:, (dataset != 0).any(axis=0)]
 	# dataset = dataset.loc[:, (dataset != 0 | ~dataset.isna()).any(axis=0)]
-	dataset.drop('ttmEPS', axis=1, inplace=True) # TODO temp solution
+	# dataset.drop('ttmEPS', axis=1, inplace=True) # TODO temp solution
 	
 	cols = dataset.columns.values.tolist()
 	cols.remove('target')
