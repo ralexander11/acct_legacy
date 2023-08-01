@@ -84,7 +84,8 @@ def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, 
 	# cols.remove('target')
 	# print('cols 1:', cols)
 	print('shape before remove na cols:', dataset.shape)
-	dataset.iloc[:, :-2].dropna(axis=1, how='all', inplace=True)
+	# dataset.iloc[:, :-2].dropna(axis=1, how='all', inplace=True) # Not sure why this was used before
+	dataset.dropna(axis=1, how='all', inplace=True)
 	print('shape after remove na cols:', dataset.shape)
 	dataset = dataset.loc[:, (dataset != 0).any(axis=0)]
 	# dataset = dataset.loc[:, (dataset != 0 | ~dataset.isna()).any(axis=0)]
@@ -94,7 +95,7 @@ def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, 
 	cols.remove('target')
 	print('cols:', cols)
 	print('shape before remove na rows:', dataset.shape)
-	print(dataset)
+	# print(dataset)
 	# dataset.to_csv('test_data.csv')
 	# TODO Better missing data handling
 	dataset.dropna(axis=0, subset=cols, inplace=True)

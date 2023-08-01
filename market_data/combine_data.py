@@ -60,6 +60,7 @@ class CombineData(object):
 			# print('fname_date:', fname_date)
 			df = df.assign(date=fname_date)
 			df = df.drop(['ZEXIT','ZIEXT','ZXIET','ZVZZT','ZWZZT','ZXZZT','NONE','NAN','TRUE','FALSE'], errors='ignore')
+			df = df.drop(index='NA')
 			# Fix error due to past null values
 			if 'sharesOutstanding' in df.columns.values:
 				# print(df['sharesOutstanding'].dtype)
@@ -444,21 +445,27 @@ class CombineData(object):
 		# 	if not isinstance(args.tickers, (list, tuple)):
 		# 		args.tickers = [x.strip().upper() for x in args.tickers.split(',')]
 		# 	df = df.loc[df['symbol'].isin(args.tickers)]
+		print(df.shape)
+		with pd.option_context('display.max_rows', None):
+			print(df.memory_usage())
 		if 'target' not in df.columns.values:
 			df['target'] = None
 		tickers = df['symbol'].unique().tolist()
 		print(time_stamp() + f'Numbers of tickers: {len(tickers)}')
 		dfs = []
 		for ticker in tickers:
+			if v: print('ticker:', ticker)
 			tmp_df = df.loc[df['symbol'] == ticker]
 			min_date = tmp_df['date'].min()
 			max_date = tmp_df['date'].max()
-			# if v: print('min_date:', min_date)
-			# if v: print('max_date:', max_date)
+			if v: print('min_date:', min_date)
+			if v: print('max_date:', max_date)
 			tmp_df.set_index(pd.DatetimeIndex(tmp_df['date']), inplace=True)
 			miss_dates = pd.date_range(start=min_date, end=max_date).difference(tmp_df.index)
 			miss_dates = [(date - pd.to_timedelta(1, unit='d')).strftime('%Y-%m-%d') for date in miss_dates]
-			# if v: print('miss_dates:\n', miss_dates)
+			with pd.option_context('display.max_columns', 10):
+				if v: print('tmp_df:\n', tmp_df)
+			if v: print('miss_dates:\n', miss_dates)
 			tmp_df['target'] = tmp_df.apply(lambda x: 'miss' if x['date'] in miss_dates else x['target'], axis=1)
 			dfs.append(tmp_df)
 		df = pd.concat(dfs)
@@ -488,6 +495,7 @@ class CombineData(object):
 				df = self.date_filter()
 		elif '.csv' in df:
 			df = pd.read_csv(self.data_location + df)
+		print(df.memory_usage())
 		df['date'] = pd.to_datetime(df['date'])
 		if v: print(df)
 		if 'sector' not in df.columns.values:
@@ -553,8 +561,8 @@ class CombineData(object):
 			filename = 'merged'
 			pathname = None
 		elif '.csv' == filename[-4:]:
-			filename = filename[:-4]
-			pathname = self.data_location + filename + '.csv'
+			# filename = filename[:-4]
+			pathname = self.data_location + filename# + '.csv'
 		else:
 			pathname = self.data_location + filename + '.csv'
 		print(f'Get new data and save as: {filename}.csv')
@@ -731,7 +739,11 @@ class CombineData(object):
 			print('Must be a .csv file name:', merged)
 			return
 		if v: print(time_stamp() + 'Loading data to check Max Date from:', merged)
-		df = pd.read_csv(self.data_location + merged)
+		df = pd.read_csv(self.data_location + merged) # TODO No need to load the whole file. Can stream it row by row and check:
+		# max_date = 0
+		# for row in csv_reader:
+		# 	if row['date'] > max_date:
+		# 		max_date = row['date']
 		max_date = df['date'].max()
 		if v: print(time_stamp() + 'Max Date:', max_date)
 		return max_date
@@ -1138,8 +1150,12 @@ if __name__ == '__main__':
 	elif args.mode == 'cols':
 		cols = combine_data.cols(data=merged, filename=args.output, save=args.save, v=args.v)
 
+	elif args.mode == 'stack':
+		pass
+
 	elif args.mode == 'get':
 		df = combine_data.get(dates=args.dates, tickers=args.tickers, merged=merged, filename=args.output, save=args.save, v=args.v)
+	
 
 	else:
 		if (args.dates or args.start_date or args.end_date) and args.tickers and args.fields:
@@ -1161,6 +1177,41 @@ if __name__ == '__main__':
 		if args.dates is None and args.start_date is None and args.end_date is None and args.tickers is None and args.fields is None:
 			print('Save:', args.save)
 			df = combine_data.merge_data(save=args.save) # TODO Add filename support
+		
+		exit()
+
+		df = combine_data.splits(df)
+		df = combine_data.mark_miss(df)
+		df = combine_data.scrub(df)
+		df = combine_data.target(df)
+		if args.v:
+			print(time_stamp() + 'Merged data with target:\n', df)
+		if args.save:
+			filename = args.output
+			pathname = None
+			if filename is None:
+				filename = 'merged_new'
+			elif '.csv' == filename[-4:]:
+				# filename = filename[:-4]
+				pathname = self.data_location + filename# + '.csv'
+			else:
+				pathname = self.data_location + filename + '.csv'
+			print(f'Get new data and save as: {filename}.csv')
+			# if not pathname:
+				# if tickers is not None:
+				# 	if len(tickers) == 1:
+				# 		pathname = self.data_location + filename + '_' + tickers[0] + '.csv'
+				# 	else:
+				# 		pathname = self.data_location + filename + '_' + tickers[0] + '_to_' + tickers[-1] + '.csv'
+				# else:
+				# pathname = self.data_location + filename + '.csv'
+			merged.to_csv(pathname, index=False)
+			# # Fix sorting
+			# merged = pd.read_csv(pathname)
+			# # print(merged.head())
+			# merged = merged.sort_values(by=['symbol', 'date'])
+			# merged.to_csv(pathname, index=False)
+			print(time_stamp() + 'Saved merged data to:\n{}'.format(pathname))
 
 # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/market_data/combine_data.py >> /home/robale5/becauseinterfaces.com/acct/logs/combine01.log 2>&1 &
 
