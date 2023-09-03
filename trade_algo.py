@@ -66,7 +66,7 @@ class TradingAlgo(object):
 		self.config = self.load_config()
 		self.token = self.config['api_token']
 		self.data_location = trade.data_location
-		print('Data Location: {}'.format(self.data_location))
+		print('Trade Data Location: {}'.format(self.data_location))
 		# print('New db: {}'.format(new_db))
 		self.ledger = ledger
 		self.trade = trade
@@ -613,6 +613,16 @@ class TradingAlgo(object):
 					if isinstance(ticker, float): # xlsx causes last ticker to be nan
 						continue
 					# quote_df = self.future_data(ticker, date=date, merged_data=merged_data, train=train)
+
+					# print('date:', date)
+					# print('date type:', type(date))
+					# date = self.get_prior_day(date)
+					# date = self.get_prior_day(date)
+					# if not isinstance(date, str):
+					# 	date = date.strftime('%Y-%m-%d')
+					# print('date after:', date)
+					# print('date type after:', type(date))
+
 					quote_df = self.future_price(ticker, date=date, model_name=model_name, train=train, v=True)
 					print(time_stamp() + 'Done predicting price for: {} ({} / {}) {:.0f}%'.format(ticker, i, len(tickers), (i/len(tickers)*100)))
 					if quote_df is None:

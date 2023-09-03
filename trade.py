@@ -51,12 +51,19 @@ class Trading(object):
 				# self.data_location = '../market_data/data/'
 				# self.data_location = '../market_data/test_data/'
 				# self.data_location = '/Users/Robbie/Public/market_data/data/'
-				print('Trade: Server')
+				print('Trade Data: Server')
 				self.data_location = '/home/robale5/becauseinterfaces.com/acct/market_data/data/'
-			else:
-				# self.data_location = 'market_data/data/'
-				# self.data_location = 'market_data/test_data/'
+			elif os.path.exists('/Users/Robbie/Public/market_data/new/data/'):
 				self.data_location = '/Users/Robbie/Public/market_data/new/data/'
+				# self.data_location = '/Users/Robbie/Public/market_data/test_data/'
+			else:
+				if os.getcwd().split('/')[-1] != 'market_data':
+					self.data_location = 'market_data/data/'
+				else:
+					self.data_location = '../market_data/data/'
+					# self.data_location = '../market_data/test_data/'
+		print('Trade Data Location:', self.data_location)
+
 		self.ledger = ledger
 		# self.gl = ledger.gl
 		self.ledger_name = ledger.ledger_name
