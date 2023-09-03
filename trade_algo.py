@@ -665,7 +665,7 @@ class TradingAlgo(object):
 			return quote_df
 		return quote_df
 
-	def future_price(self, ticker, date, model_name=None, train=False, v=False):
+	def future_price(self, ticker, date, model_name=None, train=False, v=False)
 		# print('merged_data:\n', merged_data)
 		pred_price = get_fut_price(ticker, date, global_merged_data, model_name=model_name, train=train)
 		if v: print('pred_price:\n', pred_price)
@@ -829,7 +829,9 @@ class TradingAlgo(object):
 			if args.mode == '4' or e >= 4 or args.mode == 'pred_dir' or count >= 4:
 				# try:
 				model_name = model_names[count-4]
+				print('Model Name:', model_name)
 				rank = self.rank_change_percent(assets, date, tickers=tickers, predict=True, model_name=model_name, train=args.train)
+				# print('After rank_change_percent func.')
 				# except Exception as err:
 				# 	print('Error predicting price:')
 				# 	print(err)
