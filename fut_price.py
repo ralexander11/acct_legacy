@@ -58,8 +58,8 @@ def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, 
 		# if v: print('Remove columns:', dataset.shape)
 	elif isinstance(merged, pd.DataFrame):
 		print('Data provided:', merged.shape)
-		if 'target' not in merged.columns.values.tolist():
-			merged['target'] = np.nan
+		# if 'target' not in merged.columns.values.tolist():
+		# 	merged['target'] = np.nan
 		# dataset = combine_data.comp_filter(ticker, merged)
 		# dataset = merged[column_names]
 		dataset = combine_data.data_point(fields, merged)
@@ -84,22 +84,27 @@ def prep_data(ticker=None, merged=None, fields=None, crypto=False, train=False, 
 	# cols.remove('target')
 	# print('cols 1:', cols)
 	print('shape before remove na cols:', dataset.shape)
-	# dataset.iloc[:, :-2].dropna(axis=1, how='all', inplace=True) # Not sure why this was used before
+	# print(dataset.iloc[:, :-1])
+	# dataset.iloc[:, :-1].dropna(axis=1, how='all', inplace=True) # This was used to avoid dropping the target col
+	cols = dataset.columns.values.tolist()
+	if 'target' in cols:
+		cols.remove('target')
+	print('cols:', cols)
 	dataset.dropna(axis=1, how='all', inplace=True)
 	print('shape after remove na cols:', dataset.shape)
 	dataset = dataset.loc[:, (dataset != 0).any(axis=0)]
 	# dataset = dataset.loc[:, (dataset != 0 | ~dataset.isna()).any(axis=0)]
 	# dataset.drop('ttmEPS', axis=1, inplace=True) # TODO temp solution
-	
-	cols = dataset.columns.values.tolist()
-	cols.remove('target')
-	print('cols:', cols)
+	print('dataset:\n', dataset)
+
 	print('shape before remove na rows:', dataset.shape)
 	# print(dataset)
 	# dataset.to_csv('test_data.csv')
 	# TODO Better missing data handling
 	dataset.dropna(axis=0, subset=cols, inplace=True)
 	print('shape after remove na rows:', dataset.shape)
+	if 'target' not in dataset.columns.values.tolist():
+		merged['target'] = np.nan
 	# exit()
 	if train:
 		dataset.dropna(axis=0, subset=['target'], inplace=True)
@@ -258,6 +263,12 @@ def main(ticker=None, train=False, fields=None, crypto=False, data=None, only_pr
 		# print(model.to_yaml())
 		print(model.summary())
 		print(time_stamp() + 'test_features shape:', test_features.shape)
+
+		# test_features['avgTotalVolume'] = test_features['avgTotalVolume'].astype(object)
+		# with pd.option_context('display.max_rows', None):
+		# 	print(test_features.dtypes)
+		# test_features.to_csv('data/test_features.csv')
+
 		test_predictions = model.predict(test_features, verbose=1)
 		test_predictions = test_predictions.flatten()
 		dataset['prediction'] = pd.Series(test_predictions, index=test_features.index)

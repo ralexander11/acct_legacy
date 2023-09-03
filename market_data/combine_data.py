@@ -34,7 +34,7 @@ class CombineData(object):
 				else:
 					self.data_location = '../market_data/data/'
 					# self.data_location = '../market_data/test_data/'
-		print('Data Location:', self.data_location)
+		print('Combine Data Location:', self.data_location)
 
 	def load_file(self, infile, compress=None):
 		if infile[-3:] == '.gz':
