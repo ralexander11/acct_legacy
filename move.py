@@ -3,6 +3,7 @@
 import pandas as pd
 import argparse
 import random
+# from rich import print
 
 MAP_SIZE = 4 #64
 
@@ -26,6 +27,7 @@ class Map:
                 tile.update({'terrain': Tile(terrain_select, self.terrain_items)})
         # self.world_map = pd.DataFrame(self.world_map) # Replace pandas here
         # self.world_map.applymap(lambda d: d.update({'terrain': Tile()})) # Replace pandas here
+        self.display_map()
         print('world_map created:\n', self)
 
     def get_terrain(self, infile='data/items.csv'):
@@ -35,18 +37,39 @@ class Map:
         self.terrain_items = self.terrain_items[self.terrain_items['child_of'] == 'Land']
         self.terrain_items['int_rate_var'] = self.terrain_items['int_rate_var'].astype(int)
         self.terrain_items['coverage'] = self.terrain_items['int_rate_var'] / self.terrain_items['int_rate_var'].sum()
+        # self.terrain_items['display'] = ['.','#','F','R','M','W']
         print('terrain_items:')
         print(self.terrain_items)
 
-    def calc_move():
-        pass
+    def display_map(self):
+        self.display_map = [[None for _ in range(self.map_size[0])] for _ in range(self.map_size[1])]
+        for i, row in enumerate(self.world_map):
+            for j, tile in enumerate(row):
+                tile = tile.get('terrain')
+                if tile.terrain == 'Grassland': # TODO Could likely do this more efficiently
+                    tile = '.'
+                elif tile.terrain == 'Arable Land':
+                    tile = '#'
+                elif tile.terrain == 'Forest':
+                    tile = 'F'
+                elif tile.terrain == 'Rocky Land':
+                    tile = 'R'
+                elif tile.terrain == 'Mountain':
+                    tile = 'M'
+                elif tile.terrain == 'Wetlands':
+                    tile = 'W'
+                else:
+                    tile = ','
+                self.display_map[i][j] = tile
 
     def __str__(self):
-        self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
+        # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
+        self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
         return self.map_display
 
     def __repr__(self):
-        self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
+        # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
+        self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
         return self.map_display
 
 class Tile:
@@ -61,21 +84,28 @@ class Tile:
         return self.terrain
 
 class Player:
-    def __init__(self, name, world_map):
+    def __init__(self, name, world_map, icon='P'):
         self.name = name
-        self.pos = (0, 0)
+        self.icon = icon
+        self.pos = (0, 0) # Start position
         world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self.name
+        world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
         # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
         self.movement = 5
         self.remain_move = self.movement
 
+    def reset_moves(self):
+        self.remain_move = self.movement
+
     def move(self):
         self.old_pos = self.pos
-        print('old_pos:', self.old_pos)
-        if self.get_move() is None:
+        print('Position:', self.old_pos)
+        if self.get_move() is None: # TODO This isn't very clear
             return
         try:
             world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self.name
+            world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
+            world_map.display_map[self.old_pos[0]][self.old_pos[1]] = 'X'
             del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
             # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
             # del world_map.world_map.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
@@ -85,12 +115,15 @@ class Player:
             return
         print('end')
 
+    def calc_move():
+        pass
+
     def get_move(self):
         print('\nEnter "exit" to exit.')
         key = input('Use wasd to move: ')
         key = key.lower()
         if key == 'map':
-            print('Display current world map:\n', world_map)
+            print(f'Display current world map:\n{world_map}')
             self.pos = self.old_pos
             return
         if key == 'terrain':
@@ -147,26 +180,20 @@ if __name__ == '__main__':
 
     world_map = Map(MAP_SIZE)
     player = Player('Player 1', world_map)
-    print('world_map:\n', world_map)
+    print(f'world_map:\n{world_map}')
 
     while True:
         player.move()
-        print('Current world map:\n', world_map)
+        print(f'Current world map:\n{world_map}')
 
 ## TODO
-# Make a map class
-#   Give size attr
-#   Give default tile attr
-#   Each cell to contain a dict
+# Display map
 
-# Make a tile class
-#   Give tile a movement cost attr
-#   With default tile type?
+# Factor is terrain cost
+# Movement turns
 
-# Make player class
-#   Have a default, but import as well
-#   Give location attr
-#   Give movement dist attr
-#   Add movement func to player class
+# Edit terrain
+# Load map
+# Save map
 
 # scp move.py robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct
