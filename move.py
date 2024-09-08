@@ -23,7 +23,7 @@ class Map:
         elif len(self.map_size) == 1:
             self.map_size = (self.map_size[0], self.map_size[0])
         print('map_size:', self.map_size)
-        self.world_map = [[dict() for _ in range(self.map_size[0])] for _ in range(self.map_size[1])]
+        self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         # print('world_map 1:', self.world_map)
         self.get_terrain_data()
         for row in self.world_map:
@@ -46,7 +46,7 @@ class Map:
             map_data = pd.read_csv(f, header=None)
         self.map_size = map_data.shape
         print('map_size:', self.map_size)
-        self.world_map = [[dict() for _ in range(self.map_size[0])] for _ in range(self.map_size[1])]
+        self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         # print('world_map 1:', self.world_map)
         self.get_terrain_data()
         for i, row in map_data.iterrows():
@@ -59,10 +59,20 @@ class Map:
                     terrain_select = 'Forest'
                 elif tile == 'R':
                     terrain_select = 'Rocky Land'
+                elif tile == 'H':
+                    terrain_select = 'Hills'
                 elif tile == 'M':
                     terrain_select = 'Mountain'
                 elif tile == 'W':
                     terrain_select = 'Wetlands'
+                elif tile == 'J':
+                    terrain_select = 'Jungle'
+                elif tile == 'D':
+                    terrain_select = 'Desert'
+                elif tile == 'T':
+                    terrain_select = 'Tundra'
+                elif tile == 'O':
+                    terrain_select = 'Ocean'
                 else:
                     terrain_select = 'Grassland'
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items)})
@@ -100,10 +110,20 @@ class Map:
             icon = '[green]F[/green]'
         elif terrain == 'Rocky Land':
             icon = '[grey62]R[/grey62]'
+        elif terrain == 'Hills':
+            icon = '[green]H[/green]'
         elif terrain == 'Mountain':
             icon = '[red]M[/red]'
         elif terrain == 'Wetlands':
             icon = '[cyan]W[/cyan]'
+        elif terrain == 'Jungle':
+            icon = '[green]J[/green]'
+        elif terrain == 'Desert':
+            icon = '[yellow]D[/yellow]'
+        elif terrain == 'Tundra':
+            icon = '[grey62]T[/grey62]'
+        elif terrain == 'Ocean':
+            icon = '[blue]O[/blue]'
         else:
             icon = ','
         self.display_map[pos[0]][pos[1]] = icon
@@ -120,7 +140,7 @@ class Map:
         print(self.terrain_items)
 
     def display_map(self):
-        self.display_map = [[None for _ in range(self.map_size[0])] for _ in range(self.map_size[1])]
+        self.display_map = [[None for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         for i, row in enumerate(self.world_map):
             for j, tile in enumerate(row):
                 terrain_tile = tile.get('terrain')
@@ -135,10 +155,20 @@ class Map:
                     icon = '[green]F[/green]'
                 elif terrain == 'Rocky Land':
                     icon = '[grey62]R[/grey62]'
+                elif terrain == 'Hills':
+                    icon = '[green]H[/green]'
                 elif terrain == 'Mountain':
                     icon = '[red]M[/red]'
                 elif terrain == 'Wetlands':
                     icon = '[cyan]W[/cyan]'
+                elif terrain == 'Jungle':
+                    icon = '[green]J[/green]'
+                elif terrain == 'Desert':
+                    icon = '[yellow]D[/yellow]'
+                elif terrain == 'Tundra':
+                    icon = '[grey62]T[/grey62]'
+                elif terrain == 'Ocean':
+                    icon = '[blue]O[/blue]'
                 else:
                     icon = ','
                 self.display_map[i][j] = icon
@@ -193,7 +223,7 @@ class Player:
         if self.get_move() is None: # TODO This isn't very clear
             return
         if self.is_occupied(self.pos):
-            print('Cannot go in the same space as another player or NPC.')
+            print('Cannot move to the same space as another Player or NPC.')
             self.pos = self.old_pos
             return
         if not self.calc_move(self.pos):
@@ -242,10 +272,20 @@ class Player:
             icon = '[green]F[/green]'
         elif terrain == 'Rocky Land':
             icon = '[grey62]R[/grey62]'
+        elif terrain == 'Hills':
+            icon = '[green]H[/green]'
         elif terrain == 'Mountain':
             icon = '[red]M[/red]'
         elif terrain == 'Wetlands':
             icon = '[cyan]W[/cyan]'
+        elif terrain == 'Jungle':
+            icon = '[green]J[/green]'
+        elif terrain == 'Desert':
+            icon = '[yellow]D[/yellow]'
+        elif terrain == 'Tundra':
+            icon = '[grey62]T[/grey62]'
+        elif terrain == 'Ocean':
+            icon = '[blue]O[/blue]'
         else:
             icon = ','
         return icon
