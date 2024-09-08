@@ -123,7 +123,10 @@ class Map:
         self.display_map = [[None for _ in range(self.map_size[0])] for _ in range(self.map_size[1])]
         for i, row in enumerate(self.world_map):
             for j, tile in enumerate(row):
-                terrain = tile.get('terrain').terrain
+                terrain_tile = tile.get('terrain')
+                if terrain_tile.hidden:
+                    continue
+                terrain = terrain_tile.terrain
                 if terrain == 'Grassland': # TODO Could likely do this more efficiently
                     icon = '[bright_green].[/bright_green]'
                 elif terrain == 'Arable Land':
@@ -146,8 +149,8 @@ class Map:
         return self.map_display
 
     def __repr__(self):
-        # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
-        self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
+        self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
+        # self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
         return self.map_display
 
 class Tile:
@@ -158,19 +161,22 @@ class Tile:
             self.move_cost = None
         if self.move_cost is not None:
             self.move_cost = int(self.move_cost)
+        self.hidden = False
 
     def __str__(self):
         return self.terrain
 
-    def __repr__(self):
-        return self.terrain
+    # def __repr__(self):
+    #     return self.terrain
 
 class Player:
     def __init__(self, name, world_map, icon='P'):
         self.name = name
         self.icon = '[blink]' + icon + '[/blink]'
-        print('player icon:', self.icon)
-        self.pos = (0, 0) # Start position
+        print(f'{self} icon: {self.icon}')
+        self.pos = (0, int(icon)-1) # Start position
+        print(f'{self} start pos: {self.pos}')
+        self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
         world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self.name
         world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
         # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
@@ -179,12 +185,16 @@ class Player:
 
     def reset_moves(self):
         self.remain_move = self.movement
-        print('Moves reset.')
+        print(f'Moves reset for {self}.')
 
     def move(self):
         self.old_pos = self.pos
-        print('Position:', self.old_pos)
+        print(f'Current position: {self.old_pos}')
         if self.get_move() is None: # TODO This isn't very clear
+            return
+        if self.is_occupied(self.pos):
+            print('Cannot go in the same space as another player or NPC.')
+            self.pos = self.old_pos
             return
         if not self.calc_move(self.pos):
             print(f'Not enough movement to enter tile. Movement Remaining: {self.remain_move}/{self.movement}')
@@ -192,8 +202,11 @@ class Player:
             return
         try:
             world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self.name
+
+            world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.current_tile #self.get_terrain(self.old_pos)
+            self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
+            print(f'Current Tile: {self.current_tile}')
             world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
-            world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.get_terrain(self.old_pos)
             del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
             # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
             # del world_map.world_map.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
@@ -203,8 +216,24 @@ class Player:
             return
         print('End move.')
 
-    def get_terrain(self, pos):
-        terrain = world_map.world_map[pos[0]][pos[1]]['terrain'].terrain
+    def is_occupied(self, pos):
+        if 'Agent' in world_map.world_map[pos[0]][pos[1]]:
+            return True
+
+    def calc_move(self, pos):
+        target_terrain = world_map.world_map[pos[0]][pos[1]]['terrain']
+        if target_terrain.move_cost is None:
+            print(f'Cannot cross {target_terrain}.')
+            return
+        print('remaining_moves:', self.remain_move)
+        print('target_terrain.move_cost:', target_terrain.move_cost)
+        if self.remain_move >= target_terrain.move_cost:
+            self.remain_move -= target_terrain.move_cost
+            return True
+
+    def get_terrain(self, pos=None, terrain=None):
+        if terrain is None and pos is not None:
+            terrain = world_map.world_map[pos[0]][pos[1]]['terrain'].terrain
         if terrain == 'Grassland': # TODO Could likely do this more efficiently
             icon = '[bright_green].[/bright_green]'
         elif terrain == 'Arable Land':
@@ -221,20 +250,10 @@ class Player:
             icon = ','
         return icon
 
-    def calc_move(self, pos):
-        target_terrain = world_map.world_map[pos[0]][pos[1]]['terrain']
-        if target_terrain.move_cost is None:
-            print(f'Cannot cross {target_terrain}.')
-            return
-        print('remain_move:', self.remain_move)
-        print('target_terrain.move_cost:', target_terrain.move_cost)
-        if self.remain_move >= target_terrain.move_cost:
-            self.remain_move -= target_terrain.move_cost
-            return True
-
     def get_move(self):
         print('\nEnter "exit" to exit.')
         key = input('Use wasd to move: ')
+        print('===================')
         key = key.lower()
         if key == 'map':
             print(f'Display current world map:\n{world_map}')
@@ -321,10 +340,12 @@ if __name__ == '__main__':
 
     while True:
         for player in players:
+            print(f'Current Player: {player}')
+            print(f'Start Tile: {player.current_tile}')
             while player.remain_move:
                 player.move()
                 print(f'Current world map:\n{world_map}')
-                print(f'{player.name} Movement: {player.remain_move}')
+                print(f'{player.name} moves left: {player.remain_move}')
             player.reset_moves()
 
 ## TODO
