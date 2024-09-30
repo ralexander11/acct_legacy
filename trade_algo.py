@@ -617,7 +617,7 @@ class TradingAlgo(object):
 					# print('date:', date)
 					# print('date type:', type(date))
 					# date = self.get_prior_day(date)
-					# date = self.get_prior_day(date)
+					# # date = self.get_prior_day(date)
 					# if not isinstance(date, str):
 					# 	date = date.strftime('%Y-%m-%d')
 					# print('date after:', date)
@@ -675,7 +675,7 @@ class TradingAlgo(object):
 			return quote_df
 		return quote_df
 
-	def future_price(self, ticker, date, model_name=None, train=False, v=False)
+	def future_price(self, ticker, date, model_name=None, train=False, v=False):
 		# print('merged_data:\n', merged_data)
 		pred_price = get_fut_price(ticker, date, global_merged_data, model_name=model_name, train=train)
 		if v: print('pred_price:\n', pred_price)
@@ -939,6 +939,7 @@ if __name__ == '__main__':
 	parser.add_argument('-mn', '--model_name', type=str, help='The optional file name of the model.')
 	parser.add_argument('-since', '--since', action='store_false', help='Use all dates since a given date. On by default.')
 	parser.add_argument('-sd', '--since_date', type=str, default='2020-01-24', help='Use dates from a given date.')
+	parser.add_argument('-date', '--start_date', type=str, help='Date to use when not in sim mode.')
 	parser.add_argument('-os', '--offset', type=int, default=0, help='Number of days to run in the past.')
 	parser.add_argument('-haircut', '--haircut', type=float, default=1, help='Percent to reduce the predicted price by.')
 	args = parser.parse_args()
@@ -1085,7 +1086,7 @@ if __name__ == '__main__':
 		t0_end = time.perf_counter()
 		print(time_stamp() + 'End of Simulation! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
 	else:
-		date = None # '2022-10-21' # 
+		date = args.start_date # None # '2023-08-31'
 		if args.data is not None:
 			merged = args.data
 			print(time_stamp() + f'Loading combined data from: {combine_data.data_location + merged}')

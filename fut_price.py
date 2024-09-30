@@ -263,11 +263,14 @@ def main(ticker=None, train=False, fields=None, crypto=False, data=None, only_pr
 		# print(model.to_yaml())
 		print(model.summary())
 		print(time_stamp() + 'test_features shape:', test_features.shape)
+		print('test_features type:', type(test_features))
 
-		# test_features['avgTotalVolume'] = test_features['avgTotalVolume'].astype(object)
-		# with pd.option_context('display.max_rows', None):
-		# 	print(test_features.dtypes)
-		# test_features.to_csv('data/test_features.csv')
+		with pd.option_context('display.max_rows', None):
+			print(test_features.dtypes)
+		test_features['avgTotalVolume'] = test_features['avgTotalVolume'].astype(object)
+		with pd.option_context('display.max_rows', None):
+			print(test_features.dtypes)
+		test_features.to_csv('data/test_features.csv')
 
 		test_predictions = model.predict(test_features, verbose=1)
 		test_predictions = test_predictions.flatten()

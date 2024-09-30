@@ -48,5 +48,8 @@ nohup python -u fut_price.py --seed 11 -n -t vfv-ct -d merged_2023-02-28_to_2023
 
 # Run locally
 python market_data/combine_data.py -sd 2023-03-24 -ed 2023-03-30 -o merged_test.csv -s -v
+
 # Run locally
-nohup python -u trade_algo.py -db vfv01.db -t vfv-ct --model_name "vfv-past01, vfv-recent01" -r >> logs/vfv01.log 2>&1 &
+nohup python -u trade_algo.py -t vfv-ct --model_name "vfv-past01, vfv-recent01" -date 2023-08-31 -db vfv06.db -r >> logs/vfv06.log 2>&1 &
+
+python -c 'import tensorflow as tf; print(tf.__version__)'

@@ -452,7 +452,7 @@ class Accounts:
 			producer = input('Enter the producer of the item: ')
 
 			details = [item_id,int_rate_fix,int_rate_var,freq,child_of,requirements,amount,capacity,hold_req,hold_amount,usage_req,use_amount,fulfill,satisfies,satisfy_rate,productivity,efficiency,lifespan,metric,dmg_types,dmg,res_types,res,byproduct,byproduct_amt,start_price,producer]
-			details = [None if x is '' else x for x in details]
+			details = [None if x == '' else x for x in details]
 			cur.execute('INSERT INTO ' + self.items_table_name + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', details)
 
 		else:
