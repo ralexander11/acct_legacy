@@ -13,10 +13,10 @@ class Map:
             self.gen_map(map_size)
         else:
             self.map_gen_file()
-        self.display_map()
+        self.update_display_map()
         # print(f'world_map created:\n{self}')
 
-    def gen_map(self, map_size):
+    def gen_map(self, map_size, proc=False):
         self.map_size = map_size
         if isinstance(self.map_size, int):
             self.map_size = (self.map_size, self.map_size)
@@ -28,8 +28,14 @@ class Map:
         self.get_terrain_data()
         for row in self.world_map:
             for tile in row:
-                terrain_select = random.choices(self.terrain_items['item_id'].tolist(), self.terrain_items['coverage'].tolist())[0]
-                tile.update({'terrain': Tile(terrain_select, self.terrain_items)})
+                if proc:
+                    terrain_select = random.choices(self.terrain_items['item_id'].tolist(), self.terrain_items['coverage'].tolist())[0]
+                    print(terrain_select)
+                    exit()
+                else:
+                    terrain_select = 'Grassland'
+                    tile.update({'terrain': Tile(terrain_select, self.terrain_items)})
+
         # self.world_map = pd.DataFrame(self.world_map) # Replace pandas here
         # self.world_map.applymap(lambda d: d.update({'terrain': Tile()})) # Replace pandas here
         return self.world_map
@@ -90,6 +96,28 @@ class Map:
         print(df)
         df.to_csv(filename, index=False, header=False)
 
+    def set_map_size(self, x=None, y=None):
+        print('Current Map Size:', self.map_size)
+        if x is None:
+            x = input('Enter x new size: ')
+        if y is None:
+            y = input('Enter y new size: ')
+        if y == '':
+            y = x
+        new_map_size = (int(x), int(y))
+        print('new_map_size:', new_map_size)
+        map_size_diff = (int(x) - self.map_size[0], int(y) - self.map_size[1])
+        print('map_size_diff:', map_size_diff)
+        # print(repr(self.world_map))
+        for _ in range(map_size_diff[0]):
+            self.world_map.append([{'terrain': Tile('Grassland', self.terrain_items)} for _ in range(self.map_size[1])])
+        for row in self.world_map:
+            for _ in range(map_size_diff[1]):
+                row.append({'terrain': Tile('Grassland', self.terrain_items)})
+        # print(repr(self.world_map))
+        self.map_size = new_map_size
+        self.update_display_map()
+
     def edit_terrain(self, pos=None, terrain=None):
         if pos is None:
             x = input('Enter x coord: ')
@@ -101,7 +129,9 @@ class Map:
                 return
         if terrain is None:
             terrain = input('Enter terrain: ')
-        self.world_map[pos[0]][pos[1]].update({'terrain': Tile(terrain, self.terrain_items)})
+            terrain = terrain.title()
+        tile = self.world_map[pos[0]][pos[1]]
+        tile.update({'terrain': Tile(terrain, self.terrain_items)})
         if terrain == 'Grassland': # TODO Could likely do this more efficiently
             icon = '[bright_green].[/bright_green]'
         elif terrain == 'Arable Land':
@@ -126,6 +156,15 @@ class Map:
             icon = '[blue]O[/blue]'
         else:
             icon = ','
+        if tile.get('Agent'):
+            agent_tile = tile.get('Agent')
+            print('agent_tile:', agent_tile)
+            print('agent_tile type:', type(agent_tile))
+            current_terrain = tile['terrain']
+            agent_tile.current_terrain = current_terrain
+            print(f'Edited Terrain: {current_terrain}')
+            agent_tile.current_tile = icon
+            return
         self.display_map[pos[0]][pos[1]] = icon
 
     def get_terrain_data(self, infile='data/items.csv'):
@@ -135,11 +174,10 @@ class Map:
         self.terrain_items = self.terrain_items[self.terrain_items['child_of'] == 'Land']
         self.terrain_items['int_rate_var'] = self.terrain_items['int_rate_var'].astype(int)
         self.terrain_items['coverage'] = self.terrain_items['int_rate_var'] / self.terrain_items['int_rate_var'].sum()
-        # self.terrain_items['display'] = ['.','#','F','R','M','W']
         print('terrain_items:')
         print(self.terrain_items)
 
-    def display_map(self):
+    def update_display_map(self):
         self.display_map = [[None for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         for i, row in enumerate(self.world_map):
             for j, tile in enumerate(row):
@@ -173,6 +211,13 @@ class Map:
                     icon = ','
                 self.display_map[i][j] = icon
 
+                if tile.get('Agent'):
+                    agent_tile = tile.get('Agent')
+                    print('agent_tile:', agent_tile)
+                    print('agent_tile type:', type(agent_tile))
+                    icon = agent_tile.icon
+                    self.display_map[i][j] = icon
+
     def __str__(self):
         # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
         self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
@@ -196,8 +241,8 @@ class Tile:
     def __str__(self):
         return self.terrain
 
-    # def __repr__(self):
-    #     return self.terrain
+    def __repr__(self):
+        return self.terrain
 
 class Player:
     def __init__(self, name, world_map, icon='P'):
@@ -207,7 +252,7 @@ class Player:
         self.pos = (0, int(icon)-1) # Start position
         print(f'{self} start pos: {self.pos}')
         self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
-        world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self.name
+        world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
         world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
         # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
         self.movement = 5
@@ -220,10 +265,11 @@ class Player:
     def move(self):
         self.old_pos = self.pos
         print(f'Current position: {self.old_pos}')
+        self.current_terrain = world_map.world_map[self.old_pos[0]][self.old_pos[1]]['terrain']
+        print(f'Current Terrain: {self.current_terrain}')
         if self.get_move() is None: # TODO This isn't very clear
             return
         if self.is_occupied(self.pos):
-            print('Cannot move to the same space as another Player or NPC.')
             self.pos = self.old_pos
             return
         if not self.calc_move(self.pos):
@@ -231,7 +277,7 @@ class Player:
             self.pos = self.old_pos
             return
         try:
-            world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self.name
+            world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
 
             world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.current_tile #self.get_terrain(self.old_pos)
             self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
@@ -240,14 +286,19 @@ class Player:
             del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
             # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
             # del world_map.world_map.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
-        except (IndexError, KeyError) as e:
+        except (IndexError, KeyError) as e: # TODO Is this check still needed?
             print('Out of bounds, try again.')
             self.pos = self.old_pos
             return
         print('End move.')
 
     def is_occupied(self, pos):
-        if 'Agent' in world_map.world_map[pos[0]][pos[1]]:
+        try:
+            if 'Agent' in world_map.world_map[pos[0]][pos[1]]:
+                print('Cannot move to the same space as another Player or NPC.')
+                return True
+        except (IndexError, KeyError) as e:
+            print('Out of bounds, try again.')
             return True
 
     def calc_move(self, pos):
@@ -299,12 +350,16 @@ class Player:
             print(f'Display current world map:\n{world_map}')
             self.pos = self.old_pos
             return
-        if key == 'terrain':
+        if key == 'terrain' or key == 'items':
             print('Display terrain item details:\n', world_map.terrain_items)
             self.pos = self.old_pos
             return
         if key == 'r' or key == 'reset':
             self.reset_moves()
+            self.pos = self.old_pos
+            return
+        if key == 'size':
+            world_map.set_map_size()
             self.pos = self.old_pos
             return
         if key == 'edit':
@@ -347,7 +402,7 @@ class Player:
         return self.name
 
 def setup():
-    # TODO Move class instantiation here
+    # TODO Move class instantiation here?
     pass
 
 if __name__ == '__main__':
@@ -407,5 +462,6 @@ if __name__ == '__main__':
 
 # Make togglable options for map wrapping
 
-# scp data/map02.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
+# scp data/map03.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
+# scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp move.py robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct
