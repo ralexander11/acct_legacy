@@ -6,6 +6,7 @@ import random
 from rich import print
 
 MAP_SIZE = 4 #64
+MAP_VIEW = 10 #(26, 37)
 
 class Map:
     def __init__(self, map_size):
@@ -117,6 +118,15 @@ class Map:
         # print(repr(self.world_map))
         self.map_size = new_map_size
         self.update_display_map()
+
+    def view_port(self, map_view=MAP_VIEW):
+        self.map_view = map_view
+        if isinstance(self.map_view, int):
+            self.map_view = (self.map_view, self.map_view)
+        elif len(self.map_view) == 1:
+            self.map_view = (self.map_view[0], self.map_view[0])
+        print('map_view:', self.map_view)
+        return self.map_view
 
     def edit_terrain(self, pos=None, terrain=None):
         if pos is None:
@@ -247,13 +257,15 @@ class Tile:
 class Player:
     def __init__(self, name, world_map, icon='P'):
         self.name = name
+        self.world_map = world_map
         self.icon = '[blink]' + icon + '[/blink]'
         print(f'{self} icon: {self.icon}')
-        self.pos = (0, int(icon)-1) # Start position
+        # self.pos = (0, int(icon)-1) # Start position at top left
+        self.pos = (int(round(self.world_map.map_size[0]/2, 0)), int(round(self.world_map.map_size[1]/2, 0)+int(icon)-1)) # Start position near middle
         print(f'{self} start pos: {self.pos}')
         self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
-        world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
-        world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
+        self.world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
+        self.world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
         # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
         self.movement = 5
         self.remain_move = self.movement
@@ -440,6 +452,7 @@ if __name__ == '__main__':
             while player.remain_move:
                 player.move()
                 print(f'Current world map:\n{world_map}')
+                # TODO Display player map attribute
                 print(f'{player.name} moves left: {player.remain_move}')
             player.reset_moves()
 
