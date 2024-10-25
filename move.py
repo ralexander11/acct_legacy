@@ -6,7 +6,7 @@ import random
 from rich import print
 
 MAP_SIZE = 4 #64
-MAP_VIEW = 10 #(26, 37)
+MAP_VIEW = (21, 33) #11
 
 class Map:
     def __init__(self, map_size):
@@ -15,7 +15,9 @@ class Map:
         else:
             self.map_gen_file()
         self.update_display_map()
-        # print(f'world_map created:\n{self}')
+        pos = (int(round(self.map_size[0]/2, 0)), int(round(self.map_size[1]/2, 0)))
+        self.view_port(pos)
+        print(f'world_map created:\n{self}')
 
     def gen_map(self, map_size, proc=False):
         self.map_size = map_size
@@ -119,14 +121,45 @@ class Map:
         self.map_size = new_map_size
         self.update_display_map()
 
-    def view_port(self, map_view=MAP_VIEW):
+    def set_view_size(self, pos, x=None, y=None):
+        print('Current Map View:', self.map_view)
+        if x is None:
+            x = input('Enter x new size: ')
+        if y is None:
+            y = input('Enter y new size: ')
+        if y == '':
+            y = x
+        new_view_size = (int(x), int(y))
+        print('new_view_size:', new_view_size)
+        # view_size_diff = (int(x) - self.map_view[0], int(y) - self.map_view[1])
+        # print('view_size_diff:', view_size_diff)
+        # print(repr(self.world_map))
+        MAP_VIEW = new_view_size
+        print('MAP_VIEW:', MAP_VIEW)
+        self.map_view = new_view_size
+        self.view_port(pos, new_view_size)
+
+    def view_port(self, pos, map_view=MAP_VIEW):
+        print('port pos:', pos)
         self.map_view = map_view
         if isinstance(self.map_view, int):
             self.map_view = (self.map_view, self.map_view)
         elif len(self.map_view) == 1:
             self.map_view = (self.map_view[0], self.map_view[0])
-        print('map_view:', self.map_view)
-        return self.map_view
+        top_left = (pos[0] - int(self.map_view[0]/2), pos[1] - int(self.map_view[1]/2))
+        self.view_port_map = [[' ' for _ in range(self.map_view[1])] for _ in range(self.map_view[0])]
+        for i, row in enumerate(self.display_map):
+            if i < top_left[0]:
+                continue
+            if i >= top_left[0] + self.map_view[0]:
+                continue
+            for j, tile in enumerate(row):
+                if j < top_left[1]:
+                    continue
+                if j >= top_left[1] + self.map_view[1]:
+                    continue
+                self.view_port_map[i-top_left[0]][j-top_left[1]] = tile
+        return self.view_port_map
 
     def edit_terrain(self, pos=None, terrain=None):
         if pos is None:
@@ -230,7 +263,8 @@ class Map:
 
     def __str__(self):
         # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
-        self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
+        # self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
+        self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.view_port_map])
         return self.map_display
 
     def __repr__(self):
@@ -276,9 +310,8 @@ class Player:
 
     def move(self):
         self.old_pos = self.pos
-        print(f'Current position: {self.old_pos}')
         self.current_terrain = world_map.world_map[self.old_pos[0]][self.old_pos[1]]['terrain']
-        print(f'Current Terrain: {self.current_terrain}')
+        print(f'Current position: {self.old_pos} | Current Terrain: {self.current_terrain}')
         if self.get_move() is None: # TODO This isn't very clear
             return
         if self.is_occupied(self.pos):
@@ -296,6 +329,7 @@ class Player:
             print(f'Current Tile: {self.current_tile}')
             world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
             del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
+            world_map.view_port(self.pos)
             # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
             # del world_map.world_map.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
         except (IndexError, KeyError) as e: # TODO Is this check still needed?
@@ -354,7 +388,7 @@ class Player:
         return icon
 
     def get_move(self):
-        print('\nEnter "exit" to exit.')
+        # print('\nEnter "exit" to exit.')#\033[F #\r
         key = input('Use wasd to move: ')
         print('===================')
         key = key.lower()
@@ -372,6 +406,10 @@ class Player:
             return
         if key == 'size':
             world_map.set_map_size()
+            self.pos = self.old_pos
+            return
+        if key == 'view':
+            world_map.set_view_size(self.pos)
             self.pos = self.old_pos
             return
         if key == 'edit':
@@ -424,6 +462,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--seed', type=str, default=11, help='Set the seed for the randomness.')
     parser.add_argument('-m', '--map', type=str, help='The name of the map csv data file.')
     parser.add_argument('-p', '--players', type=int, default=1, help='The number of players in the world.')
+    parser.add_argument('-vs', '--view_size', type=int, default=10, help='The size of the view of the world.')
     args = parser.parse_args()
 
     if args.seed:
@@ -434,6 +473,13 @@ if __name__ == '__main__':
             args.size = [int(x.strip()) for x in args.size.split(',')]
             MAP_SIZE = args.size
             print('MAP_SIZE:', MAP_SIZE)
+
+    if args.view_size is not None:
+        if not isinstance(args.view_size, (list, tuple)):
+            if isinstance(args.view_size, str):
+                args.view_size = [int(x.strip()) for x in args.view_size.split(',')]
+            MAP_VIEW = args.view_size
+            print('MAP_VIEW:', MAP_VIEW)
     
 
     world_map = Map(MAP_SIZE)
@@ -443,15 +489,15 @@ if __name__ == '__main__':
         player = Player(player_name, world_map, str(player_num+1))
         players.append(player)
     print(f'Players:\n{players}')
-    print(f'world_map:\n{world_map}')
+    # print(f'world_map:\n{world_map}')
 
     while True:
         for player in players:
             print(f'Current Player: {player}')
             print(f'Start Tile: {player.current_tile}')
             while player.remain_move:
-                player.move()
                 print(f'Current world map:\n{world_map}')
+                player.move()
                 # TODO Display player map attribute
                 print(f'{player.name} moves left: {player.remain_move}')
             player.reset_moves()
@@ -475,6 +521,6 @@ if __name__ == '__main__':
 
 # Make togglable options for map wrapping
 
-# scp data/map03.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
+# scp data/map09.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp move.py robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct
