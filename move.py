@@ -82,6 +82,10 @@ class Map:
                     terrain_select = 'Tundra'
                 elif tile == 'O':
                     terrain_select = 'Ocean'
+                elif tile == '=':
+                    terrain_select = 'Path' # TODO Allow Path 0.5 movement
+                elif tile == '_':
+                    terrain_select = 'Road' # TODO Allow Road 0.25 movement
                 else:
                     terrain_select = 'Grassland'
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items)})
@@ -197,6 +201,10 @@ class Map:
             icon = '[grey62]T[/grey62]'
         elif terrain == 'Ocean':
             icon = '[blue]O[/blue]'
+        elif terrain == 'Path':
+            icon = '[orange4]=[/orange4]'
+        elif terrain == 'Road':
+            icon = '[grey62]_[/grey62]'
         else:
             icon = ','
         if tile.get('Agent'):
@@ -250,6 +258,10 @@ class Map:
                     icon = '[grey62]T[/grey62]'
                 elif terrain == 'Ocean':
                     icon = '[blue]O[/blue]'
+                elif terrain == 'Path':
+                    icon = '[orange4]=[/orange4]'
+                elif terrain == 'Road':
+                    icon = '[grey62]_[/grey62]'
                 else:
                     icon = ','
                 self.display_map[i][j] = icon
@@ -289,13 +301,20 @@ class Tile:
         return self.terrain
 
 class Player:
-    def __init__(self, name, world_map, icon='P'):
+    def __init__(self, name, world_map, icon='P', start=None):
         self.name = name
         self.world_map = world_map
         self.icon = '[blink]' + icon + '[/blink]'
         print(f'{self} icon: {self.icon}')
         # self.pos = (0, int(icon)-1) # Start position at top left
-        self.pos = (int(round(self.world_map.map_size[0]/2, 0)), int(round(self.world_map.map_size[1]/2, 0)+int(icon)-1)) # Start position near middle
+        if start is None:
+            self.pos = (int(round(self.world_map.map_size[0]/2, 0)), int(round(self.world_map.map_size[1]/2, 0)+int(icon)-1)) # Start position near middle
+            print('start pos:', self.pos)
+            print(type(self.pos))
+        else:
+            self.pos = start
+            print('start pos arg:', self.pos)
+            print(type(self.pos))
         print(f'{self} start pos: {self.pos}')
         self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
         self.world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
@@ -383,6 +402,10 @@ class Player:
             icon = '[grey62]T[/grey62]'
         elif terrain == 'Ocean':
             icon = '[blue]O[/blue]'
+        elif terrain == 'Path':
+            icon = '[orange4]=[/orange4]'
+        elif terrain == 'Road':
+            icon = '[grey62]_[/grey62]'
         else:
             icon = ','
         return icon
@@ -457,12 +480,13 @@ def setup():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--size', type=str, help='The map size as either a list of two numbers or one for square.')
+    parser.add_argument('-z', '--size', type=str, help='The map size as either a list of two numbers or one for square.')
     parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
     parser.add_argument('-r', '--seed', type=str, default=11, help='Set the seed for the randomness.')
     parser.add_argument('-m', '--map', type=str, help='The name of the map csv data file.')
     parser.add_argument('-p', '--players', type=int, default=1, help='The number of players in the world.')
     parser.add_argument('-vs', '--view_size', type=int, default=10, help='The size of the view of the world.')
+    parser.add_argument('-s', '--start', type=str, help='The starting coords for the player.') # 338, 178
     args = parser.parse_args()
 
     if args.seed:
@@ -481,12 +505,19 @@ if __name__ == '__main__':
             MAP_VIEW = args.view_size
             print('MAP_VIEW:', MAP_VIEW)
     
+    if args.start is not None:
+        if not isinstance(args.start, (list, tuple)):
+            if isinstance(args.start, str):
+                args.start = tuple(int(x.strip()) for x in args.start.split(','))
+            else:
+                args.start = (args.start, args.start)
+    
 
     world_map = Map(MAP_SIZE)
     players = []
     for player_num in range(args.players):
         player_name = 'Player ' + str(player_num+1)
-        player = Player(player_name, world_map, str(player_num+1))
+        player = Player(player_name, world_map, str(player_num+1), args.start)
         players.append(player)
     print(f'Players:\n{players}')
     # print(f'world_map:\n{world_map}')
