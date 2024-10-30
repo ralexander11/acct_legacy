@@ -15,7 +15,10 @@ class Map:
         else:
             self.map_gen_file()
         self.update_display_map()
-        pos = (int(round(self.map_size[0]/2, 0)), int(round(self.map_size[1]/2, 0)))
+        if args.start is not None:
+            pos = args.start
+        else:
+            pos = (int(round(self.map_size[0]/2, 0)), int(round(self.map_size[1]/2, 0)))
         self.view_port(pos)
         print(f'world_map created:\n{self}')
 
@@ -330,7 +333,7 @@ class Player:
     def move(self):
         self.old_pos = self.pos
         self.current_terrain = world_map.world_map[self.old_pos[0]][self.old_pos[1]]['terrain']
-        print(f'Current position: {self.old_pos} | Current Terrain: {self.current_terrain}')
+        print(f'{self.name} position: {self.old_pos} on {self.current_tile} | Moves: {self.remain_move}')
         if self.get_move() is None: # TODO This isn't very clear
             return
         if self.is_occupied(self.pos):
@@ -520,6 +523,7 @@ if __name__ == '__main__':
         player = Player(player_name, world_map, str(player_num+1), args.start)
         players.append(player)
     print(f'Players:\n{players}')
+    world_map.view_port(player.pos)
     # print(f'world_map:\n{world_map}')
 
     while True:
@@ -529,29 +533,11 @@ if __name__ == '__main__':
             while player.remain_move:
                 print(f'Current world map:\n{world_map}')
                 player.move()
-                # TODO Display player map attribute
-                print(f'{player.name} moves left: {player.remain_move}')
             player.reset_moves()
 
 ## TODO
-# Display map
-
-# Factor is terrain cost
-# Movement turns
-
-# Edit terrain
-# Load map
-# Save map
-
-# Multiple Players/Units
-# Don't allove move into unit tile
-# Create tile for player spawn, that isn't visible on the map
-#    Can make a reusable property for items that don't show on map
-# Allow player spawns to be randomly placed and randomly used
-# Make similar to above for mob spawns
-
 # Make togglable options for map wrapping
 
-# scp data/map09.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
+# scp data/map10.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp move.py robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct
