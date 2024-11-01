@@ -1,12 +1,29 @@
 #!/usr/bin/env python
 
 import pandas as pd
+import numpy as np
 import argparse
 import random
 from rich import print
 
 MAP_SIZE = 4 #64
 MAP_VIEW = (21, 33) #11
+
+TILES = {'Grassland': '[bright_green].[/bright_green]',
+        'Arable Land': '[yellow]#[/yellow]',
+        'Forest': '[green]F[/green]',
+        'Rocky Land': '[grey62]R[/grey62]',
+        'Hills': '[green]H[/green]',
+        'Mountain': '[red]M[/red]',
+        'Wetlands': '[cyan]W[/cyan]',
+        'Jungle': '[green]J[/green]',
+        'Desert': '[yellow]D[/yellow]',
+        'Tundra': '[grey62]T[/grey62]',
+        'Ocean': '[blue]O[/blue]',
+        'Path': '[orange4]=[/orange4]',
+        'Road': '[grey62]_[/grey62]',
+        }
+
 
 class Map:
     def __init__(self, map_size):
@@ -20,7 +37,7 @@ class Map:
         else:
             pos = (int(round(self.map_size[0]/2, 0)), int(round(self.map_size[1]/2, 0)))
         self.view_port(pos)
-        print(f'world_map created:\n{self}')
+        # print(f'world_map created:\n{self}')
 
     def gen_map(self, map_size, proc=False):
         self.map_size = map_size
@@ -61,36 +78,19 @@ class Map:
         self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         # print('world_map 1:', self.world_map)
         self.get_terrain_data()
+        tiles = {k: v.split('[')[1].split(']')[1] for k, v in TILES.items()}
+        inv_tiles = {v: k for k, v in tiles.items()}
+        print('Map Legend:', inv_tiles)
         for i, row in map_data.iterrows():
             for j, tile in enumerate(row):
-                if tile == '.':
-                    terrain_select = 'Grassland'
-                elif tile == '#':
-                    terrain_select = 'Arable Land'
-                elif tile == 'F':
-                    terrain_select = 'Forest'
-                elif tile == 'R':
-                    terrain_select = 'Rocky Land'
-                elif tile == 'H':
-                    terrain_select = 'Hills'
-                elif tile == 'M':
-                    terrain_select = 'Mountain'
-                elif tile == 'W':
-                    terrain_select = 'Wetlands'
-                elif tile == 'J':
-                    terrain_select = 'Jungle'
-                elif tile == 'D':
-                    terrain_select = 'Desert'
-                elif tile == 'T':
-                    terrain_select = 'Tundra'
-                elif tile == 'O':
-                    terrain_select = 'Ocean'
-                elif tile == '=':
-                    terrain_select = 'Path' # TODO Allow Path 0.5 movement
-                elif tile == '_':
-                    terrain_select = 'Road' # TODO Allow Road 0.25 movement
+                if tile in inv_tiles:
+                    terrain_select = inv_tiles[tile]
+                elif tile is np.nan:
+                    print(f'{i}, {j} | nan_tile: {tile} replaced with Grassland.')
+                    terrain_select = 'Grassland' #tile
                 else:
-                    terrain_select = 'Grassland'
+                    print(f'{i}, {j} | tile: {tile}')
+                    terrain_select = tile
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items)})
         return self.world_map
 
@@ -147,7 +147,6 @@ class Map:
         self.view_port(pos, new_view_size)
 
     def view_port(self, pos, map_view=MAP_VIEW):
-        print('port pos:', pos)
         self.map_view = map_view
         if isinstance(self.map_view, int):
             self.map_view = (self.map_view, self.map_view)
@@ -226,7 +225,7 @@ class Map:
         with open(infile, 'r') as f:
             self.terrain_items = pd.read_csv(f, keep_default_na=False, comment='#')
         self.terrain_items = self.terrain_items[self.terrain_items['child_of'] == 'Land']
-        self.terrain_items['int_rate_var'] = self.terrain_items['int_rate_var'].astype(int)
+        self.terrain_items['int_rate_var'] = self.terrain_items['int_rate_var'].astype(float)
         self.terrain_items['coverage'] = self.terrain_items['int_rate_var'] / self.terrain_items['int_rate_var'].sum()
         print('terrain_items:')
         print(self.terrain_items)
@@ -239,34 +238,12 @@ class Map:
                 if terrain_tile.hidden:
                     continue
                 terrain = terrain_tile.terrain
-                if terrain == 'Grassland': # TODO Could likely do this more efficiently
-                    icon = '[bright_green].[/bright_green]'
-                elif terrain == 'Arable Land':
-                    icon = '[yellow]#[/yellow]'
-                elif terrain == 'Forest':
-                    icon = '[green]F[/green]'
-                elif terrain == 'Rocky Land':
-                    icon = '[grey62]R[/grey62]'
-                elif terrain == 'Hills':
-                    icon = '[green]H[/green]'
-                elif terrain == 'Mountain':
-                    icon = '[red]M[/red]'
-                elif terrain == 'Wetlands':
-                    icon = '[cyan]W[/cyan]'
-                elif terrain == 'Jungle':
-                    icon = '[green]J[/green]'
-                elif terrain == 'Desert':
-                    icon = '[yellow]D[/yellow]'
-                elif terrain == 'Tundra':
-                    icon = '[grey62]T[/grey62]'
-                elif terrain == 'Ocean':
-                    icon = '[blue]O[/blue]'
-                elif terrain == 'Path':
-                    icon = '[orange4]=[/orange4]'
-                elif terrain == 'Road':
-                    icon = '[grey62]_[/grey62]'
+                if terrain in TILES:
+                    icon = TILES[terrain]
+                elif tile is np.nan:
+                    icon = '.'
                 else:
-                    icon = ','
+                    icon = terrain
                 self.display_map[i][j] = icon
 
                 if tile.get('Agent'):
@@ -290,11 +267,19 @@ class Map:
 class Tile:
     def __init__(self, terrain='Land', terrain_items=None):
         self.terrain = terrain
-        self.move_cost = terrain_items[terrain_items['item_id'] == self.terrain]['int_rate_fix'].values[0]
+        if terrain in TILES:
+            self.icon = TILES[terrain]
+        else:
+            self.icon = terrain
+        try:
+            self.move_cost = terrain_items[terrain_items['item_id'] == self.terrain]['int_rate_fix'].values[0]
+        except IndexError:
+            print('Move cost of 1 for:', terrain)
+            self.move_cost = 1
         if self.move_cost == 'None':
             self.move_cost = None
         if self.move_cost is not None:
-            self.move_cost = int(self.move_cost)
+            self.move_cost = float(self.move_cost)
         self.hidden = False
 
     def __str__(self):
@@ -304,21 +289,17 @@ class Tile:
         return self.terrain
 
 class Player:
-    def __init__(self, name, world_map, icon='P', start=None):
+    def __init__(self, name, world_map, icon='P', start=None, v=False):
         self.name = name
         self.world_map = world_map
         self.icon = '[blink]' + icon + '[/blink]'
-        print(f'{self} icon: {self.icon}')
+        if v: print(f'{self} icon: {self.icon}')
         # self.pos = (0, int(icon)-1) # Start position at top left
         if start is None:
             self.pos = (int(round(self.world_map.map_size[0]/2, 0)), int(round(self.world_map.map_size[1]/2, 0)+int(icon)-1)) # Start position near middle
-            print('start pos:', self.pos)
-            print(type(self.pos))
         else:
             self.pos = start
-            print('start pos arg:', self.pos)
-            print(type(self.pos))
-        print(f'{self} start pos: {self.pos}')
+        if v: print(f'{self} start pos: {self.pos}')
         self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
         self.world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
         self.world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
@@ -333,7 +314,7 @@ class Player:
     def move(self):
         self.old_pos = self.pos
         self.current_terrain = world_map.world_map[self.old_pos[0]][self.old_pos[1]]['terrain']
-        print(f'{self.name} position: {self.old_pos} on {self.current_tile} | Moves: {self.remain_move}')
+        print(f'{self.name} position: {self.old_pos} on {self.current_tile} | Moves: {self.remain_move} | Test01\rTest02')
         if self.get_move() is None: # TODO This isn't very clear
             return
         if self.is_occupied(self.pos):
@@ -345,10 +326,8 @@ class Player:
             return
         try:
             world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
-
-            world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.current_tile #self.get_terrain(self.old_pos)
+            world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.current_tile
             self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
-            print(f'Current Tile: {self.current_tile}')
             world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
             del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
             world_map.view_port(self.pos)
@@ -358,7 +337,7 @@ class Player:
             print('Out of bounds, try again.')
             self.pos = self.old_pos
             return
-        print('End move.')
+        # print('End move.')
 
     def is_occupied(self, pos):
         try:
@@ -369,54 +348,23 @@ class Player:
             print('Out of bounds, try again.')
             return True
 
-    def calc_move(self, pos):
+    def calc_move(self, pos, v=False):
         target_terrain = world_map.world_map[pos[0]][pos[1]]['terrain']
+        print('target_terrain:', target_terrain)
+        print('target_terrain.move_cost:', target_terrain.move_cost)
         if target_terrain.move_cost is None:
             print(f'Cannot cross {target_terrain}.')
             return
-        print('remaining_moves:', self.remain_move)
-        print('target_terrain.move_cost:', target_terrain.move_cost)
+        if v: print('remaining_moves:', self.remain_move)
+        if v: print('target_terrain.move_cost:', target_terrain.move_cost)
         if self.remain_move >= target_terrain.move_cost:
             self.remain_move -= target_terrain.move_cost
             return True
 
-    def get_terrain(self, pos=None, terrain=None):
-        if terrain is None and pos is not None:
-            terrain = world_map.world_map[pos[0]][pos[1]]['terrain'].terrain
-        if terrain == 'Grassland': # TODO Could likely do this more efficiently
-            icon = '[bright_green].[/bright_green]'
-        elif terrain == 'Arable Land':
-            icon = '[yellow]#[/yellow]'
-        elif terrain == 'Forest':
-            icon = '[green]F[/green]'
-        elif terrain == 'Rocky Land':
-            icon = '[grey62]R[/grey62]'
-        elif terrain == 'Hills':
-            icon = '[green]H[/green]'
-        elif terrain == 'Mountain':
-            icon = '[red]M[/red]'
-        elif terrain == 'Wetlands':
-            icon = '[cyan]W[/cyan]'
-        elif terrain == 'Jungle':
-            icon = '[green]J[/green]'
-        elif terrain == 'Desert':
-            icon = '[yellow]D[/yellow]'
-        elif terrain == 'Tundra':
-            icon = '[grey62]T[/grey62]'
-        elif terrain == 'Ocean':
-            icon = '[blue]O[/blue]'
-        elif terrain == 'Path':
-            icon = '[orange4]=[/orange4]'
-        elif terrain == 'Road':
-            icon = '[grey62]_[/grey62]'
-        else:
-            icon = ','
-        return icon
-
     def get_move(self):
         # print('\nEnter "exit" to exit.')#\033[F #\r
         key = input('Use wasd to move: ')
-        print('===================')
+        print('=' * ((world_map.map_view[1]*2)-1))
         key = key.lower()
         if key == 'map':
             print(f'Display current world map:\n{world_map}')
@@ -454,7 +402,7 @@ class Player:
             self.pos = (self.pos[0], self.pos[1] - 1)
         elif key == 'd':
             self.pos = (self.pos[0], self.pos[1] + 1)
-        elif key == 'move':
+        elif key == 'tp' or key == 'move':
             x = input('Enter x coord: ')
             y = input('Enter y coord: ')
             try:
@@ -506,7 +454,7 @@ if __name__ == '__main__':
             if isinstance(args.view_size, str):
                 args.view_size = [int(x.strip()) for x in args.view_size.split(',')]
             MAP_VIEW = args.view_size
-            print('MAP_VIEW:', MAP_VIEW)
+            # print('MAP_VIEW:', MAP_VIEW)
     
     if args.start is not None:
         if not isinstance(args.start, (list, tuple)):
@@ -522,14 +470,12 @@ if __name__ == '__main__':
         player_name = 'Player ' + str(player_num+1)
         player = Player(player_name, world_map, str(player_num+1), args.start)
         players.append(player)
-    print(f'Players:\n{players}')
+    # print(f'Players:\n{players}')
     world_map.view_port(player.pos)
     # print(f'world_map:\n{world_map}')
 
     while True:
         for player in players:
-            print(f'Current Player: {player}')
-            print(f'Start Tile: {player.current_tile}')
             while player.remain_move:
                 print(f'Current world map:\n{world_map}')
                 player.move()
