@@ -17,11 +17,13 @@ TILES = {'Grassland': '[bright_green].[/bright_green]',
         'Mountain': '[red]M[/red]',
         'Wetlands': '[cyan]W[/cyan]',
         'Jungle': '[green]J[/green]',
-        'Desert': '[yellow]D[/yellow]',
+        'Sand': '[yellow]S[/yellow]',
         'Tundra': '[grey62]T[/grey62]',
         'Ocean': '[blue]O[/blue]',
         'Path': '[orange4]=[/orange4]',
         'Road': '[grey62]_[/grey62]',
+        'Wall': '[orange4]▌[/orange4]',
+        'Fence': '[orange4]﬩[/orange4]',
         }
 
 
@@ -181,34 +183,12 @@ class Map:
             terrain = terrain.title()
         tile = self.world_map[pos[0]][pos[1]]
         tile.update({'terrain': Tile(terrain, self.terrain_items)})
-        if terrain == 'Grassland': # TODO Could likely do this more efficiently
-            icon = '[bright_green].[/bright_green]'
-        elif terrain == 'Arable Land':
-            icon = '[yellow]#[/yellow]'
-        elif terrain == 'Forest':
-            icon = '[green]F[/green]'
-        elif terrain == 'Rocky Land':
-            icon = '[grey62]R[/grey62]'
-        elif terrain == 'Hills':
-            icon = '[green]H[/green]'
-        elif terrain == 'Mountain':
-            icon = '[red]M[/red]'
-        elif terrain == 'Wetlands':
-            icon = '[cyan]W[/cyan]'
-        elif terrain == 'Jungle':
-            icon = '[green]J[/green]'
-        elif terrain == 'Desert':
-            icon = '[yellow]D[/yellow]'
-        elif terrain == 'Tundra':
-            icon = '[grey62]T[/grey62]'
-        elif terrain == 'Ocean':
-            icon = '[blue]O[/blue]'
-        elif terrain == 'Path':
-            icon = '[orange4]=[/orange4]'
-        elif terrain == 'Road':
-            icon = '[grey62]_[/grey62]'
+        if terrain in TILES:
+            icon = TILES[terrain]
+        elif tile is np.nan:
+            icon = '.'
         else:
-            icon = ','
+            icon = terrain
         if tile.get('Agent'):
             agent_tile = tile.get('Agent')
             print('agent_tile:', agent_tile)
@@ -350,8 +330,8 @@ class Player:
 
     def calc_move(self, pos, v=False):
         target_terrain = world_map.world_map[pos[0]][pos[1]]['terrain']
-        print('target_terrain:', target_terrain)
-        print('target_terrain.move_cost:', target_terrain.move_cost)
+        if v: print('target_terrain:', target_terrain)
+        if v: print('target_terrain.move_cost:', target_terrain.move_cost)
         if target_terrain.move_cost is None:
             print(f'Cannot cross {target_terrain}.')
             return
@@ -364,7 +344,7 @@ class Player:
     def get_move(self):
         # print('\nEnter "exit" to exit.')#\033[F #\r
         key = input('Use wasd to move: ')
-        print('=' * ((world_map.map_view[1]*2)-1))
+        # print('=' * ((world_map.map_view[1]*2)-1))
         key = key.lower()
         if key == 'map':
             print(f'Display current world map:\n{world_map}')
