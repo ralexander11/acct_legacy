@@ -22,19 +22,18 @@ Arable Land,1,10000,None,Land,None,None,None,None,None,None,None,None,None,None,
 Forest,2,10000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Rocky Land,2,4000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Hills,2,6000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Mountain,None,2000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Mountain,2000,None,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Wetlands,3,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Jungle,3,500,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Sand,3,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Desert,3,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Tundra,3,500,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Ocean,None,50000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-#Path,1,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Path,0.5,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-#Road,1,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Road,0.25,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Wall,None,200,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Fence,None,200,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Sidewalk,0.25,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Floor,0.25,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Cave Floor,1.25,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Lumberjack,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,12,None
 Miner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Tanner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -136,8 +135,11 @@ Robot Rancher,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Sho
 3D Printer,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 200, 400",12,None,None,None,None,None,None,None,Carpenter,1,200,usage,None,None,None,10000,None,None,None,Blacksmith
 Robot Blacksmither,None,None,start,Equipment,"Electricity, Super Tech, Blacksmith Shop, Blacksmither, Wire, Metal, Wood","1, 1, 1, 12, 100, 400, 800",12,None,None,None,None,None,None,None,Blacksmither,1,1000,usage,None,None,None,10000,None,None,None,Blacksmith
 #House,None,None,continuous,Buildings,"Land, Wood, Rock","100, 200, 100",5,Land,100,None,None,None,Shelter,100,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
-#Wall,None,None,continuous,Buildings,"Land, Wood","1, 10",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
-#Fence,None,None,continuous,Buildings,"Land, Wood","1, 1",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
+Wall,None,None,continuous,Buildings,"Land, Wood","1, 10",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
+Window,5,None,continuous,Buildings,"Land, Wood","1, 20",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
+Door,0.25,None,continuous,Buildings,"Land, Wood","1, 50",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
+Fence,None,None,continuous,Buildings,"Land, Wood","1, 1",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
+Fence Gate,None,1,continuous,Buildings,"Land, Wood","1, 5",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
 Shares,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Init Capital,0,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank

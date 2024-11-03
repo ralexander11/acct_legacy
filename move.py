@@ -12,7 +12,7 @@ MAP_VIEW = (21, 33) #11
 TILES = {'Grassland': '[bright_green].[/bright_green]',
         'Arable Land': '[yellow]#[/yellow]',
         'Forest': '[green]F[/green]',
-        'Rocky Land': '[grey62]R[/grey62]',
+        'Rocky Land': '[grey37]R[/grey37]',
         'Hills': '[green]H[/green]',
         'Mountain': '[red]M[/red]',
         'Wetlands': '[cyan]W[/cyan]',
@@ -21,9 +21,101 @@ TILES = {'Grassland': '[bright_green].[/bright_green]',
         'Tundra': '[grey62]T[/grey62]',
         'Ocean': '[blue]O[/blue]',
         'Path': '[orange4]=[/orange4]',
-        'Road': '[grey62]_[/grey62]',
-        'Wall': '[orange4]▌[/orange4]',
-        'Fence': '[orange4]﬩[/orange4]',
+        'Road': '[grey69]_[/grey69]',
+        'Sidewalk': '[grey85]≡[/grey85]',
+        'Wall': '[tan]▌[/tan]',
+        'Door': '[chartreuse4]⌂[/chartreuse4]',
+        'Window': '[sky_blue1]ш[/sky_blue1]',
+        'Fence': '[tan]﬩[/tan]',
+        'Fence Gate': '[tan];[/tan]',
+        'Floor': '[dark_red]-[/dark_red]',
+        'Cave Floor': '[grey37],[/grey37]',
+        'Dock': '[orange4]Ð[/orange4]',
+        'Sign': '[bright_yellow]![/bright_yellow]',
+        'Street Light': '[bright_yellow]ꝉ[/bright_yellow]',
+        'Trees': '[green]Ҭ[/green]',
+        'Potato': '[yellow]ꭅ[/yellow]',
+        'Corn': '[bright_yellow]Ψ[/bright_yellow]',
+        'Ship': '[magenta]ᵿ[/magenta]',
+        'Barred Windows': '[red]₩[/red]',
+        'Bridge': '[orange4]≠[/orange4]',
+        'Chicken Coup': '[bright_yellow]₠[/bright_yellow]',
+        'City Gate': '[magenta]Ħ[/magenta]',
+        'City Walls': '[grey37][[/grey37]',
+        'Fountain': '[blue]֎[/blue]',
+        'Roped Guardrail': '[red]ꭆ[/red]',
+        'Stain Glass Window': '[bright_cyan]₷[/bright_cyan]',
+        'Stairs': '[purple4]𓊍[/purple4]',
+        'Ladder': '[purple4]ǂ[/purple4]',
+        'Well': '[blue]o[/blue]',
+        'Roof': '[red]X[/red]',
+        'Cave Roof': '[red]K[/red]',
+        'Rug': '[magenta]۞[/magenta]',
+        'Columns': '[white]ΐ[/white]',
+        'Potted Plants': '[green]ꝕ[/green]',
+        'Statue': '[magenta]ѯ[/magenta]',
+        'Altar': '[bright_magenta]ꟸ[/bright_magenta]',
+        'Anvil': '[grey37]ꭥ[/grey37]',
+        'Bread Oven': '[bright_red]Ꝋ[/bright_red]',
+        'Cauldron': '[cyan]ꭒ[/cyan]',
+        'Forge': '[bright_red]₣[/bright_red]',
+        'Keg': '[yellow]₭[/yellow]',
+        'Lecturn': '[cyan]ꭋ[/cyan]',
+        'Loom': '[yellow]Ɫ[/yellow]',
+        'Mill': '[white]₥[/white]',
+        'Spinning Wheel': '[orange4]₴[/orange4]',
+        'Stove': '[bright_red]Θ[/bright_red]',
+        'Sun Dial': '[bright_yellow]☼[/bright_yellow]',
+        'Target': '[bright_red]ʘ[/bright_red]',
+        'Target Dummy': '[bright_cyan]♀[/bright_cyan]',
+        'Tub': '[blue]ṵ[/blue]',
+        'Water Trough': '[blue]ⱳ[/blue]',
+        'Water Wheel': '[orange4]Ꝯ[/orange4]',
+        'Winch': '[grey62]ꞷ[/grey62]',
+        'Carrot': '[orange3]Ɣ[/orange3]',
+        'Lettuce': '[chartreuse1]Ϫ[/chartreuse1]',
+        'Broccoli': '[chartreuse3]‽[/chartreuse3]',
+        'Garlic': '[white]ɤ[/white]',
+        'Onion': '[dark_goldenrod]ȸ[/dark_goldenrod]',
+        'Tomato': '[red3]ɷ[/red3]',
+        'Hay': '[wheat1]ⱨ[/wheat1]',
+        'Bar': '[dark_orange3]Ꞵ[/dark_orange3]',
+        'Bed': '[white]Ꞗ[/white]',
+        'Bedside Table': '[orange3]Ɥ[/orange3]',
+        'Bench': '[orange3]ꭑ[/orange3]',
+        'Book Shelf': '[orange4]Ḇ[/orange4]',
+        'Chair': '[dark_khaki]∟[/dark_khaki]',
+        'Chest': '[gold3]∩[/gold3]',
+        'Desk': '[orange3]∏[/orange3]',
+        'Display Cabinet': '[light_cyan1]Ḓ[/light_cyan1]',
+        'Display Case': '[light_cyan1]Ḑ[/light_cyan1]',
+        'Display Table': '[light_cyan1]Ḏ[/light_cyan1]',
+        'Dresser': '[orange4]Ɡ[/orange4]',
+        'Pew': '[dark_khaki]Ꝓ[/dark_khaki]',
+        'Round Table': '[orange3]ꝿ[/orange3]',
+        'Shelf': '[orange4]ﬃ[/orange4]',
+        'Side Table': '[orange3]Ꞁ[/orange3]',
+        'Table': '[tan]Ʇ[/tan]',
+        'Wardrobe': '[orange4]Ꝡ[/orange4]',
+        'Harp': '[light_goldenrod1]ћ[/light_goldenrod1]',
+        'Piano': '[grey82]♫[/grey82]',
+        'Floor Candle': '[bright_yellow]ḉ[/bright_yellow]',
+        'Cave': '[grey35]Ꞝ[/grey35]',
+        'Farm Field': '[wheat1]ᵮ[/wheat1]',
+        'Plants': '[dark_sea_green4]♣[/dark_sea_green4]',
+        'Flowers': '[magenta]ӂ[/magenta]',
+        'Rocks': '[grey50]*[/grey50]',
+        'Stalagmite': '[grey50]↑[/grey50]',
+        'Stump': '[dark_goldenrod]ᶊ[/dark_goldenrod]',
+        'Wheat': '[wheat1]ẅ[/wheat1]',
+        'Barrel': '[dark_goldenrod]Ƀ[/dark_goldenrod]',
+        'Crate': '[light_goldenrod3]₢[/light_goldenrod3]',
+        'Sacks': '[khaki3]ṩ[/khaki3]',
+        'Weapon Rack': '[grey84]♠[/grey84]',
+        'Grassland': '[green].[/green]',
+        'Dirt': '[orange4]`[/orange4]',
+        'Boat': '[magenta]ẞ[/magenta]',
+        'Horse Wagon': '[magenta]◊[/magenta]',
         }
 
 
@@ -54,9 +146,8 @@ class Map:
         for row in self.world_map:
             for tile in row:
                 if proc:
-                    terrain_select = random.choices(self.terrain_items['item_id'].tolist(), self.terrain_items['coverage'].tolist())[0]
-                    print(terrain_select)
-                    exit()
+                    terrain_select = random.choices(self.terrain_items['item_id'].tolist(), self.terrain_items['coverage'].tolist())[0] # TODO This no longer works
+                    # print(terrain_select)
                 else:
                     terrain_select = 'Grassland'
                     tile.update({'terrain': Tile(terrain_select, self.terrain_items)})
@@ -201,12 +292,12 @@ class Map:
         self.display_map[pos[0]][pos[1]] = icon
 
     def get_terrain_data(self, infile='data/items.csv'):
-        # Note: int_rate_var is the column name for units of land.
         with open(infile, 'r') as f:
             self.terrain_items = pd.read_csv(f, keep_default_na=False, comment='#')
-        self.terrain_items = self.terrain_items[self.terrain_items['child_of'] == 'Land']
-        self.terrain_items['int_rate_var'] = self.terrain_items['int_rate_var'].astype(float)
-        self.terrain_items['coverage'] = self.terrain_items['int_rate_var'] / self.terrain_items['int_rate_var'].sum()
+        self.terrain_items = self.terrain_items[self.terrain_items['child_of'] != 'Loan']
+        self.terrain_items = self.terrain_items[self.terrain_items['freq'] != 'animal']
+        # self.terrain_items['int_rate_var'] = self.terrain_items['int_rate_var'].astype(float)
+        # self.terrain_items['coverage'] = self.terrain_items['int_rate_var'] / self.terrain_items['int_rate_var'].sum()
         print('terrain_items:')
         print(self.terrain_items)
 
@@ -252,6 +343,8 @@ class Tile:
         else:
             self.icon = terrain
         try:
+            # Note: The move cost data is contained in the int_rate_fix column.
+            # TODO move from int_rate_fix column to int_rate_var column.
             self.move_cost = terrain_items[terrain_items['item_id'] == self.terrain]['int_rate_fix'].values[0]
         except IndexError:
             print('Move cost of 1 for:', terrain)
@@ -294,7 +387,7 @@ class Player:
     def move(self):
         self.old_pos = self.pos
         self.current_terrain = world_map.world_map[self.old_pos[0]][self.old_pos[1]]['terrain']
-        print(f'{self.name} position: {self.old_pos} on {self.current_tile} | Moves: {self.remain_move} | Test01\rTest02')
+        print(f'{self.name} position: {self.old_pos} on {self.current_tile} | Moves: {self.remain_move} | {self.current_terrain}')# | Test01\rTest02')
         if self.get_move() is None: # TODO This isn't very clear
             return
         if self.is_occupied(self.pos):
@@ -332,11 +425,10 @@ class Player:
         target_terrain = world_map.world_map[pos[0]][pos[1]]['terrain']
         if v: print('target_terrain:', target_terrain)
         if v: print('target_terrain.move_cost:', target_terrain.move_cost)
+        if v: print('remaining_moves:', self.remain_move)
         if target_terrain.move_cost is None:
             print(f'Cannot cross {target_terrain}.')
             return
-        if v: print('remaining_moves:', self.remain_move)
-        if v: print('target_terrain.move_cost:', target_terrain.move_cost)
         if self.remain_move >= target_terrain.move_cost:
             self.remain_move -= target_terrain.move_cost
             return True
@@ -414,10 +506,10 @@ if __name__ == '__main__':
     parser.add_argument('-z', '--size', type=str, help='The map size as either a list of two numbers or one for square.')
     parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
     parser.add_argument('-r', '--seed', type=str, default=11, help='Set the seed for the randomness.')
-    parser.add_argument('-m', '--map', type=str, help='The name of the map csv data file.')
+    parser.add_argument('-m', '--map', type=str, default='map10.csv', help='The name of the map csv data file.') #TODO Change to just map.csv
     parser.add_argument('-p', '--players', type=int, default=1, help='The number of players in the world.')
     parser.add_argument('-vs', '--view_size', type=int, default=10, help='The size of the view of the world.')
-    parser.add_argument('-s', '--start', type=str, help='The starting coords for the player.') # 338, 178
+    parser.add_argument('-s', '--start', type=str, default='338, 178', help='The starting coords for the player.') # 338, 178
     args = parser.parse_args()
 
     if args.seed:
