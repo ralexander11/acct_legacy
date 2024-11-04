@@ -9,14 +9,17 @@ from rich import print
 MAP_SIZE = 4 #64
 MAP_VIEW = (21, 33) #11
 
-TILES = {'Grassland': '[bright_green].[/bright_green]',
+TILES = {
+        'Grassland': '[green].[/green]',
+        'Dirt': '[orange4]`[/orange4]',
         'Arable Land': '[yellow]#[/yellow]',
         'Forest': '[green]F[/green]',
         'Rocky Land': '[grey37]R[/grey37]',
         'Hills': '[green]H[/green]',
         'Mountain': '[red]M[/red]',
         'Wetlands': '[cyan]W[/cyan]',
-        'Jungle': '[green]J[/green]',
+        'Jungle': '[bright_green]J[/bright_green]',
+        'Desert': '[yellow]D[/yellow]',
         'Sand': '[yellow]S[/yellow]',
         'Tundra': '[grey62]T[/grey62]',
         'Ocean': '[blue]O[/blue]',
@@ -95,7 +98,7 @@ TILES = {'Grassland': '[bright_green].[/bright_green]',
         'Round Table': '[orange3]ꝿ[/orange3]',
         'Shelf': '[orange4]ﬃ[/orange4]',
         'Side Table': '[orange3]Ꞁ[/orange3]',
-        'Table': '[tan]Ʇ[/tan]',
+        'Table': '[tan]Ŧ[/tan]',
         'Wardrobe': '[orange4]Ꝡ[/orange4]',
         'Harp': '[light_goldenrod1]ћ[/light_goldenrod1]',
         'Piano': '[grey82]♫[/grey82]',
@@ -112,10 +115,17 @@ TILES = {'Grassland': '[bright_green].[/bright_green]',
         'Crate': '[light_goldenrod3]₢[/light_goldenrod3]',
         'Sacks': '[khaki3]ṩ[/khaki3]',
         'Weapon Rack': '[grey84]♠[/grey84]',
-        'Grassland': '[green].[/green]',
-        'Dirt': '[orange4]`[/orange4]',
         'Boat': '[magenta]ẞ[/magenta]',
         'Horse Wagon': '[magenta]◊[/magenta]',
+        'Canon': '[grey84]ꬹ[/grey84]',
+        'Barred Door': '[grey42]ᴃ[/grey42]',
+        'Flag Pole': '[]Ƒ[/]',
+        'Banner': '[]Ɓ[/]',
+        'Globe': '[]۝[/]',
+        'Orrery': '[]ⱺ[/]',
+        'Charcoal Mound': '[]Ꜿ[/]',
+        'Kiln': '[]Ꝃ[/]',
+        'Pottery Wheel': '[]Ꝑ[/]',
         }
 
 
@@ -506,7 +516,7 @@ if __name__ == '__main__':
     parser.add_argument('-z', '--size', type=str, help='The map size as either a list of two numbers or one for square.')
     parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
     parser.add_argument('-r', '--seed', type=str, default=11, help='Set the seed for the randomness.')
-    parser.add_argument('-m', '--map', type=str, default='map10.csv', help='The name of the map csv data file.') #TODO Change to just map.csv
+    parser.add_argument('-m', '--map', type=str, default='map.csv', help='The name of the map csv data file.') #TODO Change to just map.csv
     parser.add_argument('-p', '--players', type=int, default=1, help='The number of players in the world.')
     parser.add_argument('-vs', '--view_size', type=int, default=10, help='The size of the view of the world.')
     parser.add_argument('-s', '--start', type=str, default='338, 178', help='The starting coords for the player.') # 338, 178
@@ -557,5 +567,5 @@ if __name__ == '__main__':
 # Make togglable options for map wrapping
 
 # scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
-# scp data/map10.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
+# scp data/map.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp move.py robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct
