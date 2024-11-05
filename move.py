@@ -7,7 +7,6 @@ import random
 from rich import print
 
 MAP_SIZE = 4 #64
-MAP_VIEW = (21, 33) #11
 
 TILES = {
         'Grassland': '[green].[/green]',
@@ -33,11 +32,11 @@ TILES = {
         'Fence Gate': '[tan];[/tan]',
         'Floor': '[dark_red]-[/dark_red]',
         'Cave Floor': '[grey37],[/grey37]',
-        'Dock': '[orange4]Ð[/orange4]',
+        'Dock': '[orange4]Ɗ[/orange4]',
         'Sign': '[bright_yellow]![/bright_yellow]',
         'Street Light': '[bright_yellow]ꝉ[/bright_yellow]',
         'Trees': '[green]Ҭ[/green]',
-        'Potato': '[yellow]ꭅ[/yellow]',
+        'Potato': '[gold3]ꭅ[/gold3]',
         'Corn': '[bright_yellow]Ψ[/bright_yellow]',
         'Ship': '[magenta]ᵿ[/magenta]',
         'Barred Windows': '[red]₩[/red]',
@@ -93,12 +92,12 @@ TILES = {
         'Display Cabinet': '[light_cyan1]Ḓ[/light_cyan1]',
         'Display Case': '[light_cyan1]Ḑ[/light_cyan1]',
         'Display Table': '[light_cyan1]Ḏ[/light_cyan1]',
-        'Dresser': '[orange4]Ɡ[/orange4]',
+        'Dresser': '[orange4]Ð[/orange4]',
         'Pew': '[dark_khaki]Ꝓ[/dark_khaki]',
-        'Round Table': '[orange3]ꝿ[/orange3]',
+        'Round Table': '[orange4]ꝿ[/orange4]',
         'Shelf': '[orange4]ﬃ[/orange4]',
-        'Side Table': '[orange3]Ꞁ[/orange3]',
-        'Table': '[tan]Ŧ[/tan]',
+        'Side Table': '[orange4]Ꞁ[/orange4]',
+        'Table': '[orange4]Ŧ[/orange4]',
         'Wardrobe': '[orange4]Ꝡ[/orange4]',
         'Harp': '[light_goldenrod1]ћ[/light_goldenrod1]',
         'Piano': '[grey82]♫[/grey82]',
@@ -126,6 +125,8 @@ TILES = {
         'Charcoal Mound': '[]Ꜿ[/]',
         'Kiln': '[]Ꝃ[/]',
         'Pottery Wheel': '[]Ꝑ[/]',
+        'Mirror': '[white]ᵯ[/white]',
+        'oven': '[bright_red]Ꝙ[/bright_red]',
         }
 
 
@@ -213,6 +214,8 @@ class Map:
         print('Current Map Size:', self.map_size)
         if x is None:
             x = input('Enter x new size: ')
+        if x == '':
+            return
         if y is None:
             y = input('Enter y new size: ')
         if y == '':
@@ -234,23 +237,24 @@ class Map:
     def set_view_size(self, pos, x=None, y=None):
         print('Current Map View:', self.map_view)
         if x is None:
-            x = input('Enter x new size: ')
+            x = input('Enter x new size (81): ')
+        if x == '':
+            return
         if y is None:
-            y = input('Enter y new size: ')
+            y = input('Enter y new size (75): ')
         if y == '':
             y = x
-        new_view_size = (int(x), int(y))
-        print('new_view_size:', new_view_size)
-        # view_size_diff = (int(x) - self.map_view[0], int(y) - self.map_view[1])
-        # print('view_size_diff:', view_size_diff)
-        # print(repr(self.world_map))
-        MAP_VIEW = new_view_size
-        print('MAP_VIEW:', MAP_VIEW)
-        self.map_view = new_view_size
+        new_view_size = (int(y), int(x))
+        # print('new_view_size:', new_view_size)
+        if args.view_size is not None:
+            args.view_size = new_view_size
         self.view_port(pos, new_view_size)
 
-    def view_port(self, pos, map_view=MAP_VIEW):
+    def view_port(self, pos, map_view=None):
+        if map_view is None and args.view_size is not None:
+            map_view = args.view_size
         self.map_view = map_view
+        # print('self.map_view:', self.map_view)
         if isinstance(self.map_view, int):
             self.map_view = (self.map_view, self.map_view)
         elif len(self.map_view) == 1:
@@ -269,6 +273,39 @@ class Map:
                     continue
                 self.view_port_map[i-top_left[0]][j-top_left[1]] = tile
         return self.view_port_map
+
+    def update_display_map(self):
+        self.display_map = [[None for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
+        for i, row in enumerate(self.world_map):
+            for j, tile in enumerate(row):
+                terrain_tile = tile.get('terrain')
+                if terrain_tile.hidden:
+                    continue
+                terrain = terrain_tile.terrain
+                if terrain in TILES:
+                    icon = TILES[terrain]
+                elif tile is np.nan:
+                    icon = '.'
+                else:
+                    icon = terrain
+                self.display_map[i][j] = icon
+
+                if tile.get('Agent'):
+                    agent_tile = tile.get('Agent')
+                    print('agent_tile:', agent_tile)
+                    print('agent_tile type:', type(agent_tile))
+                    icon = agent_tile.icon
+                    self.display_map[i][j] = icon
+
+    def get_terrain_data(self, infile='data/items.csv'):
+        with open(infile, 'r') as f:
+            self.terrain_items = pd.read_csv(f, keep_default_na=False, comment='#')
+        self.terrain_items = self.terrain_items[self.terrain_items['child_of'] != 'Loan']
+        self.terrain_items = self.terrain_items[self.terrain_items['freq'] != 'animal']
+        # self.terrain_items['int_rate_var'] = self.terrain_items['int_rate_var'].astype(float)
+        # self.terrain_items['coverage'] = self.terrain_items['int_rate_var'] / self.terrain_items['int_rate_var'].sum()
+        print('terrain_items:')
+        print(self.terrain_items)
 
     def edit_terrain(self, pos=None, terrain=None):
         if pos is None:
@@ -300,39 +337,6 @@ class Map:
             agent_tile.current_tile = icon
             return
         self.display_map[pos[0]][pos[1]] = icon
-
-    def get_terrain_data(self, infile='data/items.csv'):
-        with open(infile, 'r') as f:
-            self.terrain_items = pd.read_csv(f, keep_default_na=False, comment='#')
-        self.terrain_items = self.terrain_items[self.terrain_items['child_of'] != 'Loan']
-        self.terrain_items = self.terrain_items[self.terrain_items['freq'] != 'animal']
-        # self.terrain_items['int_rate_var'] = self.terrain_items['int_rate_var'].astype(float)
-        # self.terrain_items['coverage'] = self.terrain_items['int_rate_var'] / self.terrain_items['int_rate_var'].sum()
-        print('terrain_items:')
-        print(self.terrain_items)
-
-    def update_display_map(self):
-        self.display_map = [[None for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
-        for i, row in enumerate(self.world_map):
-            for j, tile in enumerate(row):
-                terrain_tile = tile.get('terrain')
-                if terrain_tile.hidden:
-                    continue
-                terrain = terrain_tile.terrain
-                if terrain in TILES:
-                    icon = TILES[terrain]
-                elif tile is np.nan:
-                    icon = '.'
-                else:
-                    icon = terrain
-                self.display_map[i][j] = icon
-
-                if tile.get('Agent'):
-                    agent_tile = tile.get('Agent')
-                    print('agent_tile:', agent_tile)
-                    print('agent_tile type:', type(agent_tile))
-                    icon = agent_tile.icon
-                    self.display_map[i][j] = icon
 
     def __str__(self):
         # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
@@ -516,10 +520,10 @@ if __name__ == '__main__':
     parser.add_argument('-z', '--size', type=str, help='The map size as either a list of two numbers or one for square.')
     parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
     parser.add_argument('-r', '--seed', type=str, default=11, help='Set the seed for the randomness.')
-    parser.add_argument('-m', '--map', type=str, default='map.csv', help='The name of the map csv data file.') #TODO Change to just map.csv
+    parser.add_argument('-m', '--map', type=str, default='map.csv', help='The name of the map csv data file.')
     parser.add_argument('-p', '--players', type=int, default=1, help='The number of players in the world.')
-    parser.add_argument('-vs', '--view_size', type=int, default=10, help='The size of the view of the world.')
-    parser.add_argument('-s', '--start', type=str, default='338, 178', help='The starting coords for the player.') # 338, 178
+    parser.add_argument('-vs', '--view_size', type=str, default='21, 33', help='The size of the view of the world.')
+    parser.add_argument('-s', '--start', type=str, default='338, 178', help='The starting coords for the player.')
     args = parser.parse_args()
 
     if args.seed:
@@ -535,9 +539,8 @@ if __name__ == '__main__':
         if not isinstance(args.view_size, (list, tuple)):
             if isinstance(args.view_size, str):
                 args.view_size = [int(x.strip()) for x in args.view_size.split(',')]
-            MAP_VIEW = args.view_size
-            # print('MAP_VIEW:', MAP_VIEW)
-    
+            # print('view_size arg:', args.view_size)
+
     if args.start is not None:
         if not isinstance(args.start, (list, tuple)):
             if isinstance(args.start, str):
