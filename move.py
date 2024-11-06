@@ -385,6 +385,7 @@ class Player:
         if start is None:
             self.pos = (int(round(self.world_map.map_size[0]/2, 0)), int(round(self.world_map.map_size[1]/2, 0)+int(icon)-1)) # Start position near middle
         else:
+            start = (start[0], start[1] + (int(icon)-1))
             self.pos = start
         if v: print(f'{self} start pos: {self.pos}')
         self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
@@ -402,6 +403,7 @@ class Player:
         self.old_pos = self.pos
         self.current_terrain = world_map.world_map[self.old_pos[0]][self.old_pos[1]]['terrain']
         print(f'{self.name} position: {self.old_pos} on {self.current_tile} | Moves: {self.remain_move} | {self.current_terrain}')# | Test01\rTest02')
+        # world_map.view_port(self.old_pos)
         if self.get_move() is None: # TODO This isn't very clear
             return
         if self.is_occupied(self.pos):
@@ -417,7 +419,7 @@ class Player:
             self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
             world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
             del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
-            world_map.view_port(self.pos)
+            # world_map.view_port(self.pos)
             # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
             # del world_map.world_map.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
         except (IndexError, KeyError) as e: # TODO Is this check still needed?
@@ -462,6 +464,11 @@ class Player:
             return
         if key == 'r' or key == 'reset':
             self.reset_moves()
+            self.pos = self.old_pos
+            return
+        if key == 'n' or key == 'next':
+            self.remain_move = 0
+            # world_map.view_port(self.pos)
             self.pos = self.old_pos
             return
         if key == 'size':
@@ -562,6 +569,7 @@ if __name__ == '__main__':
     while True:
         for player in players:
             while player.remain_move:
+                world_map.view_port(player.pos)
                 print(f'Current world map:\n{world_map}')
                 player.move()
             player.reset_moves()
