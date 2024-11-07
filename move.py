@@ -127,6 +127,13 @@ TILES = {
         'Pottery Wheel': '[]Ꝑ[/]',
         'Mirror': '[white]ᵯ[/white]',
         'oven': '[bright_red]Ꝙ[/bright_red]',
+        'Lockbox': '[gold3]Ⱡ[/gold3]',
+        'Xylophone': '[grey85]♪[/grey85]',
+        'Guitar': '[dark_goldenrod]♯[/dark_goldenrod]',
+        'Menorah': '[gold3]₸[/gold3]',
+        'Coins': '[gold1]₡[/gold1]',
+        'Gems': '[magenta]ꞡ[/magenta]',
+        'Gold Bar': '[gold1]₲[/gold1]',
         }
 
 
