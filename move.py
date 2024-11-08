@@ -134,6 +134,7 @@ TILES = {
         'Coins': '[gold1]₡[/gold1]',
         'Gems': '[magenta]ꞡ[/magenta]',
         'Gold Bar': '[gold1]₲[/gold1]',
+        'Balance Scale': '[yellow]₮[/yellow]',
         }
 
 
@@ -345,6 +346,18 @@ class Map:
             return
         self.display_map[pos[0]][pos[1]] = icon
 
+    def col(self, letters=None):
+        if letters is None:
+            letters = input('Enter column letters: ')
+        if len(letters) == 1:
+            col_pos = ord(letters[:1])-64
+        elif len(letters) == 2:
+            col_pos = ((ord(letters[:1])-64) * 26) + (ord(letters[1:2])-64)
+        elif len(letters) == 3:
+            col_pos = (676 + (ord(letters[1:2])-64) * 26) + (ord(letters[2:3])-64)        
+        print(f'{letters} is column {col_pos}.')
+        return col_pos
+
     def __str__(self):
         # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
         # self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
@@ -410,7 +423,6 @@ class Player:
         self.old_pos = self.pos
         self.current_terrain = world_map.world_map[self.old_pos[0]][self.old_pos[1]]['terrain']
         print(f'{self.name} position: {self.old_pos} on {self.current_tile} | Moves: {self.remain_move} | {self.current_terrain}')# | Test01\rTest02')
-        # world_map.view_port(self.old_pos)
         if self.get_move() is None: # TODO This isn't very clear
             return
         if self.is_occupied(self.pos):
@@ -426,7 +438,6 @@ class Player:
             self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
             world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
             del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
-            # world_map.view_port(self.pos)
             # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
             # del world_map.world_map.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
         except (IndexError, KeyError) as e: # TODO Is this check still needed?
@@ -475,7 +486,6 @@ class Player:
             return
         if key == 'n' or key == 'next':
             self.remain_move = 0
-            # world_map.view_port(self.pos)
             self.pos = self.old_pos
             return
         if key == 'size':
@@ -492,6 +502,10 @@ class Player:
             return
         if key == 'save':
             world_map.save_map()
+            self.pos = self.old_pos
+            return
+        if key == 'col':
+            world_map.col()
             self.pos = self.old_pos
             return
         elif key == 'w':
