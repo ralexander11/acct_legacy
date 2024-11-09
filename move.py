@@ -5,6 +5,7 @@ import numpy as np
 import argparse
 import random
 from rich import print
+import datetime as dt
 
 MAP_SIZE = 4 #64
 
@@ -28,7 +29,7 @@ TILES = {
         'Wall': '[tan]▌[/tan]',
         'Door': '[chartreuse4]⌂[/chartreuse4]',
         'Window': '[sky_blue1]ш[/sky_blue1]',
-        'Fence': '[tan]﬩[/tan]',
+        'Fence': '[dark_red]﬩[/dark_red]',
         'Fence Gate': '[tan];[/tan]',
         'Floor': '[dark_red]-[/dark_red]',
         'Cave Floor': '[grey37],[/grey37]',
@@ -43,7 +44,7 @@ TILES = {
         'Bridge': '[orange4]≠[/orange4]',
         'Chicken Coup': '[bright_yellow]₠[/bright_yellow]',
         'City Gate': '[magenta]Ħ[/magenta]',
-        'City Walls': '[grey37][[/grey37]',
+        'City Walls': '[grey37]█[/grey37]',
         'Fountain': '[blue]֎[/blue]',
         'Roped Guardrail': '[red]ꭆ[/red]',
         'Stain Glass Window': '[bright_cyan]₷[/bright_cyan]',
@@ -118,13 +119,13 @@ TILES = {
         'Horse Wagon': '[magenta]◊[/magenta]',
         'Canon': '[grey84]ꬹ[/grey84]',
         'Barred Door': '[grey42]ᴃ[/grey42]',
-        'Flag Pole': '[]Ƒ[/]',
-        'Banner': '[]Ɓ[/]',
-        'Globe': '[]۝[/]',
-        'Orrery': '[]ⱺ[/]',
-        'Charcoal Mound': '[]Ꜿ[/]',
-        'Kiln': '[]Ꝃ[/]',
-        'Pottery Wheel': '[]Ꝑ[/]',
+        'Flag Pole': '[red]Ƒ[/red]',
+        'Banner': '[red]Ɓ[/red]',
+        'Globe': '[green]۝[/green]',
+        'Orrery': '[gold3]ⱺ[/gold3]',
+        'Charcoal Mound': '[bright_red]Ꜿ[/bright_red]',
+        'Kiln': '[bright_red]Ꝃ[/bright_red]',
+        'Pottery Wheel': '[orange4]Ꝑ[/orange4]',
         'Mirror': '[white]ᵯ[/white]',
         'oven': '[bright_red]Ꝙ[/bright_red]',
         'Lockbox': '[gold3]Ⱡ[/gold3]',
@@ -137,8 +138,13 @@ TILES = {
         'Balance Scale': '[yellow]₮[/yellow]',
         'Easel': '[orange4]Д[/orange4]',
         'Child\'s Toys': '[white]Ɀ[/white]',
+        'Tapestry': '[purple4]Ԏ[/purple4]',
+        'Craddle': '[orange4]ᴗ[/orange4]',
         }
 
+def time_stamp(offset=0):
+	time_stamp = (dt.datetime.now() + dt.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
+	return time_stamp
 
 class Map:
     def __init__(self, map_size):
@@ -203,7 +209,7 @@ class Map:
                     print(f'{i}, {j} | nan_tile: {tile} replaced with Grassland.')
                     terrain_select = 'Grassland' #tile
                 else:
-                    print(f'{i}, {j} | tile: {tile}')
+                    print(time_stamp() + f'{i}, {j} | tile: {tile}')
                     terrain_select = tile
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items)})
         return self.world_map
@@ -384,7 +390,7 @@ class Tile:
             # TODO move from int_rate_fix column to int_rate_var column.
             self.move_cost = terrain_items[terrain_items['item_id'] == self.terrain]['int_rate_fix'].values[0]
         except IndexError:
-            print('Move cost of 1 for:', terrain)
+            # print('Move cost of 1 for:', terrain)
             self.move_cost = 1
         if self.move_cost == 'None':
             self.move_cost = None
@@ -511,6 +517,38 @@ class Player:
             world_map.col()
             self.pos = self.old_pos
             return
+        if key == 'cords':
+            cords = {
+                        'Start': '338, 178',
+                        'Paws': 'HV, 439',
+                        'Trisic': 'JJ, 555',
+                        'Yew Woods': 'DQ, 163',
+                        'Yew': 'CL, 98',
+                        'Cove': 'OH, 323',
+                        'High Steppes': 'JW, 114',
+                        'Minoc': 'OA, 102',
+                        'Dry Lands': 'VH, 217',
+                        'Vesper': 'TJ, 285',
+                        'Castle of Fire': 'UC, 392',
+                        'Buccaneer\'s Den': 'OJ, 486',
+                        'New Magincia': 'TV, 550',
+                        'Moonglow': 'ZJ, 379',
+                        'Dagger Isle': 'YI, 290',
+                        'Ambrosia': 'AAN, 67',
+                        'Isle of the Avatar': 'ZJ, 653',
+                        'Skara Brae': 'DE, 406',
+                        'Jhelom': 'DR, 634',
+                        'Pirate House': 'IX, 684',
+                        'Pirate Cave': 'KT, 695',
+                        'Serpent\'s Hold': 'NB, 702',
+                        'Meditation Retreat': 'QD, 730',
+                        'Spektran': 'QW, 639',
+                        'Terfin': 'TK, 719',
+                        'Castle': 'HZ, 313',
+                    }
+            print(cords)
+            self.pos = self.old_pos
+            return
         elif key == 'w':
             self.pos = (self.pos[0] - 1, self.pos[1])
         elif key == 's':
@@ -525,7 +563,7 @@ class Player:
                 x = world_map.col(x)
             y = input('Enter y coord: ')
             try:
-                self.pos = (int(y), int(x))
+                self.pos = (int(y)-1, int(x)-1)
             except ValueError:
                 print('Enter whole numbers only, try again.')
                 self.pos = self.old_pos
@@ -560,7 +598,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.seed:
-        print('Randomness seed {}.'.format(args.seed))
+        print(time_stamp() + f'Randomness seed {args.seed}.')
         random.seed(args.seed)
     if args.size is not None:
         if not isinstance(args.size, (list, tuple)):
