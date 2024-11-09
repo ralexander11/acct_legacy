@@ -52,7 +52,7 @@ TILES = {
         'Well': '[blue]o[/blue]',
         'Roof': '[red]X[/red]',
         'Cave Roof': '[red]K[/red]',
-        'Rug': '[magenta]۞[/magenta]',
+        'Rug': '[magenta]®[/magenta]',
         'Columns': '[white]ΐ[/white]',
         'Potted Plants': '[green]ꝕ[/green]',
         'Statue': '[magenta]ѯ[/magenta]',
@@ -135,6 +135,8 @@ TILES = {
         'Gems': '[magenta]ꞡ[/magenta]',
         'Gold Bar': '[gold1]₲[/gold1]',
         'Balance Scale': '[yellow]₮[/yellow]',
+        'Easel': '[orange4]Д[/orange4]',
+        'Child\'s Toys': '[white]Ɀ[/white]',
         }
 
 
@@ -349,6 +351,7 @@ class Map:
     def col(self, letters=None):
         if letters is None:
             letters = input('Enter column letters: ')
+        letters = letters.upper()
         if len(letters) == 1:
             col_pos = ord(letters[:1])-64
         elif len(letters) == 2:
@@ -518,6 +521,8 @@ class Player:
             self.pos = (self.pos[0], self.pos[1] + 1)
         elif key == 'tp' or key == 'move':
             x = input('Enter x coord: ')
+            if isinstance(x, str):
+                x = world_map.col(x)
             y = input('Enter y coord: ')
             try:
                 self.pos = (int(y), int(x))
