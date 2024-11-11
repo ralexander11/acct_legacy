@@ -143,6 +143,7 @@ TILES = {
         'Churn': '[orange4]ʆ[/orange4]',
         'River Crossing': '[orange4]⁞[/orange4]',
         'Mushrooms': '[tan]₼[/tan]',
+        'Bones': '[white]↔[/white]',
         }
 
 def time_stamp(offset=0):
