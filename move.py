@@ -104,7 +104,6 @@ TILES = {
         'Piano': '[grey82]♫[/grey82]',
         'Floor Candle': '[bright_yellow]ḉ[/bright_yellow]',
         'Cave': '[grey35]Ꞝ[/grey35]',
-        'Farm Field': '[wheat1]ᵮ[/wheat1]',
         'Plants': '[dark_sea_green4]♣[/dark_sea_green4]',
         'Flowers': '[magenta]ӂ[/magenta]',
         'Rocks': '[grey50]*[/grey50]',
@@ -126,7 +125,7 @@ TILES = {
         'Charcoal Mound': '[bright_red]Ꜿ[/bright_red]',
         'Kiln': '[bright_red]Ꝃ[/bright_red]',
         'Pottery Wheel': '[orange4]Ꝑ[/orange4]',
-        'Mirror': '[white]ᵯ[/white]',
+        'Floor Mirror': '[white]ᵯ[/white]',
         'oven': '[bright_red]Ꝙ[/bright_red]',
         'Lockbox': '[gold3]Ⱡ[/gold3]',
         'Xylophone': '[grey85]♪[/grey85]',
@@ -144,6 +143,12 @@ TILES = {
         'River Crossing': '[orange4]⁞[/orange4]',
         'Mushrooms': '[tan]₼[/tan]',
         'Bones': '[white]↔[/white]',
+        'Clock': '[gold3]§[/gold3]',
+        'Portal': '[magenta]ᾮ[/magenta]',
+        'Spider Web': '[white]ᾧ[/white]',
+        'Wine Press': '[blue_violet]Ꝥ[/blue_violet]',
+        'Garve Stone': '[grey78]ṉ[/grey78]',
+        'Camp Fire': '[bright_red]ᵮ[/bright_red]',
         }
 
 def time_stamp(offset=0):
