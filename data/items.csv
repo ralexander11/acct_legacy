@@ -139,8 +139,13 @@ Robot Blacksmither,None,None,start,Equipment,"Electricity, Super Tech, Blacksmit
 Wall,None,None,continuous,Buildings,"Land, Wood","1, 10",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
 Window,5,None,continuous,Buildings,"Land, Wood","1, 20",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
 Door,0.25,None,continuous,Buildings,"Land, Wood","1, 50",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
+Stain Glass Window,None,None,continuous,Buildings,"Land, Wood","1, 20",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
 Fence,None,None,continuous,Buildings,"Land, Wood","1, 1",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
-Fence Gate,None,1,continuous,Buildings,"Land, Wood","1, 5",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
+Fence Gate,1,None,continuous,Buildings,"Land, Wood","1, 5",None,Land,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
+Barred Window,None,None,continuous,Buildings,"Land, Wood","1, 20",None,Land,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
+Barred Door,None,None,continuous,Buildings,"Land, Wood","1, 50",None,Land,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
+City Wall,None,None,continuous,Buildings,"Land, Stone","1, 10",None,Land,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
+City Gate,None,1,continuous,Buildings,"Land, Stone","1, 5",None,Land,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
 Shares,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Init Capital,0,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
