@@ -18,7 +18,7 @@ TILES = {
         'Hills': '[green]H[/green]',
         'Mountain': '[red]M[/red]',
         'Wetlands': '[cyan]W[/cyan]',
-        'Jungle': '[bright_green]J[/bright_green]',
+        'Jungle': '[green1]J[/green1]',
         'Desert': '[yellow]D[/yellow]',
         'Sand': '[yellow]S[/yellow]',
         'Tundra': '[grey62]T[/grey62]',
@@ -32,6 +32,7 @@ TILES = {
         'Fence': '[dark_red]﬩[/dark_red]',
         'Fence Gate': '[tan];[/tan]',
         'Floor': '[dark_red]-[/dark_red]',
+        'Rug': '[deep_pink4]®[/deep_pink4]',
         'Cave Floor': '[grey37],[/grey37]',
         'Dock': '[orange4]Ɗ[/orange4]',
         'Sign': '[bright_yellow]![/bright_yellow]',
@@ -54,7 +55,6 @@ TILES = {
         'Well': '[blue]o[/blue]',
         'Roof': '[red]X[/red]',
         'Cave Roof': '[red]K[/red]',
-        'Rug': '[magenta]®[/magenta]',
         'Columns': '[white]ΐ[/white]',
         'Potted Plants': '[green]ꝕ[/green]',
         'Statue': '[magenta]ѯ[/magenta]',
@@ -478,6 +478,7 @@ class Player:
         if v: print('target_terrain:', target_terrain)
         if v: print('target_terrain.move_cost:', target_terrain.move_cost)
         if v: print('remaining_moves:', self.remain_move)
+        # TODO Add ability for items to modify terrain_move_cost.
         if target_terrain.move_cost is None:
             print(f'Cannot cross {target_terrain}.')
             return
@@ -554,6 +555,7 @@ class Player:
                         'Spektran': 'QW, 639',
                         'Terfin': 'TK, 719',
                         'Castle': 'HZ, 313',
+                        'Jungle': 'VE, 161',
                     }
             print(cords)
             self.pos = self.old_pos
@@ -649,6 +651,8 @@ if __name__ == '__main__':
 
 ## TODO
 # Make togglable options for map wrapping
+# Add support for mobs and combat
+# Add roof reveal support
 
 # scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp data/map.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
