@@ -9,146 +9,177 @@ import datetime as dt
 
 MAP_SIZE = 4 #64
 
+CORDS = {
+            'Start': '338, 178',
+            'Paws': 'HV, 439',
+            'Trisic': 'JJ, 555',
+            'Yew Woods': 'DQ, 163',
+            'Yew': 'CL, 98',
+            'Cove': 'OH, 323',
+            'High Steppes': 'JW, 114',
+            'Minoc': 'OA, 102',
+            'Dry Lands': 'VH, 217',
+            'Vesper': 'TJ, 285',
+            'Castle of Fire': 'UC, 392',
+            'Buccaneer\'s Den': 'OJ, 486',
+            'New Magincia': 'TV, 550',
+            'Moonglow': 'ZJ, 379',
+            'Dagger Isle': 'YI, 290',
+            'Ambrosia': 'AAN, 67',
+            'Isle of the Avatar': 'ZJ, 653',
+            'Skara Brae': 'DE, 406',
+            'Jhelom': 'DR, 634',
+            'Pirate House': 'IX, 684',
+            'Pirate Cave': 'KT, 695',
+            'Serpent\'s Hold': 'NB, 702',
+            'Meditation Retreat': 'QD, 730',
+            'Spektran': 'QW, 639',
+            'Terfin': 'TK, 719',
+            'Castle': 'HZ, 313',
+            'Jungle': 'VE, 161',
+        }
+
 TILES = {
-        'Grassland': '[green].[/green]',
-        'Dirt': '[orange4]`[/orange4]',
-        'Arable Land': '[yellow]#[/yellow]',
-        'Forest': '[green]F[/green]',
-        'Rocky Land': '[grey37]R[/grey37]',
-        'Hills': '[green]H[/green]',
-        'Mountain': '[red]M[/red]',
-        'Wetlands': '[cyan]W[/cyan]',
-        'Jungle': '[green1]J[/green1]',
-        'Desert': '[yellow]D[/yellow]',
-        'Sand': '[yellow]S[/yellow]',
-        'Tundra': '[grey62]T[/grey62]',
-        'Ocean': '[blue]O[/blue]',
-        'Path': '[orange4]=[/orange4]',
-        'Road': '[grey69]_[/grey69]',
-        'Sidewalk': '[grey85]≡[/grey85]',
-        'Wall': '[tan]▌[/tan]',
-        'Door': '[chartreuse4]⌂[/chartreuse4]',
-        'Window': '[sky_blue1]ш[/sky_blue1]',
-        'Fence': '[dark_red]﬩[/dark_red]',
-        'Fence Gate': '[tan];[/tan]',
-        'Floor': '[dark_red]-[/dark_red]',
-        'Rug': '[deep_pink4]®[/deep_pink4]',
-        'Cave Floor': '[grey37],[/grey37]',
-        'Dock': '[orange4]Ɗ[/orange4]',
-        'Sign': '[bright_yellow]![/bright_yellow]',
-        'Street Light': '[bright_yellow]ꝉ[/bright_yellow]',
-        'Trees': '[green]Ҭ[/green]',
-        'Potato': '[gold3]ꭅ[/gold3]',
-        'Corn': '[bright_yellow]Ψ[/bright_yellow]',
-        'Ship': '[magenta]ᵿ[/magenta]',
-        'Barred Window': '[red]₩[/red]',
-        'Barred Door': '[grey42]ᴃ[/grey42]',
-        'Bridge': '[orange4]≠[/orange4]',
-        'Chicken Coup': '[bright_yellow]₠[/bright_yellow]',
-        'City Gate': '[magenta]Ħ[/magenta]',
-        'City Wall': '[grey37]█[/grey37]',
-        'Fountain': '[blue]֎[/blue]',
-        'Roped Guardrail': '[red]ꭆ[/red]',
-        'Stain Glass Window': '[bright_cyan]₷[/bright_cyan]',
-        'Stairs': '[purple4]𓊍[/purple4]',
-        'Ladder': '[purple4]ǂ[/purple4]',
-        'Well': '[blue]o[/blue]',
-        'Roof': '[red]X[/red]',
-        'Cave Roof': '[red]K[/red]',
-        'Columns': '[white]ΐ[/white]',
-        'Potted Plants': '[green]ꝕ[/green]',
-        'Statue': '[magenta]ѯ[/magenta]',
-        'Altar': '[bright_magenta]ꟸ[/bright_magenta]',
-        'Anvil': '[grey37]ꭥ[/grey37]',
-        'Bread Oven': '[bright_red]Ꝋ[/bright_red]',
-        'Cauldron': '[cyan]ꭒ[/cyan]',
-        'Forge': '[bright_red]₣[/bright_red]',
-        'Keg': '[yellow]₭[/yellow]',
-        'Lecturn': '[cyan]ꭋ[/cyan]',
-        'Loom': '[yellow]Ɫ[/yellow]',
-        'Mill': '[white]₥[/white]',
-        'Spinning Wheel': '[orange4]₴[/orange4]',
-        'Stove': '[bright_red]Θ[/bright_red]',
-        'Sun Dial': '[bright_yellow]☼[/bright_yellow]',
-        'Target': '[bright_red]ʘ[/bright_red]',
-        'Target Dummy': '[bright_cyan]♀[/bright_cyan]',
-        'Tub': '[blue]ṵ[/blue]',
-        'Water Trough': '[blue]ⱳ[/blue]',
-        'Water Wheel': '[orange4]Ꝯ[/orange4]',
-        'Winch': '[grey62]ꞷ[/grey62]',
-        'Carrot': '[orange3]Ɣ[/orange3]',
-        'Lettuce': '[chartreuse1]Ϫ[/chartreuse1]',
-        'Broccoli': '[chartreuse3]‽[/chartreuse3]',
-        'Garlic': '[white]ɤ[/white]',
-        'Onion': '[dark_goldenrod]ȸ[/dark_goldenrod]',
-        'Tomato': '[red3]ɷ[/red3]',
-        'Hay': '[wheat1]ⱨ[/wheat1]',
-        'Bar': '[dark_orange3]Ꞵ[/dark_orange3]',
-        'Bed': '[white]Ꞗ[/white]',
-        'Bedside Table': '[orange3]Ɥ[/orange3]',
-        'Bench': '[orange3]ꭑ[/orange3]',
-        'Book Shelf': '[orange4]Ḇ[/orange4]',
-        'Chair': '[dark_khaki]∟[/dark_khaki]',
-        'Chest': '[gold3]∩[/gold3]',
-        'Desk': '[orange3]∏[/orange3]',
-        'Display Cabinet': '[light_cyan1]Ḓ[/light_cyan1]',
-        'Display Case': '[light_cyan1]Ḑ[/light_cyan1]',
-        'Display Table': '[light_cyan1]Ḏ[/light_cyan1]',
-        'Dresser': '[orange4]Ð[/orange4]',
-        'Pew': '[dark_khaki]Ꝓ[/dark_khaki]',
-        'Round Table': '[orange4]ꝿ[/orange4]',
-        'Shelf': '[orange4]ﬃ[/orange4]',
-        'Side Table': '[orange4]Ꞁ[/orange4]',
-        'Table': '[orange4]Ŧ[/orange4]',
-        'Wardrobe': '[orange4]Ꝡ[/orange4]',
-        'Harp': '[light_goldenrod1]ћ[/light_goldenrod1]',
-        'Piano': '[grey82]♫[/grey82]',
-        'Floor Candle': '[bright_yellow]ḉ[/bright_yellow]',
-        'Cave': '[grey35]Ꞝ[/grey35]',
-        'Plants': '[dark_sea_green4]♣[/dark_sea_green4]',
-        'Flowers': '[magenta]ӂ[/magenta]',
-        'Rocks': '[grey50]*[/grey50]',
-        'Stalagmite': '[grey50]↑[/grey50]',
-        'Stump': '[dark_goldenrod]ᶊ[/dark_goldenrod]',
-        'Wheat': '[wheat1]ẅ[/wheat1]',
-        'Barrel': '[dark_goldenrod]Ƀ[/dark_goldenrod]',
-        'Crate': '[light_goldenrod3]₢[/light_goldenrod3]',
-        'Sacks': '[khaki3]ṩ[/khaki3]',
-        'Weapon Rack': '[grey84]♠[/grey84]',
-        'Boat': '[magenta]ẞ[/magenta]',
-        'Horse Wagon': '[magenta]◊[/magenta]',
-        'Canon': '[grey84]ꬹ[/grey84]',
-        'Flag Pole': '[red]Ƒ[/red]',
-        'Banner': '[red]Ɓ[/red]',
-        'Globe': '[green]۝[/green]',
-        'Orrery': '[gold3]ⱺ[/gold3]',
-        'Charcoal Mound': '[bright_red]Ꜿ[/bright_red]',
-        'Kiln': '[bright_red]Ꝃ[/bright_red]',
-        'Pottery Wheel': '[orange4]Ꝑ[/orange4]',
-        'Floor Mirror': '[white]ᵯ[/white]',
-        'oven': '[bright_red]Ꝙ[/bright_red]',
-        'Lockbox': '[gold3]Ⱡ[/gold3]',
-        'Xylophone': '[grey85]♪[/grey85]',
-        'Guitar': '[dark_goldenrod]♯[/dark_goldenrod]',
-        'Menorah': '[gold3]₸[/gold3]',
-        'Coins': '[gold1]₡[/gold1]',
-        'Gems': '[magenta]ꞡ[/magenta]',
-        'Gold Bar': '[gold1]₲[/gold1]',
-        'Balance Scale': '[yellow]₮[/yellow]',
-        'Easel': '[orange4]Д[/orange4]',
-        'Child\'s Toys': '[white]Ɀ[/white]',
-        'Tapestry': '[purple4]Ԏ[/purple4]',
-        'Craddle': '[orange4]ᴗ[/orange4]',
-        'Churn': '[orange4]ʆ[/orange4]',
-        'River Crossing': '[orange4]⁞[/orange4]',
-        'Mushrooms': '[tan]₼[/tan]',
-        'Bones': '[white]↔[/white]',
-        'Clock': '[gold3]§[/gold3]',
-        'Portal': '[magenta]ᾮ[/magenta]',
-        'Spider Web': '[white]ᾧ[/white]',
-        'Wine Press': '[blue_violet]Ꝥ[/blue_violet]',
-        'Garve Stone': '[grey78]ṉ[/grey78]',
-        'Camp Fire': '[bright_red]ᵮ[/bright_red]',
+            'Grassland': '[green].[/green]',
+            'Dirt': '[orange4]`[/orange4]',
+            'Arable Land': '[yellow]#[/yellow]',
+            'Forest': '[green]F[/green]',
+            'Rocky Land': '[grey37]R[/grey37]',
+            'Hills': '[green]H[/green]',
+            'Mountain': '[red]M[/red]',
+            'Wetlands': '[cyan]W[/cyan]',
+            'Jungle': '[green1]J[/green1]',
+            'Desert': '[yellow]D[/yellow]',
+            'Sand': '[yellow]S[/yellow]',
+            'Tundra': '[grey62]T[/grey62]',
+            'Ocean': '[blue]O[/blue]',
+            'Path': '[orange4]=[/orange4]',
+            'Road': '[grey69]_[/grey69]',
+            'Sidewalk': '[grey85]≡[/grey85]',
+            'Wall': '[tan]▌[/tan]',
+            'Door': '[chartreuse4]⌂[/chartreuse4]',
+            'Window': '[sky_blue1]ш[/sky_blue1]',
+            'Fence': '[dark_red]﬩[/dark_red]',
+            'Fence Gate': '[tan];[/tan]',
+            'Floor': '[dark_red]-[/dark_red]',
+            'Rug': '[deep_pink4]®[/deep_pink4]',
+            'Cave Floor': '[grey37],[/grey37]',
+            'Dock': '[orange4]Ɗ[/orange4]',
+            'Sign': '[bright_yellow]![/bright_yellow]',
+            'Street Light': '[bright_yellow]ꝉ[/bright_yellow]',
+            'Trees': '[green]Ҭ[/green]',
+            'Potato': '[gold3]ꭅ[/gold3]',
+            'Corn': '[bright_yellow]Ψ[/bright_yellow]',
+            'Ship': '[magenta]ᵿ[/magenta]',
+            'Barred Window': '[red]₩[/red]',
+            'Barred Door': '[grey42]ᴃ[/grey42]',
+            'Bridge': '[orange4]≠[/orange4]',
+            'Chicken Coup': '[bright_yellow]₠[/bright_yellow]',
+            'City Gate': '[magenta]Ħ[/magenta]',
+            'City Wall': '[grey37]█[/grey37]',
+            'Fountain': '[blue]֎[/blue]',
+            'Roped Guardrail': '[red]ꭆ[/red]',
+            'Stain Glass Window': '[bright_cyan]₷[/bright_cyan]',
+            'Stairs': '[purple4]𓊍[/purple4]',
+            'Ladder': '[purple4]ǂ[/purple4]',
+            'Well': '[blue]o[/blue]',
+            'Roof': '[red]X[/red]',
+            'Cave Roof': '[red]K[/red]',
+            'Columns': '[white]ΐ[/white]',
+            'Potted Plants': '[green]ꝕ[/green]',
+            'Statue': '[magenta]ѯ[/magenta]',
+            'Altar': '[bright_magenta]ꟸ[/bright_magenta]',
+            'Anvil': '[grey37]ꭥ[/grey37]',
+            'Bread Oven': '[bright_red]Ꝋ[/bright_red]',
+            'Cauldron': '[cyan]ꭒ[/cyan]',
+            'Forge': '[bright_red]₣[/bright_red]',
+            'Keg': '[yellow]₭[/yellow]',
+            'Lecturn': '[cyan]ꭋ[/cyan]',
+            'Loom': '[yellow]Ɫ[/yellow]',
+            'Mill': '[white]₥[/white]',
+            'Spinning Wheel': '[orange4]₴[/orange4]',
+            'Stove': '[bright_red]Θ[/bright_red]',
+            'Sun Dial': '[bright_yellow]☼[/bright_yellow]',
+            'Target': '[bright_red]ʘ[/bright_red]',
+            'Target Dummy': '[bright_cyan]♀[/bright_cyan]',
+            'Tub': '[blue]ṵ[/blue]',
+            'Water Trough': '[blue]ⱳ[/blue]',
+            'Water Wheel': '[orange4]Ꝯ[/orange4]',
+            'Winch': '[grey62]ꞷ[/grey62]',
+            'Carrot': '[orange3]Ɣ[/orange3]',
+            'Lettuce': '[chartreuse1]Ϫ[/chartreuse1]',
+            'Broccoli': '[chartreuse3]‽[/chartreuse3]',
+            'Garlic': '[white]ɤ[/white]',
+            'Onion': '[dark_goldenrod]ȸ[/dark_goldenrod]',
+            'Tomato': '[red3]ɷ[/red3]',
+            'Hay': '[wheat1]ⱨ[/wheat1]',
+            'Bar': '[dark_orange3]Ꞵ[/dark_orange3]',
+            'Bed': '[white]Ꞗ[/white]',
+            'Bedside Table': '[orange3]Ɥ[/orange3]',
+            'Bench': '[orange3]ꭑ[/orange3]',
+            'Book Shelf': '[orange4]Ḇ[/orange4]',
+            'Chair': '[dark_khaki]∟[/dark_khaki]',
+            'Chest': '[gold3]∩[/gold3]',
+            'Desk': '[orange3]∏[/orange3]',
+            'Display Cabinet': '[light_cyan1]Ḓ[/light_cyan1]',
+            'Display Case': '[light_cyan1]Ḑ[/light_cyan1]',
+            'Display Table': '[light_cyan1]Ḏ[/light_cyan1]',
+            'Dresser': '[orange4]Ð[/orange4]',
+            'Pew': '[dark_khaki]Ꝓ[/dark_khaki]',
+            'Round Table': '[orange4]ꝿ[/orange4]',
+            'Shelf': '[orange4]ﬃ[/orange4]',
+            'Side Table': '[orange4]Ꞁ[/orange4]',
+            'Table': '[orange4]Ŧ[/orange4]',
+            'Wardrobe': '[orange4]Ꝡ[/orange4]',
+            'Harp': '[light_goldenrod1]ћ[/light_goldenrod1]',
+            'Piano': '[grey82]♫[/grey82]',
+            'Floor Candle': '[bright_yellow]ḉ[/bright_yellow]',
+            'Cave': '[grey35]Ꞝ[/grey35]',
+            'Plants': '[dark_sea_green4]♣[/dark_sea_green4]',
+            'Flowers': '[medium_violet_red]ӂ[/medium_violet_red]',
+            'Rocks': '[grey50]*[/grey50]',
+            'Stalagmite': '[grey50]↑[/grey50]',
+            'Stump': '[dark_goldenrod]ᶊ[/dark_goldenrod]',
+            'Wheat': '[wheat1]ẅ[/wheat1]',
+            'Barrel': '[dark_goldenrod]Ƀ[/dark_goldenrod]',
+            'Crate': '[light_goldenrod3]₢[/light_goldenrod3]',
+            'Sacks': '[khaki3]ṩ[/khaki3]',
+            'Weapon Rack': '[grey84]♠[/grey84]',
+            'Boat': '[magenta]ẞ[/magenta]',
+            'Horse Wagon': '[magenta]◊[/magenta]',
+            'Canon': '[grey84]ꬹ[/grey84]',
+            'Flag Pole': '[red]Ƒ[/red]',
+            'Banner': '[red]Ɓ[/red]',
+            'Globe': '[green]₲[/green]',
+            'Orrery': '[gold3]ⱺ[/gold3]',
+            'Charcoal Mound': '[bright_red]Ꜿ[/bright_red]',
+            'Kiln': '[bright_red]Ꝃ[/bright_red]',
+            'Pottery Wheel': '[orange4]Ꝑ[/orange4]',
+            'Floor Mirror': '[white]ᵯ[/white]',
+            'Oven': '[bright_red]Ꝙ[/bright_red]',
+            'Lockbox': '[gold3]Ⱡ[/gold3]',
+            'Xylophone': '[grey85]♪[/grey85]',
+            'Guitar': '[dark_goldenrod]♯[/dark_goldenrod]',
+            'Menorah': '[gold3]₸[/gold3]',
+            'Coins': '[gold1]₡[/gold1]',
+            'Gems': '[magenta]ꞡ[/magenta]',
+            'Gold Bar': '[gold1]₲[/gold1]',
+            'Balance Scale': '[yellow]₮[/yellow]',
+            'Easel': '[orange4]Д[/orange4]',
+            'Child\'s Toys': '[white]Ɀ[/white]',
+            'Tapestry': '[purple4]Ԏ[/purple4]',
+            'Craddle': '[orange4]ᴗ[/orange4]',
+            'Churn': '[orange4]ʆ[/orange4]',
+            'River Crossing': '[orange4]⁞[/orange4]',
+            'Mushrooms': '[tan]₼[/tan]',
+            'Bones': '[white]↔[/white]',
+            'Clock': '[gold3]§[/gold3]',
+            'Portal': '[magenta]ᾮ[/magenta]',
+            'Spider Web': '[white]ᾧ[/white]',
+            'Wine Press': '[blue_violet]Ꝥ[/blue_violet]',
+            'Garve Stone': '[grey78]ṉ[/grey78]',
+            'Camp Fire': '[bright_red]ᵮ[/bright_red]',
+            'Bellows': '[tan]ꞵ[/tan]',
         }
 
 def time_stamp(offset=0):
@@ -192,7 +223,7 @@ class Map:
         # self.world_map.applymap(lambda d: d.update({'terrain': Tile()})) # Replace pandas here
         return self.world_map
     
-    def map_gen_file(self, infile='data/map01.csv'):
+    def map_gen_file(self, infile='data/map.csv'):
         if args.map is not None:
             infile = args.map
             if '.csv' not in infile:
@@ -261,12 +292,14 @@ class Map:
 
     def set_view_size(self, pos, x=None, y=None):
         print('Current Map View:', self.map_view)
+        if y is None:
+            y = input('Enter y new size (75): ')
+        if y == '':
+            return
         if x is None:
             x = input('Enter x new size (81): ')
         if x == '':
             return
-        if y is None:
-            y = input('Enter y new size (75): ')
         if y == '':
             y = x
         new_view_size = (int(y), int(x))
@@ -364,6 +397,7 @@ class Map:
         self.display_map[pos[0]][pos[1]] = icon
 
     def col(self, letters=None):
+        # For max of 3 letters
         if letters is None:
             letters = input('Enter column letters: ')
         letters = letters.upper()
@@ -507,12 +541,12 @@ class Player:
             self.remain_move = 0
             self.pos = self.old_pos
             return
-        if key == 'size':
-            world_map.set_map_size()
+        if key == 'v' or key == 'view':
+            world_map.set_view_size(self.pos)
             self.pos = self.old_pos
             return
-        if key == 'view':
-            world_map.set_view_size(self.pos)
+        if key == 'size':
+            world_map.set_map_size()
             self.pos = self.old_pos
             return
         if key == 'edit':
@@ -528,36 +562,7 @@ class Player:
             self.pos = self.old_pos
             return
         if key == 'cords':
-            cords = {
-                        'Start': '338, 178',
-                        'Paws': 'HV, 439',
-                        'Trisic': 'JJ, 555',
-                        'Yew Woods': 'DQ, 163',
-                        'Yew': 'CL, 98',
-                        'Cove': 'OH, 323',
-                        'High Steppes': 'JW, 114',
-                        'Minoc': 'OA, 102',
-                        'Dry Lands': 'VH, 217',
-                        'Vesper': 'TJ, 285',
-                        'Castle of Fire': 'UC, 392',
-                        'Buccaneer\'s Den': 'OJ, 486',
-                        'New Magincia': 'TV, 550',
-                        'Moonglow': 'ZJ, 379',
-                        'Dagger Isle': 'YI, 290',
-                        'Ambrosia': 'AAN, 67',
-                        'Isle of the Avatar': 'ZJ, 653',
-                        'Skara Brae': 'DE, 406',
-                        'Jhelom': 'DR, 634',
-                        'Pirate House': 'IX, 684',
-                        'Pirate Cave': 'KT, 695',
-                        'Serpent\'s Hold': 'NB, 702',
-                        'Meditation Retreat': 'QD, 730',
-                        'Spektran': 'QW, 639',
-                        'Terfin': 'TK, 719',
-                        'Castle': 'HZ, 313',
-                        'Jungle': 'VE, 161',
-                    }
-            print(cords)
+            print(CORDS)
             self.pos = self.old_pos
             return
         elif key == 'w':
@@ -570,6 +575,8 @@ class Player:
             self.pos = (self.pos[0], self.pos[1] + 1)
         elif key == 'tp' or key == 'move':
             x = input('Enter x coord: ')
+            if x == '':
+                return
             try:
                 x = int(x)
             except ValueError:
@@ -577,6 +584,8 @@ class Player:
             if isinstance(x, str):
                 x = world_map.col(x)
             y = input('Enter y coord: ')
+            if y == '':
+                return
             try:
                 self.pos = (int(y)-1, int(x)-1)
             except ValueError:
@@ -603,13 +612,13 @@ def setup():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-z', '--size', type=str, help='The map size as either a list of two numbers or one for square.')
+    parser.add_argument('-s', '--start', type=str, default='338, 178', help='The starting coords for the player.')
     parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
     parser.add_argument('-r', '--seed', type=str, default=11, help='Set the seed for the randomness.')
     parser.add_argument('-m', '--map', type=str, default='map.csv', help='The name of the map csv data file.')
     parser.add_argument('-p', '--players', type=int, default=1, help='The number of players in the world.')
     parser.add_argument('-vs', '--view_size', type=str, default='21, 33', help='The size of the view of the world.')
-    parser.add_argument('-s', '--start', type=str, default='338, 178', help='The starting coords for the player.')
+    parser.add_argument('-z', '--size', type=str, help='The map size as either a list of two numbers or one for square.')
     args = parser.parse_args()
 
     if args.seed:
