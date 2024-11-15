@@ -570,6 +570,10 @@ class Player:
             self.pos = (self.pos[0], self.pos[1] + 1)
         elif key == 'tp' or key == 'move':
             x = input('Enter x coord: ')
+            try:
+                x = int(x)
+            except ValueError:
+                pass
             if isinstance(x, str):
                 x = world_map.col(x)
             y = input('Enter y coord: ')
