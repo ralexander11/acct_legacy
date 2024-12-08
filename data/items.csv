@@ -153,9 +153,9 @@ Init Capital,0,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None
 Credit Line 5,0.05,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
 Final Tech,None,None,repeatable,Technology,"Time, Super Tech, Electricity","100, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 #,,,,,,,,,,,,,,,,,,,,,,,,,,
-#Factory,None,None,continuous,Buildings,"Land, Wood, Rock","100, 10, 6",100,Land,100,None,None,,None,None,None,None,1000,ticks,None,None,None,1000,None,None,,Construction Company
-#Replicator,None,None,continuous,Equipment,"Factory, Wood, Rock","1, 10, 4",20,Factory,1,None,None,,None,None,None,None,100,ticks,None,None,None,100,None,None,,Blacksmith
-#Widget,None,None,continuous,Components,"Replicator, Rock","1, 1",None,None,None,None,None,,None,None,None,None,None,None,None,None,None,10,None,None,,Blacksmith
-#Factory2,None,None,continuous,Buildings,"Land, Rock, Wood","1, 1, 1",1,Land,1,None,None,,None,None,None,None,1000,ticks,None,None,None,1000,None,None,,Construction Company
-#Replicator2,None,None,continuous,Equipment,"Factory2, Wood, Rock","10, 10, 4",20,Factory2,10,None,None,,None,None,None,None,100,ticks,None,None,None,100,None,None,,Blacksmith
-#Widget2,None,None,continuous,Components,"Replicator2, Rock","1, 1",None,None,None,None,None,,None,None,None,None,None,None,None,None,None,10,None,None,,Blacksmith
+#Factory,None,None,continuous,Buildings,"Land, Wood, Rock","100, 10, 6",100,Land,100,None,None,,None,None,None,None,1000,ticks,None,None,None,1000,None,None,None,Construction Company
+#Replicator,None,None,continuous,Equipment,"Factory, Wood, Rock","1, 10, 4",20,Factory,1,None,None,,None,None,None,None,100,ticks,None,None,None,100,None,None,None,Blacksmith
+#Widget,None,None,continuous,Components,"Replicator, Rock","1, 1",None,None,None,None,None,,None,None,None,None,None,None,None,None,None,10,None,None,None,Blacksmith
+#Factory2,None,None,continuous,Buildings,"Land, Rock, Wood","1, 1, 1",1,Land,1,None,None,,None,None,None,None,1000,ticks,None,None,None,1000,None,None,None,Construction Company
+#Replicator2,None,None,continuous,Equipment,"Factory2, Wood, Rock","10, 10, 4",20,Factory2,10,None,None,,None,None,None,None,100,ticks,None,None,None,100,None,None,None,Blacksmith
+#Widget2,None,None,continuous,Components,"Replicator2, Rock","1, 1",None,None,None,None,None,,None,None,None,None,None,None,None,None,None,10,None,None,None,Blacksmith

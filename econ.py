@@ -8462,6 +8462,7 @@ class Individual(Entity):
 			print(f'{self.name} gave birth or was born recently and has used up all their time ({self.hours}) for the day with {self.pregnant} days left.\n')
 		if self.pregnant == 0:
 			self.pregnant = None
+		return self.pregnant
 
 	def birth(self, counterparty=None, amount_1=None, amount_2=None):
 		if self.dead:
@@ -8473,6 +8474,11 @@ class Individual(Entity):
 		if self.pregnant is not None:
 			print(f'{self.name} is pregnant already and cannot give birth.')
 			return
+		if args.max_pop is not None:
+			population = len(factory.registry[Individual])
+			if population >= args.max_pop:
+				print(f'{self.name} cannot give birth because the population is at {population} and the max population is {args.max_pop}.')
+				return
 		if amount_1 is None and amount_2 is None:
 			amount_1 = INIT_CAPITAL / 2
 			amount_2 = INIT_CAPITAL / 2
@@ -9598,6 +9604,7 @@ if __name__ == '__main__':
 	parser.add_argument('-g', '--governments', type=int, default=1, help='The number of governments in the econ sim.')
 	parser.add_argument('-P', '--players', type=int, nargs='?', const=-1, help='Play the sim as a government!')
 	parser.add_argument('-p', '--population', type=int, default=1, help='The number of people in the econ sim per government.')
+	parser.add_argument('-mp', '--max_pop', type=int, help='The maximum number of people in the econ sim per government.')
 	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
 	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
@@ -9688,11 +9695,12 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2022-07-26.db -s 11 -p 4 --early -i items03.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2022-07-26.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2024-12-07.db -s 11 -p 4 -mp 5 --early -i items03.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2024-12-07.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
-# (python econ.py -db econ35.db -s 11 -p 4 -r -t 4 >> logs/econ35.log && say done) || say error
+# (python econ.py -db econ_2024-12-07.db -s 11 -p 4 -r -t 4 >> logs/econ_2024-12-07.log && say done) || say error
+# python econ.py -db econ_2024-12-07.db -s 11 -p 4 -mp 5 -r -t 1 >> logs/econ_2024-12-07.log
 
 # (python econ.py -s 11 -p 4 -r -t 4 && say done) || say error
 # python econ.py -u
@@ -9704,3 +9712,6 @@ if __name__ == '__main__':
 # This will allow multiple items to fulfill the same requirement
 # Such as having a Stone Forge and an Electric Forge
 # Or Drift Wood and Lumber both fulfilling Wood
+
+# scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
+# scp econ.py robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct
