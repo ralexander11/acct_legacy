@@ -2219,6 +2219,9 @@ def main(conn=None, command=None, external=False):
 		elif command.lower() == 'entities':
 			accts.print_entities()
 			if args.command is not None: exit()
+		elif command.lower() == 'countentities':
+			print(accts.get_entities().shape[0])
+			if args.command is not None: exit()
 		elif command.lower() == 'items':
 			accts.print_items()
 			if args.command is not None: exit()
