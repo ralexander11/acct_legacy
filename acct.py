@@ -2239,6 +2239,9 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'loaditems':
 			accts.load_items()
+		elif command.lower() == 'tables':
+			tables = pd.read_sql_query('SELECT name FROM sqlite_master WHERE type=\'table\';', ledger.conn)
+			print(tables)
 			if args.command is not None: exit()
 		elif command.lower() == 'table':
 			accts.print_table()
