@@ -51,7 +51,8 @@ class Accounts:
 		# 		self.website = False
 		# 		logging.debug('Website: {}'.format(self.website))
 
-		# self.db = args.database
+		# if args.database is not None:
+		# 	self.db = args.database
 		self.conn = conn
 
 		try:
@@ -610,7 +611,7 @@ class Accounts:
 		try:
 			table = pd.read_sql_query('SELECT * FROM ' + table_name + ';', self.conn)
 			save_location = 'data/'
-			outfile = table_name + datetime.datetime.today().strftime('_%Y-%m-%d_%H-%M-%S') + '.csv'
+			outfile = self.db[:-3] + '_' + table_name + datetime.datetime.today().strftime('_%Y-%m-%d_%H-%M-%S') + '.csv'
 			table.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
 			print('{} data saved to: {}'.format(table_name, save_location + outfile))
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
