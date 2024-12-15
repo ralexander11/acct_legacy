@@ -260,6 +260,7 @@ class World:
 			self.hist_hours = self.hist_hours[['entity_id','hours']].set_index(['entity_id'])
 			self.hist_hours['date'] = self.now
 			self.hist_hours = self.hist_hours[['date','hours']]
+			self.hist_hours['population'] = len(factory.registry[Individual])
 			for need in self.global_needs:
 				self.hist_hours[need] = None
 			for individual in factory.get(Individual):
@@ -1197,6 +1198,7 @@ class World:
 
 	def create_needs(self):
 		global_needs = []
+		print(self.items['satisfies'])
 		for _, item_satifies in self.items['satisfies'].iteritems():
 			if item_satifies is None:
 				continue
@@ -1767,6 +1769,7 @@ class World:
 			tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id']) # TODO Does this need to be set as the index?
 			tmp_hist_hours['date'] = self.now
 			tmp_hist_hours = tmp_hist_hours[['date','hours']]
+			tmp_hist_hours['population'] = len(factory.registry[Individual])
 			for need in self.global_needs:
 				tmp_hist_hours[need] = None
 			for individual in factory.get(Individual):

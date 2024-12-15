@@ -1137,7 +1137,7 @@ class Ledger:
 		#print(qty_txns)
 		return qty_txns
 
-	def get_qty(self, items=None, accounts=None, gl=None, show_zeros=False, by_entity=False, single_item=False, always_df=False, credit=False, v=False):
+	def get_qty(self, items=None, accounts=None, gl=None, show_zeros=False, by_entity=False, single_item=False, always_df=False, credit=False, ignore_cash=True, v=False):
 		# if items == 'Rocky Land':
 		# 	if v: print('Get Qty GL: \n{}'.format(self.gl))
 		if gl is not None:
@@ -1173,6 +1173,8 @@ class Ledger:
 			else:
 				item_txns = self.gl.loc[self.gl['item_id'].isin(items)]
 				accounts = pd.unique(item_txns[acct_side])
+			if ignore_cash:
+				accounts = [acct for acct in accounts if acct != 'Cash']
 			#credit_accts = pd.unique(self.gl['credit_acct']) # Not needed
 			#accounts = list( set(accounts) | set(credit_accts) ) # Not needed
 		if v: print('Accounts: {}\n'.format(accounts))
@@ -2075,6 +2077,33 @@ class Ledger:
 		cur.close()
 		print('QTYs converted.')
 
+	def inv_hist(self, accounts='Inventory', by_entity=False, save=True, v=False):
+		start_date = self.oldest_date()
+		start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+		if v: print('start_date:', start_date)
+		# if v: print('start_date type:', type(start_date))
+		end_date = self.latest_date()
+		end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d')
+		if v: print('end_date:', end_date)
+		# if v: print('end_date type:', type(end_date))
+		dur = [start_date + datetime.timedelta(days=x) for x in range((end_date - start_date).days)]
+		hist_inv = []
+		for date in dur:
+			date = date.strftime('%Y-%m-%d')
+			if v: print('date:', date)
+			self.set_date(date)
+			inv = self.get_qty(accounts=accounts, by_entity=by_entity)#, v=True)
+			inv['date'] = date
+			hist_inv.append(inv)
+		hist_inv = pd.concat(hist_inv, ignore_index=True)
+		if v: print('hist_inv:')
+		if v: print(hist_inv)
+		if save:
+			save_location = 'data/'
+			outfile = 'inv_hist' + datetime.datetime.today().strftime('_%Y-%m-%d_%H-%M-%S') + '.csv'
+			hist_inv.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
+			print('{} data saved to: {}'.format('inv_hist', save_location + outfile))
+		return hist_inv
 
 def main(conn=None, command=None, external=False):
 	parser = argparse.ArgumentParser()
@@ -2172,8 +2201,11 @@ def main(conn=None, command=None, external=False):
 		elif command.lower() == 'inv':
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				pd.options.display.float_format = '{:,.2f}'.format
-				print(ledger.get_qty(by_entity=True))#, v=True))
+				print(ledger.get_qty(accounts='Inventory', by_entity=True))#, v=True))
 				pd.options.display.float_format = '${:,.2f}'.format
+			if args.command is not None: exit()
+		elif command.lower() == 'invhist':
+			ledger.inv_hist()
 			if args.command is not None: exit()
 		elif command.lower() == 'entity':
 			ledger.set_entity()
