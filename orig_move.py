@@ -6,190 +6,180 @@ import argparse
 import random
 from rich import print
 import datetime as dt
-import os
-import asyncio
-from textual.timer import Timer
-
-from textual.app import App, ComposeResult
-from textual.widgets import Static
-from textual.containers import Container
-from textual.reactive import reactive
-from rich.console import Console
-from rich.pretty import Pretty
 
 MAP_SIZE = 4 #64
 
 CORDS = {
-        'Start': '338, 178',
-        'Paws': 'HV, 439',
-        'Trisic': 'JJ, 555',
-        'Yew Woods': 'DQ, 163',
-        'Yew': 'CL, 98',
-        'Cove': 'OH, 323',
-        'High Steppes': 'JW, 114',
-        'Minoc': 'OA, 102',
-        'Dry Lands': 'VH, 217',
-        'Vesper': 'TJ, 285',
-        'Castle of Fire': 'UC, 392',
-        'Buccaneer\'s Den': 'OJ, 486',
-        'New Magincia': 'TV, 550',
-        'Moonglow': 'ZJ, 379',
-        'Dagger Isle': 'YI, 290',
-        'Ambrosia': 'AAN, 67',
-        'Isle of the Avatar': 'ZJ, 653',
-        'Skara Brae': 'DE, 406',
-        'Jhelom': 'DR, 634',
-        'Pirate House': 'IX, 684',
-        'Pirate Cave': 'KT, 695',
-        'Serpent\'s Hold': 'NB, 702',
-        'Meditation Retreat': 'QD, 730',
-        'Spektran': 'QW, 639',
-        'Terfin': 'TK, 719',
-        'Castle': 'HZ, 313',
-        'Jungle': 'VE, 161',
+            'Start': '338, 178',
+            'Paws': 'HV, 439',
+            'Trisic': 'JJ, 555',
+            'Yew Woods': 'DQ, 163',
+            'Yew': 'CL, 98',
+            'Cove': 'OH, 323',
+            'High Steppes': 'JW, 114',
+            'Minoc': 'OA, 102',
+            'Dry Lands': 'VH, 217',
+            'Vesper': 'TJ, 285',
+            'Castle of Fire': 'UC, 392',
+            'Buccaneer\'s Den': 'OJ, 486',
+            'New Magincia': 'TV, 550',
+            'Moonglow': 'ZJ, 379',
+            'Dagger Isle': 'YI, 290',
+            'Ambrosia': 'AAN, 67',
+            'Isle of the Avatar': 'ZJ, 653',
+            'Skara Brae': 'DE, 406',
+            'Jhelom': 'DR, 634',
+            'Pirate House': 'IX, 684',
+            'Pirate Cave': 'KT, 695',
+            'Serpent\'s Hold': 'NB, 702',
+            'Meditation Retreat': 'QD, 730',
+            'Spektran': 'QW, 639',
+            'Terfin': 'TK, 719',
+            'Castle': 'HZ, 313',
+            'Jungle': 'VE, 161',
         }
 
 TILES = {
-        'Grassland': '[green].[/green]',
-        'Dirt': '[orange4]`[/orange4]',
-        'Arable Land': '[yellow]#[/yellow]',
-        'Forest': '[green]F[/green]',
-        'Rocky Land': '[grey37]R[/grey37]',
-        'Hills': '[green]H[/green]',
-        'Mountain': '[red]M[/red]',
-        'Wetlands': '[cyan]W[/cyan]',
-        'Jungle': '[green1]J[/green1]',
-        'Desert': '[yellow]D[/yellow]',
-        'Sand': '[yellow]S[/yellow]',
-        'Tundra': '[grey62]T[/grey62]',
-        'Ocean': '[blue]O[/blue]',
-        'Path': '[orange4]=[/orange4]',
-        'Road': '[grey69]_[/grey69]',
-        'Sidewalk': '[grey85]≡[/grey85]',
-        'Wall': '[tan]▌[/tan]',
-        'Door': '[chartreuse4]⌂[/chartreuse4]',
-        'Window': '[sky_blue1]ш[/sky_blue1]',
-        'Fence': '[dark_red]﬩[/dark_red]',
-        'Fence Gate': '[tan];[/tan]',
-        'Floor': '[dark_red]-[/dark_red]',
-        'Rug': '[deep_pink4]®[/deep_pink4]',
-        'Cave Floor': '[grey37],[/grey37]',
-        'Dock': '[orange4]Ɗ[/orange4]',
-        'Sign': '[bright_yellow]![/bright_yellow]',
-        'Street Light': '[bright_yellow]ꝉ[/bright_yellow]',
-        'Trees': '[green]Ҭ[/green]',
-        'Potato': '[gold3]ꭅ[/gold3]',
-        'Corn': '[bright_yellow]Ψ[/bright_yellow]',
-        'Ship': '[magenta]ᵿ[/magenta]',
-        'Barred Window': '[red]₩[/red]',
-        'Barred Door': '[grey42]ᴃ[/grey42]',
-        'Bridge': '[orange4]≠[/orange4]',
-        'Chicken Coup': '[bright_yellow]₠[/bright_yellow]',
-        'City Gate': '[magenta]Ħ[/magenta]',
-        'City Wall': '[grey37]█[/grey37]',
-        'Fountain': '[blue]֎[/blue]',
-        'Roped Guardrail': '[red]ꭆ[/red]',
-        'Stain Glass Window': '[bright_cyan]₷[/bright_cyan]',
-        'Stairs': '[purple4]𓊍[/purple4]',
-        'Ladder': '[purple4]ǂ[/purple4]',
-        'Well': '[blue]o[/blue]',
-        'Roof': '[red]X[/red]',
-        'Cave Roof': '[red]K[/red]',
-        'Columns': '[white]ΐ[/white]',
-        'Potted Plants': '[green]ꝕ[/green]',
-        'Statue': '[magenta]ѯ[/magenta]',
-        'Altar': '[bright_magenta]ꟸ[/bright_magenta]',
-        'Anvil': '[grey37]ꭥ[/grey37]',
-        'Bread Oven': '[bright_red]Ꝋ[/bright_red]',
-        'Cauldron': '[cyan]ꭒ[/cyan]',
-        'Forge': '[bright_red]₣[/bright_red]',
-        'Keg': '[yellow]₭[/yellow]',
-        'Lecturn': '[cyan]ꭋ[/cyan]',
-        'Loom': '[yellow]Ɫ[/yellow]',
-        'Mill': '[white]₥[/white]',
-        'Spinning Wheel': '[orange4]₴[/orange4]',
-        'Stove': '[bright_red]Θ[/bright_red]',
-        'Sun Dial': '[bright_yellow]☼[/bright_yellow]',
-        'Target': '[bright_red]ʘ[/bright_red]',
-        'Target Dummy': '[bright_cyan]♀[/bright_cyan]',
-        'Tub': '[blue]ṵ[/blue]',
-        'Water Trough': '[blue]ⱳ[/blue]',
-        'Water Wheel': '[orange4]Ꝯ[/orange4]',
-        'Winch': '[grey62]ꞷ[/grey62]',
-        'Carrot': '[orange3]Ɣ[/orange3]',
-        'Lettuce': '[chartreuse1]Ϫ[/chartreuse1]',
-        'Broccoli': '[chartreuse3]‽[/chartreuse3]',
-        'Garlic': '[white]ɤ[/white]',
-        'Onion': '[dark_goldenrod]ȸ[/dark_goldenrod]',
-        'Tomato': '[red3]ɷ[/red3]',
-        'Hay': '[wheat1]ⱨ[/wheat1]',
-        'Bar': '[dark_orange3]Ꞵ[/dark_orange3]',
-        'Bed': '[white]Ꞗ[/white]',
-        'Bedside Table': '[orange3]Ɥ[/orange3]',
-        'Bench': '[orange3]ꭑ[/orange3]',
-        'Book Shelf': '[orange4]Ḇ[/orange4]',
-        'Chair': '[dark_khaki]∟[/dark_khaki]',
-        'Chest': '[gold3]∩[/gold3]',
-        'Desk': '[orange3]∏[/orange3]',
-        'Display Cabinet': '[light_cyan1]Ḓ[/light_cyan1]',
-        'Display Case': '[light_cyan1]Ḑ[/light_cyan1]',
-        'Display Table': '[light_cyan1]Ḏ[/light_cyan1]',
-        'Dresser': '[orange4]Ð[/orange4]',
-        'Pew': '[dark_khaki]Ꝓ[/dark_khaki]',
-        'Round Table': '[orange4]ꝿ[/orange4]',
-        'Shelf': '[orange4]ﬃ[/orange4]',
-        'Side Table': '[orange4]Ꞁ[/orange4]',
-        'Table': '[orange4]Ŧ[/orange4]',
-        'Wardrobe': '[orange4]Ꝡ[/orange4]',
-        'Harp': '[light_goldenrod1]ћ[/light_goldenrod1]',
-        'Piano': '[grey82]♫[/grey82]',
-        'Floor Candle': '[bright_yellow]ḉ[/bright_yellow]',
-        'Cave': '[grey35]Ꞝ[/grey35]',
-        'Plants': '[dark_sea_green4]♣[/dark_sea_green4]',
-        'Flowers': '[medium_violet_red]ӂ[/medium_violet_red]',
-        'Rocks': '[grey50]*[/grey50]',
-        'Stalagmite': '[grey50]↑[/grey50]',
-        'Stump': '[dark_goldenrod]ᶊ[/dark_goldenrod]',
-        'Wheat': '[wheat1]ẅ[/wheat1]',
-        'Barrel': '[dark_goldenrod]Ƀ[/dark_goldenrod]',
-        'Crate': '[light_goldenrod3]₢[/light_goldenrod3]',
-        'Sacks': '[khaki3]ṩ[/khaki3]',
-        'Weapon Rack': '[grey84]♠[/grey84]',
-        'Boat': '[magenta]ẞ[/magenta]',
-        'Horse Wagon': '[magenta]◊[/magenta]',
-        'Canon': '[grey84]ꬹ[/grey84]',
-        'Flag Pole': '[red]Ƒ[/red]',
-        'Banner': '[red]Ɓ[/red]',
-        'Globe': '[green]₲[/green]',
-        'Orrery': '[gold3]ⱺ[/gold3]',
-        'Charcoal Mound': '[bright_red]Ꜿ[/bright_red]',
-        'Kiln': '[bright_red]Ꝃ[/bright_red]',
-        'Pottery Wheel': '[orange4]Ꝑ[/orange4]',
-        'Floor Mirror': '[white]ᵯ[/white]',
-        'Oven': '[bright_red]Ꝙ[/bright_red]',
-        'Lockbox': '[gold3]Ⱡ[/gold3]',
-        'Xylophone': '[grey85]♪[/grey85]',
-        'Guitar': '[dark_goldenrod]♯[/dark_goldenrod]',
-        'Menorah': '[gold3]₸[/gold3]',
-        'Coins': '[gold1]₡[/gold1]',
-        'Gems': '[magenta]ꞡ[/magenta]',
-        'Gold Bar': '[gold1]₲[/gold1]',
-        'Balance Scale': '[yellow]₮[/yellow]',
-        'Easel': '[orange4]Д[/orange4]',
-        'Child\'s Toys': '[white]Ɀ[/white]',
-        'Tapestry': '[purple4]Ԏ[/purple4]',
-        'Craddle': '[orange4]ᴗ[/orange4]',
-        'Churn': '[orange4]ʆ[/orange4]',
-        'River Crossing': '[orange4]⁞[/orange4]',
-        'Mushrooms': '[tan]₼[/tan]',
-        'Bones': '[white]↔[/white]',
-        'Clock': '[gold3]§[/gold3]',
-        'Portal': '[magenta]ᾮ[/magenta]',
-        'Spider Web': '[white]ᾧ[/white]',
-        'Wine Press': '[blue_violet]Ꝥ[/blue_violet]',
-        'Garve Stone': '[grey78]ṉ[/grey78]',
-        'Camp Fire': '[bright_red]ᵮ[/bright_red]',
-        'Bellows': '[tan]ꞵ[/tan]',
+            'Grassland': '[green].[/green]',
+            'Dirt': '[orange4]`[/orange4]',
+            'Arable Land': '[yellow]#[/yellow]',
+            'Forest': '[green]F[/green]',
+            'Rocky Land': '[grey37]R[/grey37]',
+            'Hills': '[green]H[/green]',
+            'Mountain': '[red]M[/red]',
+            'Wetlands': '[cyan]W[/cyan]',
+            'Jungle': '[green1]J[/green1]',
+            'Desert': '[yellow]D[/yellow]',
+            'Sand': '[yellow]S[/yellow]',
+            'Tundra': '[grey62]T[/grey62]',
+            'Ocean': '[blue]O[/blue]',
+            'Path': '[orange4]=[/orange4]',
+            'Road': '[grey69]_[/grey69]',
+            'Sidewalk': '[grey85]≡[/grey85]',
+            'Wall': '[tan]▌[/tan]',
+            'Door': '[chartreuse4]⌂[/chartreuse4]',
+            'Window': '[sky_blue1]ш[/sky_blue1]',
+            'Fence': '[dark_red]﬩[/dark_red]',
+            'Fence Gate': '[tan];[/tan]',
+            'Floor': '[dark_red]-[/dark_red]',
+            'Rug': '[deep_pink4]®[/deep_pink4]',
+            'Cave Floor': '[grey37],[/grey37]',
+            'Dock': '[orange4]Ɗ[/orange4]',
+            'Sign': '[bright_yellow]![/bright_yellow]',
+            'Street Light': '[bright_yellow]ꝉ[/bright_yellow]',
+            'Trees': '[green]Ҭ[/green]',
+            'Potato': '[gold3]ꭅ[/gold3]',
+            'Corn': '[bright_yellow]Ψ[/bright_yellow]',
+            'Ship': '[magenta]ᵿ[/magenta]',
+            'Barred Window': '[red]₩[/red]',
+            'Barred Door': '[grey42]ᴃ[/grey42]',
+            'Bridge': '[orange4]≠[/orange4]',
+            'Chicken Coup': '[bright_yellow]₠[/bright_yellow]',
+            'City Gate': '[magenta]Ħ[/magenta]',
+            'City Wall': '[grey37]█[/grey37]',
+            'Fountain': '[blue]֎[/blue]',
+            'Roped Guardrail': '[red]ꭆ[/red]',
+            'Stain Glass Window': '[bright_cyan]₷[/bright_cyan]',
+            'Stairs': '[purple4]𓊍[/purple4]',
+            'Ladder': '[purple4]ǂ[/purple4]',
+            'Well': '[blue]o[/blue]',
+            'Roof': '[red]X[/red]',
+            'Cave Roof': '[red]K[/red]',
+            'Columns': '[white]ΐ[/white]',
+            'Potted Plants': '[green]ꝕ[/green]',
+            'Statue': '[magenta]ѯ[/magenta]',
+            'Altar': '[bright_magenta]ꟸ[/bright_magenta]',
+            'Anvil': '[grey37]ꭥ[/grey37]',
+            'Bread Oven': '[bright_red]Ꝋ[/bright_red]',
+            'Cauldron': '[cyan]ꭒ[/cyan]',
+            'Forge': '[bright_red]₣[/bright_red]',
+            'Keg': '[yellow]₭[/yellow]',
+            'Lecturn': '[cyan]ꭋ[/cyan]',
+            'Loom': '[yellow]Ɫ[/yellow]',
+            'Mill': '[white]₥[/white]',
+            'Spinning Wheel': '[orange4]₴[/orange4]',
+            'Stove': '[bright_red]Θ[/bright_red]',
+            'Sun Dial': '[bright_yellow]☼[/bright_yellow]',
+            'Target': '[bright_red]ʘ[/bright_red]',
+            'Target Dummy': '[bright_cyan]♀[/bright_cyan]',
+            'Tub': '[blue]ṵ[/blue]',
+            'Water Trough': '[blue]ⱳ[/blue]',
+            'Water Wheel': '[orange4]Ꝯ[/orange4]',
+            'Winch': '[grey62]ꞷ[/grey62]',
+            'Carrot': '[orange3]Ɣ[/orange3]',
+            'Lettuce': '[chartreuse1]Ϫ[/chartreuse1]',
+            'Broccoli': '[chartreuse3]‽[/chartreuse3]',
+            'Garlic': '[white]ɤ[/white]',
+            'Onion': '[dark_goldenrod]ȸ[/dark_goldenrod]',
+            'Tomato': '[red3]ɷ[/red3]',
+            'Hay': '[wheat1]ⱨ[/wheat1]',
+            'Bar': '[dark_orange3]Ꞵ[/dark_orange3]',
+            'Bed': '[white]Ꞗ[/white]',
+            'Bedside Table': '[orange3]Ɥ[/orange3]',
+            'Bench': '[orange3]ꭑ[/orange3]',
+            'Book Shelf': '[orange4]Ḇ[/orange4]',
+            'Chair': '[dark_khaki]∟[/dark_khaki]',
+            'Chest': '[gold3]∩[/gold3]',
+            'Desk': '[orange3]∏[/orange3]',
+            'Display Cabinet': '[light_cyan1]Ḓ[/light_cyan1]',
+            'Display Case': '[light_cyan1]Ḑ[/light_cyan1]',
+            'Display Table': '[light_cyan1]Ḏ[/light_cyan1]',
+            'Dresser': '[orange4]Ð[/orange4]',
+            'Pew': '[dark_khaki]Ꝓ[/dark_khaki]',
+            'Round Table': '[orange4]ꝿ[/orange4]',
+            'Shelf': '[orange4]ﬃ[/orange4]',
+            'Side Table': '[orange4]Ꞁ[/orange4]',
+            'Table': '[orange4]Ŧ[/orange4]',
+            'Wardrobe': '[orange4]Ꝡ[/orange4]',
+            'Harp': '[light_goldenrod1]ћ[/light_goldenrod1]',
+            'Piano': '[grey82]♫[/grey82]',
+            'Floor Candle': '[bright_yellow]ḉ[/bright_yellow]',
+            'Cave': '[grey35]Ꞝ[/grey35]',
+            'Plants': '[dark_sea_green4]♣[/dark_sea_green4]',
+            'Flowers': '[medium_violet_red]ӂ[/medium_violet_red]',
+            'Rocks': '[grey50]*[/grey50]',
+            'Stalagmite': '[grey50]↑[/grey50]',
+            'Stump': '[dark_goldenrod]ᶊ[/dark_goldenrod]',
+            'Wheat': '[wheat1]ẅ[/wheat1]',
+            'Barrel': '[dark_goldenrod]Ƀ[/dark_goldenrod]',
+            'Crate': '[light_goldenrod3]₢[/light_goldenrod3]',
+            'Sacks': '[khaki3]ṩ[/khaki3]',
+            'Weapon Rack': '[grey84]♠[/grey84]',
+            'Boat': '[magenta]ẞ[/magenta]',
+            'Horse Wagon': '[magenta]◊[/magenta]',
+            'Canon': '[grey84]ꬹ[/grey84]',
+            'Flag Pole': '[red]Ƒ[/red]',
+            'Banner': '[red]Ɓ[/red]',
+            'Globe': '[green]₲[/green]',
+            'Orrery': '[gold3]ⱺ[/gold3]',
+            'Charcoal Mound': '[bright_red]Ꜿ[/bright_red]',
+            'Kiln': '[bright_red]Ꝃ[/bright_red]',
+            'Pottery Wheel': '[orange4]Ꝑ[/orange4]',
+            'Floor Mirror': '[white]ᵯ[/white]',
+            'Oven': '[bright_red]Ꝙ[/bright_red]',
+            'Lockbox': '[gold3]Ⱡ[/gold3]',
+            'Xylophone': '[grey85]♪[/grey85]',
+            'Guitar': '[dark_goldenrod]♯[/dark_goldenrod]',
+            'Menorah': '[gold3]₸[/gold3]',
+            'Coins': '[gold1]₡[/gold1]',
+            'Gems': '[magenta]ꞡ[/magenta]',
+            'Gold Bar': '[gold1]₲[/gold1]',
+            'Balance Scale': '[yellow]₮[/yellow]',
+            'Easel': '[orange4]Д[/orange4]',
+            'Child\'s Toys': '[white]Ɀ[/white]',
+            'Tapestry': '[purple4]Ԏ[/purple4]',
+            'Craddle': '[orange4]ᴗ[/orange4]',
+            'Churn': '[orange4]ʆ[/orange4]',
+            'River Crossing': '[orange4]⁞[/orange4]',
+            'Mushrooms': '[tan]₼[/tan]',
+            'Bones': '[white]↔[/white]',
+            'Clock': '[gold3]§[/gold3]',
+            'Portal': '[magenta]ᾮ[/magenta]',
+            'Spider Web': '[white]ᾧ[/white]',
+            'Wine Press': '[blue_violet]Ꝥ[/blue_violet]',
+            'Garve Stone': '[grey78]ṉ[/grey78]',
+            'Camp Fire': '[bright_red]ᵮ[/bright_red]',
+            'Bellows': '[tan]ꞵ[/tan]',
         }
 
 def time_stamp(offset=0):
@@ -197,13 +187,11 @@ def time_stamp(offset=0):
 	return time_stamp
 
 class Map:
-    def __init__(self, map_size=None):
+    def __init__(self, map_size):
         if args.map is None:
-            world_map = self.gen_map(map_size)
-            # world_map = Reactive(self.gen_map(map_size))
+            self.gen_map(map_size)
         else:
-            world_map = self.map_gen_file()
-            # world_map = Reactive(self.map_gen_file())
+            self.map_gen_file()
         self.update_display_map()
         if args.start is not None:
             pos = args.start
@@ -248,7 +236,7 @@ class Map:
         self.map_size = map_data.shape
         print('map_size:', self.map_size)
         self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
-        # print('world_map 1:', world_map)
+        # print('world_map 1:', self.world_map)
         self.get_terrain_data()
         tiles = {k: v.split('[')[1].split(']')[1] for k, v in TILES.items()}
         inv_tiles = {v: k for k, v in tiles.items()}
@@ -320,7 +308,7 @@ class Map:
             args.view_size = new_view_size
         self.view_port(pos, new_view_size)
 
-    def view_port(self, pos, map_view=None): # TODO Optimize this
+    def view_port(self, pos, map_view=None):
         if map_view is None and args.view_size is not None:
             map_view = args.view_size
         self.map_view = map_view
@@ -329,23 +317,19 @@ class Map:
             self.map_view = (self.map_view, self.map_view)
         elif len(self.map_view) == 1:
             self.map_view = (self.map_view[0], self.map_view[0])
-        map_view_y = self.map_view[0]
-        map_view_x = self.map_view[1]
         top_left = (pos[0] - int(self.map_view[0]/2), pos[1] - int(self.map_view[1]/2))
-        top_left_y = top_left[0]
-        top_left_x = top_left[1]
         self.view_port_map = [[' ' for _ in range(self.map_view[1])] for _ in range(self.map_view[0])]
         for i, row in enumerate(self.display_map):
-            if i < top_left_y:
+            if i < top_left[0]:
                 continue
-            if i >= top_left_y + map_view_y:
+            if i >= top_left[0] + self.map_view[0]:
                 continue
             for j, tile in enumerate(row):
-                if j < top_left_x:
+                if j < top_left[1]:
                     continue
-                if j >= top_left_x + map_view_x:
+                if j >= top_left[1] + self.map_view[1]:
                     continue
-                self.view_port_map[i-top_left_y][j-top_left_x] = tile
+                self.view_port_map[i-top_left[0]][j-top_left[1]] = tile
         return self.view_port_map
 
     def update_display_map(self):
@@ -371,9 +355,7 @@ class Map:
                     icon = agent_tile.icon
                     self.display_map[i][j] = icon
 
-    def get_terrain_data(self, infile='../acct_legacy/data/items.csv'):
-        if not os.path.exists(infile):
-            infile='data/items.csv'
+    def get_terrain_data(self, infile='data/items.csv'):
         with open(infile, 'r') as f:
             self.terrain_items = pd.read_csv(f, keep_default_na=False, comment='#')
         self.terrain_items = self.terrain_items[self.terrain_items['child_of'] != 'Loan']
@@ -465,7 +447,7 @@ class Tile:
     def __repr__(self):
         return self.terrain
 
-class Player:
+class Player: # ˂˃˄˅
     def __init__(self, name, world_map, icon='P', start=None, v=False):
         self.name = name
         self.world_map = world_map
@@ -479,7 +461,6 @@ class Player:
             self.pos = start
         if v: print(f'{self} start pos: {self.pos}')
         self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
-        self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
         self.world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
         self.world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
         # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
@@ -490,13 +471,12 @@ class Player:
         self.remain_move = self.movement
         print(f'Moves reset for {self}.')
 
-    def move(self, dy, dx):
+    def move(self):
         self.old_pos = self.pos
-        # self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
-        print(f'{self.name} position: {self.pos} on {self.current_tile} | Moves: {self.remain_move} / {self.movement} | {self.current_terrain}')# | Test01\rTest02')
-        # if self.get_move() is None: # TODO This isn't very clear
-        #     return
-        self.pos = (self.pos[0] + dy, self.pos[1] + dx)
+        self.current_terrain = world_map.world_map[self.old_pos[0]][self.old_pos[1]]['terrain']
+        print(f'{self.name} position: {self.old_pos} on {self.current_tile} | Moves: {self.remain_move} | {self.current_terrain}')# | Test01\rTest02')
+        if self.get_move() is None: # TODO This isn't very clear
+            return
         if self.is_occupied(self.pos):
             self.pos = self.old_pos
             return
@@ -508,7 +488,6 @@ class Player:
             world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
             world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.current_tile
             self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
-            self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
             world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
             del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
             # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
@@ -529,7 +508,6 @@ class Player:
             return True
 
     def calc_move(self, pos, v=False):
-        reset = False
         target_terrain = world_map.world_map[pos[0]][pos[1]]['terrain']
         if v: print('target_terrain:', target_terrain)
         if v: print('target_terrain.move_cost:', target_terrain.move_cost)
@@ -539,11 +517,7 @@ class Player:
             print(f'Cannot cross {target_terrain}.')
             return
         if self.remain_move >= target_terrain.move_cost:
-            if self.remain_move == target_terrain.move_cost: # TODO Is this the best way to rest the moves?
-                reset = True
             self.remain_move -= target_terrain.move_cost
-            if reset:
-                self.reset_moves()
             return True
 
     def get_move(self):
@@ -555,39 +529,39 @@ class Player:
             print(f'Display current world map:\n{world_map}')
             self.pos = self.old_pos
             return
-        elif key == 'terrain' or key == 'items':
+        if key == 'terrain' or key == 'items':
             print('Display terrain item details:\n', world_map.terrain_items)
             self.pos = self.old_pos
             return
-        elif key == 'r' or key == 'reset':
+        if key == 'r' or key == 'reset':
             self.reset_moves()
             self.pos = self.old_pos
             return
-        elif key == 'n' or key == 'next':
+        if key == 'n' or key == 'next':
             self.remain_move = 0
             self.pos = self.old_pos
             return
-        elif key == 'size':
-            world_map.set_map_size()
-            self.pos = self.old_pos
-            return
-        elif key == 'v' or key == 'view':
+        if key == 'v' or key == 'view':
             world_map.set_view_size(self.pos)
             self.pos = self.old_pos
             return
-        elif key == 'edit':
+        if key == 'size':
+            world_map.set_map_size()
+            self.pos = self.old_pos
+            return
+        if key == 'edit':
             world_map.edit_terrain()
             self.pos = self.old_pos
             return
-        elif key == 'save':
+        if key == 'save':
             world_map.save_map()
             self.pos = self.old_pos
             return
-        elif key == 'col':
+        if key == 'col':
             world_map.col()
             self.pos = self.old_pos
             return
-        elif key == 'c' or key == 'cords':
+        if key == 'cords':
             print(CORDS)
             self.pos = self.old_pos
             return
@@ -632,112 +606,9 @@ class Player:
     def __repr__(self):
         return self.name
 
-class MapContainer(Container):
-    def on_size(self):
-        return self.size
-
-class StatusBar(Container):#Static
+def setup():
+    # TODO Move class instantiation here?
     pass
-    # def __init__(self, player):
-    #     super().__init__()
-    #     self.player = player
-    
-    # def on_mount(self):
-    #     status = f'{self.player.name} position: {self.player.pos} on {self.player.current_tile} | Moves: {self.player.remain_move} / {self.player.movement} | {self.player.current_terrain}'
-    #     self.update(status)
-
-    # def on_key(self):
-    #     status = f'{self.player.name} position: {self.player.pos} on {self.player.current_tile} | Moves: {self.player.remain_move} / {self.player.movement} | {self.player.current_terrain}'
-    #     self.update(status)
-
-class CivRPG(App):
-    CSS = '''
-    Screen {
-        layout: vertical;
-        align: center middle;
-    }
-
-    MapContainer {
-        height: 1fr;
-    }
-
-    StatusBar {
-        height: 1;
-        align: center bottom;
-    }
-    '''
-
-    def __init__(self, num_players=1):
-        super().__init__()
-        global world_map 
-        world_map = Map()
-        players = []
-        for player_num in range(num_players):
-            player_name = 'Player ' + str(player_num+1)
-            self.player = Player(player_name, world_map, str(player_num+1), args.start)
-            players.append(self.player)
-        # print(f'Players:\n{players}')
-        self.viewport = Static('')
-        self.status_bar = Static('')
-        console = Console()
-        print('console size:', console.size)
-        world_map.set_view_size(self.player.pos, console.size[0]//2, console.size[1])
-        # world_map.view_port(self.player.pos)
-        self.update_status()
-        self.timer = None
-        print(f'world_map:\n{world_map}')
-
-    def compose(self):
-        yield MapContainer(self.viewport)#, id='map')
-        # yield StatusBar(self.player, id='status_bar')
-        # self.status_bar = self.query_one("#status_bar")
-        yield StatusBar(self.status_bar)
-
-    def update_viewport(self):
-        visible_map = world_map.view_port(self.player.pos)
-        visible_map = '\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map])
-        # visible_map = '\n'.join([' '.join([Pretty(str(tile)) for tile in row]) for row in visible_map])
-        self.viewport.update(visible_map)
-    
-    def update_status(self):
-        status = f'[green]{self.player.name} position: [/green][cyan]{self.player.pos}[/cyan][green] on [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / {self.player.movement} | {self.player.current_terrain}[/green]'
-        self.status_bar.update(status)
-        # time.sleep(0.5)
-        # self.status_bar.update(self.player)
-
-    def on_mount(self):
-        # TODO Need to support multiple units/players
-        self.update_viewport()
-
-    def process_key(self, key):
-        moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-        if key in moves:
-            dx, dy = moves[key]
-            self.player.move(dy, dx)
-            self.update_viewport()
-        elif key == 'r':
-            self.player.reset_moves()
-
-    def on_key(self, event):
-        # if self.timer:
-        #     self.timer.stop()
-        self.timer = self.set_timer(1, self.process_key(event.key))
-        self.update_status()
-
-    # def on_key(self, event):
-    #     if self.timer:
-    #         self.timer.stop()
-    #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-    #     if event.key in moves:
-    #         dx, dy = moves[event.key]
-    #         # self.player.pos = (self.player.pos[0] + dy, self.player.pos[1] + dx)
-    #         self.player.move(dy, dx)
-    #         self.update_viewport()
-    #         self.update_status()
-    #     elif event.key == 'r':
-    #         self.player.reset_moves()
-    #         self.update_status()
-    #     # await asyncio.sleep(0.1)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -771,18 +642,25 @@ if __name__ == '__main__':
                 args.start = tuple(int(x.strip()) for x in args.start.split(','))
             else:
                 args.start = (args.start, args.start)
+    
 
-    app = CivRPG(args.players)
-    app.run()
+    world_map = Map(MAP_SIZE)
+    players = []
+    for player_num in range(args.players):
+        player_name = 'Player ' + str(player_num+1)
+        player = Player(player_name, world_map, str(player_num+1), args.start)
+        players.append(player)
+    # print(f'Players:\n{players}')
+    world_map.view_port(player.pos)
+    # print(f'world_map:\n{world_map}')
 
-    # while True:
-    #     for player in players:
-    #         while player.remain_move:
-    #             world_map.view_port(player.pos)
-    #             print(f'Current world map:\n{world_map}')
-    #             player.move()
-    #         player.reset_moves()
-
+    while True:
+        for player in players:
+            while player.remain_move:
+                world_map.view_port(player.pos)
+                print(f'Current world map:\n{world_map}')
+                player.move()
+            player.reset_moves()
 
 ## TODO
 # Make togglable options for map wrapping

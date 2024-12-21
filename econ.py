@@ -9698,7 +9698,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2024-12-07.db -s 11 -p 4 -mp 5 --early -i items03.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2024-12-07.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2024-12-15.db -s 11 -p 4 -mp 10 --early -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2024-12-15.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
