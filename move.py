@@ -8,10 +8,9 @@ from rich import print
 import datetime as dt
 import os
 import asyncio
-from textual.timer import Timer
 
 from textual.app import App, ComposeResult
-from textual.widgets import Static
+from textual.widgets import Static, TabbedContent, TabPane, RichLog, Input
 from textual.containers import Container
 from textual.reactive import reactive
 from rich.console import Console
@@ -486,6 +485,9 @@ class Player:
         self.movement = 5
         self.remain_move = self.movement
 
+    def change_dir():
+        pass
+
     def reset_moves(self):
         self.remain_move = self.movement
         print(f'Moves reset for {self}.')
@@ -665,6 +667,15 @@ class CivRPG(App):
         height: 1;
         align: center bottom;
     }
+
+    RichLog {
+        height: 1fr;
+    }
+
+    Input {
+        height: 1;
+        align: left bottom;
+    }
     '''
 
     def __init__(self, num_players=1):
@@ -681,17 +692,23 @@ class CivRPG(App):
         self.status_bar = Static('')
         console = Console()
         print('console size:', console.size)
-        world_map.set_view_size(self.player.pos, console.size[0]//2, console.size[1])
+        world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1])
         # world_map.view_port(self.player.pos)
         self.update_status()
         self.pressed_keys = set()
         print(f'world_map:\n{world_map}')
 
     def compose(self):
-        yield MapContainer(self.viewport)#, id='map')
-        # yield StatusBar(self.player, id='status_bar')
-        # self.status_bar = self.query_one("#status_bar")
-        yield StatusBar(self.status_bar)
+        with TabbedContent():
+            with TabPane('Map', id='map_tab'):
+                yield MapContainer(self.viewport)#, id='map')
+                yield StatusBar(self.status_bar)#, id='status_bar')
+            with TabPane('Log', id='log_tab'):
+                yield RichLog(highlight=True, markup=True, wrap=True)
+                yield Input(type='text')
+
+    def on_ready(self):
+        pass
 
     def update_viewport(self):
         visible_map = world_map.view_port(self.player.pos)
@@ -718,6 +735,8 @@ class CivRPG(App):
     #     elif event.key == 'r':
     #         self.player.reset_moves()
     #     self.update_status()
+    #     text_log = self.query_one(RichLog)
+    #     text_log.write(event.key)
 
 ##########################################################
 
@@ -733,6 +752,8 @@ class CivRPG(App):
         elif event.key == 'r':
             self.player.reset_moves()
         self.update_status()
+        text_log = self.query_one(RichLog)
+        text_log.write(event.key)
 
     # async def on_key(self, event):
     #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
