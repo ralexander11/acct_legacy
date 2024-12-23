@@ -684,7 +684,7 @@ class CivRPG(App):
         world_map.set_view_size(self.player.pos, console.size[0]//2, console.size[1])
         # world_map.view_port(self.player.pos)
         self.update_status()
-        self.timer = None
+        self.pressed_keys = set()
         print(f'world_map:\n{world_map}')
 
     def compose(self):
@@ -700,7 +700,7 @@ class CivRPG(App):
         self.viewport.update(visible_map)
     
     def update_status(self):
-        status = f'[green]{self.player.name} position: [/green][cyan]{self.player.pos}[/cyan][green] on [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / {self.player.movement} | {self.player.current_terrain}[/green]'
+        status = f'[green]{self.player.name} position: [/green][cyan]{self.player.pos}[/cyan][green] on [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.current_terrain}[/green]'
         self.status_bar.update(status)
         # time.sleep(0.5)
         # self.status_bar.update(self.player)
@@ -709,35 +709,77 @@ class CivRPG(App):
         # TODO Need to support multiple units/players
         self.update_viewport()
 
-    def process_key(self, key):
-        moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-        if key in moves:
-            dx, dy = moves[key]
-            self.player.move(dy, dx)
-            self.update_viewport()
-        elif key == 'r':
-            self.player.reset_moves()
+    # def on_key(self, event): #Orig
+    #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
+    #     if event.key in moves:
+    #         dx, dy = moves[event.key]
+    #         self.player.move(dy, dx)
+    #         self.update_viewport()
+    #     elif event.key == 'r':
+    #         self.player.reset_moves()
+    #     self.update_status()
+
+##########################################################
 
     def on_key(self, event):
-        # if self.timer:
-        #     self.timer.stop()
-        self.timer = self.set_timer(1, self.process_key(event.key))
+        moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
+        if event.key in moves:
+            if event.key not in self.pressed_keys:
+                self.pressed_keys.add(event.key)
+                dx, dy = moves[event.key]
+                self.player.move(dy, dx)
+                self.update_viewport()
+                self.pressed_keys.remove(event.key)
+        elif event.key == 'r':
+            self.player.reset_moves()
         self.update_status()
 
+    # async def on_key(self, event):
+    #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
+    #     if event.key in moves:
+    #          if event.key not in self.pressed_keys:
+    #             self.pressed_keys.add(event.key)
+    #             dx, dy = moves[event.key]
+    #             # await self.player.move(dy, dx)
+    #             self.player.move(dy, dx)
+    #             # await self.update_viewport()
+    #             self.update_viewport()
+    #             await asyncio.sleep(0.1)
+    #     elif event.key == 'r':
+    #         self.player.reset_moves()
+    #     self.update_status()
+    
+    # def on_key_release(self, event):
+    #     if event.key in self.pressed_keys:
+    #         self.pressed_keys.remove(event.key)
+
+    # def process_key(self, key):
+    #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
+    #     if key in moves:
+    #         dx, dy = moves[key]
+    #         self.player.move(dy, dx)
+    #         self.update_viewport()
+    #     elif key == 'r':
+    #         self.player.reset_moves()
+
     # def on_key(self, event):
+    #     # if self.timer:
+    #     #     self.timer.stop()
+    #     self.timer = self.set_timer(1, self.process_key(event.key))
+    #     self.update_status()
+
+    # async def on_key(self, event):
     #     if self.timer:
     #         self.timer.stop()
     #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
     #     if event.key in moves:
     #         dx, dy = moves[event.key]
-    #         # self.player.pos = (self.player.pos[0] + dy, self.player.pos[1] + dx)
-    #         self.player.move(dy, dx)
-    #         self.update_viewport()
-    #         self.update_status()
+    #         await self.player.move(dy, dx)
+    #         await self.update_viewport()
     #     elif event.key == 'r':
     #         self.player.reset_moves()
-    #         self.update_status()
-    #     # await asyncio.sleep(0.1)
+    #     self.update_status()
+    #     await asyncio.sleep(0.1)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -785,9 +827,21 @@ if __name__ == '__main__':
 
 
 ## TODO
-# Make togglable options for map wrapping
+# Make togglable options for map wrapping?
 # Add support for mobs and combat
 # Add roof reveal support
+# Change player icon to arrows to show direction (<>VɅ)
+# Add multi levels by having other levels in the dict
+# Add popup window for examining a tile with subtile items (such as a table)
+
+# Add tabs at top with RichLog
+# Add input box for tp coords
+
+## TODO
+# Fix map lag on held input
+# Fix map update wave
+# Fix map colors compared to Rich
+
 
 # scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp data/map.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
