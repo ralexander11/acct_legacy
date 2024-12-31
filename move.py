@@ -452,7 +452,7 @@ class Tile:
             self.icon = terrain
         try:
             # Note: The move cost data is contained in the int_rate_fix column.
-            # TODO move from int_rate_fix column to int_rate_var column.
+            # TODO move from int_rate_fix column to int_rate_var column?
             self.move_cost = terrain_items[terrain_items['item_id'] == self.terrain]['int_rate_fix'].values[0]
         except IndexError:
             # print('Move cost of 1 for:', terrain)
@@ -473,7 +473,7 @@ class Player:
     def __init__(self, name, world_map, icon='P', start=None, v=False):
         self.name = name
         self.world_map = world_map
-        self.icon = '[blink]' + icon + '[/blink]'
+        self.icon = icon#'[blink]' + icon + '[/blink]'
         if v: print(f'{self} icon: {self.icon}')
         # self.pos = (0, int(icon)-1) # Start position at top left
         if start is None:
@@ -490,12 +490,14 @@ class Player:
         self.movement = 5
         self.remain_move = self.movement
 
-    def change_dir():
-        pass
-
     def reset_moves(self):
         self.remain_move = self.movement
-        print(f'Moves reset for {self}.')
+        print(f'Moves reset to {self.movement} for {self}.')
+
+    def change_dir(self, key):
+        direction = {'w': 'Ʌ', 'a': '<', 's': 'V', 'd': '>'}
+        self.icon = direction[key]
+        world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
 
     def move(self, dy, dx):
         self.old_pos = self.pos
@@ -508,7 +510,6 @@ class Player:
             self.pos = self.old_pos
             return
         if not self.calc_move(self.pos):
-            print(f'Not enough movement to enter tile. Movement Remaining: {self.remain_move}/{self.movement}')
             self.pos = self.old_pos
             return
         try:
@@ -543,7 +544,7 @@ class Player:
         if v: print('remaining_moves:', self.remain_move)
         # TODO Add ability for items to modify terrain_move_cost.
         if target_terrain.move_cost is None:
-            print(f'Cannot cross {target_terrain}.')
+            print(f'Cannot cross {target_terrain} ({target_terrain.icon}) tile at {pos}.')
             return
         if self.remain_move >= target_terrain.move_cost:
             if self.remain_move == target_terrain.move_cost: # TODO Is this the best way to rest the moves?
@@ -552,6 +553,8 @@ class Player:
             if reset:
                 self.reset_moves()
             return True
+        else:
+            print(f'Costs {target_terrain.move_cost} movement to enter {target_terrain} ({target_terrain.icon}) tile. Movement remaining: {self.remain_move}/{self.movement}')
 
     def get_command(self, command=None):
         # print('\nEnter "exit" to exit.')#\033[F #\r
@@ -718,12 +721,15 @@ class CivRPG(App):
 
     RichLog {
         height: 1fr;
+        width: 1fr;
         background: black;
         color: green;
+        text-style: bold;
     }
 
     Input {
         color: green;
+        text-style: bold;
     }
     '''
 
@@ -786,7 +792,7 @@ class CivRPG(App):
         # Set up input widget to capture input
         input_widget.action_submit = self.capture_input
         # Example print to test stdout
-        print("Hello! Type something below and press Enter.")
+        print('Use WASD to move on the map view. Or type a command below and press Enter.')
 
         # TODO Need to support multiple units/players
         self.update_viewport()
@@ -829,6 +835,7 @@ class CivRPG(App):
         if event.key in moves:
             if event.key not in self.pressed_keys:
                 self.pressed_keys.add(event.key)
+                self.player.change_dir(event.key)
                 dx, dy = moves[event.key]
                 self.player.move(dy, dx)
                 self.update_viewport()
