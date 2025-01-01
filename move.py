@@ -7,8 +7,8 @@ import random
 from rich import print
 import datetime as dt
 import os, sys
+import asyncio
 # import builtins
-# import asyncio
 
 from textual.app import App, ComposeResult
 from textual.widgets import Static, TabbedContent, TabPane, RichLog, Input
@@ -80,7 +80,6 @@ TILES = {
         'Trees': '[green]Ҭ[/green]',
         'Potato': '[gold3]ꭅ[/gold3]',
         'Corn': '[bright_yellow]Ψ[/bright_yellow]',
-        'Ship': '[magenta]ᵿ[/magenta]',
         'Barred Window': '[red]₩[/red]',
         'Barred Door': '[grey42]ᴃ[/grey42]',
         'Bridge': '[orange4]≠[/orange4]',
@@ -156,6 +155,8 @@ TILES = {
         'Sacks': '[khaki3]ṩ[/khaki3]',
         'Weapon Rack': '[grey84]♠[/grey84]',
         'Boat': '[magenta]ẞ[/magenta]',
+        'Row Boat': '[magenta]Ṝ[/magenta]',
+        'Ship': '[magenta]ᵿ[/magenta]',
         'Horse Wagon': '[magenta]◊[/magenta]',
         'Canon': '[grey84]ꬹ[/grey84]',
         'Flag Pole': '[red]Ƒ[/red]',
@@ -197,7 +198,8 @@ def time_stamp(offset=0):
 	return time_stamp
 
 class Map:
-    def __init__(self, map_size=None):
+    def __init__(self, game, map_size=None):
+        self.game = game
         if args.map is None:
             world_map = self.gen_map(map_size)
             # world_map = Reactive(self.gen_map(map_size))
@@ -266,17 +268,30 @@ class Map:
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items)})
         return self.world_map
 
-    def save_map(self, filename=None):
+    def export_map(self, filename=None):
         if filename is None:
             filename = input('Enter filename: ')
-            if '.csv' not in filename:
-                filename = filename + '.csv'
-            if 'data/' not in filename:
-                filename = 'data/' + filename
-        print('Save filename: ', filename)
+        if '.csv' not in filename:
+            filename = filename + '.csv'
+        if 'data/' not in filename:
+            filename = 'data/' + filename
+        print('Export filename: ', filename)
         df = pd.DataFrame(self.display_map)
         print(df)
         df.to_csv(filename, index=False, header=False)
+    
+    def save_map(self, filename=None, v=True):
+        if filename is None:
+            filename = input('Enter filename: ')
+        if '.csv' not in filename:
+            filename = filename + '.csv'
+        if 'data/' not in filename:
+            filename = 'data/' + filename
+        print('Save filename: ', filename)
+        if v: print(repr(self.world_map))
+        with open(filename, 'r') as f:
+            f.write(repr(self.world_map))
+            f.close()
 
     def set_map_size(self, x=None, y=None):
         print('Current Map Size:', self.map_size)
@@ -383,18 +398,25 @@ class Map:
         print('terrain_items:')
         print(self.terrain_items)
 
-    def edit_terrain(self, pos=None, terrain=None):
-        if pos is None:
+    def edit_terrain(self, y=None, x=None, terrain=None):
+        if y is None:
+            y = input('Enter x coord: ')
+        try:
+            y = int(y)
+        except ValueError:
+            print('Enter whole numbers only, try again.')
+            return
+        if x is None:
             x = input('Enter x coord: ')
-            y = input('Enter y coord: ')
-            try:
-                pos = (int(y), int(x))
-            except ValueError:
-                print('Enter whole numbers only, try again.')
-                return
+        try:
+            x = int(x)
+        except ValueError:
+            print('Enter whole numbers only, try again.')
+            return
         if terrain is None:
             terrain = input('Enter terrain: ')
-            terrain = terrain.title()
+        pos = (int(y), int(x))
+        terrain = terrain.title()
         tile = self.world_map[pos[0]][pos[1]]
         tile.update({'terrain': Tile(terrain, self.terrain_items)})
         if terrain in TILES:
@@ -417,7 +439,11 @@ class Map:
     def col(self, letters=None):
         # For max of 3 letters
         if letters is None:
-            letters = input('Enter column letters: ')
+            print('Need to enter letters with the command.')
+            # letters = input('Enter column letters: ')
+            # return
+            # prompt = self.game.query_one('#prompt')
+            # letters = prompt.value
         letters = letters.upper()
         if len(letters) == 1:
             col_pos = ord(letters[:1])-64
@@ -438,10 +464,10 @@ class Map:
         self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.view_port_map])
         return self.map_display
 
-    def __repr__(self):
-        self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
-        # self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
-        return self.map_display
+    # def __repr__(self):
+    #     self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
+    #     # self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
+    #     return self.map_display
 
 class Tile:
     def __init__(self, terrain='Land', terrain_items=None):
@@ -499,8 +525,11 @@ class Player:
         self.icon = direction[key]
         world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
 
-    def move(self, dy, dx):
-        self.old_pos = self.pos
+    def move(self, dy, dx, teleport=False):
+        if not teleport:
+            self.old_pos = self.pos
+        else:
+            print(f'{self} teleported.')
         # self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
         print(f'{self.name} position: {self.pos} on {self.current_tile} | Moves: {self.remain_move} / {self.movement} | {self.current_terrain}')# | Test01\rTest02')
         # if self.get_command() is None: # TODO This isn't very clear
@@ -561,15 +590,15 @@ class Player:
         if command is None:
             command = input('Use wasd to move: ')
         # print('=' * ((world_map.map_view[1]*2)-1))
-        command = command.lower()
+        command = command.lower().split(' ')
         # print('Command is:', command)
-        if command == 'exit':
+        if command[0] == 'exit':
             quit()
         # elif command == 'map':
         #     print(f'Display current world map:\n{world_map}')
         #     self.pos = self.old_pos
         #     return
-        elif command == 'terrain' or command == 'items':
+        elif command[0] == 'terrain' or command[0] == 'items':
             print('Display terrain item details:\n', world_map.terrain_items)
             # self.pos = self.old_pos
             return
@@ -577,31 +606,37 @@ class Player:
         #     self.reset_moves()
         #     self.pos = self.old_pos
         #     return
-        elif command == 'n' or command == 'next':
+        elif command[0] == 'n' or command[0] == 'next':
             self.remain_move = 0
             # self.pos = self.old_pos
             return
-        elif command == 'size':
-            world_map.set_map_size()
+        elif command[0] == 'size': # Update input
+            world_map.set_map_size(command[1], command[2])
             # self.pos = self.old_pos
             return
-        elif command == 'v' or command == 'view':
-            world_map.set_view_size(self.pos)
+        elif command[0] == 'v' or command[0] == 'view': # Update input
+            world_map.set_view_size(self.pos, command[1], command[2])
             # self.pos = self.old_pos
             return
-        elif command == 'edit':
-            world_map.edit_terrain()
+        elif command[0] == 'edit': # Update input
+            world_map.edit_terrain(command[1], command[2], command[3])
             # self.pos = self.old_pos
             return
-        elif command == 'save':
-            world_map.save_map()
+        elif command[0] == 'export': # Update input
+            world_map.export_map(command[1])
             # self.pos = self.old_pos
             return
-        elif command == 'col':
-            world_map.col()
+        elif command[0] == 'savemap':
+            world_map.export_map(command[1])
+            return
+        elif command[0] == 'col':
+            try:
+                world_map.col(command[1])
+            except IndexError:
+                print('Enter the letters for the column with a space after "col".')
             # self.pos = self.old_pos
             return
-        elif command == 'c' or command == 'cords':
+        elif command[0] == 'c' or command[0] == 'cords':
             print(CORDS)
             # self.pos = self.old_pos
             return
@@ -613,8 +648,19 @@ class Player:
         #     self.pos = (self.pos[0], self.pos[1] - 1)
         # elif command == 'd':
         #     self.pos = (self.pos[0], self.pos[1] + 1)
-        elif command == 'tp' or command == 'move':
-            x = input('Enter x coord: ')
+        elif command[0] == 'tp': # TODO Turn into teleport() function
+            # y = input('Enter y coord: ')
+            try:
+                y = command[1]
+            except IndexError:
+                print('Enter the Y cord after a space after "tp".')
+            if y == '':
+                return
+            # x = input('Enter x coord: ')
+            try:
+                x = command[2]
+            except IndexError:
+                print('Enter the X cord after a space after the Y cord.')
             if x == '':
                 return
             try:
@@ -623,17 +669,18 @@ class Player:
                 pass
             if isinstance(x, str):
                 x = world_map.col(x)
-            y = input('Enter y coord: ')
-            if y == '':
-                return
             try:
+                self.old_pos = self.pos
                 self.pos = (int(y)-1, int(x)-1)
+                self.move(0, 0, teleport=True)
+                world_map.game.update_viewport()
+                world_map.game.update_status()
             except ValueError:
                 print('Enter whole numbers only, try again.')
-                # self.pos = self.old_pos
+                self.pos = self.old_pos
                 return
         else:
-            print('Not a valid input, please try again.')
+            print('Not a valid command, please try again.')
             # self.pos = self.old_pos
             return
         # return self.pos
@@ -649,14 +696,21 @@ class StdoutRedirector:
     '''Redirects stdout to a RichLog widget.'''
     def __init__(self, log_widget: RichLog):
         self.log_widget = log_widget
+        self.is_widget_update = False # Flag to differentiate rendering updates
 
     def write(self, text):
+        if self.is_widget_update:
+            return # Ignore rendering updates caused by Static widget updates
         if text.strip() and 'Player ' not in text:  # Discard 'Player' updates or empty lines
             # self.log_widget.write(text.strip())
             self.log_widget.write(text[:-1])
 
     def flush(self):
-        pass  # No-op to satisfy the file-like interface
+        pass # No-op to satisfy the file-like interface
+
+    def set_widget_update(self, flag: bool):
+        '''Set flag to indicate whether this is a widget update.'''
+        self.is_widget_update = flag
 
 class StdinRedirector:
     '''Redirects stdin to an Input widget.'''
@@ -665,24 +719,27 @@ class StdinRedirector:
         # self.input_buffer = ''
         self.input_buffer = []
 
-    def readline(self):
+    def readline(self):#async
         # Simulate blocking input from the Input widget
         while not self.input_buffer:
-            self.input_widget.app.refresh()  # Ensure the UI updates
+            self.input_widget.app.refresh() # Ensure the UI updates
+            # await asyncio.sleep(0) # Yield control to the event loop
         # line = self.input_buffer
         # self.input_buffer = ''  # Clear buffer after reading
         line = self.input_buffer.pop(0)
-        print('line:')
+        print('[DEBUG] readline:')
         print(line)
         return line
-        # return self.input_buffer.pop(0)
 
     def feed_input(self, text: str):
         '''Feeds input into the buffer (to be called when Input gets data).'''
         # self.input_buffer = text
         self.input_buffer.append(text)  # Add input to the buffer
-        print('input_buffer:')
-        print(self.input_buffer)
+        # print('input_buffer:')
+        # print(self.input_buffer)
+        line = self.input_buffer.pop(0)
+        # print('[DEBUG] feed_input:', line)
+        return line 
 
 class MapContainer(Container):
     def on_size(self):
@@ -735,9 +792,10 @@ class CivRPG(App):
 
     def __init__(self, num_players=1):
         super().__init__()
+        self.stdout_redirector = None
         self.stdin_redirector = None
         global world_map 
-        world_map = Map()
+        world_map = Map(self)
         players = []
         for player_num in range(num_players):
             player_name = 'Player ' + str(player_num+1)
@@ -750,7 +808,7 @@ class CivRPG(App):
         print('console size:', console.size)
         world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1])
         # world_map.view_port(self.player.pos)
-        self.update_status()
+        self.update_status()#False)
         self.pressed_keys = set()
         print(f'world_map:\n{world_map}')
 
@@ -760,32 +818,47 @@ class CivRPG(App):
                 yield MapContainer(self.viewport)#, id='map')
                 yield StatusBar(self.status_bar)#, id='status_bar')
             with TabPane('Log', id='log_tab'):
-                yield RichLog(wrap=True, id='log_widget')#highlight=True, markup=True, wrap=True, id='log_widget')
+                yield RichLog(wrap=False, id='log_widget')#highlight=True, markup=True, wrap=True, id='log_widget')
                 yield Input(placeholder='Enter command...', type='text', id='prompt')
 
-    def on_ready(self):
-        self.text_log = self.query_one('#log_widget')
+    # def on_ready(self):
+    #     self.text_log = self.query_one('#log_widget')
 
         # builtins.print = self.print_override
         # print('Test message to log.')
         # print(CORDS)
 
-    def update_viewport(self):
+    def on_tabs_tab_activated(self, event):
+        # Focus the input widget corresponding to the active tab
+        if event.tab.id == 'log_tab':
+            self.query_one("#prompt").focus()
+
+    def update_viewport(self):#async
+        # await asyncio.sleep(0)  # Yield control to ensure async behavior
+        # self.stdout_redirector.set_widget_update(True) # Start widget update
         visible_map = world_map.view_port(self.player.pos)
         visible_map = '\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map])
         # visible_map = '\n'.join([' '.join([Pretty(str(tile)) for tile in row]) for row in visible_map])
-        self.viewport.update(visible_map)
+        self.viewport.update(visible_map)#await
+        # self.stdout_redirector.set_widget_update(False) # End widget update
     
-    def update_status(self):
+    def update_status(self):#, check=True):#async
+        # await asyncio.sleep(0)  # Yield control to ensure async behavior
+        # if check: # TODO Find a better solution for the initial update
+        #     print('Status update allowed 01.')
+        #     self.stdout_redirector.set_widget_update(True) # Start widget update
         status = f'[green]{self.player.name} position: [/green][cyan]{self.player.pos}[/cyan][green] on [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.current_terrain}[/green]'
-        self.status_bar.update(status)
+        self.status_bar.update(status)#await
         # time.sleep(0.5)
         # self.status_bar.update(self.player)
+        # if check:
+        #     self.stdout_redirector.set_widget_update(False) # End widget update
 
     def on_mount(self):
         '''Redirect stdout and stdin'''
         log_widget = self.query_one('#log_widget')
-        sys.stdout = StdoutRedirector(log_widget)
+        self.stdout_redirector = StdoutRedirector(log_widget)
+        sys.stdout = self.stdout_redirector
         input_widget = self.query_one('#prompt')
         self.stdin_redirector = StdinRedirector(input_widget)
         sys.stdin = self.stdin_redirector
@@ -804,7 +877,7 @@ class CivRPG(App):
         input_widget.value = ''  # Clear the input field
         self.stdin_redirector.feed_input(user_input)# + '\n')
         # print(Pretty(user_input))
-        print(user_input)
+        print('>>>', user_input)
         self.player.get_command(user_input)
 
     # def on_key(self, event): #Orig
