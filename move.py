@@ -515,6 +515,7 @@ class Player:
         # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
         self.movement = 5
         self.remain_move = self.movement
+        self.boat = False
 
     def reset_moves(self):
         self.remain_move = self.movement
@@ -572,18 +573,47 @@ class Player:
         if v: print('target_terrain.move_cost:', target_terrain.move_cost)
         if v: print('remaining_moves:', self.remain_move)
         # TODO Add ability for items to modify terrain_move_cost.
-        if target_terrain.move_cost is None:
-            print(f'Cannot cross {target_terrain} ({target_terrain.icon}) tile at {pos}.')
-            return
-        if self.remain_move >= target_terrain.move_cost:
-            if self.remain_move == target_terrain.move_cost: # TODO Is this the best way to rest the moves?
+        move_cost = target_terrain.move_cost
+        if self.boat:
+            if target_terrain.terrain == 'Ocean':
+                move_cost = 0.1
+            else:
+                move_cost = None
+        if move_cost is None:                
+            # if self.boat and target_terrain.terrain == 'Ocean':
+            #     move_cost = 0.1
+            # else:
+                print(f'Cannot cross {target_terrain} ({target_terrain.icon}) tile at {pos}.')
+                return
+        if self.remain_move >= move_cost:
+            if self.remain_move == move_cost: # TODO Is this the best way to rest the moves?
                 reset = True
-            self.remain_move -= target_terrain.move_cost
+            self.remain_move -= move_cost
             if reset:
                 self.reset_moves()
             return True
         else:
             print(f'Costs {target_terrain.move_cost} movement to enter {target_terrain} ({target_terrain.icon}) tile. Movement remaining: {self.remain_move}/{self.movement}')
+
+    def mount(self):
+        print('mount current_tile:', self.current_terrain.terrain)
+        print('boat before:', self.boat)
+        if self.current_terrain.terrain == 'Boat' or self.boat: #451, 279
+            if self.boat:
+                print('Set to Boat.', self.pos)
+                # Change tile to Boat using edit function
+                # world_map.display_map[self.pos[0]][self.pos[1]] = self.boat_tile#Tile('Boat', world_map.terrain_items)
+                world_map.edit_terrain(self.pos[0], self.pos[1], 'Boat')
+            self.boat = not self.boat
+            # Change tile to Ocean using edit function
+            if self.boat:
+                print('Set to Ocean.', self.pos)
+                self.boat_tile = self.current_tile
+                print('boat_tile:', self.boat_tile)
+                # world_map.display_map[self.pos[0]][self.pos[1]] = world_map.display_map[0][0]#Tile('Ocean', world_map.terrain_items)
+                world_map.edit_terrain(self.pos[0], self.pos[1], 'Ocean')
+            print('boat:', self.boat)
+        print('boat out:', self.boat)
 
     def get_command(self, command=None):
         # print('\nEnter "exit" to exit.')#\033[F #\r
@@ -915,6 +945,10 @@ class CivRPG(App):
                 self.pressed_keys.remove(event.key)
         elif event.key == 'r':
             self.player.reset_moves()
+        elif event.key == 'e':
+            print('Mounting boat.')
+            self.player.mount()
+            self.update_viewport()
         self.update_status()
         # self.text_log.write(event.key)
 
