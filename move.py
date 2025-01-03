@@ -586,7 +586,7 @@ class Player:
                 print(f'Cannot cross {target_terrain} ({target_terrain.icon}) tile at {pos}.')
                 return
         if self.remain_move >= move_cost:
-            if self.remain_move == move_cost: # TODO Is this the best way to rest the moves?
+            if self.remain_move == move_cost or self.remain_move < 1: # TODO Is this the best way to rest the moves?
                 reset = True
             self.remain_move -= move_cost
             if reset:
