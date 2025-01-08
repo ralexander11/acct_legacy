@@ -7,6 +7,7 @@ import random
 from rich import print
 import datetime as dt
 import os, sys
+import pickle
 import asyncio
 # import builtins
 
@@ -460,6 +461,34 @@ class Map:
             agent_tile.current_tile = icon
             return
         self.display_map[pos[0]][pos[1]] = icon
+    
+    def save(self, filename='save_game01', v=False):
+        if '.csv' not in filename:
+            filename = filename + '.csv'
+        if 'data/' not in filename:
+            filename = 'data/' + filename
+        print(time_stamp() + f'Saving game state to {filename}.')
+        save_map = pd.DataFrame(self.world_map)
+        print('save_map size:', save_map.size)
+        for i, row in enumerate(self.world_map):
+            if v: print(f'i: {i}')
+            for j, tile in enumerate(row):
+                if v: print('tile:', tile)
+                if v: print('tile type:', type(tile))
+                for icon, icon_tile in tile.items():
+                    save_tile = {}
+                    if v: print('icon:', icon)
+                    if v: print('icon_tile:', type(icon_tile))
+                    if icon == 'Agent':
+                        print(f'Saving player at {i}, {j}.')
+                        save_tile[icon] = icon_tile
+                        continue
+                    save_tile[icon] = pickle.dumps(icon_tile, pickle.HIGHEST_PROTOCOL)
+                save_map[i][j] = save_tile
+        save_map.to_csv(filename, index=False, header=False)
+        # with open(filename, 'ab') as f:
+            # save_file = pickle.dump(self.game, f)
+        print(time_stamp() + f'Game state saved to {filename}.')
 
     def col(self, letters=None):
         # For max of 3 letters
@@ -753,6 +782,12 @@ class Player:
                 print('Enter whole numbers only, try again.')
                 self.pos = self.old_pos
                 return
+        elif command[0] == 'save':
+            try:
+                world_map.save(command[1])
+            except IndexError:
+                world_map.save()
+            return
         else:
             print('Not a valid command, please try again.')
             # self.pos = self.old_pos
@@ -871,7 +906,7 @@ class CivRPG(App):
     #             # Binding('ctrl+right', 'next_tab', 'Next tab', show=False),
     #             ]
 
-    def __init__(self, num_players=1):
+    def __init__(self, num_players=1, filename=None):
         super().__init__()
         self.stdout_redirector = None
         self.stdin_redirector = None
@@ -891,6 +926,7 @@ class CivRPG(App):
         # world_map.view_port(self.player.pos)
         self.update_status()#False)
         self.pressed_keys = set()
+        self.turn = 0
         print(f'World Map:\n{world_map}')
 
     def compose(self):
@@ -1095,6 +1131,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--start', type=str, default='446, 229', help='The starting coords for the player.')#338, 178
     parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
+    parser.add_argument('-l', '--load', type=str, help='The name of the file to load.')
     parser.add_argument('-r', '--seed', type=str, default=11, help='Set the seed for the randomness.')
     parser.add_argument('-m', '--map', type=str, default='map.csv', help='The name of the map csv data file.')
     parser.add_argument('-p', '--players', type=int, default=1, help='The number of players in the world.')
@@ -1132,16 +1169,17 @@ if __name__ == '__main__':
             else:
                 args.start = (args.start, args.start)
 
+    # if args.load is None:
     app = CivRPG(args.players)
     app.run()
-
-    # while True:
-    #     for player in players:
-    #         while player.remain_move:
-    #             world_map.view_port(player.pos)
-    #             print(f'Current world map:\n{world_map}')
-    #             player.move()
-    #         player.reset_moves()
+    # else:
+    #     if 'data/' not in args.load:
+    #         filename = 'data/' + filename
+    #     app = CivRPG(args.players, filename)
+    #     app.run()
+        # with open(args.load) as f:
+        #     app = pickle.load(f)
+        #     app.run()
 
 
 ## TODO
@@ -1160,6 +1198,10 @@ if __name__ == '__main__':
 # Fix map update wave
 # Fix map colors compared to Rich
 
+# [
+#     [{'terrain': Tile('Grassland')},{'terrain': Tile('Ocean')}],
+#     [{'terrain': Tile('Grassland')},{'terrain': Tile('Forest'), 'Agent': Player('Player 1')}]
+# ]
 
 # scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp data/map.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
