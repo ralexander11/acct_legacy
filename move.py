@@ -7,8 +7,8 @@ import random
 from rich import print
 import datetime as dt
 import os, sys
-import pickle
-import asyncio
+import json
+# import asyncio
 # import builtins
 
 from textual.app import App, ComposeResult
@@ -266,7 +266,7 @@ class Map:
                 else:
                     print(time_stamp() + f'{i}, {j} | tile: {tile}')
                     terrain_select = tile
-                self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items)})
+                self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
         return self.world_map
 
     def export_map(self, filename=None, v=True):
@@ -282,7 +282,7 @@ class Map:
         df.to_csv(filename, index=False, header=False)
         print(time_stamp() + 'Map exported to:', filename)
     
-    def save_map(self, filename=None, v=False):
+    def save_map(self, filename=None, use_json=True, v=False):
         if filename is None:
             filename = input('Enter filename: ')
         if '.csv' not in filename:
@@ -290,9 +290,13 @@ class Map:
         if 'data/' not in filename:
             filename = 'data/' + filename
         print(time_stamp() + 'Save filename: ', filename)
-        df = pd.DataFrame(self.world_map)
-        if v: print(self.world_map)
-        df.to_csv(filename, index=False, header=False)
+        if use_json:
+            with open(filename, 'w') as f:
+                json.dump(self.world_map, f, ensure_ascii=False)
+        else:
+            df = pd.DataFrame(self.world_map)
+            if v: print(self.world_map)
+            df.to_csv(filename, index=False, header=False)
         print(time_stamp() + 'Map saved to:', filename)
 
     def load_map(self, filename=None, v=False):
@@ -366,27 +370,35 @@ class Map:
             map_view = args.view_size
         self.map_view = map_view
         # print('self.map_view:', self.map_view)
-        if isinstance(self.map_view, int):
-            self.map_view = (self.map_view, self.map_view)
-        elif len(self.map_view) == 1:
-            self.map_view = (self.map_view[0], self.map_view[0])
+        # if isinstance(self.map_view, int):
+        #     self.map_view = (self.map_view, self.map_view)
+        # elif len(self.map_view) == 1:
+        #     self.map_view = (self.map_view[0], self.map_view[0])
         map_view_y = self.map_view[0]
         map_view_x = self.map_view[1]
         top_left = (pos[0] - int(self.map_view[0]/2), pos[1] - int(self.map_view[1]/2))
         top_left_y = top_left[0]
         top_left_x = top_left[1]
-        self.view_port_map = [[' ' for _ in range(self.map_view[1])] for _ in range(self.map_view[0])]
-        for i, row in enumerate(self.display_map):
-            if i < top_left_y:
-                continue
-            if i >= top_left_y + map_view_y:
-                continue
-            for j, tile in enumerate(row):
-                if j < top_left_x:
-                    continue
-                if j >= top_left_x + map_view_x:
-                    continue
-                self.view_port_map[i-top_left_y][j-top_left_x] = tile
+        bot_right_y = top_left_y + map_view_y
+        bot_right_x = top_left_x + map_view_x
+        # self.view_port_map = [[' ' for _ in range(self.map_view[1])] for _ in range(self.map_view[0])]
+        # for i, row in enumerate(self.display_map):
+        #     if i < top_left_y:
+        #         continue
+        #     if i >= bot_right_y:
+        #         continue
+        #     for j, tile in enumerate(row):
+        #         if j < top_left_x:
+        #             continue
+        #         if j >= bot_right_x:
+        #             continue
+        #         self.view_port_map[i-top_left_y][j-top_left_x] = tile
+        # return self.view_port_map
+
+        self.view_port_map = [
+            row[top_left_x:bot_right_x]
+            for row in self.display_map[top_left_y:bot_right_y]
+        ]
         return self.view_port_map
 
     def update_display_map(self):
@@ -462,7 +474,18 @@ class Map:
             return
         self.display_map[pos[0]][pos[1]] = icon
     
-    def save(self, filename='save_game01', v=False):
+    def custom_json(self, obj):
+        # if isinstance(obj, self.Tile):
+        #     return obj.json_dump()
+        # if isinstance(obj, self.Player):
+        #     return obj.json_dump()
+        # try:
+        obj_desc = obj.__dict__
+        # except AttributeError:
+        #     obj_desc = None
+        return obj_desc
+
+    def save(self, filename='save_game01', use_json=True, v=True):
         if '.csv' not in filename:
             filename = filename + '.csv'
         if 'data/' not in filename:
@@ -473,21 +496,30 @@ class Map:
         for i, row in enumerate(self.world_map):
             if v: print(f'i: {i}')
             for j, tile in enumerate(row):
-                if v: print('tile:', tile)
+                if v: print(f'{j} tile: {tile}')
                 if v: print('tile type:', type(tile))
                 for icon, icon_tile in tile.items():
                     save_tile = {}
                     if v: print('icon:', icon)
-                    if v: print('icon_tile:', type(icon_tile))
+                    if v: print('icon_tile:', icon_tile)
+                    if v: print('icon_tile type:', type(icon_tile))
                     if icon == 'Agent':
                         print(f'Saving player at {i}, {j}.')
-                        save_tile[icon] = icon_tile
-                        continue
-                    save_tile[icon] = pickle.dumps(icon_tile, pickle.HIGHEST_PROTOCOL)
+                        if not use_json:
+                            save_tile[icon] = icon_tile
+                            continue
+                    if use_json:
+                        json_default = self.custom_json
+                        try:
+                            icon_tile.__dict__
+                        except AttributeError:
+                            json_default = None
+                        save_tile[icon] = json.dumps(icon_tile, default=json_default)
+                    else:
+                        import pickle
+                        save_tile[icon] = pickle.dumps(icon_tile, pickle.HIGHEST_PROTOCOL)
                 save_map[i][j] = save_tile
         save_map.to_csv(filename, index=False, header=False)
-        # with open(filename, 'ab') as f:
-            # save_file = pickle.dump(self.game, f)
         print(time_stamp() + f'Game state saved to {filename}.')
 
     def col(self, letters=None):
@@ -524,7 +556,7 @@ class Map:
     #     return self.map_display
 
 class Tile:
-    def __init__(self, terrain='Land', terrain_items=None):
+    def __init__(self, terrain='Land', terrain_items=None, loc=None):
         self.terrain = terrain
         if terrain in TILES:
             self.icon = TILES[terrain]
@@ -541,7 +573,14 @@ class Tile:
             self.move_cost = None
         if self.move_cost is not None:
             self.move_cost = float(self.move_cost)
+        if loc is not None:
+            self.loc = loc
+        else:
+            self.loc = None
         self.hidden = False
+
+    def json_dump(self):
+        return {'tile_name': terrain, 'icon': self.icon, 'loc': self.loc, 'move_cost': self.move_cost, 'hidden': self.hidden}
 
     def __str__(self):
         return self.terrain
@@ -759,6 +798,12 @@ class Player:
                 print('Enter the Y cord after a space after "tp".')
             if y == '':
                 return
+            # try:
+            #     y = int(y)
+            # except ValueError:
+            #     pass
+            # if isinstance(y, str):
+            #     y = world_map.col(y)
             # x = input('Enter x coord: ')
             try:
                 x = command[2]
@@ -793,6 +838,10 @@ class Player:
             # self.pos = self.old_pos
             return
         # return self.pos
+
+    def json_dump(self):
+        print(self.__dict__)
+        return self.__dict__
 
     def __str__(self):
         return self.name
@@ -852,6 +901,9 @@ class StdinRedirector:
         return line 
 
 class MapContainer(Container):
+    # def __init__(self, viewport):
+    #     super().__init__()
+    #     self.viewport = Static(viewport)
     def on_size(self):
         return self.size
 
@@ -918,6 +970,8 @@ class CivRPG(App):
             self.player = Player(player_name, world_map, str(player_num+1), args.start)
             self.players.append(self.player)
         print(f'Players:\n{self.players}')
+        # self.viewport = reactive('')
+        # self.viewport = Static(self.viewport)
         self.viewport = Static('')
         self.status_bar = Static('')
         console = Console()
@@ -966,6 +1020,7 @@ class CivRPG(App):
         #     self.stdout_redirector.set_widget_update(True) # Start widget update
         status = f'[green]{self.player.name} position: [/green][cyan]{self.player.pos}[/cyan][green] on [/green]{self.player.current_tile}[green] Tar: [/green]{self.player.target_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.current_terrain} | Tar: {self.player.target_terrain}[/green]'
         self.status_bar.update(status)#await
+        self.refresh()
         # time.sleep(0.5)
         # self.status_bar.update(self.player)
         # if check:
