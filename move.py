@@ -475,17 +475,17 @@ class Map:
         self.display_map[pos[0]][pos[1]] = icon
     
     def custom_json(self, obj):
-        # if isinstance(obj, self.Tile):
-        #     return obj.json_dump()
-        # if isinstance(obj, self.Player):
-        #     return obj.json_dump()
-        # try:
-        obj_desc = obj.__dict__
-        # except AttributeError:
-        #     obj_desc = None
+        if isinstance(obj, Tile):
+            return obj.json_dump()
+        if isinstance(obj, Player):
+            return obj.json_dump()
+        if isinstance(obj, set):
+            obj_desc = obj
+        else:
+            obj_desc = obj.__dict__
         return obj_desc
 
-    def save(self, filename='save_game01', use_json=True, v=True):
+    def save(self, filename='save_game01', use_json=True, v=False):#async
         if '.csv' not in filename:
             filename = filename + '.csv'
         if 'data/' not in filename:
@@ -493,11 +493,13 @@ class Map:
         print(time_stamp() + f'Saving game state to {filename}.')
         save_map = pd.DataFrame(self.world_map)
         print('save_map size:', save_map.size)
+        # await asyncio.sleep(0.1)
         for i, row in enumerate(self.world_map):
-            if v: print(f'i: {i}')
+            if v: print(f'row i: {i}')
             for j, tile in enumerate(row):
                 if v: print(f'{j} tile: {tile}')
                 if v: print('tile type:', type(tile))
+                # await asyncio.sleep(0.1)
                 for icon, icon_tile in tile.items():
                     save_tile = {}
                     if v: print('icon:', icon)
@@ -580,7 +582,7 @@ class Tile:
         self.hidden = False
 
     def json_dump(self):
-        return {'tile_name': terrain, 'icon': self.icon, 'loc': self.loc, 'move_cost': self.move_cost, 'hidden': self.hidden}
+        return {'tile_name': self.terrain, 'icon': self.icon, 'loc': self.loc, 'move_cost': self.move_cost, 'hidden': self.hidden}
 
     def __str__(self):
         return self.terrain
@@ -840,8 +842,10 @@ class Player:
         # return self.pos
 
     def json_dump(self):
-        print(self.__dict__)
-        return self.__dict__
+        player_data = self.__dict__
+        # print(player_data)
+        player_data.pop('world_map')
+        return player_data
 
     def __str__(self):
         return self.name
@@ -863,6 +867,7 @@ class StdoutRedirector:
         if text.strip() and 'Player ' not in text:  # Discard 'Player' updates or empty lines
             # self.log_widget.write(text.strip())
             self.log_widget.write(text[:-1])
+            self.log_widget.app.refresh()
 
     def flush(self):
         pass # No-op to satisfy the file-like interface
@@ -999,9 +1004,13 @@ class CivRPG(App):
         # print('Test message to log.')
         # print(CORDS)
 
+    # def on_tabbed_content_tab_activated(self, event):
     def on_tabs_tab_activated(self, event):
+        print('tab_event:', event)
         # Focus the input widget corresponding to the active tab
-        if event.tab.id == 'log_tab':
+        if event.tabpane.id == 'log_tab':
+        # if event.tab.id == '--content-tab-log_tab':
+            # self.query_one("#prompt", Input).focus()
             self.query_one("#prompt").focus()
 
     def update_viewport(self):#async
@@ -1018,7 +1027,7 @@ class CivRPG(App):
         # if check: # TODO Find a better solution for the initial update
         #     print('Status update allowed 01.')
         #     self.stdout_redirector.set_widget_update(True) # Start widget update
-        status = f'[green]{self.player.name} position: [/green][cyan]{self.player.pos}[/cyan][green] on [/green]{self.player.current_tile}[green] Tar: [/green]{self.player.target_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.current_terrain} | Tar: {self.player.target_terrain}[/green]'
+        status = f'[green]{self.player.name} position: [/green][cyan]{self.player.pos}[/cyan][green] faces [/green]{self.player.target_tile}[green] on: [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.target_terrain} | on: {self.player.current_terrain}[/green]'
         self.status_bar.update(status)#await
         self.refresh()
         # time.sleep(0.5)
