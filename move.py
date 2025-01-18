@@ -251,7 +251,18 @@ class Map:
         self.map_size = map_data.shape
         print('map_size:', self.map_size)
         self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
-        # print('world_map 1:', world_map)
+        # print('world_map 1:', self.world_map)
+        print('First cell type:')
+        print(map_data[0][0])
+        print(type(map_data[0][0]))
+        try:
+            cell_check = eval(map_data[0][0])
+            print('cell_check:', type(cell_check))
+        except NameError:
+            cell_check = map_data[0][0]
+        if isinstance(cell_check, dict):
+            self.world_map = self.load(map_data)
+            return self.world_map
         self.get_terrain_data()
         tiles = {k: v.split('[')[1].split(']')[1] for k, v in TILES.items()}
         inv_tiles = {v: k for k, v in tiles.items()}
@@ -299,7 +310,7 @@ class Map:
             df.to_csv(filename, index=False, header=False)
         print(time_stamp() + 'Map saved to:', filename)
 
-    def load_map(self, filename=None, v=False):
+    def load_map(self, filename=None, v=False): # TODO Confirm if this is still needed?
         print(time_stamp() + 'Loadmap with filename:', filename)
         if filename is None:
             filename = input('Enter filename: ')
@@ -474,6 +485,13 @@ class Map:
             return
         self.display_map[pos[0]][pos[1]] = icon
     
+    def add_cords(self, name, cords):
+        name = name.title()
+        cords = cords.upper()
+        cords = cords.replace(',', ', ')
+        CORDS[name] = cords
+        print(CORDS)
+
     def custom_json(self, obj):
         if isinstance(obj, Tile):
             return obj.json_dump()
@@ -523,6 +541,31 @@ class Map:
                 save_map[i][j] = save_tile
         save_map.to_csv(filename, index=False, header=False)
         print(time_stamp() + f'Game state saved to {filename}.')
+
+    def load(self, map_data, v=True):
+        print(time_stamp() + f'Loading game state.')
+        if v: print(map_data)
+        for i, row in map_data.iterrows():
+            if v: print(f'row i: {i}')
+            if v: print('row:\n', (row))
+            if v: print('row type:', type(row))
+            for j, tile in enumerate(row):
+                tile = eval(tile)
+                if v: print(f'{j} tile: {tile}')
+                if v: print('tile type:', type(tile))
+                for icon, icon_tile in tile.items():
+                    load_tile = {}
+                    if v: print('icon:', icon)
+                    if v: print('icon_tile:', icon_tile)
+                    if v: print('icon_tile type:', type(icon_tile))
+                    # load_tile[icon]
+                    tmp = json.loads(icon_tile, object_hook=None)
+                    print(tmp)
+                    print('!!!!!!!!!!')
+                    exit()
+                self.world_map[i][j] = save_tile
+        print(time_stamp() + f'Game state loaded.')
+        return self.world_map
 
     def col(self, letters=None):
         # For max of 3 letters
@@ -759,6 +802,9 @@ class Player:
         elif command[0] == 'edit': # Update input
             world_map.edit_terrain(command[1], command[2], command[3])
             # self.pos = self.old_pos
+            return
+        elif command[0] == 'addcords':
+            world_map.add_cords(command[1], command[2])
             return
         elif command[0] == 'export': # Update input
             world_map.export_map(command[1])
