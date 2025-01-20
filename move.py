@@ -17,6 +17,7 @@ from textual.containers import Container
 from textual.reactive import reactive
 from rich.console import Console
 from rich.pretty import Pretty
+from rich.text import Text
 
 MAP_SIZE = 4 #64
 
@@ -216,6 +217,8 @@ class Map:
         # print(f'world_map created:\n{self}')
 
     def gen_map(self, map_size, proc=False):
+        if map_size is None:
+            map_size = MAP_SIZE
         self.map_size = map_size
         if isinstance(self.map_size, int):
             self.map_size = (self.map_size, self.map_size)
@@ -236,6 +239,7 @@ class Map:
 
         # self.world_map = pd.DataFrame(self.world_map) # Replace pandas here
         # self.world_map.applymap(lambda d: d.update({'terrain': Tile()})) # Replace pandas here
+        self.save_meta()
         return self.world_map
     
     def map_gen_file(self, infile='data/map.csv'):
@@ -252,35 +256,53 @@ class Map:
         print('map_size:', self.map_size)
         self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         # print('world_map 1:', self.world_map)
+
         print('First cell type:')
         print(map_data[0][0])
         print(type(map_data[0][0]))
         try:
             cell_check = eval(map_data[0][0])
             print('cell_check:', type(cell_check))
-        except NameError:
+        except (NameError, SyntaxError):
             cell_check = map_data[0][0]
         if isinstance(cell_check, dict):
+            print('Is dict')
             self.world_map = self.load(map_data)
             return self.world_map
+
         self.get_terrain_data()
         tiles = {k: v.split('[')[1].split(']')[1] for k, v in TILES.items()}
         inv_tiles = {v: k for k, v in tiles.items()}
         print('Map Legend:', inv_tiles)
+        meta_data = None
         for i, row in map_data.iterrows():
             for j, tile in enumerate(row):
-                if tile in inv_tiles:
-                    terrain_select = inv_tiles[tile]
-                elif tile is np.nan:
-                    print(f'{i}, {j} | nan_tile: {tile} replaced with Grassland.')
-                    terrain_select = 'Grassland' #tile
+                if len(tile) == 1:
+                    if tile in inv_tiles:
+                        terrain_select = inv_tiles[tile]
+                    elif tile is np.nan:
+                        print(f'{i}, {j} | nan_tile: {tile} replaced with Grassland.')
+                        terrain_select = 'Grassland' #tile
+                    else:
+                        print(time_stamp() + f'{i}, {j} | tile: {tile}')
+                        terrain_select = tile
                 else:
-                    print(time_stamp() + f'{i}, {j} | tile: {tile}')
-                    terrain_select = tile
+                    print('tile:', tile)
+                    icon = tile[0]
+                    print('icon:', icon)
+                    if icon in inv_tiles:
+                        terrain_select = inv_tiles[icon]
+                    other_data = tile[1:]
+                    print('other_data:', other_data)
+                    if 'players' in other_data:
+                        meta_data = other_data
+                    # exit()
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
+        self.save_meta(meta_data)
         return self.world_map
 
-    def export_map(self, filename=None, v=True):
+    def export_map(self, filename=None, strip_rich=True, v=True):
+        # Save a csv of just the icon char tiles of the map
         if filename is None:
             filename = input('Enter filename: ')
         if '.csv' not in filename:
@@ -288,12 +310,19 @@ class Map:
         if 'data/' not in filename:
             filename = 'data/' + filename
         print(time_stamp() + 'Export filename: ', filename)
-        df = pd.DataFrame(self.display_map)
+        if v: print('world_map:\n', self.world_map)
+        if v: print('display_map:\n', self.display_map)
+        if strip_rich:
+            plain_display_map = [[Text.from_markup(cell).plain for cell in row] for row in self.display_map]
+        else:
+            plain_display_map = self.display_map
+        if v: print('plain_display_map:\n', plain_display_map)
+        df = pd.DataFrame(plain_display_map)
         if v: print(df)
         df.to_csv(filename, index=False, header=False)
         print(time_stamp() + 'Map exported to:', filename)
     
-    def save_map(self, filename=None, use_json=True, v=False):
+    def save_map(self, filename='save_map01', use_json=True, strip_rich=True, v=False):
         if filename is None:
             filename = input('Enter filename: ')
         if '.csv' not in filename:
@@ -301,16 +330,45 @@ class Map:
         if 'data/' not in filename:
             filename = 'data/' + filename
         print(time_stamp() + 'Save filename: ', filename)
-        if use_json:
-            with open(filename, 'w') as f:
-                json.dump(self.world_map, f, ensure_ascii=False)
+        if v: print('world_map:\n', self.world_map)
+        if v: print('display_map:\n', self.display_map)
+        if strip_rich:
+            plain_display_map = [[Text.from_markup(cell).plain for cell in row] for row in self.display_map]
         else:
-            df = pd.DataFrame(self.world_map)
+            plain_display_map = self.display_map
+        if v: print('plain_display_map:\n', plain_display_map)
+        df = pd.DataFrame(plain_display_map)
+        print(df)
+        for i, row in enumerate(self.world_map):
+            for j, cell in enumerate(row):
+                if cell.get('meta'):
+                    game_data = cell.get('meta')
+                    print('game_data:', game_data)
+                    contents = plain_display_map[i][j]
+                    print('contents:', contents)
+                    print('contents type:', type(contents))
+                    tmp = contents + json.dumps(game_data)
+                    print('tmp:', tmp)
+                    df[i][j] = tmp
+                    # return
+                # if cell.get('Agent'):
+                #     save_tile = {}
+                #     agent = cell.get('Agent')
+                #     if v: print('Agent:', agent)
+                #     if v: print('Agent Type:', type(agent))
+                #     if use_json:
+                #         agent = json.dumps(agent, default=self.custom_json)
+                #         if v: print('Agent 2:', agent)
+                #         if v: print('Agent Type 2:', type(agent))
+                #         self.world_map[i][j]['Agent'] = agent
+                #     else:
+                #         import pickle
+                #         agent = pickle.dumps(agent, pickle.HIGHEST_PROTOCOL)
             if v: print(self.world_map)
             df.to_csv(filename, index=False, header=False)
         print(time_stamp() + 'Map saved to:', filename)
 
-    def load_map(self, filename=None, v=False): # TODO Confirm if this is still needed?
+    def load_map(self, filename='save_map01', v=False):
         print(time_stamp() + 'Loadmap with filename:', filename)
         if filename is None:
             filename = input('Enter filename: ')
@@ -333,6 +391,20 @@ class Map:
         print(time_stamp() + 'Spawning players.')
         self.game.spawn_players()
         print(time_stamp() + 'Spawned players.')
+
+    def save_meta(self, meta_data=None, v=False):
+        if meta_data is None:
+            meta_data = {'meta': {'players': 'single_player', 'game_mode': 'survival', 'turn': self.game.turn, 'cords': CORDS}}
+        else:
+            meta_data = eval(meta_data)
+            # global CORDS
+            # CORDS = meta_data['cords']
+        contents = self.world_map[0][0]
+        meta_data.update(contents)
+        self.world_map[0][0] = meta_data
+        print(self.world_map[0][0])
+        print('Meta data saved.')
+        return meta_data
 
     def set_map_size(self, x=None, y=None):
         print('Current Map Size:', self.map_size)
@@ -490,6 +562,7 @@ class Map:
         cords = cords.upper()
         cords = cords.replace(',', ', ')
         CORDS[name] = cords
+        self.save_meta()
         print(CORDS)
 
     def custom_json(self, obj):
@@ -542,7 +615,7 @@ class Map:
         save_map.to_csv(filename, index=False, header=False)
         print(time_stamp() + f'Game state saved to {filename}.')
 
-    def load(self, map_data, v=True):
+    def load(self, map_data, use_json=True, v=True):
         print(time_stamp() + f'Loading game state.')
         if v: print(map_data)
         for i, row in map_data.iterrows():
@@ -559,11 +632,16 @@ class Map:
                     if v: print('icon_tile:', icon_tile)
                     if v: print('icon_tile type:', type(icon_tile))
                     # load_tile[icon]
-                    tmp = json.loads(icon_tile, object_hook=None)
-                    print(tmp)
-                    print('!!!!!!!!!!')
+                    if use_json:
+                        icon_tile_data = json.loads(icon_tile, object_hook=None)
+                        print(icon_tile_data)
+                        print('!!!!!!!!!!')
+                    else:
+                        icon_tile_data = pickle.loads(env['obj'])
+                    load_tile[icon] = icon_tile_data
+                    print(load_tile[icon])
                     exit()
-                self.world_map[i][j] = save_tile
+                self.world_map[i][j] = load_tile
         print(time_stamp() + f'Game state loaded.')
         return self.world_map
 
@@ -670,6 +748,7 @@ class Player:
         world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
         target_offset = self.moves[key]
         # print('target_offset:', target_offset)
+        # TODO This will give an error at the map edge
         self.target_tile = world_map.display_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]
         self.target_terrain = world_map.world_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]['terrain']
         # print('pos:', self.pos)
@@ -775,9 +854,9 @@ class Player:
         # print('Command is:', command)
         if command[0] == 'exit':
             quit()
-        # elif command == 'map':
+        # elif command[0] == 'map':
         #     print(f'Display current world map:\n{world_map}')
-        #     self.pos = self.old_pos
+        #     # self.pos = self.old_pos
         #     return
         elif command[0] == 'terrain' or command[0] == 'items':
             print('Display terrain item details:\n', world_map.terrain_items)
@@ -814,10 +893,16 @@ class Player:
             world_map.export_map(command[1])
             return
         elif command[0] == 'savemap':
-            world_map.save_map(command[1])
+            world_map.save_map()#command[1])
             return
         elif command[0] == 'loadmap':
-            world_map.load_map(command[1])
+            world_map.load_map()#command[1])
+            return
+        elif command[0] == 'spawn':
+            world_map.game.spawn_players()
+            return
+        elif command[0] == 'mapinitial':
+            print(world_map.world_map[0][0])
             return
         elif command[0] == 'col':
             try:
@@ -1011,6 +1096,7 @@ class CivRPG(App):
 
     def __init__(self, num_players=1, filename=None):
         super().__init__()
+        self.turn = 0
         self.stdout_redirector = None
         self.stdin_redirector = None
         global world_map 
@@ -1031,7 +1117,6 @@ class CivRPG(App):
         # world_map.view_port(self.player.pos)
         self.update_status()#False)
         self.pressed_keys = set()
-        self.turn = 0
         print(f'World Map:\n{world_map}')
 
     def compose(self):
@@ -1154,21 +1239,33 @@ class CivRPG(App):
         self.update_status()
         # self.text_log.write(event.key)
 
-    def spawn_players(self):
+    # self.player = Player(player_name, world_map, str(player_num+1), args.start)
+    def spawn_players(self, v=True):
         for i, row in enumerate(world_map.world_map):
-            for j, tile in enumerate(row):
-                if tile.get('Agent'):
-                    agent = tile.get('Agent')
-                    print('Agent:', agent)
-                    print('Agent Type:', type(agent))
-                    print('Players:', self.players)
-                    print('Players Type:', type(self.players[0]))
+            for j, cell in enumerate(row):
+                if cell.get('Agent'):
+                    agent = cell.get('Agent')
+                    if v: print('Agent:', agent)
+                    if v: print('Agent Type:', type(agent))
+                    if v: print('Players:', self.players)
+                    if v: print('Players first type:', type(self.players[0]))
                     if agent in self.players:
-                        for i, agent in enumerate(self.players):
-                            agent = self.players[i]
+                        for i, player in enumerate(self.players):
+                            if v: print('player type:', type(player))
+                            if v: print('player name:', player.name)
+                            print('agent:', agent)
+                            print('agent type:', type(agent))
+                            if agent is player:
+                                agent = self.players[i]
+                                print('agent type make:', type(agent))
+                            print('agent type2:', type(agent))
                     world_map.world_map[i][j]['Agent'] = agent
+                    print('world_map point:')
+                    print('test:', world_map.world_map[i][j])
+                    print('world_map point end.')
         self.update_viewport()
         self.update_status()
+        print('End spawning players.')
 
 ##########################
 
@@ -1252,6 +1349,7 @@ if __name__ == '__main__':
     if args.seed:
         print(time_stamp() + f'Randomness seed {args.seed}.')
         random.seed(args.seed)
+
     if args.size is not None:
         if not isinstance(args.size, (list, tuple)):
             args.size = [int(x.strip()) for x in args.size.split(',')]
@@ -1263,11 +1361,19 @@ if __name__ == '__main__':
             if isinstance(args.view_size, str):
                 args.view_size = [int(x.strip()) for x in args.view_size.split(',')]
             # print('view_size arg:', args.view_size)
+    
+    if args.map is not None:
+        if args.map == '':
+            args.map = None
+        elif args.map == 'None':
+            args.map = None
 
     if args.start is not None:
         if not isinstance(args.start, (list, tuple)):
             if isinstance(args.start, str):
                 args.start = tuple(int(x.strip()) for x in args.start.split(','))
+                if len(args.start) == 1:
+                    args.start = (args.start[0], args.start[0])
                 # args.start = tuple(x.strip() for x in args.start.split(','))
                 # try:
                 #     args.start = tuple(int(x) for x in args.start)
