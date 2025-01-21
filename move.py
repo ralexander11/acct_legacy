@@ -294,10 +294,15 @@ class Map:
                         terrain_select = inv_tiles[icon]
                     other_data = tile[1:]
                     print('other_data:', other_data)
-                    if 'players' in other_data:
+                    if 'turn' in other_data:
                         meta_data = other_data
-                    # exit()
+                    elif 'player_name' in other_data:
+                        other_data = eval(other_data)
+                        print('other_data:', other_data)
+                        print('pos:', other_data[pos])
+                        args.start = other_data[pos]
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
+        # exit()
         self.save_meta(meta_data)
         return self.world_map
 
@@ -347,20 +352,23 @@ class Map:
                     contents = plain_display_map[i][j]
                     print('contents:', contents)
                     print('contents type:', type(contents))
-                    tmp = contents + json.dumps(game_data)
-                    print('tmp:', tmp)
-                    df[i][j] = tmp
+                    if use_json:
+                        tmp = contents + json.dumps(game_data)
+                        print('tmp:', tmp)
+                        df[i][j] = tmp
                     # return
-                # if cell.get('Agent'):
+                if cell.get('Agent'):
                 #     save_tile = {}
-                #     agent = cell.get('Agent')
+                    player_data = cell.get('Agent')
+                    contents = plain_display_map[i][j]
+                    print('pl contents:', contents)
+                    print('pl contents type:', type(contents))
                 #     if v: print('Agent:', agent)
                 #     if v: print('Agent Type:', type(agent))
-                #     if use_json:
-                #         agent = json.dumps(agent, default=self.custom_json)
-                #         if v: print('Agent 2:', agent)
-                #         if v: print('Agent Type 2:', type(agent))
-                #         self.world_map[i][j]['Agent'] = agent
+                    if use_json:
+                        tmp2 = contents + json.dumps(player_data, default=self.custom_json)
+                        print('pl tmp:', tmp2)
+                        df[i][j] = tmp2
                 #     else:
                 #         import pickle
                 #         agent = pickle.dumps(agent, pickle.HIGHEST_PROTOCOL)
@@ -739,6 +747,8 @@ class Player:
 
     def reset_moves(self):
         self.remain_move = self.movement
+        world_map.game.turn += 1
+        print('turn:', world_map.game.turn)
         print(f'Moves reset to {self.movement} for {self}.')
 
     def change_dir(self, key):
@@ -1099,7 +1109,7 @@ class CivRPG(App):
         self.turn = 0
         self.stdout_redirector = None
         self.stdin_redirector = None
-        global world_map 
+        global world_map
         world_map = Map(self)
         self.players = []
         for player_num in range(num_players):
