@@ -80,6 +80,26 @@ class Accounts:
 				self.items_table_name = items_table_name
 			self.create_items()
 
+	def copy_db(self, db_name=None, dest_file=None, v=False):
+		if v: print('Copying accounting system database.')
+		if db_name is None:
+			cur = self.conn.cursor()
+			cur.execute('PRAGMA database_list')
+			db_path = cur.fetchall()[0][-1]
+			db_name = db_path.rsplit('/', 1)[-1]
+			cur.close()
+			if v: print('DB Name:', db_name)
+		if '/' not in db_name:
+			db_name = 'db/' + db_name
+		if dest_file is None:
+			dest_file = db_name[:-3] + datetime.datetime.today().strftime('_%Y-%m-%d_%H-%M-%S') + '.db'
+		if '/' not in dest_file:
+			dest_file = 'db/' + dest_file
+		if v: print('dest_file:', dest_file)
+		import shutil
+		shutil.copyfile(db_name, dest_file)
+		print(f'Database copied from {db_name} to {dest_file}.')
+
 	def create_accts(self, standard_accts=None):
 		if standard_accts is None:
 			standard_accts = []
@@ -1771,7 +1791,6 @@ class Ledger:
 		self.reversal_entry(txn)
 		self.journal_entry(adjusted_event)
 
-
 	def uncategorize(self, txn=None, debit_acct=None, credit_acct=None):
 		if txn is None:
 			txn = input('Enter the transaction number to uncategorize: ') # TODO Add check to ensure valid transaction number
@@ -1947,6 +1966,55 @@ class Ledger:
 			print('Historical Cost Case | Three for {} {}: {}'.format(qty, item, amount))
 			return amount
 
+	def aggregate_gl(self, v=True):
+		# print('aggregate_gl:')
+		# print(self.gl)
+		gl = self.gl.reset_index()
+		# print('reset gl:')
+		# print(gl)
+		cols = [
+				# 'txn_id',
+				# 'event_id',
+				'entity_id',
+				'cp_id',
+				# 'date',
+				# 'post_date',
+				# 'loc',None
+				# 'description',None
+				'item_id',
+				# 'price',
+				# 'qty',
+				'debit_acct',
+				'credit_acct',
+				# 'amount',14
+		]
+		print('cols:', cols)
+		# TODO store the txn_id somewhere to continue from there - 
+		opening_bals = gl.groupby(cols).agg({'txn_id': 'max', 'event_id': 'max', 'date': 'max', 'post_date': 'max', 'price': 'mean', 'qty': 'sum', 'amount': 'sum'})
+		opening_bals.reset_index(inplace=True)
+		# if v: print('Opening balances:\n', opening_bals)
+		open_bal_event = []
+		for i, bal_txn in opening_bals.iterrows():
+			# if v: print(f'i: {i} bal_txn:')
+			open_bal_entry = [ bal_txn[6], bal_txn[0], bal_txn[1], bal_txn[7], bal_txn[8], '', '', bal_txn[2], bal_txn[9] or '' if bal_txn[9] != 0 else bal_txn[9], bal_txn[10], bal_txn[3], bal_txn[4], bal_txn[11] ]
+			# if v: print('open_bal_entry:\n', open_bal_entry)
+			open_bal_event += [open_bal_entry]
+		if v: print('open_bal_event:\n', open_bal_event)
+		# if v: print('count:', len(open_bal_event))
+		# self.journal_entry(open_bal_event)
+		return open_bal_event
+
+	def roll_over(self, v=True):
+		print('Rolling over GL.')
+		# Check if GL count over 100
+		# If so, make copy of db
+		# Run aggregate
+		# Book opening balances
+		# Delete prior txn
+		# Or try
+		# Clear GL
+		# Then book opening balances
+
 	def latest_date(self, v=True):
 		result = self.gl['date'].max()
 		if v: print('Latest Date:', result)
@@ -1972,6 +2040,11 @@ class Ledger:
 		dur = latest - earliest
 		if v: print('Duration:', dur)
 		return dur
+	
+	def get_gl_count(self, v=True):
+		count = self.gl.shape[0]
+		if v: print('Number of transactions:', count)
+		return count
 
 	def bs_hist(self, dates=None, entities=None, v=True): # TODO Optimize this so it does not recalculate each time
 	# nohup python -u acct.py -db test01.db -c hist >> logs/hist_test01.log 2>&1
@@ -2187,6 +2260,9 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'uncategorize':
 			ledger.uncategorize()
+			if args.command is not None: exit()
+		elif command.lower() == 'aggregate':
+			ledger.aggregate_gl()
 			if args.command is not None: exit()
 		elif command.lower() == 'bs':
 			ledger.print_bs()
