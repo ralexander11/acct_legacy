@@ -2004,8 +2004,16 @@ class Ledger:
 		# self.journal_entry(open_bal_event)
 		return open_bal_event
 
-	def roll_over(self, v=True):
+	def roll_over(self, size=10, v=True):
 		print('Rolling over GL.')
+		gls = self.get_gl_count(v=v)
+		if gls < size:
+			print(f'{gls} is less than {size} transactions required to roll over the db.')
+			return
+		# accts.copy_db(v=v) # TODO Fix this scope
+		rollover_event = self.aggregate_gl(v=v)
+		self.journal_entry(rollover_event)
+		print('GL rolled over.')
 		# Check if GL count over 100
 		# If so, make copy of db
 		# Run aggregate
@@ -2224,6 +2232,9 @@ def main(conn=None, command=None, external=False):
 		elif command.lower() == 'loadgl':
 			ledger.load_gl()
 			if args.command is not None: exit()
+		elif command.lower() == 'rollover':
+			ledger.roll_over(1)
+			if args.command is not None: exit()
 		elif command.lower() == 'accts':
 			accts.print_accts()
 			if args.command is not None: exit()
@@ -2318,6 +2329,9 @@ def main(conn=None, command=None, external=False):
 		elif command.lower() == 'dur':
 			ledger.duration()
 			if args.command is not None: exit()
+		elif command.lower() == 'count':
+			ledger.get_gl_count()
+			if args.command is not None: exit()
 		elif command.lower() == 'util':
 			entity_id = input('Which entitie(s)? ')
 			item = input('Which item or ticker (case sensitive)? ')#.lower()
@@ -2361,13 +2375,15 @@ def main(conn=None, command=None, external=False):
 		elif command.lower() == 'edititem':
 			accts.edit_item()
 			if args.command is not None: exit()
-
 		elif command.lower() == 'db':
 			if args.database is not None:
 				db = args.database
 			else:
 				db = accts.db
 			print('Current database: {}'.format(db))
+		elif command.lower() == 'copydb':
+			accts.copy_db()
+			if args.command is not None: exit()
 		elif command.lower() == 'bal':
 			acct = input('Which account? ').title()
 			tbal_start = time.perf_counter()
