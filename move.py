@@ -228,6 +228,7 @@ class Map:
         self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         # print('world_map 1:', self.world_map)
         self.get_terrain_data()
+        self.load_players = []
         for row in self.world_map:
             for tile in row:
                 if proc:
@@ -275,6 +276,7 @@ class Map:
         inv_tiles = {v: k for k, v in tiles.items()}
         print('Map Legend:', inv_tiles)
         meta_data = None
+        self.load_players = []
         for i, row in map_data.iterrows():
             for j, tile in enumerate(row):
                 if len(tile) == 1:
@@ -297,10 +299,12 @@ class Map:
                     if 'turn' in other_data:
                         meta_data = other_data
                     elif 'player_name' in other_data:
-                        other_data = eval(other_data)
-                        print('other_data:', other_data)
-                        print('pos:', other_data[pos])
-                        args.start = other_data[pos]
+                        print('player_data:', other_data)
+                        player_data = json.loads(other_data, object_hook=None)
+                        # other_data = eval(other_data)
+                        print('player_data load:', player_data)
+                        self.load_players.append(player_data)
+                        # args.start = player_data[pos]
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
         # exit()
         self.save_meta(meta_data)
@@ -527,8 +531,11 @@ class Map:
         print('terrain_items:')
         print(self.terrain_items)
 
-    def edit_terrain(self, y=None, x=None, terrain=None):
+    def edit_terrain(self, terrain=None, y=None, x=None):
+        if terrain is None:
+            terrain = input('Enter terrain: ')
         if y is None:
+            # y = self.target_tile.loc[0] # TODO Need to make this a method of Player class
             y = input('Enter x coord: ')
         try:
             y = int(y)
@@ -536,14 +543,13 @@ class Map:
             print('Enter whole numbers only, try again.')
             return
         if x is None:
+            # y = self.target_tile.loc[1] # TODO Need to make this a method of Player class
             x = input('Enter x coord: ')
         try:
             x = int(x)
         except ValueError:
             print('Enter whole numbers only, try again.')
             return
-        if terrain is None:
-            terrain = input('Enter terrain: ')
         pos = (int(y), int(x))
         terrain = terrain.title()
         tile = self.world_map[pos[0]][pos[1]]
@@ -643,7 +649,6 @@ class Map:
                     if use_json:
                         icon_tile_data = json.loads(icon_tile, object_hook=None)
                         print(icon_tile_data)
-                        print('!!!!!!!!!!')
                     else:
                         icon_tile_data = pickle.loads(env['obj'])
                     load_tile[icon] = icon_tile_data
@@ -721,29 +726,32 @@ class Tile:
         # return self.terrain
 
 class Player:
-    def __init__(self, name, world_map, icon='P', start=None, v=False):
-        self.name = name
-        self.world_map = world_map
-        self.icon = icon#'[blink]' + icon + '[/blink]'
-        if v: print(f'{self} icon: {self.icon}')
-        # self.pos = (0, int(icon)-1) # Start position at top left
-        if start is None:
-            self.pos = (int(round(self.world_map.map_size[0]/2, 0)), int(round(self.world_map.map_size[1]/2, 0)+int(icon)-1)) # Start position near middle
+    def __init__(self, player_name, world_map, icon='P', start=None, dictionary=None, v=False):
+        if dictionary is not None:
+            self.__dict__.update(dictionary)
         else:
-            start = (start[0], start[1] + (int(icon)-1))
-            self.pos = start
-        if v: print(f'{self} start pos: {self.pos}')
-        self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
-        self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
-        self.world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
-        self.world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
-        self.target_tile = world_map.display_map[self.pos[0]+1][self.pos[1]]
-        self.target_terrain = world_map.world_map[self.pos[0]+1][self.pos[1]]['terrain']
-        # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
-        self.movement = 5
-        self.remain_move = self.movement
-        self.moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-        self.boat = False
+            self.player_name = player_name
+            self.world_map = world_map
+            self.icon = icon#'[blink]' + icon + '[/blink]'
+            if v: print(f'{self} icon: {self.icon}')
+            # self.pos = (0, int(icon)-1) # Start position at top left
+            if start is None:
+                self.pos = (int(round(self.world_map.map_size[0]/2, 0)), int(round(self.world_map.map_size[1]/2, 0)+int(icon)-1)) # Start position near middle
+            else:
+                start = (start[0], start[1] + (int(icon)-1))
+                self.pos = start
+            if v: print(f'{self} start pos: {self.pos}')
+            self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
+            self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
+            self.world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
+            self.world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
+            self.target_tile = world_map.display_map[self.pos[0]+1][self.pos[1]]
+            self.target_terrain = world_map.world_map[self.pos[0]+1][self.pos[1]]['terrain']
+            # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
+            self.movement = 5
+            self.remain_move = self.movement
+            self.moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
+            self.boat = False
 
     def reset_moves(self):
         self.remain_move = self.movement
@@ -771,7 +779,7 @@ class Player:
         else:
             print(f'{self} teleported.')
         # self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
-        print(f'{self.name} position: {self.pos} on {self.current_tile} | Moves: {self.remain_move} / {self.movement} | {self.current_terrain}')# | Test01\rTest02')
+        print(f'{self.player_name} position: {self.pos} on {self.current_tile} | Moves: {self.remain_move} / {self.movement} | {self.current_terrain}')# | Test01\rTest02')
         # if self.get_command() is None: # TODO This isn't very clear
         #     return
         self.pos = (self.pos[0] + dy, self.pos[1] + dx)
@@ -788,7 +796,7 @@ class Player:
             self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
             world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
             del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
-            # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.name # Replace pandas here
+            # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
             # del world_map.world_map.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
         except (IndexError, KeyError) as e: # TODO Is this check still needed?
             print('Out of bounds, try again.')
@@ -908,7 +916,7 @@ class Player:
         elif command[0] == 'loadmap':
             world_map.load_map()#command[1])
             return
-        elif command[0] == 'spawn':
+        elif command[0] == 'spawn': # Old
             world_map.game.spawn_players()
             return
         elif command[0] == 'mapinitial':
@@ -989,11 +997,11 @@ class Player:
         return player_data
 
     def __str__(self):
-        return self.name
+        return self.player_name
 
     def __repr__(self):
-        return f"'{self.name}'"
-        # return self.name
+        return f"'{self.player_name}'"
+        # return self.player_name
 
 
 class StdoutRedirector:
@@ -1060,11 +1068,11 @@ class StatusBar(Container):#Static
     #     self.player = player
     
     # def on_mount(self):
-    #     status = f'{self.player.name} position: {self.player.pos} on {self.player.current_tile} | Moves: {self.player.remain_move} / {self.player.movement} | {self.player.current_terrain}'
+    #     status = f'{self.player.player_name} position: {self.player.pos} on {self.player.current_tile} | Moves: {self.player.remain_move} / {self.player.movement} | {self.player.current_terrain}'
     #     self.update(status)
 
     # def on_key(self):
-    #     status = f'{self.player.name} position: {self.player.pos} on {self.player.current_tile} | Moves: {self.player.remain_move} / {self.player.movement} | {self.player.current_terrain}'
+    #     status = f'{self.player.player_name} position: {self.player.pos} on {self.player.current_tile} | Moves: {self.player.remain_move} / {self.player.movement} | {self.player.current_terrain}'
     #     self.update(status)
 
 class CivRPG(App):
@@ -1112,10 +1120,18 @@ class CivRPG(App):
         global world_map
         world_map = Map(self)
         self.players = []
-        for player_num in range(num_players):
-            player_name = 'Player ' + str(player_num+1)
-            self.player = Player(player_name, world_map, str(player_num+1), args.start)
-            self.players.append(self.player)
+        if not world_map.load_players:
+            for player_num in range(num_players):
+                player_name = 'Player ' + str(player_num+1)
+                self.player = Player(player_name, world_map, str(player_num+1), args.start)
+                self.players.append(self.player)
+        else:
+            for player_data in world_map.load_players:
+                print('player_data:', player_data)
+                print('exit loading player')
+                exit()
+                self.player = Player('', world_map, dictionary=player_data)
+                self.players.append(self.player)
         print(f'Players:\n{self.players}')
         # self.viewport = reactive('')
         # self.viewport = Static(self.viewport)
@@ -1123,7 +1139,7 @@ class CivRPG(App):
         self.status_bar = Static('')
         console = Console()
         print(f'Console Size:', console.size)
-        world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1])
+        world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1]) # TODO This will center on the last player to load
         # world_map.view_port(self.player.pos)
         self.update_status()#False)
         self.pressed_keys = set()
@@ -1168,7 +1184,7 @@ class CivRPG(App):
         # if check: # TODO Find a better solution for the initial update
         #     print('Status update allowed 01.')
         #     self.stdout_redirector.set_widget_update(True) # Start widget update
-        status = f'[green]{self.player.name} position: [/green][cyan]{self.player.pos}[/cyan][green] faces [/green]{self.player.target_tile}[green] on: [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.target_terrain} | on: {self.player.current_terrain}[/green]'
+        status = f'[green]{self.player.player_name} position: [/green][cyan]{self.player.pos}[/cyan][green] faces [/green]{self.player.target_tile}[green] on: [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.target_terrain} | on: {self.player.current_terrain}[/green]'
         self.status_bar.update(status)#await
         self.refresh()
         # time.sleep(0.5)
@@ -1262,7 +1278,7 @@ class CivRPG(App):
                     if agent in self.players:
                         for i, player in enumerate(self.players):
                             if v: print('player type:', type(player))
-                            if v: print('player name:', player.name)
+                            if v: print('player name:', player.player_name)
                             print('agent:', agent)
                             print('agent type:', type(agent))
                             if agent is player:

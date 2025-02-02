@@ -2038,6 +2038,17 @@ class Ledger:
 		if v: print('Latest Item:', result)
 		return result
 
+	def count_days(self, v=True):
+		earliest = self.gl['date'].min()
+		if v: print('Earliest Date:', earliest)
+		earliest = datetime.datetime.strptime(earliest, '%Y-%m-%d')
+		latest = self.gl['date'].max()
+		if v: print('Latest Date:  ', latest)
+		latest = datetime.datetime.strptime(latest, '%Y-%m-%d')
+		day_count = latest - earliest
+		if v: print('Number of Days:', day_count.days)
+		return day_count
+
 	def duration(self, v=True):
 		earliest = self.gl['post_date'].min()
 		if v: print('Earliest:', earliest)
@@ -2047,6 +2058,7 @@ class Ledger:
 		latest = datetime.datetime.strptime(latest, '%Y-%m-%d %H:%M:%S.%f')
 		dur = latest - earliest
 		if v: print('Duration:', dur)
+		# if v: print('Duration Days:', dur.days)
 		return dur
 	
 	def get_gl_count(self, v=True):
@@ -2329,6 +2341,9 @@ def main(conn=None, command=None, external=False):
 		elif command.lower() == 'dur':
 			ledger.duration()
 			if args.command is not None: exit()
+		elif command.lower() == 'countdays':
+			ledger.count_days()
+			if args.command is not None: exit()
 		elif command.lower() == 'count':
 			ledger.get_gl_count()
 			if args.command is not None: exit()
@@ -2435,9 +2450,9 @@ def main(conn=None, command=None, external=False):
 				'starttxn': 'Set the start date to view the Income Statement from.',
 				'util': 'Filter and export the General Ledger to csv with some analysis columns added.',
 				'exportgl': 'Export the General Ledger to csv.',
-				'importgl': 'Import the General Ledger from csv.',#'Also supports loading trasnactions from RBC online banking and a legacy account system.',
+				'loadgl': 'Import the General Ledger from csv.',#'Also supports loading trasnactions from RBC online banking and a legacy account system.',
 				'exportaccts': 'Export the Chart of Accounts to csv.',
-				'importaccts': 'Import the Chart of Accounts from csv.',
+				'loadaccts': 'Import the Chart of Accounts from csv.',
 				'table': 'Display any table in the database given its name.',
 				'exit': 'Exit out of the program.'
 			}
