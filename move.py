@@ -243,7 +243,7 @@ class Map:
         self.save_meta()
         return self.world_map
     
-    def map_gen_file(self, infile='data/map.csv'):
+    def map_gen_file(self, infile='data/map.csv', v=False):
         if args.map is not None:
             infile = args.map
             if '.csv' not in infile:
@@ -288,22 +288,23 @@ class Map:
                     else:
                         print(time_stamp() + f'{i}, {j} | tile: {tile}')
                         terrain_select = tile
+                    if v: print(f'{i}, {j} | terrain_select 1:', terrain_select)
                 else:
-                    print('tile:', tile)
+                    if v: print('tile:', tile)
                     icon = tile[0]
-                    print('icon:', icon)
+                    if v: print('icon:', icon)
                     if icon in inv_tiles:
                         terrain_select = inv_tiles[icon]
+                    if v: print(f'{i}, {j}terrain_select 2:', terrain_select)
                     other_data = tile[1:]
-                    print('other_data:', other_data)
+                    if v: print('other_data:', other_data)
                     if 'turn' in other_data:
                         meta_data = other_data
-                        print('meta_data load:', meta_data)
+                        if v: print('meta_data load:', meta_data)
                     elif 'player_name' in other_data:
-                        print('player_data:', other_data)
+                        if v: print('player_data:', other_data)
                         player_data = json.loads(other_data, object_hook=None)
-                        # other_data = eval(other_data)
-                        print('player_data load:', player_data)
+                        if v: print('player_data load:', player_data)
                         self.load_players.append(player_data)
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
         self.save_meta(meta_data)
@@ -346,36 +347,30 @@ class Map:
             plain_display_map = self.display_map
         if v: print('plain_display_map:\n', plain_display_map)
         df = pd.DataFrame(plain_display_map)
-        print(df)
+        if v: print(df)
         for i, row in enumerate(self.world_map):
             for j, cell in enumerate(row):
                 if cell.get('meta'):
                     game_data = cell.get('meta')
                     game_data = {'meta': game_data}
-                    print('game_data:', game_data)
                     contents = plain_display_map[i][j]
-                    print('contents:', contents)
-                    print('contents type:', type(contents))
+                    if v: print(f'{i}, {j} | meta contents: {contents}')
+                    if v: print(f'{i}, {j} | meta contents type: {type(contents)}')
                     if use_json:
                         meta_data = contents + json.dumps(game_data)
-                        print('meta_data:', meta_data)
-                        df[i][j] = meta_data
-                    # return
+                        if v: print('meta_data:', meta_data)
+                        df[j][i] = meta_data
                 if cell.get('Agent'):
-                #     save_tile = {}
                     player_data = cell.get('Agent')
                     contents = player_data.current_terrain.icon
                     contents = Text.from_markup(contents).plain
                     player_data = {'Agent': player_data}
-                    # contents = plain_display_map[i][j]
-                    print('player contents:', contents)
-                    print('player contents type:', type(contents))
-                #     if v: print('Agent:', agent)
-                #     if v: print('Agent Type:', type(agent))
+                    if v: print(f'{i}, {j} | player contents: {contents}')
+                    if v: print(f'{i}, {j} | player contents type: {type(contents)}')
                     if use_json:
                         agent_data = contents + json.dumps(player_data, default=self.custom_json)
-                        print('player agent_data:', agent_data)
-                        df[i][j] = agent_data
+                        if v: print('player agent_data:', agent_data)
+                        df[j][i] = agent_data
                 #     else:
                 #         import pickle
                 #         agent = pickle.dumps(agent, pickle.HIGHEST_PROTOCOL)
@@ -412,14 +407,10 @@ class Map:
             meta_data = {'meta': {'players': 'single_player', 'game_mode': 'survival', 'turn': self.game.turn, 'cords': CORDS}}
         else:
             meta_data = eval(meta_data)
-            print('save meta_data:\n', meta_data)
-            # global CORDS
-            # CORDS = meta_data['cords']
         contents = self.world_map[0][0]
-        print('existing content:', contents)
         meta_data.update(contents)
         self.world_map[0][0] = meta_data
-        print(self.world_map[0][0])
+        if v: print(self.world_map[0][0])
         print('Meta data saved.')
         return meta_data
 
@@ -736,9 +727,7 @@ class Player:
         if dictionary is not None:
             self.world_map = world_map
             # self.player_name = player_name
-            # print('player_name 01:', self.player_name)
             self.__dict__.update(dictionary)
-            print('player_name 02:', self.player_name)
         else:
             self.player_name = player_name
             self.world_map = world_map
@@ -754,7 +743,6 @@ class Player:
             self.remain_move = self.movement
             self.moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
             self.boat = False
-        print(self.__dict__)
         print(f'{self} start pos: {self.pos}')
         self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
         self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
@@ -801,8 +789,6 @@ class Player:
             self.pos = self.old_pos
             return
         try:
-            print('old_pos:', self.old_pos)
-            print('pos:', self.pos)
             world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
             world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.current_tile
             self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
@@ -1141,9 +1127,8 @@ class CivRPG(App):
                 self.players.append(self.player)
         else:
             for player_data in world_map.load_players:
-                print('player_data:', player_data)
-                print('player_data agent:', player_data['Agent'])
-                print('exit loading player')
+                # print('player_data:', player_data)
+                # print('player_data agent:', player_data['Agent'])
                 player_name = player_data['Agent']['player_name']
                 self.player = Player(player_name, world_map, dictionary=player_data['Agent'])
                 self.players.append(self.player)
