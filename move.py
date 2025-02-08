@@ -850,7 +850,7 @@ class Player:
                 print('Set to Boat.', self.pos)
                 # Change tile to Boat using edit function
                 # world_map.display_map[self.pos[0]][self.pos[1]] = self.boat_tile#Tile('Boat', world_map.terrain_items)
-                world_map.edit_terrain(self.pos[0], self.pos[1], 'Boat')
+                world_map.edit_terrain('Boat', self.pos[0], self.pos[1])
             self.boat = not self.boat
             # Change tile to Ocean using edit function
             if self.boat:
@@ -858,7 +858,7 @@ class Player:
                 self.boat_tile = self.current_tile
                 print('boat_tile:', self.boat_tile)
                 # world_map.display_map[self.pos[0]][self.pos[1]] = world_map.display_map[0][0]#Tile('Ocean', world_map.terrain_items)
-                world_map.edit_terrain(self.pos[0], self.pos[1], 'Ocean')
+                world_map.edit_terrain('Ocean', self.pos[0], self.pos[1])
             print('boat:', self.boat)
         print('boat out:', self.boat)
 
