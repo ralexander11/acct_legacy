@@ -438,7 +438,7 @@ class Map:
         self.map_size = new_map_size
         self.update_display_map()
 
-    def set_view_size(self, pos, x=None, y=None):
+    def set_view_size(self, pos, x=None, y=None, man=False):
         print('Current Map View:', self.map_view)
         if y is None:
             y = input('Enter y new size (75): ')
@@ -452,13 +452,16 @@ class Map:
             y = x
         new_view_size = (int(y), int(x))
         print('New Map view:', new_view_size)
-        if args.view_size is not None:
-            args.view_size = new_view_size
+        if args.view_size is not None and not man:
+            print('Reset view_size from:', args.view_size)
+            args.view_size = None
         self.view_port(pos, new_view_size)
 
     def view_port(self, pos, map_view=None): # TODO Optimize this
         if map_view is None and args.view_size is not None:
+            # print('map view arg:', args.view_size)
             map_view = args.view_size
+            # print('use map view arg:', map_view)
         self.map_view = map_view
         # print('self.map_view:', self.map_view)
         # if isinstance(self.map_view, int):
@@ -785,7 +788,7 @@ class Player:
         if self.is_occupied(self.pos):
             self.pos = self.old_pos
             return
-        if not self.calc_move(self.pos):
+        if not self.calc_move(self.pos) and not teleport:
             self.pos = self.old_pos
             return
         try:
@@ -842,10 +845,10 @@ class Player:
         else:
             print(f'Costs {target_terrain.move_cost} movement to enter {target_terrain} ({target_terrain.icon}) tile. Movement remaining: {self.remain_move}/{self.movement}')
 
-    def mount(self):
-        print('mount current_tile:', self.current_terrain.terrain)
-        print('boat before:', self.boat)
-        if self.current_terrain.terrain == 'Boat' or self.boat: #451, 279
+    def mount(self, v=False):
+        print('Mount target tile:', self.target_terrain.terrain)
+        print('Boat before:', self.boat)
+        if self.current_terrain.terrain == 'Boat' or self.boat: #451, 279 #self.target_terrain.terrain == 'Boat' or 
             if self.boat:
                 print('Set to Boat.', self.pos)
                 # Change tile to Boat using edit function
@@ -854,13 +857,17 @@ class Player:
             self.boat = not self.boat
             # Change tile to Ocean using edit function
             if self.boat:
+                # print('Target set to Ocean.', self.target_terrain.loc)
+                # print('self.pos:', self.pos)
                 print('Set to Ocean.', self.pos)
                 self.boat_tile = self.current_tile
-                print('boat_tile:', self.boat_tile)
-                # world_map.display_map[self.pos[0]][self.pos[1]] = world_map.display_map[0][0]#Tile('Ocean', world_map.terrain_items)
+                if v: print('boat_tile:', self.boat_tile)
+                # if self.target_terrain.terrain == 'Boat':
+                #     self.pos = self.target_terrain.loc
+                #     self.move(0, 0, teleport=True)
                 world_map.edit_terrain('Ocean', self.pos[0], self.pos[1])
-            print('boat:', self.boat)
-        print('boat out:', self.boat)
+            if v: print('boat:', self.boat)
+        if v: print('boat out:', self.boat)
 
     def get_command(self, command=None):
         # print('\nEnter "exit" to exit.')#\033[F #\r
@@ -892,7 +899,7 @@ class Player:
             # self.pos = self.old_pos
             return
         elif command[0] == 'v' or command[0] == 'view': # Update input
-            world_map.set_view_size(self.pos, command[1], command[2])
+            world_map.set_view_size(self.pos, command[1], command[2], True)
             # self.pos = self.old_pos
             return
         elif command[0] == 'edit': # Update input
@@ -1137,9 +1144,10 @@ class CivRPG(App):
         # self.viewport = Static(self.viewport)
         self.viewport = Static('')
         self.status_bar = Static('')
-        console = Console()
-        print(f'Console Size:', console.size)
-        world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1]) # TODO This will center on the last player to load
+        if args.view_size is None:
+            console = Console()
+            print(f'Console Size:', console.size)
+            world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1]) # TODO This will center on the last player to load
         # world_map.view_port(self.player.pos)
         self.update_status()#False)
         self.pressed_keys = set()
@@ -1184,7 +1192,8 @@ class CivRPG(App):
         # if check: # TODO Find a better solution for the initial update
         #     print('Status update allowed 01.')
         #     self.stdout_redirector.set_widget_update(True) # Start widget update
-        status = f'[green]{self.player.player_name} position: [/green][cyan]{self.player.pos}[/cyan][green] faces [/green]{self.player.target_tile}[green] on: [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.target_terrain} | on: {self.player.current_terrain}[/green]'
+        status = f'[green]{self.player.player_name} pos: [/green][cyan]{self.player.pos}[/cyan][green] moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] faces: [/green]{self.player.target_tile}[green] {self.player.target_terrain} on: [/green]{self.player.current_tile}[green] {self.player.current_terrain}[/green]'
+        # status = f'[green]{self.player.player_name} pos: [/green][cyan]{self.player.pos}[/cyan][green] faces [/green]{self.player.target_tile}[green] on: [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.target_terrain} | on: {self.player.current_terrain}[/green]'
         self.status_bar.update(status)#await
         self.refresh()
         # time.sleep(0.5)
@@ -1368,7 +1377,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--seed', type=str, default=11, help='Set the seed for the randomness.')
     parser.add_argument('-m', '--map', type=str, default='map.csv', help='The name of the map csv data file.')
     parser.add_argument('-p', '--players', type=int, default=1, help='The number of players in the world.')
-    parser.add_argument('-vs', '--view_size', type=str, default='21, 33', help='The size of the view of the world.')
+    parser.add_argument('-vs', '--view_size', type=str, help='The size of the view of the world. E.g. "21, 33"')
     parser.add_argument('-z', '--size', type=str, help='The map size as either a list of two numbers or one for square.')
     args = parser.parse_args()
 
@@ -1382,11 +1391,11 @@ if __name__ == '__main__':
             MAP_SIZE = args.size
             print('MAP_SIZE:', MAP_SIZE)
 
-    if args.view_size is not None:
+    if args.view_size is not None: # '21, 33'
         if not isinstance(args.view_size, (list, tuple)):
             if isinstance(args.view_size, str):
-                args.view_size = [int(x.strip()) for x in args.view_size.split(',')]
-            # print('view_size arg:', args.view_size)
+                args.view_size = tuple([int(x.strip()) for x in args.view_size.split(',')])
+            print('start view_size arg:', args.view_size)
     
     if args.map is not None:
         if args.map == '':
