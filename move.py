@@ -452,9 +452,9 @@ class Map:
             y = x
         new_view_size = (int(y), int(x))
         print('New Map view:', new_view_size)
-        if args.view_size is not None and not man:
-            print('Reset view_size from:', args.view_size)
-            args.view_size = None
+        if args.view_size is not None:# and not man:
+            print(f'Changed view_size from: {args.view_size} to {new_view_size}.')
+            args.view_size = new_view_size
         self.view_port(pos, new_view_size)
 
     def view_port(self, pos, map_view=None): # TODO Optimize this
@@ -462,6 +462,11 @@ class Map:
             # print('map view arg:', args.view_size)
             map_view = args.view_size
             # print('use map view arg:', map_view)
+        elif map_view is None:
+            console = Console()
+            # print(f'Console Size:', console.size)
+            map_view = ((int(console.size[0]//2)-1), int(console.size[1]))
+            # print('Console map view:', map_view)
         self.map_view = map_view
         # print('self.map_view:', self.map_view)
         # if isinstance(self.map_view, int):
@@ -898,7 +903,7 @@ class Player:
             world_map.set_map_size(command[1], command[2])
             # self.pos = self.old_pos
             return
-        elif command[0] == 'v' or command[0] == 'view': # Update input
+        elif command[0] == 'v' or command[0] == 'view' or command[0] == 'viewsize': # Update input
             world_map.set_view_size(self.pos, command[1], command[2], True)
             # self.pos = self.old_pos
             return
@@ -1395,7 +1400,9 @@ if __name__ == '__main__':
         if not isinstance(args.view_size, (list, tuple)):
             if isinstance(args.view_size, str):
                 args.view_size = tuple([int(x.strip()) for x in args.view_size.split(',')])
-            print('start view_size arg:', args.view_size)
+        if len(args.view_size) == 1:
+            args.view_size = (args.view_size[0], args.view_size[0])
+        print('Starting view_size arg:', args.view_size)
     
     if args.map is not None:
         if args.map == '':
