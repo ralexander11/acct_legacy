@@ -2459,6 +2459,40 @@ def main(conn=None, command=None, external=False):
 			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
+		elif command.lower() == 'more2' or command.lower() == 'acctmore2':
+			commands = {
+				'rollover': '',
+				'dupes': '',
+				'del': '',
+				'aggregate': '',
+				'inv': '',
+				'invhist': '',
+				'hist': '',
+				'latestdate': '',
+				'oldestdate': '',
+				'latestitem': '',
+				'dur': '',
+				'count': '',
+				'entities': '',
+				'countentities': '',
+				'items': '',
+				'addentity': '',
+				'additem': '',
+				'removeitem': '',
+				'loadentities': '',
+				'loaditems': '',
+				'tables': '',
+				'exporttable': '',
+				'edititem': '',
+				'db': '',
+				'copydb': '',
+				'bal': '',
+				'histcost': '',
+				'width': '',
+			}
+			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
+			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
+				print(cmd_table)
 		elif command.lower() == 'exit' or args.command is not None:
 			exit()
 		else:

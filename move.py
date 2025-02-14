@@ -670,6 +670,12 @@ class Map:
             # return
             # prompt = self.game.query_one('#prompt')
             # letters = prompt.value
+        try:
+            col_pos = int(letters)
+            # print(f'{letters} is column {col_pos}.')
+            return col_pos
+        except ValueError:
+            pass
         letters = letters.upper()
         if len(letters) == 1:
             col_pos = ord(letters[:1])-64
@@ -922,6 +928,7 @@ class Player:
             world_map.export_map(command[1])
             return
         elif command[0] == 'savemap':
+            # TODO If command[1] does not exist, use a default name
             world_map.save_map()#command[1])
             return
         elif command[0] == 'loadmap':
@@ -995,6 +1002,29 @@ class Player:
             except IndexError:
                 world_map.save()
             return
+        elif command[0] == 'help' or command[0] == 'movehelp':
+            commands = {
+                'exit': 'Exit the program.',
+                'terrain': 'Display the different types of terrains and their stats.',
+                'next': 'Next turn.',
+                'size': 'Change the size of the map. [row, col]',
+                'view': 'Change the display view of the map. [row, col]',
+                'edit': 'Edit the terrain at a specific location. [terrain, row, col]',
+                'export': 'Export just the tiles of the map. [name]',
+                'exportmap': 'Export just the tiles of the map. [name]',
+                'save': 'Old slow method of saving the map.',
+                'loadmap': 'Old method to load the map from a saved file.',
+                'spawn': 'Old method of spawning players on a loaded map.', # Old
+                'mapinitial': 'Show the meta data of the game.',
+                'col': 'Convert letter columns to numbers. [letters]',
+                'cords': 'Display a list of location coordinates.',
+                'addcords': 'Add cordinates to the cords list. [name, "row, col"]',
+                'tp': 'Teleport the player to a location. [row, col]',
+                'savemap': 'Save the map to file.',
+            }
+            cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
+            with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
+                print(cmd_table)
         else:
             print('Not a valid command, please try again.')
             # self.pos = self.old_pos
