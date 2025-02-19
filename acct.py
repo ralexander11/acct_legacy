@@ -877,21 +877,21 @@ class Ledger:
 		self.refresh_ledger()
 		return net_asset_value # TODO This func is slow
 
-#Option 1 (will be below):
-# Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
-# Liab   - Credit bal - Neg : Dr. = pos & Cr. = neg
-# =
-# Equity - Credit bal - Pos : Dr. = neg & Cr. = pos
-# Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
-# Exp    - Debit  bal - Neg : Dr. = neg & Cr. = pos
+		#Option 1 (will be below):
+		# Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
+		# Liab   - Credit bal - Neg : Dr. = pos & Cr. = neg
+		# =
+		# Equity - Credit bal - Pos : Dr. = neg & Cr. = pos
+		# Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
+		# Exp    - Debit  bal - Neg : Dr. = neg & Cr. = pos
 
-#Option 2 (above):
-# Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
-# Liab   - Credit bal - Pos : Dr. = neg & Cr. = pos
-# =
-# Equity - Credit bal - Pos : Dr. = neg & Cr. = pos
-# Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
-# Exp    - Debit  bal - Pos : Dr. = pos & Cr. = neg
+		#Option 2 (above):
+		# Asset  - Debit  bal - Pos : Dr. = pos & Cr. = neg
+		# Liab   - Credit bal - Pos : Dr. = neg & Cr. = pos
+		# =
+		# Equity - Credit bal - Pos : Dr. = neg & Cr. = pos
+		# Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
+		# Exp    - Debit  bal - Pos : Dr. = pos & Cr. = neg
 
 	def balance_sheet(self, accounts=None, item=None, gl=None, v=False): # TODO Needs to be optimized with:
 		# t1_start = time.perf_counter()
@@ -2198,6 +2198,17 @@ class Ledger:
 			print('{} data saved to: {}'.format('inv_hist', save_location + outfile))
 		return hist_inv
 
+
+def create_accounts(conn=None, standard_accts=None, entities_table_name=None, items_table_name=None):
+	print('Accounts object created.')
+	return Accounts(conn, standard_accts, entities_table_name, items_table_name)
+
+def create_ledger(accts=None, conn=None, ledger_name=None, entity=None, date=None, start_date=None, txn=None, start_txn=None):
+	if accts is None:
+		accts = create_accounts(conn)
+	print('Ledger object created.')
+	return Ledger(accts, ledger_name, entity, date, start_date, txn, start_txn)
+
 def main(conn=None, command=None, external=False):
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
@@ -2226,8 +2237,10 @@ def main(conn=None, command=None, external=False):
 
 	if args.database is not None:
 		conn = args.database
-	accts = Accounts(conn=conn)
-	ledger = Ledger(accts, ledger_name=args.ledger, entity=args.entity)
+	# accts = Accounts(conn=conn)
+	# ledger = Ledger(accts, ledger_name=args.ledger, entity=args.entity)
+	accts = create_accounts(conn=conn)
+	ledger = create_ledger(accts, ledger_name=args.ledger, entity=args.entity)
 	if command is None:
 		command = args.command
 
