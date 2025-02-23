@@ -236,7 +236,7 @@ class World:
 				if args.jones:
 					# Get list of businesses from items data
 					self.businesses = []
-					for index, producers in self.items['producer'].iteritems():
+					for index, producers in self.items['producer'].items():#.iteritems():
 						if producers is not None:
 							if isinstance(producers, str):
 								producers = [x.strip() for x in producers.split(',')]
@@ -669,7 +669,7 @@ class World:
 				END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
 			win_conditions = win_conditions.reset_index()
 			print(f'Win Conditions:\n{win_conditions}\n')
-			for _, win_value in win_conditions['Value'].iteritems():
+			for _, win_value in win_conditions['Value'].items():#.iteritems():
 				if win_value:
 					args.win = True
 			if not new_db and not args.reset:
@@ -890,7 +890,7 @@ class World:
 		}
 		win_conditions = pd.DataFrame(win_conditions.items(), columns=['Win Condition', 'Value'])
 		print(f'Final Win Conditions:\n{win_conditions}\n')
-		for _, win_value in win_conditions['Value'].iteritems():
+		for _, win_value in win_conditions['Value'].items():#.iteritems():
 			if win_value:
 				args.win = True
 		return win_conditions
@@ -1041,7 +1041,7 @@ class World:
 			return False
 		ticker = ticker.title()
 		tickers = []
-		for index, producers in self.items['producer'].iteritems():
+		for index, producers in self.items['producer'].items():#.iteritems():
 			if producers is not None:
 				if isinstance(producers, str):
 					producers = [x.strip() for x in producers.split(',')]
@@ -1185,7 +1185,8 @@ class World:
 			else:
 				cur_price = self.get_price(item)
 			new_price = pd.DataFrame({'entity_id': [entity_id], 'item_id': [item],'price': [cur_price]}).set_index('item_id')
-			self.prices = self.prices.append(new_price)
+			# self.prices = self.prices.append(new_price)
+			self.prices = pd.concat([self.prices, new_price])
 			# print('After appending: \n{}'.format(new_price))
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print(self.prices)
@@ -1219,7 +1220,7 @@ class World:
 	def create_needs(self):
 		global_needs = []
 		print(self.items['satisfies'])
-		for _, item_satifies in self.items['satisfies'].iteritems():
+		for _, item_satifies in self.items['satisfies'].items():#.iteritems():
 			if item_satifies is None:
 				continue
 			item_needs = [x.strip() for x in item_satifies.split(',')]
@@ -1902,7 +1903,9 @@ class Entity:
 			#print('Error Catch: {} | {}'.format(e, repr(e)))
 			new_row = pd.DataFrame({'entity_id': self.entity_id, 'price': INIT_PRICE}, [item])#.set_index('item_id')
 			#print('New Row: \n{}'.format(new_row))
-			entity_prices = entity_prices.append(new_row)
+			# entity_prices = entity_prices.append(new_row)
+			entity_prices = pd.concat([entity_prices, new_row])
+
 		#print('Entity Prices Mid: \n{}'.format(entity_prices))
 		entity_prices.at[item, 'price'] = price
 		#print('Entity Prices After: \n{}'.format(entity_prices))
@@ -2915,7 +2918,8 @@ class Entity:
 					if entries:
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl.loc[self.ledger.gl['entity_id'] == self.entity_id]
 				else:
 					modifier = 0
@@ -2958,7 +2962,8 @@ class Entity:
 					if entries:
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl.loc[self.ledger.gl['entity_id'] == self.entity_id]
 				else:
 					modifier = 0
@@ -2994,7 +2999,8 @@ class Entity:
 						if result and buffer:
 							for entry in result:
 								entry_df = pd.DataFrame([entry], columns=world.cols)
-								self.ledger.gl = self.ledger.gl.append(entry_df)
+								# self.ledger.gl = self.ledger.gl.append(entry_df)
+								self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 							self.gl_tmp = self.ledger.gl
 							# print('Tmp GL Land 2: \n{}'.format(self.gl_tmp.tail()))
 					else:
@@ -3003,7 +3009,8 @@ class Entity:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
 						test_gl_tmp = self.gl_tmp.loc[self.gl_tmp['post_date'].isna()] # TODO This works
 						# print('Test Post Date Filter: \n{}'.format(self.gl_tmp))
-						self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
 						# print('Tmp GL Land 3: \n{}'.format(self.gl_tmp.tail()))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 					else:
@@ -3024,7 +3031,8 @@ class Entity:
 				if max_qty_possible == 0: # TODO Handle in similar way for commodities and other item types?
 					incomplete = True
 				print('Land Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty)) # TODO Show the max possible above qty requested
-				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':land, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':land, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[land], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				# if (reqs == 'hold_req' or time_required):# and not incomplete: # TODO Test is "not incomplete" is still needed here
 				# TODO Handle land in use during one tick
 				# qty_needed = req_qty * (1-modifier) * qty
@@ -3041,11 +3049,13 @@ class Entity:
 				if entries:
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-						self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+						# self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+						self.ledger.gl = pd.concat([self.ledger.gl, tmp_gl_tmp])
 						# print('Ledger Temp Before: \n{}'.format(self.ledger.gl.tail()))
 					for entry in entries:
 						entry_df = pd.DataFrame([entry], columns=world.cols)
-						self.ledger.gl = self.ledger.gl.append(entry_df)
+						# self.ledger.gl = self.ledger.gl.append(entry_df)
+						self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 					self.gl_tmp = self.ledger.gl
 					# print('Ledger Temp New: \n{}'.format(self.ledger.gl.tail()))
 
@@ -3066,7 +3076,8 @@ class Entity:
 					if entries:
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 				else:
@@ -3107,7 +3118,8 @@ class Entity:
 							if result and buffer:
 								for entry in result:
 									entry_df = pd.DataFrame([entry], columns=world.cols)
-									self.ledger.gl = self.ledger.gl.append(entry_df)
+									# self.ledger.gl = self.ledger.gl.append(entry_df)
+									self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 								self.gl_tmp = self.ledger.gl
 						else:
 							incomplete = True
@@ -3116,7 +3128,8 @@ class Entity:
 						incomplete = True
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-						self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
 						# print('Tmp GL Building: \n{}'.format(self.gl_tmp.tail()))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 					else:
@@ -3130,7 +3143,8 @@ class Entity:
 					constraint_qty = 'inf'
 					max_qty_possible = min(max_qty_possible, qty)
 				print('Buildings Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
-				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':building, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':building, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[building], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				qty_to_use = 0
 				build_in_use = 0
 				if building != 0:
@@ -3163,11 +3177,13 @@ class Entity:
 					if entries:
 						if not self.gl_tmp.empty:
 							tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-							self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+							# self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+							self.ledger.gl = pd.concat([self.ledger.gl, tmp_gl_tmp])
 							# print('Ledger Temp Before: \n{}'.format(self.ledger.gl.tail()))
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 				for _ in range(qty_to_use):
@@ -3182,11 +3198,13 @@ class Entity:
 					if entries:
 						if not self.gl_tmp.empty:
 							tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-							self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+							# self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+							self.ledger.gl = pd.concat([self.ledger.gl, tmp_gl_tmp])
 							# print('Ledger Temp Before: \n{}'.format(self.ledger.gl.tail()))
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
@@ -3207,7 +3225,8 @@ class Entity:
 					if entries:
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 				else:
@@ -3273,7 +3292,8 @@ class Entity:
 							if result and buffer:
 								for entry in result:
 									entry_df = pd.DataFrame([entry], columns=world.cols)
-									self.ledger.gl = self.ledger.gl.append(entry_df)
+									# self.ledger.gl = self.ledger.gl.append(entry_df)
+									self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 								self.gl_tmp = self.ledger.gl
 						else:
 							incomplete = True
@@ -3282,7 +3302,8 @@ class Entity:
 						incomplete = True
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-						self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
 						# print('Tmp GL Equip: \n{}'.format(self.gl_tmp.tail()))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 					else:
@@ -3296,7 +3317,8 @@ class Entity:
 					constraint_qty = 'inf'
 					max_qty_possible = min(max_qty_possible, qty)
 				print('Equipment Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
-				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':equip_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':equip_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[equip_qty], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				qty_to_use = 0
 				equip_in_use = 0
 				if equip_qty != 0:
@@ -3325,11 +3347,13 @@ class Entity:
 					if entries:
 						if not self.gl_tmp.empty:
 							tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-							self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+							# self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+							self.ledger.gl = pd.concat([self.ledger.gl, tmp_gl_tmp])
 							# print('Ledger Temp Before: \n{}'.format(self.ledger.gl.tail()))
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 				for _ in range(qty_to_use):
@@ -3343,11 +3367,13 @@ class Entity:
 					if entries:
 						if not self.gl_tmp.empty:
 							tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-							self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+							# self.ledger.gl = self.ledger.gl.append(tmp_gl_tmp)
+							self.ledger.gl = pd.concat([self.ledger.gl, tmp_gl_tmp])
 							# print('Ledger Temp Before: \n{}'.format(self.ledger.gl.tail()))
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
@@ -3367,7 +3393,8 @@ class Entity:
 					if entries:
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 				else:
@@ -3400,7 +3427,8 @@ class Entity:
 				try:
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-						self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
 						# print('Tmp GL Component: \n{}'.format(self.gl_tmp.tail()))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 					else:
@@ -3416,7 +3444,8 @@ class Entity:
 					constraint_qty = 'inf'
 					max_qty_possible = min(max_qty_possible, qty)
 				print('Components Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
-				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':component_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':component_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[component_qty], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				if not check:
 					entries = self.consume(req_item, qty=qty_needed, buffer=True)
 					if not entries:
@@ -3426,7 +3455,8 @@ class Entity:
 					if entries:
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
@@ -3446,7 +3476,8 @@ class Entity:
 					if entries:
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# if item == 'Hydroponics' or item == 'Wire':
 						# 	print('Ledger Temp commodity: \n{}'.format(self.ledger.gl.tail(10)))
@@ -3559,7 +3590,8 @@ class Entity:
 				try:
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-						self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
 						# print('tmp_gl_tmp: \n{}'.format(tmp_gl_tmp))
 						# print('Tmp GL Commodity: \n{}'.format(self.gl_tmp.tail()))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
@@ -3587,7 +3619,8 @@ class Entity:
 				# if max_qty_possible == 0: # TODO This should not be needed
 				# 	incomplete = True
 				print('Commodity Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
-				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':material_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':material_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[material_qty], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				if not check:
 					consume_qty = req_qty * (1 - modifier) * qty # TODO Should this be qty_needed?
 					# TODO Needs if isinstance(item_freq, str) and isinstance(req_freq, str):
@@ -3600,7 +3633,8 @@ class Entity:
 						if entries:
 							for entry in entries:
 								entry_df = pd.DataFrame([entry], columns=world.cols)
-								self.ledger.gl = self.ledger.gl.append(entry_df)
+								# self.ledger.gl = self.ledger.gl.append(entry_df)
+								self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 							self.gl_tmp = self.ledger.gl
 							# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
@@ -3621,7 +3655,8 @@ class Entity:
 				if entries:
 					for entry in entries:
 						entry_df = pd.DataFrame([entry], columns=world.cols)
-						self.ledger.gl = self.ledger.gl.append(entry_df)
+						# self.ledger.gl = self.ledger.gl.append(entry_df)
+						self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 					self.gl_tmp = self.ledger.gl
 					# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
@@ -3646,7 +3681,8 @@ class Entity:
 						if entries:
 							for entry in entries:
 								entry_df = pd.DataFrame([entry], columns=world.cols)
-								self.ledger.gl = self.ledger.gl.append(entry_df)
+								# self.ledger.gl = self.ledger.gl.append(entry_df)
+								self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 							self.gl_tmp = self.ledger.gl
 							# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 					else:
@@ -3690,7 +3726,8 @@ class Entity:
 								if entries:
 									for entry in entries:
 										entry_df = pd.DataFrame([entry], columns=world.cols)
-										self.ledger.gl = self.ledger.gl.append(entry_df)
+										# self.ledger.gl = self.ledger.gl.append(entry_df)
+										self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 									self.gl_tmp = self.ledger.gl
 									# print('Job Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 						else:
@@ -3699,7 +3736,8 @@ class Entity:
 						try:
 							if not self.gl_tmp.empty:
 								tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-								self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+								# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+								self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
 								# print('Tmp GL Job: \n{}'.format(self.gl_tmp.tail()))
 								self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 							else:
@@ -3715,7 +3753,8 @@ class Entity:
 							constraint_qty = 'inf'
 							max_qty_possible = min(max_qty_possible, qty)
 						print('Job Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
-						results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':workers, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+						# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':workers, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+						results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[workers], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Labour':
 				qty_held = None
@@ -3743,7 +3782,8 @@ class Entity:
 						if entries:
 							for entry in entries:
 								entry_df = pd.DataFrame([entry], columns=world.cols)
-								self.ledger.gl = self.ledger.gl.append(entry_df)
+								# self.ledger.gl = self.ledger.gl.append(entry_df)
+								self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 							self.gl_tmp = self.ledger.gl
 							# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 					else:
@@ -3880,7 +3920,8 @@ class Entity:
 							if entries:
 								for entry in entries:
 									entry_df = pd.DataFrame([entry], columns=world.cols)
-									self.ledger.gl = self.ledger.gl.append(entry_df)
+									# self.ledger.gl = self.ledger.gl.append(entry_df)
+									self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 								self.gl_tmp = self.ledger.gl
 								# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 						if counterparty == 'none_qualify':
@@ -3930,7 +3971,8 @@ class Entity:
 						if entries:
 							for entry in entries:
 								entry_df = pd.DataFrame([entry], columns=world.cols)
-								self.ledger.gl = self.ledger.gl.append(entry_df)
+								# self.ledger.gl = self.ledger.gl.append(entry_df)
+								self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 							self.gl_tmp = self.ledger.gl
 							# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 						if entries:
@@ -3975,7 +4017,8 @@ class Entity:
 							# else:
 							# 	delay_amount = 1
 							delay_amount = 1
-							tmp_delay = tmp_delay.append({'txn_id':None, 'entity_id':self.entity_id, 'delay':delay_amount, 'hours':hours_remain, 'job':req_item, 'item_id':item}, ignore_index=True)
+							# tmp_delay = tmp_delay.append({'txn_id':None, 'entity_id':self.entity_id, 'delay':delay_amount, 'hours':hours_remain, 'job':req_item, 'item_id':item}, ignore_index=True)
+							tmp_delay = pd.concat([tmp_delay, pd.DataFrame({'txn_id':[None], 'entity_id':[self.entity_id], 'delay':[delay_amount], 'hours':[hours_remain], 'job':[req_item], 'item_id':[item]})], ignore_index=True)
 							# print('tmp_delay: \n{}'.format(tmp_delay))
 					# print('Labour Done End: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
 					if (wip_choice or wip_complete) and not hours_remain and not time_check:
@@ -4018,7 +4061,8 @@ class Entity:
 								max_qty_possible = 0
 								constraint_qty = 0
 					print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | WIP Complete: {} | Time Req: {} | Partial: {} | Labour Done: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, wip_complete, time_required, partial, labour_done, constraint_qty, incomplete))
-					results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':qty_held, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+					# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':qty_held, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+					results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[qty_held], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Education' and partial is None:
 				modifier = 0
@@ -4066,7 +4110,8 @@ class Entity:
 								incomplete = True
 								max_qty_possible = 0
 						constraint_qty = None
-						results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':edu_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+						# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':edu_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+						results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[edu_status], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Technology' and partial is None:
 				modifier = 0
@@ -4108,7 +4153,8 @@ class Entity:
 					else:
 						incomplete = True
 				constraint_qty = None
-				results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':tech_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':tech_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[tech_status], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 			self.ledger.reset()
 		if incomplete or check:
 			for individual in world.gov.get(Individual):
@@ -4496,7 +4542,8 @@ class Entity:
 		if not current_pro_queue.empty:
 			print('This item exists on the production queue as: \n{}'.format(current_pro_queue))
 			print('It will be replaced with the new values below: ')
-		world.produce_queue = world.produce_queue.append({'item_id':item, 'entity_id':self.entity_id, 'qty':qty, 'freq':freq, 'last':freq, 'one_time':one_time, 'man':man,}, ignore_index=True)
+		# world.produce_queue = world.produce_queue.append({'item_id':item, 'entity_id':self.entity_id, 'qty':qty, 'freq':freq, 'last':freq, 'one_time':one_time, 'man':man,}, ignore_index=True)
+		world.produce_queue = pd.concat([world.produce_queue, pd.DataFrame({'item_id':[item], 'entity_id':[self.entity_id], 'qty':[qty], 'freq':[freq], 'last':[freq], 'one_time':[one_time], 'man':[man]})], ignore_index=True)
 		world.produce_queue = pd.concat([world.produce_queue, current_pro_queue]).drop_duplicates(keep=False) # TODO There may be a better way to get the difference between two dfs
 
 		if one_time:
@@ -4610,8 +4657,9 @@ class Entity:
 		if item != orig_item:
 			return raw
 		raw = pd.DataFrame(raw.items(), index=None, columns=['item_id', 'qty'])
-		total = raw['qty'].sum()
-		raw = raw.append({'item_id':'Total', 'qty':total}, ignore_index=True)
+		# total = raw['qty'].sum()
+		# raw = raw.append({'item_id':'Total', 'qty':total}, ignore_index=True)
+		raw.loc['Total'] = raw.sum()
 		if base:
 			if v: print(f'\nTotal base resources needed to produce: {qty} {item}')
 		else:
@@ -4692,13 +4740,15 @@ class Entity:
 							if not result and not check:
 								print('{} WIP Progress for {} using equipment was not successfull.'.format(self.name, item))
 								if world.delay.empty:
-									world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
+									# world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
+									world.delay = pd.concat([world.delay, pd.DataFrame({'txn_id':[index], 'entity_id':[self.entity_id], 'delay':[1], 'hours':[None], 'job':[None], 'item_id':[item]})], ignore_index=True)
 									world.set_table(world.delay, 'delay')
 								elif index in world.delay['txn_id'].values:
 									world.delay.loc[world.delay['txn_id'] == index, 'delay'] += 1
 									world.set_table(world.delay, 'delay')
 								else:
-									world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
+									# world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
+									world.delay = pd.concat([world.delay, pd.DataFrame({'txn_id':[index], 'entity_id':[self.entity_id], 'delay':[1], 'hours':[None], 'job':[None], 'item_id':[item]})], ignore_index=True)
 									world.set_table(world.delay, 'delay')
 								return
 					start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d').date()
@@ -4818,7 +4868,8 @@ class Entity:
 					if release_event:
 						for entry in release_event:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							self.ledger.gl = self.ledger.gl.append(entry_df)
+							# self.ledger.gl = self.ledger.gl.append(entry_df)
+							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# if v: print('tail:\n', self.gl_tmp.tail())
 					# Mark Land, Buildings, and Equipment as in use
@@ -5077,7 +5128,8 @@ class Entity:
 		#print('Corp Name: \n{}'.format(name))
 		corp = self.factory.create(legal_form, name, items_produced, self.government, self.founder, auth_qty)#, int(last_entity_id + 1))
 		# world.prices = pd.concat([world.prices, corp.prices])
-		world.items_map = world.items_map.append({'item_id':name, 'child_of':'Shares'}, ignore_index=True)
+		# world.items_map = world.items_map.append({'item_id':name, 'child_of':'Shares'}, ignore_index=True)
+		world.items_map = pd.concat([world.items_map, pd.DataFrame({'item_id':[name], 'child_of':['Shares']})], ignore_index=True)
 		if name.split('-')[0] == 'Bank':
 			world.gov.bank = corp
 			print('{}\'s central bank created.'.format(world.gov))
@@ -5308,7 +5360,8 @@ class Entity:
 			#print('Temp DF: \n{}'.format(temp_df))
 			#temp_new_df = pd.DataFrame({'entity_id': self.entity_id, 'item_id': item}, index=[0]) # Old
 			temp_new_df = pd.DataFrame(columns=['entity_id','item_id'])
-			temp_new_df = temp_new_df.append({'entity_id': self.entity_id, 'item_id': item}, ignore_index=True)
+			# temp_new_df = temp_new_df.append({'entity_id': self.entity_id, 'item_id': item}, ignore_index=True)
+			temp_new_df = pd.concat([temp_new_df, pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item]})])
 			#print('Temp New DF: \n{}'.format(temp_new_df))
 			#check = temp_df.intersection(temp_new_df)
 			check = pd.merge(temp_df, temp_new_df, how='inner', on=['entity_id','item_id'])
@@ -5342,21 +5395,24 @@ class Entity:
 					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, index=[0])
 					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
 				else:
-					world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, ignore_index=True)
+					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, ignore_index=True)
+					world.demand = pd.concat([world.demand, pd.DataFrame({'date':[world.now], 'entity_id':[self.entity_id], 'item_id':[item], 'qty':[qty], 'reason':['cost']})], ignore_index=True)
 				world.set_table(world.demand, 'demand')
 			elif reason_need:
 				if priority:
 					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, index=[0])
 					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
 				else:
-					world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, ignore_index=True)
+					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, ignore_index=True)
+					world.demand = pd.concat([world.demand, pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['need']})])
 				world.set_table(world.demand, 'demand')
 			else:
 				if priority:
 					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, index=[0])
 					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
 				else:
-					world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, ignore_index=True)
+					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, ignore_index=True)
+					world.demand = pd.concat([world.demand, pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['existance']})], ignore_index=True)
 				world.set_table(world.demand, 'demand')
 			if qty == 1:
 				print('{} added to demand list for {} unit by {}.\n{}'.format(item, qty, self.name, world.demand))
@@ -5556,7 +5612,8 @@ class Entity:
 					efficiencies = [x.strip() for x in prod_item['efficiency'].split(',')]
 					efficiencies = list(map(float, efficiencies))
 					efficiency = efficiencies[i]
-					productivity_items = productivity_items.append({'item_id': prod_item.name, 'efficiency': efficiency}, ignore_index=True)
+					# productivity_items = productivity_items.append({'item_id': prod_item.name, 'efficiency': efficiency}, ignore_index=True)
+					productivity_items = pd.concat([productivity_items, pd.DataFrame({'item_id': [prod_item.name], 'efficiency': [efficiency]})], ignore_index=True)
 				productivity_items = productivity_items.sort_values(by='efficiency', ascending=True)
 				#print('Productivity Items: \n{}'.format(productivity_items))
 				if not productivity_items.empty:
@@ -8143,7 +8200,7 @@ class Entity:
 			print('Items that satisfy {}: \n{}'.format(need.title(), need_items))
 		elif command.lower() == 'productivity' or command.lower() == 'productive':
 			productivity_items = []
-			for _, item_efficiencies in world.items['productivity'].iteritems():
+			for _, item_efficiencies in world.items['productivity'].items():#.iteritems():
 				if item_efficiencies is None:
 					continue
 				item_productivities = [x.strip() for x in item_efficiencies.split(',')]
@@ -8298,7 +8355,7 @@ class Entity:
 					# TODO Maybe turn this into a function
 					# Get list of businesses from items data
 					new_businesses = []
-					for index, producers in world.items['producer'].iteritems():
+					for index, producers in world.items['producer'].items():#.iteritems():
 						if producers is not None:
 							if isinstance(producers, str):
 								producers = [x.strip() for x in producers.split(',')]
@@ -9694,7 +9751,7 @@ def create_world(accts=None, ledger=None, factory=None, governments=1, populatio
 	world = World(factory, accts, ledger, governments, population, new_db)#, args)
 	return world
 
-def main(conn=None, command=None, external=False):
+def parse_args(conn=None, command=None, external=False):
 	t0_start = time.perf_counter()
 	global args
 	parser = argparse.ArgumentParser()
@@ -9783,6 +9840,10 @@ def main(conn=None, command=None, external=False):
 		new_db = False
 	if args.reset:
 		delete_db(conn)
+	return args, conn
+
+def main(conn=None, command=None, external=False):
+	args, conn = parse_args(conn, command, external)
 	# accts = acct.Accounts(conn, econ_accts)
 	# ledger = acct.Ledger(accts)
 	# factory = EntityFactory()
@@ -9809,7 +9870,7 @@ def main(conn=None, command=None, external=False):
 
 	t0_end = time.perf_counter()
 	print(time_stamp() + 'End of Econ Sim! It took {:,.2f} min.'.format((t0_end - t0_start) / 60))
-	return args
+
 
 if __name__ == '__main__':
 	main()

@@ -2263,6 +2263,10 @@ def main(conn=None, command=None, external=False):
 		elif command.lower() == 'accts':
 			accts.print_accts()
 			if args.command is not None: exit()
+		elif command.lower() == 'acct':
+			acct = input('Which account? ').title()
+			print(ledger.balance_sheet([acct]))
+			if args.command is not None: exit()
 		elif command.lower() == 'addacct':
 			accts.add_acct()
 			if args.command is not None: exit()
@@ -2478,6 +2482,7 @@ def main(conn=None, command=None, external=False):
 				'dupes': '',
 				'del': '',
 				'aggregate': '',
+				'acct': '',
 				'inv': '',
 				'invhist': '',
 				'hist': '',

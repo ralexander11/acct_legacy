@@ -200,33 +200,44 @@ def time_stamp(offset=0):
 	return time_stamp
 
 class Map:
-    def __init__(self, game, map_size=None):
+    def __init__(self, game, map_name, start_loc, view_size, map_size=None):
         self.game = game
-        if args.map is None:
-            world_map = self.gen_map(map_size)
+        self.map_name = map_name
+        self.start_loc = start_loc
+        self.view_size = view_size
+        self.map_size = map_size
+        if self.map_name is None:
+            world_map = self.gen_map(self.map_size)
             # world_map = Reactive(self.gen_map(map_size))
         else:
-            world_map = self.map_gen_file()
+            world_map = self.map_gen_file(self.map_name)
             # world_map = Reactive(self.map_gen_file())
+        # if self.view_size[0] > self.map_size[0]:
+        #     self.view_size = (self.map_size[0], self.view_size[1])
+        #     print('view_size adj 1:', self.view_size)
+        #     print('map_size adj 1:', self.map_size)
+        # if self.view_size[1] > self.map_size[1]:
+        #     self.view_size = (self.view_size[0], self.map_size[1])
+        #     print('view_size adj 2:', self.view_size)
+        #     print('map_size adj 2:', self.map_size)
         self.update_display_map()
-        if args.start is not None:
-            pos = args.start
-        else:
-            pos = (int(round(self.map_size[0]/2, 0)), int(round(self.map_size[1]/2, 0)))
-        self.view_port(pos)
+        if self.start_loc is None:
+            self.start_loc = (self.map_size[0]//2, self.map_size[1]//2)
+            # self.start_loc = (int(round(self.map_size[0]/2, 0)), int(round(self.map_size[1]/2, 0)))
+        self.view_port(self.start_loc)
         # print(f'world_map created:\n{self}')
 
     def gen_map(self, map_size, proc=False):
         if map_size is None:
-            map_size = MAP_SIZE
+            map_size = MAP_SIZE # TODO Is this needed still?
         self.map_size = map_size
         if isinstance(self.map_size, int):
             self.map_size = (self.map_size, self.map_size)
         elif len(self.map_size) == 1:
             self.map_size = (self.map_size[0], self.map_size[0])
-        print('map_size:', self.map_size)
+        print('gen map_size:', self.map_size)
         self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
-        # print('world_map 1:', self.world_map)
+        # print('world_map gen:', self.world_map)
         self.get_terrain_data()
         self.load_players = []
         for row in self.world_map:
@@ -241,11 +252,12 @@ class Map:
         # self.world_map = pd.DataFrame(self.world_map) # Replace pandas here
         # self.world_map.applymap(lambda d: d.update({'terrain': Tile()})) # Replace pandas here
         self.save_meta()
+        # print('world_map gen final:', self.world_map)
         return self.world_map
     
     def map_gen_file(self, infile='data/map.csv', v=False):
-        if args.map is not None:
-            infile = args.map
+        if self.map_name is not None:
+            infile = self.map_name
             if '.csv' not in infile:
                 infile = infile + '.csv'
             if 'data/' not in infile:
@@ -300,12 +312,17 @@ class Map:
                     if v: print('other_data:', other_data)
                     if 'turn' in other_data:
                         meta_data = other_data
-                        if v: print('meta_data load:', meta_data)
+                        if v: print('meta_data loaded:', meta_data)
                     elif 'player_name' in other_data:
                         if v: print('player_data:', other_data)
                         player_data = json.loads(other_data, object_hook=None)
-                        if v: print('player_data load:', player_data)
+                        if v: print('player_data loaded:', player_data)
                         self.load_players.append(player_data)
+                    else:
+                        if v: print('other_data:', other_data)
+                        other_data = json.loads(other_data, object_hook=None)
+                        if v: print('other_data loaded:', other_data)
+                        # TODO Finish this
                 self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
         self.save_meta(meta_data)
         return self.world_map
@@ -451,35 +468,43 @@ class Map:
         if y == '':
             y = x
         new_view_size = (int(y), int(x))
-        print('New Map view:', new_view_size)
-        if args.view_size is not None:# and not man:
-            print(f'Changed view_size from: {args.view_size} to {new_view_size}.')
-            args.view_size = new_view_size
-        self.view_port(pos, new_view_size)
+        # print('New Map view:', new_view_size)
+        print(f'Changed view_size from: {self.view_size} to {new_view_size}.')
+        self.view_size = new_view_size
+        # if self.view_size is not None:# and not man:
+        #     print(f'Changed view_size from: {self.view_size} to {new_view_size}.')
+        #     self.view_size = new_view_size
+        self.view_port(pos)#, new_view_size)
 
-    def view_port(self, pos, map_view=None): # TODO Optimize this
-        if map_view is None and args.view_size is not None:
-            # print('map view arg:', args.view_size)
-            map_view = args.view_size
-            # print('use map view arg:', map_view)
-        elif map_view is None:
-            console = Console()
-            # print(f'Console Size:', console.size)
-            map_view = ((int(console.size[0]//2)-1), int(console.size[1]))
-            # print('Console map view:', map_view)
-        self.map_view = map_view
+    def view_port(self, pos):#, map_view=None): # TODO Optimize this
+        # if map_view is None and self.view_size is not None:
+        #     # print('map view arg:', args.view_size)
+        #     map_view = self.view_size
+        #     # print('use map view arg:', map_view)
+        # elif map_view is None:
+        #     console = Console()
+        #     # print(f'Console Size:', console.size)
+        #     map_view = ((int(console.size[0]//2)-1), int(console.size[1]))
+        #     # print('Console map view:', map_view)
+        # self.map_view = map_view
         # print('self.map_view:', self.map_view)
         # if isinstance(self.map_view, int):
         #     self.map_view = (self.map_view, self.map_view)
         # elif len(self.map_view) == 1:
         #     self.map_view = (self.map_view[0], self.map_view[0])
-        map_view_y = self.map_view[0]
-        map_view_x = self.map_view[1]
-        top_left = (pos[0] - int(self.map_view[0]/2), pos[1] - int(self.map_view[1]/2))
+        map_view_y = self.view_size[0]
+        # print('map_view_y:', map_view_y)
+        map_view_x = self.view_size[1]
+        # print('map_view_x:', map_view_x)
+        top_left = (max(pos[0] - int(self.view_size[0]/2), 0), max(pos[1] - int(self.view_size[1]/2), 0))
         top_left_y = top_left[0]
+        # print('top_left_y:', top_left_y)
         top_left_x = top_left[1]
+        # print('top_left_x:', top_left_x)
         bot_right_y = top_left_y + map_view_y
+        # print('bot_right_y:', bot_right_y)
         bot_right_x = top_left_x + map_view_x
+        # print('bot_right_x:', bot_right_x)
         # self.view_port_map = [[' ' for _ in range(self.map_view[1])] for _ in range(self.map_view[0])]
         # for i, row in enumerate(self.display_map):
         #     if i < top_left_y:
@@ -535,7 +560,7 @@ class Map:
         print('terrain_items:')
         print(self.terrain_items)
 
-    def edit_terrain(self, terrain=None, y=None, x=None):
+    def edit_map_terrain(self, terrain=None, y=None, x=None):
         if terrain is None:
             terrain = input('Enter terrain: ')
         if y is None:
@@ -780,8 +805,17 @@ class Player:
         target_offset = self.moves[key]
         # print('target_offset:', target_offset)
         # TODO This will give an error at the map edge
-        self.target_tile = world_map.display_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]
-        self.target_terrain = world_map.world_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]['terrain']
+        try:
+            if self.pos[0]+target_offset[1] < 0 or self.pos[1]+target_offset[0] < 0:
+                self.target_tile = None#' '
+                self.target_terrain = None
+            else:
+                self.target_tile = world_map.display_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]
+                self.target_terrain = world_map.world_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]['terrain']
+        except IndexError as e:
+            self.target_tile = None#' '
+            self.target_terrain = None
+            # print('At map edge.')
         # print('pos:', self.pos)
         # print('target_tile:', self.target_tile)
         # print('target_tile type:', type(self.target_tile))
@@ -796,6 +830,10 @@ class Player:
         # if self.get_command() is None: # TODO This isn't very clear
         #     return
         self.pos = (self.pos[0] + dy, self.pos[1] + dx)
+        if self.pos[0] < 0 or self.pos[0] >= world_map.map_size[0] or self.pos[1] < 0 or self.pos[1] >= world_map.map_size[1]+1:
+            print('Out of bounds, try again.')
+            self.pos = self.old_pos
+            return
         if self.is_occupied(self.pos):
             self.pos = self.old_pos
             return
@@ -812,7 +850,7 @@ class Player:
             # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
             # del world_map.world_map.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
         except (IndexError, KeyError) as e: # TODO Is this check still needed?
-            print('Out of bounds, try again.')
+            print('Out of map boundry, please try again.')
             self.pos = self.old_pos
             return
         # print('End move.')
@@ -864,7 +902,7 @@ class Player:
                 print('Set to Boat.', self.pos)
                 # Change tile to Boat using edit function
                 # world_map.display_map[self.pos[0]][self.pos[1]] = self.boat_tile#Tile('Boat', world_map.terrain_items)
-                world_map.edit_terrain('Boat', self.pos[0], self.pos[1])
+                world_map.edit_map_terrain('Boat', self.pos[0], self.pos[1])
             self.boat = not self.boat
             # Change tile to Ocean using edit function
             if self.boat:
@@ -876,7 +914,7 @@ class Player:
                 # if self.target_terrain.terrain == 'Boat':
                 #     self.pos = self.target_terrain.loc
                 #     self.move(0, 0, teleport=True)
-                world_map.edit_terrain('Ocean', self.pos[0], self.pos[1])
+                world_map.edit_map_terrain('Ocean', self.pos[0], self.pos[1])
             if v: print('boat:', self.boat)
         if v: print('boat out:', self.boat)
 
@@ -914,7 +952,7 @@ class Player:
             # self.pos = self.old_pos
             return
         elif command[0] == 'edit': # Update input
-            world_map.edit_terrain(command[1], command[2], command[3])
+            world_map.edit_map_terrain(command[1], command[2], command[3])
             # self.pos = self.old_pos
             return
         elif command[0] == 'addcords':
@@ -996,6 +1034,16 @@ class Player:
                 print('Enter whole numbers only, try again.')
                 self.pos = self.old_pos
                 return
+        elif command[0] == 'info':
+            status = f'[green]{self.player_name} pos: [/green][cyan]{self.pos}[/cyan][green] moves: [/green][cyan]{self.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.movement}[/cyan][green] faces: [/green]{self.target_tile}[green] {self.target_terrain} on: [/green]{self.current_tile}[green] {self.current_terrain}[/green]'
+            print(status)
+            print('Player:', self.player_name)
+            print('Map Size:', world_map.map_size)
+            print('Map View:', world_map.view_size)
+            print('Player Pos:', self.pos)
+            print('Player Terrain:', self.current_terrain)
+            print('Player Target:', self.target_terrain)
+            # print('Player Target Pos:', self.target_tile.loc)
         elif command[0] == 'save':
             try:
                 world_map.save(command[1])
@@ -1154,18 +1202,23 @@ class CivRPG(App):
     #             # Binding('ctrl+right', 'next_tab', 'Next tab', show=False),
     #             ]
 
-    def __init__(self, num_players=1, filename=None):
+    def __init__(self, map_name, start_loc, view_size=None, num_players=1, filename=None):
         super().__init__()
         self.turn = 0
         self.stdout_redirector = None
         self.stdin_redirector = None
+        if view_size is None:
+            console = Console()
+            print(f'Console Size:', console.size)
+            view_size = ((console.size[0]//2)-1, console.size[1])
+            print('init view size:', view_size)
         global world_map
-        world_map = Map(self)
+        world_map = Map(self, map_name, start_loc, view_size)
         self.players = []
         if not world_map.load_players:
             for player_num in range(num_players):
                 player_name = 'Player ' + str(player_num+1)
-                self.player = Player(player_name, world_map, str(player_num+1), args.start)
+                self.player = Player(player_name, world_map, str(player_num+1), start_loc)
                 self.players.append(self.player)
         else:
             for player_data in world_map.load_players:
@@ -1179,10 +1232,10 @@ class CivRPG(App):
         # self.viewport = Static(self.viewport)
         self.viewport = Static('')
         self.status_bar = Static('')
-        if args.view_size is None:
-            console = Console()
-            print(f'Console Size:', console.size)
-            world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1]) # TODO This will center on the last player to load
+        # if view_size is None:
+        #     console = Console()
+        #     print(f'Console Size:', console.size)
+        #     world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1]) # TODO This will center on the last player to load
         # world_map.view_port(self.player.pos)
         self.update_status()#False)
         self.pressed_keys = set()
@@ -1403,8 +1456,7 @@ class CivRPG(App):
     #             self.text_log.write(str(arg))
     #     builtins.print(*args, **kwargs)
 
-
-if __name__ == '__main__':
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--start', type=str, default='446, 229', help='The starting coords for the player.')#338, 178
     parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
@@ -1421,8 +1473,11 @@ if __name__ == '__main__':
         random.seed(args.seed)
 
     if args.size is not None:
+        print('args.size init:', args.size)
         if not isinstance(args.size, (list, tuple)):
             args.size = [int(x.strip()) for x in args.size.split(',')]
+            print('args.size not:', args.size)
+            global MAP_SIZE
             MAP_SIZE = args.size
             print('MAP_SIZE:', MAP_SIZE)
 
@@ -1445,7 +1500,9 @@ if __name__ == '__main__':
             if isinstance(args.start, str):
                 args.start = tuple(int(x.strip()) for x in args.start.split(','))
                 if len(args.start) == 1:
+                    print('single start str:', args.start)
                     args.start = (args.start[0], args.start[0])
+                    print('single start str2:', args.start)
                 # args.start = tuple(x.strip() for x in args.start.split(','))
                 # try:
                 #     args.start = tuple(int(x) for x in args.start)
@@ -1455,10 +1512,15 @@ if __name__ == '__main__':
                 #     args.start[0] = world_map.col(args.start[0]) # TODO Maybe make world_map.col() global?
                 #     args.start = tuple(int(x) for x in args.start)
             else:
+                print('single start int:', args.start)
                 args.start = (args.start, args.start)
 
-    # if args.load is None:
-    app = CivRPG(args.players)
+    return args
+
+if __name__ == '__main__':
+    args = parse_args()
+
+    app = CivRPG(args.map, args.start, args.view_size, args.players)
     app.run()
     # else:
     #     if 'data/' not in args.load:
