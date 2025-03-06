@@ -1210,7 +1210,7 @@ class CivRPG(App):
         if view_size is None:
             console = Console()
             print(f'Console Size:', console.size)
-            view_size = ((console.size[0]//2)-1, console.size[1])
+            view_size = (console.size[1], (console.size[0]//2)-1)
             print('init view size:', view_size)
         global world_map
         world_map = Map(self, map_name, start_loc, view_size)
