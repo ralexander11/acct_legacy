@@ -8,6 +8,7 @@ from rich import print
 import datetime as dt
 import os, sys
 import json
+from io import StringIO
 # import asyncio
 # import builtins
 
@@ -526,6 +527,7 @@ class Map:
         return self.view_port_map
 
     def update_display_map(self):
+        # TODO should self.display_map be a numpy or df?
         self.display_map = [[None for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         for i, row in enumerate(self.world_map):
             for j, tile in enumerate(row):
@@ -794,7 +796,7 @@ class Player:
     def reset_moves(self):
         self.remain_move = self.movement
         world_map.game.turn += 1
-        print('turn:', world_map.game.turn)
+        print('Turn:', world_map.game.turn)
         print(f'Moves reset to {self.movement} for {self}.')
 
     def change_dir(self, key):
@@ -1171,10 +1173,25 @@ class CivRPG(App):
         layout: vertical;
         align: center middle;
         background: black;
+        # content-align: center middle;
     }
 
-    MapContainer {
+    # MapContainer {
+    #     # height: 1fr;
+    #     # align: center middle;
+    #     # width: auto;
+    #     text-align: center;
+    #     content-align: center middle;
+    #     border: white;
+    # }
+
+    #map_container {
         height: 1fr;
+        # align: center middle;
+        # width: auto;
+        text-align: center;
+        content-align: center middle;
+        # border: white;
     }
 
     StatusBar {
@@ -1244,7 +1261,7 @@ class CivRPG(App):
     def compose(self):
         with TabbedContent():
             with TabPane('Map', id='map_tab'):
-                yield MapContainer(self.viewport)#, id='map')
+                yield MapContainer(self.viewport, id='map_container')
                 yield StatusBar(self.status_bar)#, id='status_bar')
             with TabPane('Log', id='log_tab'):
                 yield RichLog(wrap=False, id='log_widget')#highlight=True, markup=True, wrap=True, id='log_widget')
@@ -1270,9 +1287,13 @@ class CivRPG(App):
         # await asyncio.sleep(0)  # Yield control to ensure async behavior
         # self.stdout_redirector.set_widget_update(True) # Start widget update
         visible_map = world_map.view_port(self.player.pos)
-        visible_map = '\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map])
+        buffer = StringIO()
+        # visible_map = buffer.write('\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map]))
+        visible_map = buffer.write('\n'.join([' '.join(row) for row in visible_map]))
+        # visible_map = '\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map])
         # visible_map = '\n'.join([' '.join([Pretty(str(tile)) for tile in row]) for row in visible_map])
-        self.viewport.update(visible_map)#await
+        self.viewport.update(buffer.getvalue())
+        # self.viewport.update(visible_map)#await
         # self.stdout_redirector.set_widget_update(False) # End widget update
     
     def update_status(self):#, check=True):#async
