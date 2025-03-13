@@ -9,13 +9,14 @@ import datetime as dt
 import os, sys
 import json
 from io import StringIO
-# import asyncio
+import asyncio
 # import builtins
 
 from textual.app import App, ComposeResult
 from textual.widgets import Static, TabbedContent, TabPane, RichLog, Input
 from textual.containers import Container
 from textual.reactive import reactive
+from textual.timer import Timer
 from rich.console import Console
 from rich.pretty import Pretty
 from rich.text import Text
@@ -794,10 +795,15 @@ class Player:
         # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
 
     def reset_moves(self):
+        # self.remain_move = 0
         self.remain_move = self.movement
-        world_map.game.turn += 1
-        print('Turn:', world_map.game.turn)
+        # world_map.game.turn += 1
+        # print('Turn:', world_map.game.turn)
         print(f'Moves reset to {self.movement} for {self}.')
+
+    def zero_moves(self):
+        self.remain_move = 0
+        print(f'Moves set to {self.remain_move} for {self}.')
 
     def change_dir(self, key):
         # print('key:', key)
@@ -891,7 +897,8 @@ class Player:
                 reset = True
             self.remain_move -= move_cost
             if reset:
-                self.reset_moves()
+                # self.reset_moves()
+                self.zero_moves()
             return True
         else:
             print(f'Costs {target_terrain.move_cost} movement to enter {target_terrain} ({target_terrain.icon}) tile. Movement remaining: {self.remain_move}/{self.movement}')
@@ -1221,7 +1228,7 @@ class CivRPG(App):
 
     def __init__(self, map_name, start_loc, view_size=None, num_players=1, filename=None):
         super().__init__()
-        self.turn = 0
+        self.turn = 1
         self.stdout_redirector = None
         self.stdin_redirector = None
         if view_size is None:
@@ -1245,6 +1252,8 @@ class CivRPG(App):
                 self.player = Player(player_name, world_map, dictionary=player_data['Agent'])
                 self.players.append(self.player)
         print(f'Players:\n{self.players}')
+        self.current_player_index = 0
+        self.player = self.players[self.current_player_index]
         # self.viewport = reactive('')
         # self.viewport = Static(self.viewport)
         self.viewport = Static('')
@@ -1255,7 +1264,9 @@ class CivRPG(App):
         #     world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1]) # TODO This will center on the last player to load
         # world_map.view_port(self.player.pos)
         self.update_status()#False)
-        self.pressed_keys = set()
+        # self.current_key = None
+        # self.pressed_keys = set()
+        self.timer = None
         print(f'World Map:\n{world_map}')
 
     def compose(self):
@@ -1311,6 +1322,7 @@ class CivRPG(App):
         #     self.stdout_redirector.set_widget_update(False) # End widget update
 
     def on_mount(self):
+        # self.timer = self.set_interval(0.5, self.check_movement)
         '''Redirect stdout and stdin'''
         log_widget = self.query_one('#log_widget')
         self.stdout_redirector = StdoutRedirector(log_widget)
@@ -1325,6 +1337,15 @@ class CivRPG(App):
 
         # TODO Need to support multiple units/players
         self.update_viewport()
+
+    def check_movement(self):
+        '''Check if current player's movement is 0, then switch turns.'''
+        if all(unit.remain_move == 0 for unit in self.players):
+            # print('Next turn check')
+            self.next_turn()
+        if self.player.remain_move == 0:
+            # print('Next unit check')
+            self.next_unit()
 
     def capture_input(self):
         '''Capture input from the Input widget.'''
@@ -1352,6 +1373,12 @@ class CivRPG(App):
 
 ##########################################################
 
+    # async def on_key(self, event):
+    #     # Prevent input queuing by only processing the latest key
+    #     if self.current_key is None:
+    #         self.current_key = event.key
+    #         asyncio.create_task(self.move_character())
+
     def on_key(self, event):
         focused_widget = self.focused
         # print('focused_widget:', focused_widget)
@@ -1360,14 +1387,18 @@ class CivRPG(App):
             # print('focused_widget:', focused_widget)
             # self.text_log.write(print('focused_widget:', focused_widget))
             return
+        self.check_movement()
         if event.key in self.player.moves:
-            if event.key not in self.pressed_keys:
-                self.pressed_keys.add(event.key)
-                dx, dy = self.player.moves[event.key]
-                self.player.move(dy, dx)
-                self.player.change_dir(event.key)
-                self.update_viewport()
-                self.pressed_keys.remove(event.key)
+            # if event.key not in self.pressed_keys:
+            #     self.pressed_keys.add(event.key)
+            # Prevent input queuing by only processing the latest key
+            # if self.current_key is None:
+            dx, dy = self.player.moves[event.key]
+            self.player.move(dy, dx)
+            # asyncio.create_task(self.player.move(dy, dx))
+            self.player.change_dir(event.key)
+            self.update_viewport()
+                # self.pressed_keys.remove(event.key)
         # elif event.key in ['up', 'lef', 'down', 'right']:
         elif event.key in ['i', 'j', 'k', 'l']:
             # turn = {'up': 'w', 'left': 'a', 'down': 's', 'right': 'd'}
@@ -1375,6 +1406,7 @@ class CivRPG(App):
             self.player.change_dir(turn[event.key])
             self.update_viewport()
         elif event.key == 'r':
+            self.player.zero_moves()
             self.player.reset_moves()
         elif event.key == 'e':
             print(f'{self.player} is mounting a boat at {self.player.pos}.')
@@ -1382,6 +1414,30 @@ class CivRPG(App):
             self.update_viewport()
         self.update_status()
         # self.text_log.write(event.key)
+
+    # def on_key_release(self, event):
+    #     # Stop movement immediately when the key is released
+    #     print(f'{event.key} release for {self.current_key}')
+    #     if event.key == self.current_key:
+    #         self.current_key = None
+
+    def next_unit(self):
+        '''Switch to the next player with movement remaining'''
+        self.current_player_index = (self.current_player_index + 1) % len(self.players)
+        self.player = self.players[self.current_player_index]
+        self.update_viewport()
+        print(f'Now unit {self.player}\'s turn.')
+        # while self.players[self.current_player_index].remain_move <= 0:
+        #     self.current_player_index = (self.current_player_index + 1) % len(self.players)
+        # print('index after:', self.current_player_index)
+
+    def next_turn(self):
+        for unit in self.players:
+            unit.reset_moves()
+        self.player = self.players[0]
+        self.update_viewport()
+        world_map.game.turn += 1
+        print('Turn:', world_map.game.turn)
 
     # self.player = Player(player_name, world_map, str(player_num+1), args.start)
     def spawn_players(self, v=True): # TODO Is this still needed?
@@ -1573,6 +1629,14 @@ if __name__ == '__main__':
 #     [{'terrain': Tile('Grassland')},{'terrain': Tile('Ocean')}],
 #     [{'terrain': Tile('Grassland')},{'terrain': Tile('Forest'), 'Agent': Player('Player 1')}]
 # ]
+
+## TODO
+# Add support for multiple players/units
+# Add player inventory
+# Add lootable containers like chests
+# Add harvestables
+# Add lootable mobs
+# Add combat
 
 # scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp data/map.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
