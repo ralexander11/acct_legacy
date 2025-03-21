@@ -893,9 +893,11 @@ class Player:
                 print(f'Cannot cross {target_terrain} ({target_terrain.icon}) tile at {pos}.')
                 return
         if self.remain_move >= move_cost:
-            if self.remain_move == move_cost or self.remain_move < 1: # TODO Is this the best way to rest the moves?
+            if self.remain_move == move_cost or self.remain_move < 1: # TODO Is this the best way to reset the moves?
                 reset = True
             self.remain_move -= move_cost
+            # if self.remain_move < 1:
+                # reset = True
             if reset:
                 # self.reset_moves()
                 self.zero_moves()
@@ -1341,11 +1343,16 @@ class CivRPG(App):
     def check_movement(self):
         '''Check if current player's movement is 0, then switch turns.'''
         if all(unit.remain_move == 0 for unit in self.players):
-            # print('Next turn check')
+            print('Next turn check')
             self.next_turn()
-        if self.player.remain_move == 0:
-            # print('Next unit check')
+            return
+        elif self.player.remain_move == 0:
+            print('Next unit check')
             self.next_unit()
+            return
+        else:
+            return True
+
 
     def capture_input(self):
         '''Capture input from the Input widget.'''
@@ -1397,7 +1404,10 @@ class CivRPG(App):
             self.player.move(dy, dx)
             # asyncio.create_task(self.player.move(dy, dx))
             self.player.change_dir(event.key)
-            self.update_viewport()
+            if self.check_movement():
+                self.update_viewport()
+            else:
+                self.update_viewport()
                 # self.pressed_keys.remove(event.key)
         # elif event.key in ['up', 'lef', 'down', 'right']:
         elif event.key in ['i', 'j', 'k', 'l']:
