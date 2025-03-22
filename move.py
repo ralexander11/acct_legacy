@@ -1610,10 +1610,10 @@ if __name__ == '__main__':
 
 
 ## TODO
+# [Done] Change player icon to arrows to show direction (<>VɅ)
 # Make togglable options for map wrapping?
 # Add support for mobs and combat
 # Add roof reveal support
-# Change player icon to arrows to show direction (<>VɅ)
 # Add multi levels by having other levels in the dict
 # Add popup window for examining a tile with subtile items (such as a table)
 
@@ -1621,17 +1621,12 @@ if __name__ == '__main__':
 # Add input box for tp coords
 
 ## TODO
+# [Done] Fix map update wave
 # Fix map lag on held input
-# Fix map update wave
 # Fix map colors compared to Rich
 
-# [
-#     [{'terrain': Tile('Grassland')},{'terrain': Tile('Ocean')}],
-#     [{'terrain': Tile('Grassland')},{'terrain': Tile('Forest'), 'Agent': Player('Player 1')}]
-# ]
-
 ## TODO
-# Add support for multiple players/units
+# [Done] Add support for multiple players/units
 # Add player inventory
 # Add lootable containers like chests
 # Add harvestables
