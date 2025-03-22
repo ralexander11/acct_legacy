@@ -151,7 +151,7 @@ TILES = {
         'Plants': '[dark_sea_green4]♣[/dark_sea_green4]',
         'Flowers': '[medium_violet_red]ӂ[/medium_violet_red]',
         'Rocks': '[grey50]*[/grey50]',
-        'Stalagmite': '[grey50]↑[/grey50]',
+        'Stalagmite': '[grey50]ʍ[/grey50]',
         'Stump': '[dark_goldenrod]ᶊ[/dark_goldenrod]',
         'Wheat': '[wheat1]ẅ[/wheat1]',
         'Barrel': '[dark_goldenrod]Ƀ[/dark_goldenrod]',
@@ -1343,16 +1343,15 @@ class CivRPG(App):
     def check_movement(self):
         '''Check if current player's movement is 0, then switch turns.'''
         if all(unit.remain_move == 0 for unit in self.players):
-            print('Next turn check')
+            # print('Next turn check')
             self.next_turn()
             return
         elif self.player.remain_move == 0:
-            print('Next unit check')
+            # print('Next unit check')
             self.next_unit()
             return
         else:
             return True
-
 
     def capture_input(self):
         '''Capture input from the Input widget.'''
@@ -1404,9 +1403,10 @@ class CivRPG(App):
             self.player.move(dy, dx)
             # asyncio.create_task(self.player.move(dy, dx))
             self.player.change_dir(event.key)
+            # self.check_movement()
             if self.check_movement():
                 self.update_viewport()
-            else:
+            else: # TODO Fix this
                 self.update_viewport()
                 # self.pressed_keys.remove(event.key)
         # elif event.key in ['up', 'lef', 'down', 'right']:
@@ -1418,10 +1418,14 @@ class CivRPG(App):
         elif event.key == 'r':
             self.player.zero_moves()
             self.player.reset_moves()
+        elif event.key == 'n':
+            self.player.zero_moves()
+            self.update_viewport()
         elif event.key == 'e':
             print(f'{self.player} is mounting a boat at {self.player.pos}.')
             self.player.mount()
             self.update_viewport()
+        # self.update_viewport()
         self.update_status()
         # self.text_log.write(event.key)
 
@@ -1433,6 +1437,7 @@ class CivRPG(App):
 
     def next_unit(self):
         '''Switch to the next player with movement remaining'''
+        # TODO Maybe use itertools.cycle and next()
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         self.player = self.players[self.current_player_index]
         self.update_viewport()
@@ -1444,7 +1449,8 @@ class CivRPG(App):
     def next_turn(self):
         for unit in self.players:
             unit.reset_moves()
-        self.player = self.players[0]
+        self.current_player_index = 0
+        self.player = self.players[self.current_player_index]
         self.update_viewport()
         world_map.game.turn += 1
         print('Turn:', world_map.game.turn)
