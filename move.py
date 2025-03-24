@@ -272,6 +272,7 @@ class Map:
         self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         # print('world_map 1:', self.world_map)
 
+        # Checks if map data is from a previous save
         print('First cell type:')
         print(map_data[0][0])
         print(type(map_data[0][0]))
@@ -379,6 +380,12 @@ class Map:
                         meta_data = contents + json.dumps(game_data)
                         if v: print('meta_data:', meta_data)
                         df[j][i] = meta_data
+                    # else:
+                    #     import pickle
+                    #     meta_data = pickle.dumps(game_data, pickle.HIGHEST_PROTOCOL)
+                    #     meta_data = contents + meta_data
+                    #     if v: print('game meta_data:', meta_data)
+                    #     df[j][i] = meta_data
                 if cell.get('Agent'):
                     player_data = cell.get('Agent')
                     contents = player_data.current_terrain.icon
@@ -390,9 +397,12 @@ class Map:
                         agent_data = contents + json.dumps(player_data, default=self.custom_json)
                         if v: print('player agent_data:', agent_data)
                         df[j][i] = agent_data
-                #     else:
-                #         import pickle
-                #         agent = pickle.dumps(agent, pickle.HIGHEST_PROTOCOL)
+                    # else:
+                    #     import pickle
+                    #     agent_data = pickle.dumps(player_data, pickle.HIGHEST_PROTOCOL)
+                    #     agent_data = contents + agent_data
+                    #     if v: print('player agent_data:', agent_data)
+                    #     df[j][i] = agent_data
             if v: print(self.world_map)
             df.to_csv(filename, index=False, header=False)
         print(time_stamp() + 'Map saved to:', filename)
@@ -420,6 +430,14 @@ class Map:
         print(time_stamp() + 'Spawning players.')
         self.game.spawn_players()
         print(time_stamp() + 'Spawned players.')
+
+    def combine_map(self, filename='save_map01'):
+        # Load map save as df
+        with open(filename, 'r') as f:
+            save_data = pd.read_csv(f)
+        # Copy dict data to icon map
+        # Refresh map
+        pass
 
     def save_meta(self, meta_data=None, v=False):
         if meta_data is None:
@@ -623,6 +641,7 @@ class Map:
         return obj_desc
 
     def save(self, filename='save_game01', use_json=True, v=False):#async
+        # TODO Not used currently
         if '.csv' not in filename:
             filename = filename + '.csv'
         if 'data/' not in filename:
@@ -662,6 +681,7 @@ class Map:
         print(time_stamp() + f'Game state saved to {filename}.')
 
     def load(self, map_data, use_json=True, v=True):
+        # TODO Not used currently
         print(time_stamp() + f'Loading game state.')
         if v: print(map_data)
         for i, row in map_data.iterrows():
@@ -935,7 +955,8 @@ class Player:
             command = input('Use wasd to move: ')
         # print('=' * ((world_map.map_view[1]*2)-1))
         command = command.lower().split(' ')
-        # print('Command is:', command)
+        command += [None] * (4 - len(command))
+        print('Command is:', command)
         if command[0] == 'exit':
             quit()
         elif command[0] == 'map':
