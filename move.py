@@ -408,9 +408,11 @@ class Map:
         print(time_stamp() + 'Map saved to:', filename)
 
     def load_map(self, filename='save_map01', v=False): # TODO Is this used?
-        print(time_stamp() + 'Loadmap with filename:', filename)
         if filename is None:
-            filename = input('Enter filename: ')
+            filename = 'save_map01'
+        print(time_stamp() + 'Loadmap with filename:', filename)
+        # if filename is None:
+        #     filename = input('Enter filename: ')
         if '.csv' not in filename:
             filename = filename + '.csv'
         if 'data/' not in filename:
@@ -642,6 +644,8 @@ class Map:
 
     def save(self, filename='save_game01', use_json=True, v=False):#async
         # TODO Not used currently
+        if filename is None:
+            filename = 'save_game01'
         if '.csv' not in filename:
             filename = filename + '.csv'
         if 'data/' not in filename:
@@ -998,11 +1002,10 @@ class Player:
             world_map.export_map(command[1])
             return
         elif command[0] == 'savemap':
-            # TODO If command[1] does not exist, use a default name
-            world_map.save_map()#command[1])
+            world_map.save_map(command[1])
             return
         elif command[0] == 'loadmap':
-            world_map.load_map()#command[1])
+            world_map.load_map(command[1])
             return
         elif command[0] == 'spawn': # Old
             world_map.game.spawn_players()
