@@ -333,7 +333,9 @@ class Map:
     def export_map(self, filename=None, strip_rich=True, v=True):
         # Save a csv of just the icon char tiles of the map
         if filename is None:
-            filename = input('Enter filename: ')
+            # filename = input('Enter filename: ')
+            print('Need to provide filename with command. [name]')
+            return
         if '.csv' not in filename:
             filename = filename + '.csv'
         if 'data/' not in filename:
@@ -438,8 +440,9 @@ class Map:
         with open(filename, 'r') as f:
             save_data = pd.read_csv(f)
         # Copy dict data to icon map
+
         # Refresh map
-        pass
+        return save_data
 
     def save_meta(self, meta_data=None, v=False):
         if meta_data is None:
@@ -453,14 +456,18 @@ class Map:
         print('Meta data saved.')
         return meta_data
 
-    def set_map_size(self, x=None, y=None):
+    def set_map_size(self, x=None, y=None): # TODO Are these cords reversed?
         print('Current Map Size:', self.map_size)
         if x is None:
-            x = input('Enter x new size: ')
+            # x = input('Enter x new size: ')
+            print('Need to provide x cord with command. [row, col]')
+            return
         if x == '':
             return
         if y is None:
-            y = input('Enter y new size: ')
+            # y = input('Enter y new size: ')
+            print('Need to provide y cord with command. [row, col]')
+            return
         if y == '':
             y = x
         new_map_size = (int(x), int(y))
@@ -478,13 +485,17 @@ class Map:
         self.update_display_map()
 
     def set_view_size(self, pos, x=None, y=None, man=False):
-        print('Current Map View:', self.map_view)
+        print('Current Map View:', self.view_size)
         if y is None:
-            y = input('Enter y new size (75): ')
+            # y = input('Enter y new size (75): ')
+            print('Need to provide x cord with command (75). [row, col]')
+            return
         if y == '':
             return
         if x is None:
-            x = input('Enter x new size (81): ')
+            # x = input('Enter x new size (81): ')
+            print('Need to provide y cord with command (81). [row, col]')
+            return
         if x == '':
             return
         if y == '':
@@ -585,10 +596,14 @@ class Map:
 
     def edit_map_terrain(self, terrain=None, y=None, x=None):
         if terrain is None:
-            terrain = input('Enter terrain: ')
+            # terrain = input('Enter terrain: ')
+            print('Need to provide terrain cord with command. [terrain, row, col]')
+            return
         if y is None:
             # y = self.target_tile.loc[0] # TODO Need to make this a method of Player class
-            y = input('Enter x coord: ')
+            # y = input('Enter x coord: ')
+            print('Need to provide y (row) cord with command. [terrain, row, col]')
+            return
         try:
             y = int(y)
         except ValueError:
@@ -596,7 +611,9 @@ class Map:
             return
         if x is None:
             # y = self.target_tile.loc[1] # TODO Need to make this a method of Player class
-            x = input('Enter x coord: ')
+            # x = input('Enter x coord: ')
+            print('Need to provide x (col) cord with command. [terrain, row, col]')
+            return
         try:
             x = int(x)
         except ValueError:
@@ -719,7 +736,7 @@ class Map:
         if letters is None:
             print('Need to enter letters with the command.')
             # letters = input('Enter column letters: ')
-            # return
+            return
             # prompt = self.game.query_one('#prompt')
             # letters = prompt.value
         try:
@@ -994,12 +1011,9 @@ class Player:
         elif command[0] == 'addcords':
             world_map.add_cords(command[1], command[2])
             return
-        elif command[0] == 'export': # Update input
+        elif command[0] == 'export' or command[0] == 'exportmap': # Update input
             world_map.export_map(command[1])
             # self.pos = self.old_pos
-            return
-        elif command[0] == 'exportmap':
-            world_map.export_map(command[1])
             return
         elif command[0] == 'savemap':
             world_map.save_map(command[1])
@@ -1089,7 +1103,7 @@ class Player:
             commands = {
                 'exit': 'Exit the program.',
                 'terrain': 'Display the different types of terrains and their stats.',
-                'next': 'Next turn.',
+                'next': 'Next unit\'s turn.',
                 'size': 'Change the size of the map. [row, col]',
                 'view': 'Change the display view of the map. [row, col]',
                 'edit': 'Edit the terrain at a specific location. [terrain, row, col]',
