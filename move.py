@@ -355,7 +355,8 @@ class Map:
     
     def save_map(self, filename='save_map01', use_json=True, strip_rich=True, v=False):
         if filename is None:
-            filename = input('Enter filename: ')
+            # filename = input('Enter filename: ')
+            filename = 'save_map01'
         if '.csv' not in filename:
             filename = filename + '.csv'
         if 'data/' not in filename:
@@ -435,18 +436,54 @@ class Map:
         self.game.spawn_players()
         print(time_stamp() + 'Spawned players.')
 
-    def combine_map(self, filename='save_map01'):
+    def combine_map(self, filename='save_map01', v=False):
+        if filename is None:
+            filename='save_map01'
+            print('No filename provided, set to:', filename)
+        if '.csv' not in filename:
+            filename = filename + '.csv'
+        if 'data/' not in filename:
+            filename = 'data/' + filename
         # Load map save as df
         with open(filename, 'r') as f:
             save_data = pd.read_csv(f)
         # Copy dict data to icon map
 
+        for i, row in save_data.iterrows():
+            for j, tile in enumerate(row):
+                existing_tile = self.world_map[i][j]
+                print(f'existing_tile at [{i}][{j}]: {existing_tile}')
+                break
+
+                if len(tile) == 1:
+                    if v: print(f'{i}, {j} | tile 1:', tile)
+                    continue
+                else:
+                    if v: print(f'{i}, {j} | tile 2:', tile)
+                    other_data = tile[1:]
+                    if v: print('other_data:', other_data)
+                    if 'turn' in other_data:
+                        meta_data = other_data
+                        if v: print('meta_data loaded:', meta_data)
+                    elif 'player_name' in other_data:
+                        if v: print('player_data:', other_data)
+                        player_data = json.loads(other_data, object_hook=None)
+                        if v: print('player_data loaded:', player_data)
+                        self.load_players.append(player_data)
+                    else:
+                        if v: print('other_data:', other_data)
+                        other_data = json.loads(other_data, object_hook=None)
+                        if v: print('other_data loaded:', other_data)
+                        # TODO Finish this
+                self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
+
         # Refresh map
+        # if v: print('save_data\n', save_data)
         return save_data
 
     def save_meta(self, meta_data=None, v=False):
         if meta_data is None:
-            meta_data = {'meta': {'players': 'single_player', 'game_mode': 'survival', 'turn': self.game.turn, 'cords': CORDS}}
+            meta_data = {'meta': {'save_date': dt.datetime.utcnow().strftime('%Y-%m-%d_%H:%M:%S'), 'players': 'single_player', 'game_mode': 'survival', 'turn': self.game.turn, 'cords': CORDS}}
         else:
             meta_data = eval(meta_data)
         contents = self.world_map[0][0]
@@ -1018,6 +1055,9 @@ class Player:
         elif command[0] == 'savemap':
             world_map.save_map(command[1])
             return
+        elif command[0] == 'combine':
+            world_map.combine_map(command[1])
+            return
         elif command[0] == 'loadmap':
             world_map.load_map(command[1])
             return
@@ -1110,6 +1150,7 @@ class Player:
                 'export': 'Export just the tiles of the map. [name]',
                 'exportmap': 'Export just the tiles of the map. [name]',
                 'save': 'Old slow method of saving the map.',
+                'combine': 'Combine the save game data with a new tile set. [name]',
                 'loadmap': 'Old method to load the map from a saved file.',
                 'spawn': 'Old method of spawning players on a loaded map.', # Old
                 'mapinitial': 'Show the meta data of the game.',
@@ -1155,10 +1196,13 @@ class StdoutRedirector:
         if text.strip() and 'Player ' not in text:  # Discard 'Player' updates or empty lines
             # self.log_widget.write(text.strip())
             self.log_widget.write(text[:-1])
+            sys.stdout.flush()
             self.log_widget.app.refresh()
 
     def flush(self):
-        pass # No-op to satisfy the file-like interface
+        # pass # No-op to satisfy the file-like interface
+        # sys.stdout.flush() # This causes: RecursionError: maximum recursion depth exceeded
+        self.log_widget.app.refresh()
 
     def set_widget_update(self, flag: bool):
         '''Set flag to indicate whether this is a widget update.'''
