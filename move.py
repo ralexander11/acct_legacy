@@ -353,7 +353,7 @@ class Map:
         df.to_csv(filename, index=False, header=False)
         print(time_stamp() + 'Map exported to:', filename)
     
-    def save_map(self, filename='save_map01', use_json=True, strip_rich=True, v=False):
+    def save_map(self, filename=None, use_json=True, strip_rich=True, v=False):
         if filename is None:
             # filename = input('Enter filename: ')
             filename = 'save_map01'
@@ -391,7 +391,7 @@ class Map:
                     #     df[j][i] = meta_data
                 if cell.get('Agent'):
                     player_data = cell.get('Agent')
-                    contents = player_data.current_terrain.icon
+                    contents = player_data['current_terrain']['icon']
                     contents = Text.from_markup(contents).plain
                     player_data = {'Agent': player_data}
                     if v: print(f'{i}, {j} | player contents: {contents}')
@@ -436,9 +436,9 @@ class Map:
         self.game.spawn_players()
         print(time_stamp() + 'Spawned players.')
 
-    def combine_map(self, filename='save_map01', v=False):
+    def combine_map(self, filename=None, v=False):
         if filename is None:
-            filename='save_map01'
+            filename='save_map02'#1'
             print('No filename provided, set to:', filename)
         if '.csv' not in filename:
             filename = filename + '.csv'
@@ -446,36 +446,71 @@ class Map:
             filename = 'data/' + filename
         # Load map save as df
         with open(filename, 'r') as f:
-            save_data = pd.read_csv(f)
+            save_data = pd.read_csv(f, header=None)
+        print('save_data:')
+        print(save_data.shape)
+        print('end save_data.')
         # Copy dict data to icon map
 
+        # Existing loaded tile terrain data good
+        # Get other data from save_data
+        # Refresh map
+
         for i, row in save_data.iterrows():
+            print(f'row {i}')
             for j, tile in enumerate(row):
+                # print(f'tile [{i}][{j}]: {tile} | {repr(tile)} | {len(tile)}')
                 existing_tile = self.world_map[i][j]
-                print(f'existing_tile at [{i}][{j}]: {existing_tile}')
-                break
+                if v: print(f'existing_tile at [{i}][{j}]: {existing_tile}')
 
                 if len(tile) == 1:
-                    if v: print(f'{i}, {j} | tile 1:', tile)
+                    if v: print(f'[{i}], [{j}] | tile 1:', tile)
+                    if v: print(f'existing_tile 1 at [{i}][{j}]: {existing_tile}')
                     continue
                 else:
-                    if v: print(f'{i}, {j} | tile 2:', tile)
+                    print(f'[{i}], [{j}] | tile 2: {tile[:30]}')
+                    print(f'existing_tile 2 at [{i}][{j}]: {existing_tile}')
+                    safe_tile = ''.join(c if c.isprintable() else '?' for c in tile)
+                    print('safe_tile len:', len(safe_tile))
+                    print(f'Tile preview at [{i}][{j}] 01: {repr(safe_tile[:10])}...')
+                    print(f'Tile preview at [{i}][{j}] 02: {repr(safe_tile[:20])}...')
+                    print(f'Tile preview at [{i}][{j}] 03: {repr(safe_tile[:30])}...')
+                    print(f'Tile preview at [{i}][{j}] 04: {repr(safe_tile[:32])}...')
+                    print(f'Tile preview at [{i}][{j}] 05: {repr(safe_tile[:34])}...')
+                    print(f'Tile preview at [{i}][{j}] 06: {repr(safe_tile[:35])}...') # Doesn't show
+                    print(f'Tile preview at [{i}][{j}] 07: {repr(safe_tile[:38])}...')
+                    print(f'Tile preview at [{i}][{j}] 08: {repr(safe_tile[:40])}...')
+                    print(f'Tile preview at [{i}][{j}]: {str(tile[:10])}...')
                     other_data = tile[1:]
-                    if v: print('other_data:', other_data)
-                    if 'turn' in other_data:
-                        meta_data = other_data
-                        if v: print('meta_data loaded:', meta_data)
-                    elif 'player_name' in other_data:
-                        if v: print('player_data:', other_data)
-                        player_data = json.loads(other_data, object_hook=None)
-                        if v: print('player_data loaded:', player_data)
-                        self.load_players.append(player_data)
-                    else:
-                        if v: print('other_data:', other_data)
+                    print(f'other_data len: {len(other_data)}')
+                    print(f'other_data start: {other_data[:30]}')
+                    print(type(other_data))
+                    try:
                         other_data = json.loads(other_data, object_hook=None)
-                        if v: print('other_data loaded:', other_data)
-                        # TODO Finish this
-                self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
+                        print(f'other_data json: {other_data[:30]}')
+                    except Exception as e:
+                        print(f'Error parsing json: {e}')
+                    print(type(other_data))
+
+                    # if 'meta' in other_data:
+                    #     meta_data = other_data
+                    #     print('meta_data loaded:', meta_data)
+                    if 'Agent' in other_data:
+                        print(f'Player at [{i}][{j}].')
+                        # return
+                    #     print('player_data:', other_data)
+                    #     # player_data = json.loads(other_data, object_hook=None)
+                    #     # if v: print('player_data loaded:', player_data)
+                    #     # self.load_players.append(player_data)
+                    # else:
+                    #     print('other_data:', other_data)
+                    #     # other_data = json.loads(other_data, object_hook=None)
+                    #     # if v: print('other_data loaded:', other_data)
+                    # print(f'break on [{i}][{j}].')
+                    print(f'[{i}], [{j}] | tile 3: {tile[:30]}')
+                    print(f'[{i}], [{j}] | other_data: {other_data}')
+                    print(f'Update for [{i}][{j}].')# 450, 245
+                    self.world_map[i][j].update(other_data)
 
         # Refresh map
         # if v: print('save_data\n', save_data)
@@ -1052,13 +1087,13 @@ class Player:
             world_map.export_map(command[1])
             # self.pos = self.old_pos
             return
-        elif command[0] == 'savemap':
+        elif command[0] == 'save' or command[0] == 'savemap':
             world_map.save_map(command[1])
             return
         elif command[0] == 'combine':
             world_map.combine_map(command[1])
             return
-        elif command[0] == 'loadmap':
+        elif command[0] == 'load' or command[0] == 'loadmap':
             world_map.load_map(command[1])
             return
         elif command[0] == 'spawn': # Old
@@ -1067,6 +1102,33 @@ class Player:
         elif command[0] == 'mapinitial':
             print(world_map.world_map[0][0])
             return
+        elif command[0] == 'mapcell':
+            # print('row:')
+            # print(world_map.col(command[1]))
+            # print('col:')
+            # print(world_map.col(command[2]))
+            cell = world_map.world_map[world_map.col(command[1])][world_map.col(command[2])]
+            print('type:')
+            print(type(cell))
+            print('len:')
+            print(len(cell))
+            print(cell) #446, 229; 446 HU #450 245
+            cell_str = repr(cell)
+            print('type str:')
+            print(type(cell_str))
+            print('len str:')
+            print(len(cell_str))
+            print('aaa')
+            print(cell_str)
+            print('bbb')
+            print(cell_str[:34]) #{'terrain': 'Path', 'Agent': 'Play
+            print('ccc')
+            print(cell_str[-6:])
+            print('ddd')
+            return
+# "={""Agent"": {""player_name"": ""Player 1"", ""icon"": "">"", ""pos"": [450, 245], ""movement"": 5, ""remain_move"": 5, ""moves"": {""w"": [0, -1], ""a"": [-1, 0], ""s"": [0, 1], ""d"": [1, 0]}, ""boat"": false, ""current_tile"": ""[orange4]=[/orange4]"", ""current_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 245], ""move_cost"": 0.5, ""hidden"": false}, ""target_tile"": ""[orange4]=[/orange4]"", ""target_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 246], ""move_cost"": 0.5, ""hidden"": false}, ""old_pos"": [450, 244]}}"
+
+# "={""Agent"": {""player_name"": ""Player 1"", ""icon"": ""1"", ""pos"": [446, 229], ""movement"": 5, ""remain_move"": 5, ""moves"": {""w"": [0, -1], ""a"": [-1, 0], ""s"": [0, 1], ""d"": [1, 0]}, ""boat"": false, ""current_tile"": ""[orange4]=[/orange4]"", ""current_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [446, 229], ""move_cost"": 0.5, ""hidden"": false}, ""target_tile"": ""[green].[/green]"", ""target_terrain"": {""tile_name"": ""Grassland"", ""icon"": ""[green].[/green]"", ""loc"": [447, 229], ""move_cost"": 1.0, ""hidden"": false}}}"
         elif command[0] == 'col':
             try:
                 world_map.col(command[1])
@@ -1133,12 +1195,12 @@ class Player:
             print('Player Terrain:', self.current_terrain)
             print('Player Target:', self.target_terrain)
             # print('Player Target Pos:', self.target_tile.loc)
-        elif command[0] == 'save':
-            try:
-                world_map.save(command[1])
-            except IndexError:
-                world_map.save()
-            return
+        # elif command[0] == 'save':
+        #     try:
+        #         world_map.save(command[1])
+        #     except IndexError:
+        #         world_map.save()
+        #     return
         elif command[0] == 'help' or command[0] == 'movehelp':
             commands = {
                 'exit': 'Exit the program.',
@@ -1149,16 +1211,18 @@ class Player:
                 'edit': 'Edit the terrain at a specific location. [terrain, row, col]',
                 'export': 'Export just the tiles of the map. [name]',
                 'exportmap': 'Export just the tiles of the map. [name]',
-                'save': 'Old slow method of saving the map.',
+                # 'save': 'Old slow method of saving the map.',
                 'combine': 'Combine the save game data with a new tile set. [name]',
                 'loadmap': 'Old method to load the map from a saved file.',
                 'spawn': 'Old method of spawning players on a loaded map.', # Old
                 'mapinitial': 'Show the meta data of the game.',
+                'mapcell': 'Show the map contents at a particular coord. [row, col]',
                 'col': 'Convert letter columns to numbers. [letters]',
                 'cords': 'Display a list of location coordinates.',
                 'addcords': 'Add cordinates to the cords list. [name, "row, col"]',
                 'tp': 'Teleport the player to a location. [row, col]',
-                'savemap': 'Save the map to file.',
+                'save': 'Save the map to file. [name]',
+                'savemap': 'Save the map to file. [name]',
             }
             cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
             with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
