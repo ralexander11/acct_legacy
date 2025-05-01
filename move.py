@@ -1123,7 +1123,7 @@ class Player:
             print('bbb')
             print(cell_str[:34]) #{'terrain': 'Path', 'Agent': 'Play
             print('ccc')
-            print(cell_str[-6:])
+            print(cell_str[-8:])
             print('ddd')
             return
 # "={""Agent"": {""player_name"": ""Player 1"", ""icon"": "">"", ""pos"": [450, 245], ""movement"": 5, ""remain_move"": 5, ""moves"": {""w"": [0, -1], ""a"": [-1, 0], ""s"": [0, 1], ""d"": [1, 0]}, ""boat"": false, ""current_tile"": ""[orange4]=[/orange4]"", ""current_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 245], ""move_cost"": 0.5, ""hidden"": false}, ""target_tile"": ""[orange4]=[/orange4]"", ""target_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 246], ""move_cost"": 0.5, ""hidden"": false}, ""old_pos"": [450, 244]}}"
@@ -1414,7 +1414,8 @@ class CivRPG(App):
         self.update_status()#False)
         # self.current_key = None
         # self.pressed_keys = set()
-        self.timer = None
+        # self.timer = None
+        self.redirect = True
         print(f'World Map:\n{world_map}')
 
     def compose(self):
@@ -1472,14 +1473,20 @@ class CivRPG(App):
     def on_mount(self):
         # self.timer = self.set_interval(0.5, self.check_movement)
         '''Redirect stdout and stdin'''
-        log_widget = self.query_one('#log_widget')
-        self.stdout_redirector = StdoutRedirector(log_widget)
-        sys.stdout = self.stdout_redirector
-        input_widget = self.query_one('#prompt')
-        self.stdin_redirector = StdinRedirector(input_widget)
-        sys.stdin = self.stdin_redirector
-        # Set up input widget to capture input
-        input_widget.action_submit = self.capture_input
+        self.redirect = True
+        if self.redirect:
+            log_widget = self.query_one('#log_widget')
+            self.stdout_redirector = StdoutRedirector(log_widget)
+            sys.stdout = self.stdout_redirector
+            print('redirect out:', self.redirect)
+
+            input_widget = self.query_one('#prompt')
+            self.stdin_redirector = StdinRedirector(input_widget)
+            sys.stdin = self.stdin_redirector
+            print('redirect in:', self.redirect)
+            # Set up input widget to capture input
+            input_widget.action_submit = self.capture_input
+        print('redirect end:', self.redirect)
         # Example print to test stdout
         print('Use WASD to move on the map view. Or type a command below and press Enter.')
 
