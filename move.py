@@ -1129,6 +1129,11 @@ class Player:
 # "={""Agent"": {""player_name"": ""Player 1"", ""icon"": "">"", ""pos"": [450, 245], ""movement"": 5, ""remain_move"": 5, ""moves"": {""w"": [0, -1], ""a"": [-1, 0], ""s"": [0, 1], ""d"": [1, 0]}, ""boat"": false, ""current_tile"": ""[orange4]=[/orange4]"", ""current_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 245], ""move_cost"": 0.5, ""hidden"": false}, ""target_tile"": ""[orange4]=[/orange4]"", ""target_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 246], ""move_cost"": 0.5, ""hidden"": false}, ""old_pos"": [450, 244]}}"
 
 # "={""Agent"": {""player_name"": ""Player 1"", ""icon"": ""1"", ""pos"": [446, 229], ""movement"": 5, ""remain_move"": 5, ""moves"": {""w"": [0, -1], ""a"": [-1, 0], ""s"": [0, 1], ""d"": [1, 0]}, ""boat"": false, ""current_tile"": ""[orange4]=[/orange4]"", ""current_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [446, 229], ""move_cost"": 0.5, ""hidden"": false}, ""target_tile"": ""[green].[/green]"", ""target_terrain"": {""tile_name"": ""Grassland"", ""icon"": ""[green].[/green]"", ""loc"": [447, 229], ""move_cost"": 1.0, ""hidden"": false}}}"
+        elif command[0] == 'redirect':
+            print(self.world_map.game.redirect)
+            self.world_map.game.redirect = not self.world_map.game.redirect
+            print(self.world_map.game.redirect)
+            return
         elif command[0] == 'col':
             try:
                 world_map.col(command[1])
@@ -1221,6 +1226,7 @@ class Player:
                 'cords': 'Display a list of location coordinates.',
                 'addcords': 'Add cordinates to the cords list. [name, "row, col"]',
                 'tp': 'Teleport the player to a location. [row, col]',
+                'redirect': 'Toggle the stdout redirect.',
                 'save': 'Save the map to file. [name]',
                 'savemap': 'Save the map to file. [name]',
             }
@@ -1255,8 +1261,16 @@ class StdoutRedirector:
         self.is_widget_update = False # Flag to differentiate rendering updates
 
     def write(self, text):
+        # with open('logs/move_log01.txt', 'a') as logfile:
+        #     sys.stdout = logfile.write(text)
+
+            # sys.stdout = type('TeeLog', (), {
+            #     'write': lambda self, data: (self.log_widget.write(text), logfile.write(text)),
+            #     'flush': lambda self: None
+            # })()
         if self.is_widget_update:
             return # Ignore rendering updates caused by Static widget updates
+        # return
         if text.strip() and 'Player ' not in text:  # Discard 'Player' updates or empty lines
             # self.log_widget.write(text.strip())
             self.log_widget.write(text[:-1])
@@ -1539,6 +1553,8 @@ class CivRPG(App):
     #         asyncio.create_task(self.move_character())
 
     def on_key(self, event):
+        print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+        print(event)
         focused_widget = self.focused
         # print('focused_widget:', focused_widget)
         # self.text_log.write(print('focused_widget:', focused_widget))
