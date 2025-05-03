@@ -1256,13 +1256,15 @@ class Player:
 
 class StdoutRedirector:
     '''Redirects stdout to a RichLog widget.'''
-    def __init__(self, log_widget: RichLog):
+    def __init__(self, log_widget: RichLog, log_file=None):
         self.log_widget = log_widget
+        self.log_file = log_file
         self.is_widget_update = False # Flag to differentiate rendering updates
 
     def write(self, text):
-        # with open('logs/move_log01.txt', 'a') as logfile:
-        #     sys.stdout = logfile.write(text)
+        if self.log_file is not None:
+            if 'Player ' not in text and 'position: (' not in text:
+                self.log_file.write(text)
 
             # sys.stdout = type('TeeLog', (), {
             #     'write': lambda self, data: (self.log_widget.write(text), logfile.write(text)),
@@ -1489,18 +1491,21 @@ class CivRPG(App):
         '''Redirect stdout and stdin'''
         self.redirect = True
         if self.redirect:
+            # with open('move_log01.log', 'w', buffering=1) as log_file:
+            log_file = open('logs/move_log01.log', 'w', buffering=1)
             log_widget = self.query_one('#log_widget')
-            self.stdout_redirector = StdoutRedirector(log_widget)
+            self.stdout_redirector = StdoutRedirector(log_widget, log_file)
             sys.stdout = self.stdout_redirector
-            print('redirect out:', self.redirect)
+            # print('redirect out:', self.redirect)
+            # print('redirect log_file:', log_file)
 
             input_widget = self.query_one('#prompt')
             self.stdin_redirector = StdinRedirector(input_widget)
             sys.stdin = self.stdin_redirector
-            print('redirect in:', self.redirect)
+            # print('redirect in:', self.redirect)
             # Set up input widget to capture input
             input_widget.action_submit = self.capture_input
-        print('redirect end:', self.redirect)
+        # print('redirect end:', self.redirect)
         # Example print to test stdout
         print('Use WASD to move on the map view. Or type a command below and press Enter.')
 
@@ -1553,8 +1558,6 @@ class CivRPG(App):
     #         asyncio.create_task(self.move_character())
 
     def on_key(self, event):
-        print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
-        print(event)
         focused_widget = self.focused
         # print('focused_widget:', focused_widget)
         # self.text_log.write(print('focused_widget:', focused_widget))
