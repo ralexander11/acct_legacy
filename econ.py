@@ -634,6 +634,7 @@ class World:
 			self.hours[individual.name] = individual.hours
 		if v:
 			print('\nCurrent entity hours:')
+			print('computers:', computers)
 			for entity_name, hours in self.hours.items():
 				print('{} | Hours: {}'.format(entity_name, hours))
 		if total:
@@ -2901,6 +2902,12 @@ class Entity:
 				time_check = True
 				if v: print('Time Required: {}'.format(time_required))
 				modifier, items_info = self.check_productivity(req_item)
+				# Switch to turn time off
+				if args.inf_time:
+					time_required = False
+					time_check = False
+					modifier = 1
+					if v: print('(inf) Time Required: {}'.format(time_required))
 				if v: print('Modifier: {}'.format(modifier))
 				self.ledger.reset()
 				self.ledger.set_entity(self.entity_id)
@@ -9752,7 +9759,6 @@ def create_world(accts=None, ledger=None, factory=None, governments=1, populatio
 	return world
 
 def parse_args(conn=None, command=None, external=False):
-	t0_start = time.perf_counter()
 	global args
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
@@ -9773,6 +9779,7 @@ def parse_args(conn=None, command=None, external=False):
 	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
 	parser.add_argument('-early', '--early', action='store_true', help='Automatically end the turn when no hours left when not in user mode.')
 	parser.add_argument('-j', '--jones', action='store_true', help='Enable game mode like Jones in the Fast Lane.')
+	parser.add_argument('-inf', '--inf_time', action='store_true', help='Toggles infinite time for labour and turns off waiting requirements.')
 	# TODO Add argparse for setting win conditions
 	# User would choose one or more goals for Wealth, Tech, Population, Land
 	# Or a time limit, with the highest of one or more of the above
@@ -9788,6 +9795,10 @@ def parse_args(conn=None, command=None, external=False):
 	if command is None:
 		command = args.command
 	USE_PIN = args.pin # TODO Fix this?
+
+	if args.inf_time:
+		MAX_HOURS = float('inf')
+		print('Labour hours inf: ', MAX_HOURS)
 
 	print(time_stamp() + str(sys.argv))
 	print(time_stamp() + 'Start Econ Sim | Governments: {} | Population per Gov: {}'.format(args.governments, args.population))
@@ -9843,6 +9854,7 @@ def parse_args(conn=None, command=None, external=False):
 	return args, conn
 
 def main(conn=None, command=None, external=False):
+	t0_start = time.perf_counter()
 	args, conn = parse_args(conn, command, external)
 	# accts = acct.Accounts(conn, econ_accts)
 	# ledger = acct.Ledger(accts)

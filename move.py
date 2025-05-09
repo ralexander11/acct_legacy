@@ -374,6 +374,7 @@ class Map:
         for i, row in enumerate(self.world_map):
             for j, cell in enumerate(row):
                 if cell.get('meta'):
+                    print(f'[{i}][{j}] Cell is meta.')
                     game_data = cell.get('meta')
                     game_data = {'meta': game_data}
                     contents = plain_display_map[i][j]
@@ -390,7 +391,31 @@ class Map:
                     #     if v: print('game meta_data:', meta_data)
                     #     df[j][i] = meta_data
                 if cell.get('Agent'):
+                    print(f'[{i}][{j}] Cell is Agent.')
+                    print('cell type:', type(cell))
+                    print('cell len:', len(cell))
+                    print('cell:', cell)
                     player_data = cell.get('Agent')
+                    print('player_data type:', type(player_data))
+                    # print('player_data len:', len(player_data))
+                    print(len(player_data.__dict__))
+                    print(type(player_data.__dict__))
+                    player_dict = player_data.__dict__
+                    print(str(player_dict))
+                    print(str(player_dict)[0])
+                    print(player_dict)
+                    print('Dict above.')
+                    first_player_key = next(iter(player_dict))
+                    print(first_player_key)
+                    print('Dict first key above.')
+                    first_player_value = player_dict[first_player_key]
+                    print(type(first_player_value))
+                    print(first_player_value)
+                    print('Dict first value above.')
+                    print(player_data)
+                    print('player_data above.')
+                    # print(f'player_data dict: {player_data.__dict__}')
+                    return
                     contents = player_data['current_terrain']['icon']
                     contents = Text.from_markup(contents).plain
                     player_data = {'Agent': player_data}
@@ -1049,7 +1074,7 @@ class Player:
         # print('=' * ((world_map.map_view[1]*2)-1))
         command = command.lower().split(' ')
         command += [None] * (4 - len(command))
-        print('Command is:', command)
+        print(time_stamp() + 'Command is:', command)
         if command[0] == 'exit':
             quit()
         elif command[0] == 'map':
@@ -1246,8 +1271,8 @@ class Player:
             player_data.pop('world_map')
         return player_data
 
-    def __str__(self):
-        return self.player_name
+    # def __str__(self):
+    #     return self.player_name
 
     def __repr__(self):
         return f"'{self.player_name}'"
@@ -1507,10 +1532,10 @@ class CivRPG(App):
             input_widget.action_submit = self.capture_input
         # print('redirect end:', self.redirect)
         # Example print to test stdout
-        print('Use WASD to move on the map view. Or type a command below and press Enter.')
-
+        print(time_stamp() + 'Use WASD to move on the map view. Or type a command below and press Enter.')
         # TODO Need to support multiple units/players
         self.update_viewport()
+        # world_map.save_map()
 
     def check_movement(self):
         '''Check if current player's movement is 0, then switch turns.'''
