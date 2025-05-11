@@ -1528,7 +1528,7 @@ class World:
 					break
 				tmp_demand = world.demand
 				entity.check_demand(multi=True, others=not isinstance(entity, Individual))
-				if tmp_demand is world.demand:
+				if tmp_demand.equals(world.demand):
 					print(time_stamp() + f'No change in demand for: {entity.name}')
 					break
 			if isinstance(entity, Individual) and not entity.user:
@@ -2231,7 +2231,7 @@ class Entity:
 				try:
 					purchase_qty = global_inv.iloc[i].loc['qty']
 				except IndexError as e:
-					print('No other entities hold {} to purchase the remaining qty of {}.'.format(item, qty))
+					print('No other entities hold {} to purchase the remaining qty of {}.\n'.format(item, qty))
 					break
 				if purchase_qty > qty:
 					purchase_qty = qty
@@ -5440,12 +5440,15 @@ class Entity:
 		checked = []
 		for index, demand_item in world.demand.iterrows():
 			item = demand_item['item_id']
+			if v: print(f'Item: {index} | {item} | {multi} | {others} | {needs_only}')
 			if item in checked:
+				if v: print(f'Already checked item {item}.')
 				continue
 			if needs_only:
 				if demand_item['reason'] != 'need':
 					continue
 			item_type = world.get_item_type(item)
+			print(f'Item type: {index} | {item} | {item_type}')
 			if item_type != 'Land':
 				checked.append(item)
 			if item_type == 'Subscription':
@@ -5551,12 +5554,6 @@ class Entity:
 			if to_drop:
 				index = to_drop[-1]
 			try: # TODO Not needed any more
-				print('^^^^^')
-				print(index)
-				print('!!!!!')
-				print(world.demand)
-				print('*****')
-				print(world.demand.loc[index, 'reason'])
 				if not outcome and world.demand.loc[index, 'reason'] == 'Labour':
 					print('Retrying demand check of {} for qty of 1 (instead of {}) due to labour constraint. ({}) {}'.format(item, qty, to_drop[0], world.demand.loc[index, 'reason']))
 					qty = 1
@@ -9915,7 +9912,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2024-12-15.db -s 11 -p 4 -mp 10 --early -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2024-12-15.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-05-10.db -s 11 -p 4 -mp 10 --early -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-05-10.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 

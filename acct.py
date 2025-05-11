@@ -2453,11 +2453,13 @@ def main(conn=None, command=None, external=False):
 				'removeacct': 'Remove an account on the Chart of Accounts.',
 				'qty': 'Get the quantity of a particular item or all items if none is specified.',
 				'more': 'List more commands... (WIP)',
+				'more2': 'List even more commands... (WIP)',
 				'exit': 'Exit out of the program.'
 			}
 			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
+			if args.command is not None: exit()
 		elif command.lower() == 'more' or command.lower() == 'acctmore':
 			commands = {
 				'split': 'Split a journal entry into more granular entries.',
@@ -2476,6 +2478,7 @@ def main(conn=None, command=None, external=False):
 			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
+			if args.command is not None: exit()
 		elif command.lower() == 'more2' or command.lower() == 'acctmore2':
 			commands = {
 				'rollover': '',
@@ -2511,6 +2514,7 @@ def main(conn=None, command=None, external=False):
 			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
 			with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
 				print(cmd_table)
+			if args.command is not None: exit()
 		elif command.lower() == 'exit' or args.command is not None:
 			exit()
 		else:
