@@ -5218,7 +5218,7 @@ class Entity:
 							if corp is not None and item_type == 'Subscription' and demand_index is not None:
 								to_drop = []
 								to_drop = world.demand.loc[world.demand['item_id'] == item].index.tolist()
-								world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+								world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
 								world.set_table(world.demand, 'demand')
 								print('{} dropped {} [{}] Subscription from the demand table for {}. To Drop: {}'.format(self.name, item, demand_index, corp.name, to_drop))
 								with pd.option_context('display.max_rows', None):
@@ -5227,7 +5227,7 @@ class Entity:
 				corp = self.incorporate(name=ticker, item=item)
 				# TODO Have the demand table item cleared when entity gets the subscription
 				if corp is not None and item_type == 'Subscription' and demand_index is not None:
-					world.demand = world.demand.drop([demand_index]).reset_index(drop=True)
+					world.demand = world.demand.drop([demand_index])#.reset_index(drop=True)
 					world.set_table(world.demand, 'demand')
 					print('{} dropped {} [{}] Subscription from the demand table for {}.'.format(self.name, item, demand_index, corp.name))
 					with pd.option_context('display.max_rows', None):
