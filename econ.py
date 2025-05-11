@@ -634,7 +634,6 @@ class World:
 			self.hours[individual.name] = individual.hours
 		if v:
 			print('\nCurrent entity hours:')
-			print('computers:', computers)
 			for entity_name, hours in self.hours.items():
 				print('{} | Hours: {}'.format(entity_name, hours))
 		if total:
@@ -989,8 +988,8 @@ class World:
 				if len(users) <= 1:
 					self.end = True
 		if END_DATE is not None: # Also for debugging
-			days_left = self.now - datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date()
-			print(f'Days left: {days_left}')
+			days_left = datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date() - self.now
+			print(f'Days left: {days_left.days}')
 			if self.now == datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
 				self.end = True
 		# Confirm if want to end sim, ability to keep playing save
@@ -5410,8 +5409,10 @@ class Entity:
 					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, index=[0])
 					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
 				else:
+					print('Adding item to demand list:', item)
 					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, ignore_index=True)
-					world.demand = pd.concat([world.demand, pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['need']})])
+					# world.demand = pd.concat([world.demand, pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['need']})])
+					world.demand.loc[len(world.demand)] = {'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}
 				world.set_table(world.demand, 'demand')
 			else:
 				if priority:
@@ -5550,6 +5551,12 @@ class Entity:
 			if to_drop:
 				index = to_drop[-1]
 			try: # TODO Not needed any more
+				print('^^^^^')
+				print(index)
+				print('!!!!!')
+				print(world.demand)
+				print('*****')
+				print(world.demand.loc[index, 'reason'])
 				if not outcome and world.demand.loc[index, 'reason'] == 'Labour':
 					print('Retrying demand check of {} for qty of 1 (instead of {}) due to labour constraint. ({}) {}'.format(item, qty, to_drop[0], world.demand.loc[index, 'reason']))
 					qty = 1
@@ -9607,11 +9614,22 @@ class NonProfit(Organization):
 
 
 class EntityFactory:
-	_instance = None  # Private class attribute for the singleton instance
+	_instance = None  # Singleton instance
+	_initialized = False  # Prevent multiple inits
 	
+	def __new__(cls, *args, **kwargs):
+		if cls._instance is None:
+			print('Creating new EntityFactory instance via __new__')
+			cls._instance = super().__new__(cls)
+		else:
+			print('Returning existing EntityFactory instance via __new__')
+		return cls._instance
+
 	def __init__(self):
-		if EntityFactory._instance is not None:
-			raise Exception('Use EntityFactory.get_factory() instead of creating a new instance.')
+		# print(f'{repr(self)} Create factory with __init__.')
+		if self._initialized:
+			return  # Skip re-initializing the singleton
+
 		self.registry = collections.OrderedDict()
 		self.registry[Individual] = []
 		self.registry[Environment] = []
@@ -9622,15 +9640,19 @@ class EntityFactory:
 		self.registry[Governmental] = []
 		# self.registry[Environment] = []
 
+		self._initialized = True
+
 	_accts = None
 	_ledger = None
 
 	@classmethod
 	def get_factory(cls):
-		"""Returns the existing factory instance, or creates one if none exists."""
-		if cls._instance is None:
-			cls._instance = EntityFactory()  # Create if not exists
-		return cls._instance
+		# '''Returns the existing factory instance, or creates one if none exists.'''
+		# print(f'cls: {cls} | {repr(cls)} | {cls._instance}')
+		# if cls._instance is None:
+		# 	cls._instance = EntityFactory()  # Create if none exists
+		# return cls._instance
+		return cls()
 
 	@staticmethod
 	def init(database, econ_accts):
@@ -9657,11 +9679,13 @@ class EntityFactory:
 	#     return self.ledger
 
 	def create(self, cls, *args, **kwargs):
+		# print(f'Create cls: {repr(self)} | {cls}')
 		entity = cls(*args, **kwargs)  # create the instance
 		self.register_instance(entity) # add to registry
 		return entity
 
 	def register_instance(self, entity):
+		# print(f'Regi: {repr(self)} | {entity}')
 		typ = type(entity)
 		if typ not in self.registry:
 			self.registry[typ] = []
@@ -9679,6 +9703,7 @@ class EntityFactory:
 		if not isinstance(typ, (list, tuple)):
 			typ = [typ]
 		entities = []
+		# print(f'Registry: {repr(self)} | {self} | {typ} | {self.registry}')
 		for el in typ:
 			entities += self.registry[el]
 		if not computers:
@@ -9688,6 +9713,7 @@ class EntityFactory:
 			# print('Include users, {}: \n{}'.format(users, entities))
 		if ids:
 			entities = [e.entity_id for e in entities]
+		# print(f'Factory get entities from {self}: {entities}')
 		return entities
 
 	def get_all(self): # TODO No longer needed
