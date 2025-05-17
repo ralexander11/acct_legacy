@@ -1370,7 +1370,7 @@ class World:
 					t3_7_start = time.perf_counter()
 					entity.maintain_inv()
 					t3_7_end = time.perf_counter()
-					print(time_stamp() + '3.7: Inv check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
+					print(time_stamp() + '3.7: Inv check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id)) # TODO This is very slow
 			t3_end = time.perf_counter()
 			print(time_stamp() + '3: Entity check took {:,.2f} min.'.format((t3_end - t3_start) / 60))
 			print()
@@ -1381,7 +1381,7 @@ class World:
 		if user_check or self.paused:
 			for player in self.factory.get(Government):
 				print('~' * DISPLAY_WIDTH)
-				print(time_stamp() + 'Current Date 03: {}'.format(self.now))
+				print(time_stamp() + 'Current Date: {}'.format(self.now))
 				indv_player_check = any([e.user for e in player.get(Individual)])
 				if not player.user and not indv_player_check:
 					print()
@@ -1455,7 +1455,7 @@ class World:
 			print()
 
 		# Computer mode
-		print(time_stamp() + 'Current Date 04: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 03: {}'.format(self.now))
 		print(time_stamp() + 'Checking if corporations are needed for items demanded.')
 		t2_start = time.perf_counter()
 		# for individual in self.factory.get(Individual, users=False):
@@ -1488,59 +1488,102 @@ class World:
 		print(time_stamp() + '2: Corp needed check took {:,.2f} min.'.format((t2_end - t2_start) / 60))
 
 		print()
-		print(time_stamp() + 'Current Date 05: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 04: {}'.format(self.now))
 		t4_start = time.perf_counter()
 		print(time_stamp() + 'Check Demand List:')
 		for entity in self.factory.get(users=False):
+			t4_1_start = time.perf_counter()
+			print(time_stamp() + 'Current Date 04.1: {}'.format(self.now))
 			#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
 			# entity.set_price() # TODO Is this needed?
 			entity.auto_produce()
+			t4_1_end = time.perf_counter()
+			print(time_stamp() + '4.1: Demand list; auto check took {:,.2f} sec for {}.'.format(t4_1_end - t4_1_start, entity))
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 			# if isinstance(entity, Individual):
 			# 	entity.needs_decay()
 			# 	if entity.dead:
 			# 		continue
 			if isinstance(entity, Individual) and not entity.user:
+				print(time_stamp() + 'Current Date 04.2: {}'.format(self.now))
+				t4_2_start = time.perf_counter()
 				# if str(self.now) == str(self.ledger.gl['date'].min()):
 				# 	priority = False
 				# else:
 				# 	priority = True
 				entity.address_needs(priority=True, method='consumption')
+				t4_2_end = time.perf_counter()
+				print(time_stamp() + '4.2: Demand list; address needs consumption 1 check took {:,.2f} sec for {}.'.format(t4_2_end - t4_2_start, entity))
 				if self.end_turn(check_hrs=True, user_check=user_check): return
+				print(time_stamp() + 'Current Date 04.3: {}'.format(self.now))
+				t4_3_start = time.perf_counter()
 				entity.address_needs(method='capital')
+				t4_3_end = time.perf_counter()
+				print(time_stamp() + '4.3: Demand list; address needs capital check took {:,.2f} sec for {}.'.format(t4_3_end - t4_3_start, entity))
 				if self.end_turn(check_hrs=True, user_check=user_check): return
 				# print('{} {} need at: {}'.format(entity.name, need, entity.needs[need]['Current Need']))
+			print(time_stamp() + 'Current Date 04.4: {}'.format(self.now))
+			t4_4_start = time.perf_counter()
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual), needs_only=True)
+			t4_4_end = time.perf_counter()
+			print(time_stamp() + '4.4: Demand list; auto check took {:,.2f} min for {}.'.format(t4_4_end - t4_4_start, entity))
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 			if isinstance(entity, Individual) and not entity.user:
+				print(time_stamp() + 'Current Date 04.5: {}'.format(self.now))
+				t4_5_start = time.perf_counter()
 				entity.address_needs(obtain=False, priority=False, method='consumption')
+				t4_5_end = time.perf_counter()
+				print(time_stamp() + '4.5: Demand list; address needs consumption 2 check took {:,.2f} sec for {}.'.format(t4_5_end - t4_5_start, entity))
 				if self.end_turn(check_hrs=True, user_check=user_check): return
+			
 
 		for entity in self.factory.get(users=False):
+			print(time_stamp() + 'Current Date 04.6: {}'.format(self.now))
+			t4_6_start = time.perf_counter()
 			print(time_stamp() + f'WIP List Check for: {entity.name}')
 			entity.wip_check()
+			t4_6_end = time.perf_counter()
+			print(time_stamp() + '4.6: Demand list; WIP check took {:,.2f} sec for {}.'.format(t4_6_end - t4_6_start, entity))
 			if self.end_turn(check_hrs=True, user_check=user_check): return
+
 		for entity in self.factory.get(users=False):
 			print(time_stamp() + f'Demand List Check for: {entity.name}')
 			while True:
+				print(time_stamp() + 'Current Date 04.7: {}'.format(self.now))
+				t4_7_start = time.perf_counter()
 				# if self.end_turn(check_hrs=True, user_check=user_check): return
-				if self.get_hours(total=True) == 0:
+				hours = self.get_hours(total=True)
+				if hours < 1:
+					print(f'Total entity hours: {hours}')
 					break
 				tmp_demand = world.demand
+				print(f'tmp_demand repr: {repr(tmp_demand)}')
+				print(f' world.demand repr: {repr(world.demand)}')
 				entity.check_demand(multi=True, others=not isinstance(entity, Individual))
+				t4_7_end = time.perf_counter()
+				print(time_stamp() + '4.7: Demand list; loop check took {:,.2f} sec for {}.'.format(t4_7_end - t4_7_start, entity))
 				if tmp_demand.equals(world.demand):
 					print(time_stamp() + f'No change in demand for: {entity.name}')
 					break
 			if isinstance(entity, Individual) and not entity.user:
+				print(time_stamp() + 'Current Date 04.8: {}'.format(self.now))
+				t4_8_start = time.perf_counter()
 				entity.address_needs(obtain=False, v=False)
+				t4_8_end = time.perf_counter()
+				print(time_stamp() + '4.8: Demand list; address needs 3 check took {:,.2f} sec for {}.'.format(t4_8_end - t4_8_start, entity))
+			print(time_stamp() + 'Current Date 04.9: {}'.format(self.now))
+			t4_9_start = time.perf_counter()
 			entity.check_inv()
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 			entity.tech_motivation()
+			t4_9_end = time.perf_counter()
+			print(time_stamp() + '4.9: Demand list; inv and tech check took {:,.2f} sec for {}.'.format(t4_9_end - t4_9_start, entity))
+
 		t4_end = time.perf_counter()
 		print(time_stamp() + '4: Demand list check took {:,.2f} min.'.format((t4_end - t4_start) / 60))
 		print()
 
-		print(time_stamp() + 'Current Date 06: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 05: {}'.format(self.now))
 		t5_start = time.perf_counter()
 		print('Check Optional Items:')
 		for entity in self.factory.get(users=False):#(Corporation):
@@ -1571,7 +1614,7 @@ class World:
 			print(time_stamp() + 'Turn ending early because all hours are used up.')
 			end = True
 		# User and computer mode
-		print(time_stamp() + 'Current Date 07: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 06: {}'.format(self.now))
 		t6_start = time.perf_counter()
 		print('Check Prices:')
 		# for entity in self.factory.get():
@@ -1580,10 +1623,10 @@ class World:
 		# for _ in range(world.population):
 		world.reduce_prices()
 		t6_end = time.perf_counter()
-		print(time_stamp() + '6: Prices check took {:,.2f} min.'.format((t6_end - t6_start) / 60))
+		print(time_stamp() + '6: Prices check took {:,.2f} sec.'.format(t6_end - t6_start))
 		print()
 
-		print(time_stamp() + 'Current Date 08: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 07: {}'.format(self.now))
 		t7_start = time.perf_counter()
 		for individual in self.factory.get(Individual):
 			# priority_needs = {} # TODO Clean this up with address_needs()
@@ -1604,7 +1647,7 @@ class World:
 		print(time_stamp() + '7: Needs decay took {:,.2f} min.'.format((t7_end - t7_start) / 60))
 		print()
 
-		print(time_stamp() + 'Current Date 09: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 08: {}'.format(self.now))
 		t8_start = time.perf_counter()
 		for typ in self.factory.registry.keys():
 			for entity in self.factory.get(typ):
@@ -1645,7 +1688,7 @@ class World:
 				# 	lst.append(lst.pop(0))
 
 		t8_end = time.perf_counter()
-		print(time_stamp() + '8: Cash check took {:,.2f} min.'.format((t8_end - t8_start) / 60))
+		print(time_stamp() + '8: Cash check took {:,.2f} sec.'.format(t8_end - t8_start))
 		print()
 
 		t9_start = time.perf_counter()
@@ -1674,7 +1717,7 @@ class World:
 		# 		individual.set_need('Hunger', -100, forced=True)
 
 		print()
-		print(time_stamp() + 'Current Date 10: {}'.format(self.now))
+		print(time_stamp() + 'Current Date 09: {}'.format(self.now))
 		print()
 		with pd.option_context('display.max_rows', None):
 			print('World Demand End: \n{}'.format(world.demand))
