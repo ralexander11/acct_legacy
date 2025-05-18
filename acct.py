@@ -2473,6 +2473,7 @@ def main(conn=None, command=None, external=False):
 				'exportaccts': 'Export the Chart of Accounts to csv.',
 				'loadaccts': 'Import the Chart of Accounts from csv.',
 				'table': 'Display any table in the database given its name.',
+				'tables': 'Display a list of all tables in the database.',
 				'exit': 'Exit out of the program.'
 			}
 			cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
@@ -2502,7 +2503,6 @@ def main(conn=None, command=None, external=False):
 				'removeitem': '',
 				'loadentities': '',
 				'loaditems': '',
-				'tables': '',
 				'exporttable': '',
 				'edititem': '',
 				'db': '',
