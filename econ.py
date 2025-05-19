@@ -158,7 +158,7 @@ econ_accts = [
 
 class World:
 	# _instance = None
-	def __init__(self, factory, accts=None, ledger=None, governments=1, population=2, new_db=True):#, args=None):
+	def __init__(self, factory, accts=None, ledger=None, governments=1, population=2, new_db=True):#, args=None):# World
 		# if World._instance is not None:
 		# 	raise Exception('Use World.get_model() instead of creating a new instance.')
 		# pygame.init()
@@ -1890,7 +1890,7 @@ class World:
 
 
 class Entity:
-	def __init__(self, name):
+	def __init__(self, name):# Entity
 		self.name = name
 		self.accts = EntityFactory.get_accts()
 		self.ledger = EntityFactory.get_ledger()  # Access shared Ledger
@@ -8432,7 +8432,7 @@ class Entity:
 
 
 class Individual(Entity):
-	def __init__(self, name, items, needs, government, founder, hours=12, current_need=None, parents=(None, None), user=None, entity_id=None):
+	def __init__(self, name, items, needs, government, founder, hours=12, current_need=None, parents=(None, None), user=None, entity_id=None):# Individual
 		super().__init__(name) # TODO Is this needed?
 		if isinstance(parents, str):
 			parents = parents.replace('(', '').replace(')', '')
@@ -9225,7 +9225,7 @@ class Individual(Entity):
 		return invested
 
 class Environment(Entity):
-	def __init__(self, name, entity_id=None):
+	def __init__(self, name, entity_id=None):# Environment
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, None, None, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9264,11 +9264,11 @@ class Environment(Entity):
 		self.ledger.journal_entry(land_event)
 
 class Organization(Entity):
-	def __init__(self, name):
+	def __init__(self, name):# Organization
 		super().__init__(name)
 
 class Corporation(Organization):
-	def __init__(self, name, items, government, founder, auth_shares=1000000, entity_id=None):
+	def __init__(self, name, items, government, founder, auth_shares=1000000, entity_id=None):# Corporation
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, auth_shares, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9422,7 +9422,7 @@ class Corporation(Organization):
 					self.produce(item_id, qty)
 
 class Government(Organization):
-	def __init__(self, name, items=None, user=False, entity_id=None):
+	def __init__(self, name, items=None, user=False, entity_id=None):# Government
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, user, None, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9502,7 +9502,7 @@ class Government(Organization):
 	# 	return 'Gov: {} | {}'.format(self.name, self.entity_id)
 
 class Governmental(Organization):
-	def __init__(self, name, government, items=None, entity_id=None):
+	def __init__(self, name, government, items=None, entity_id=None):# Governmental
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, None, None, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9550,7 +9550,7 @@ class Governmental(Organization):
 
 class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates a Governmental entity also
 	# TODO Can the below be omitted for inheritance
-	def __init__(self, name, government, interest_rate=None, items=None, user=None, entity_id=None):
+	def __init__(self, name, government, interest_rate=None, items=None, user=None, entity_id=None):# Bank
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, user, None, interest_rate, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9613,7 +9613,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 		return 'Bank: {} | {}'.format(self.name, self.entity_id)
 
 class NonProfit(Organization):
-	def __init__(self, name, items, government, founder, auth_qty=0, entity_id=None):
+	def __init__(self, name, items, government, founder, auth_qty=0, entity_id=None):# NonProfit
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, None, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9667,7 +9667,7 @@ class EntityFactory:
 			print('Returning existing EntityFactory instance via __new__')
 		return cls._instance
 
-	def __init__(self):
+	def __init__(self):# EntityFactory
 		# print(f'{repr(self)} Create factory with __init__.')
 		if self._initialized:
 			return  # Skip re-initializing the singleton
