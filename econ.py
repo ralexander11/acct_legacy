@@ -1559,8 +1559,9 @@ class World:
 					print(f'Total entity hours: {hours}')
 					break
 				tmp_demand = world.demand
-				print(f'tmp_demand repr: {repr(tmp_demand)}')
-				print(f' world.demand repr: {repr(world.demand)}')
+				with pd.option_context('display.max_rows', None):
+					print(f'tmp_demand repr: \n{repr(tmp_demand)}')
+					print(f' world.demand repr: \n{repr(world.demand)}')
 				entity.check_demand(multi=True, others=not isinstance(entity, Individual))
 				t4_7_end = time.perf_counter()
 				print(time_stamp() + '4.7: Demand list; loop check took {:,.2f} sec for {}.'.format(t4_7_end - t4_7_start, entity.name))
@@ -5485,7 +5486,7 @@ class Entity:
 		checked = []
 		for index, demand_item in world.demand.iterrows():
 			item = demand_item['item_id']
-			if v: print(f'Item: {index} | {item} | {multi} | {others} | {needs_only}')
+			if v: print(f'Demand Index: {index} | Item: {item} | multi: {multi} | others: {others} | needs_only: {needs_only}')
 			if item in checked:
 				if v: print(f'Already checked item {item}.')
 				continue
@@ -5493,13 +5494,16 @@ class Entity:
 				if demand_item['reason'] != 'need':
 					continue
 			item_type = world.get_item_type(item)
-			print(f'Item type: {index} | {item} | {item_type}')
+			print(f'Demand Index: {index} | Item: {item} | Item type: {item_type} | multi: {multi} | others: {others} | needs_only: {needs_only}')
 			if item_type != 'Land':
 				checked.append(item)
 			if item_type == 'Subscription':
 				continue
 			elif item_type == 'Land': #TODO Handle land better
 				if isinstance(self, Individual) and not needs_only: # TODO Assumes land is never a direct need
+					if self.hours > 1:
+						print(f'{self.name} has less than 1 hour left ({self.hours}) and cannot claim land from the demand list.')
+						continue
 					to_drop = []
 					# Claim land items for self first
 					if demand_item['entity_id'] == self.entity_id: # TODO Make this less ugly
@@ -8432,7 +8436,7 @@ class Entity:
 
 
 class Individual(Entity):
-	def __init__(self, name, items, needs, government, founder, hours=12, current_need=None, parents=(None, None), user=None, entity_id=None):# Individual
+	def __init__(self, name, items, needs, government, founder, hours=12, current_need=None, parents=(None, None), user=None, entity_id=None):# Individual(Entity)
 		super().__init__(name) # TODO Is this needed?
 		if isinstance(parents, str):
 			parents = parents.replace('(', '').replace(')', '')
@@ -9225,7 +9229,7 @@ class Individual(Entity):
 		return invested
 
 class Environment(Entity):
-	def __init__(self, name, entity_id=None):# Environment
+	def __init__(self, name, entity_id=None):# Environment(Entity)
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, None, None, None, None, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9264,11 +9268,11 @@ class Environment(Entity):
 		self.ledger.journal_entry(land_event)
 
 class Organization(Entity):
-	def __init__(self, name):# Organization
+	def __init__(self, name):# Organization(Entity)
 		super().__init__(name)
 
 class Corporation(Organization):
-	def __init__(self, name, items, government, founder, auth_shares=1000000, entity_id=None):# Corporation
+	def __init__(self, name, items, government, founder, auth_shares=1000000, entity_id=None):# Corporation(Organization)
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, auth_shares, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9422,7 +9426,7 @@ class Corporation(Organization):
 					self.produce(item_id, qty)
 
 class Government(Organization):
-	def __init__(self, name, items=None, user=False, entity_id=None):# Government
+	def __init__(self, name, items=None, user=False, entity_id=None):# Government(Organization)
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, None, None, None, None, None, None, None, None, None, user, None, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9502,7 +9506,7 @@ class Government(Organization):
 	# 	return 'Gov: {} | {}'.format(self.name, self.entity_id)
 
 class Governmental(Organization):
-	def __init__(self, name, government, items=None, entity_id=None):# Governmental
+	def __init__(self, name, government, items=None, entity_id=None):# Governmental(Organization)
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, None, None, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9550,7 +9554,7 @@ class Governmental(Organization):
 
 class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates a Governmental entity also
 	# TODO Can the below be omitted for inheritance
-	def __init__(self, name, government, interest_rate=None, items=None, user=None, entity_id=None):# Bank
+	def __init__(self, name, government, interest_rate=None, items=None, user=None, entity_id=None):# Bank(Organization)
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, None, None, None, None, None, None, None, None, user, None, interest_rate, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -9613,7 +9617,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 		return 'Bank: {} | {}'.format(self.name, self.entity_id)
 
 class NonProfit(Organization):
-	def __init__(self, name, items, government, founder, auth_qty=0, entity_id=None):# NonProfit
+	def __init__(self, name, items, government, founder, auth_qty=0, entity_id=None):# NonProfit(Organization)
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', None, None, None, None, None, self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, None, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
