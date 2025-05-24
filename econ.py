@@ -1565,6 +1565,11 @@ class World:
 				entity.check_demand(multi=True, others=not isinstance(entity, Individual))
 				t4_7_end = time.perf_counter()
 				print(time_stamp() + '4.7: Demand list; loop check took {:,.2f} sec for {}.'.format(t4_7_end - t4_7_start, entity.name))
+				print(f'Demand equals: {tmp_demand.equals(world.demand)}')
+				if isinstance(entity, Individual) and not entity.user: # TODO Is the user guard needed?
+					if entity.hours == 0:
+						print(f'{entity.name} has no hours left to check demand list.')
+						break
 				if tmp_demand.equals(world.demand):
 					print(time_stamp() + f'No change in demand for: {entity.name}')
 					break
@@ -2287,6 +2292,9 @@ class Entity:
 				#print('Purchase Counterparty: {}'.format(counterparty.name))
 				if counterparty.entity_id == self.entity_id:
 					print('{} attempting to transact with themselves for {} {}.'.format(self.name, purchase_qty, item))
+					if item_type == 'Land':
+						print(f'Land acct_buy before: {acct_buy}')
+						acct_buy = 'Land'
 					price = 0
 					self.ledger.set_entity(self.entity_id)
 					cost_entries = self.ledger.gl.loc[(self.ledger.gl['item_id'] == item) & (self.ledger.gl['credit_acct'] == 'Cost Pool')]
