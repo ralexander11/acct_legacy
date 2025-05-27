@@ -1368,7 +1368,8 @@ class World:
 				# 	print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
 				if isinstance(entity, Corporation):
 					t3_7_start = time.perf_counter()
-					entity.maintain_inv()
+					if args.jones: # TODO Handle this better
+						entity.maintain_inv()
 					t3_7_end = time.perf_counter()
 					print(time_stamp() + '3.7: Inv check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id)) # TODO This is very slow
 			t3_end = time.perf_counter()
@@ -9410,20 +9411,20 @@ class Corporation(Organization):
 			investor.buy_shares(self.name, price, qty, self)
 
 	# TODO Maybe move to Entity class
-	def maintain_inv(self, v=False):
+	def maintain_inv(self, buffer_qty=10, v=False):
 		if v: print('maintain_inv:')
 		for item_id in self.produces:
 			if v: print(item_id)
 			if not self.check_eligible(item_id):
 				continue
-			qty = 10
+			qty = buffer_qty
 			item_type = world.get_item_type(item_id)
 			if v: print('item_type:', item_type)
 			if item_type not in ['Commodity', 'Components', 'Equipment', 'Buildings', 'Subscription']:
 				_ = world.get_price(item_id, self.entity_id)
 				continue
 			if item_type in ['Commodity', 'Components']:
-				qty = 1000
+				qty = qty * 100 #1000
 			self.ledger.set_entity(self.entity_id)
 			inv_qty = self.ledger.get_qty(items=item_id, accounts=['Inventory'])
 			if inv_qty < qty * 0.8: # Buffer of 20%
