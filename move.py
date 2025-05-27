@@ -689,7 +689,8 @@ class Map:
         # self.terrain_items['int_rate_var'] = self.terrain_items['int_rate_var'].astype(float)
         # self.terrain_items['coverage'] = self.terrain_items['int_rate_var'] / self.terrain_items['int_rate_var'].sum()
         print('terrain_items:')
-        print(self.terrain_items)
+        print(self.terrain_items[self.terrain_items['child_of'] == 'Land'])
+        # print(self.terrain_items)
 
     def edit_map_terrain(self, terrain=None, y=None, x=None):
         if terrain is None:

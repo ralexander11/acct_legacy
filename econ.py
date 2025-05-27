@@ -1559,9 +1559,9 @@ class World:
 					print(f'Total entity hours: {hours}')
 					break
 				tmp_demand = world.demand
-				with pd.option_context('display.max_rows', None):
-					print(f'tmp_demand repr: \n{repr(tmp_demand)}')
-					print(f' world.demand repr: \n{repr(world.demand)}')
+				# with pd.option_context('display.max_rows', None):
+				# 	print(f'tmp_demand repr: \n{repr(tmp_demand)}')
+				# 	print(f' world.demand repr: \n{repr(world.demand)}')
 				entity.check_demand(multi=True, others=not isinstance(entity, Individual))
 				t4_7_end = time.perf_counter()
 				print(time_stamp() + '4.7: Demand list; loop check took {:,.2f} sec for {}.'.format(t4_7_end - t4_7_start, entity.name))
