@@ -8829,6 +8829,8 @@ class Individual(Entity):
 		self.ledger.gl = self.ledger.gl.loc[self.ledger.gl['credit_acct'] != 'Worker Info']
 		self.ledger.gl = self.ledger.gl.loc[self.ledger.gl['debit_acct'] != 'Subscription Info']
 		self.ledger.gl.fillna(0, inplace=True)
+		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			print(f'consolidated_gl: {self.ledger.gl}')
 		consolidated_gl = self.ledger.gl.groupby(['item_id','debit_acct','credit_acct']).sum()
 		self.ledger.reset()
 		inherit_event = []
