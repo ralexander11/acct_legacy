@@ -1335,6 +1335,9 @@ class World:
 			print(time_stamp() + 'Current Date 02: {}'.format(self.now))
 			t3_start = time.perf_counter()
 			for entity in self.factory.get():
+				if str(self.now) == str('1986-10-03'):
+					if isinstance(entity, Individual):
+						entity.set_need('Hunger', -100)
 				#print('Entity: {}'.format(entity))
 				t3_1_start = time.perf_counter()
 				entity.depreciation_check()
@@ -5953,11 +5956,11 @@ class Entity:
 		if isinstance(counterparty, tuple):
 			counterparty = counterparty[0]
 		if accrual:
-			desc_exp = job + ' wages paid'
-			desc_rev = job + ' wages pay received'
-		else:
 			desc_exp = job + ' wages to be paid'
 			desc_rev = job + ' wages to be received'
+		else:
+			desc_exp = job + ' wages paid'
+			desc_rev = job + ' wages received'
 		if counterparty is None:
 			print('No workers available to do {} job for {} hours.'.format(job, labour_hours))
 			return
@@ -8826,20 +8829,21 @@ class Individual(Entity):
 
 		self.ledger.set_entity(self.entity_id)
 		# Remove all job and subscription info entries
-		self.ledger.gl = self.ledger.gl.loc[self.ledger.gl['credit_acct'] != 'Worker Info']
-		self.ledger.gl = self.ledger.gl.loc[self.ledger.gl['debit_acct'] != 'Subscription Info']
-		self.ledger.gl.fillna(0, inplace=True)
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print(f'consolidated_gl: {self.ledger.gl}')
-		consolidated_gl = self.ledger.gl.groupby(['item_id','debit_acct','credit_acct']).sum()
+		consolidated_gl = self.ledger.gl
+		consolidated_gl = consolidated_gl.loc[self.ledger.gl['credit_acct'] != 'Worker Info']
+		consolidated_gl = consolidated_gl.loc[self.ledger.gl['debit_acct'] != 'Subscription Info']
+		consolidated_gl.fillna(0, inplace=True)
+		consolidated_gl = consolidated_gl.drop(['date', 'post_date'], axis=1)
+		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+		# 	print(f'consolidated_gl: {consolidated_gl}')
+		consolidated_gl = consolidated_gl.groupby(['item_id','debit_acct','credit_acct']).sum()
 		self.ledger.reset()
 		inherit_event = []
 		for index, entry in consolidated_gl.iterrows():
-			#print('Index: \n{}'.format(index))
-			#print('Entry: \n{}'.format(entry))
-			# TODO Confirm this still works
-			bequeath_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Bequeath to ' + counterparty.name, index[0], entry[3], entry[4], index[2], index[1], entry[5] ]
-			inherit_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Inheritance from ' + self.name, index[0], entry[3], entry[4], index[1], index[2], entry[5] ]
+			# print('Index: \n{}'.format(index))
+			# print('Entry: \n{}'.format(entry))
+			bequeath_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Bequeath to ' + counterparty.name, index[0], entry[5], entry[6], index[2], index[1], entry[7] ]
+			inherit_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Inheritance from ' + self.name, index[0], entry[5], entry[6], index[1], index[2], entry[7] ]
 			inherit_event += [bequeath_entry, inherit_entry]
 		self.ledger.journal_entry(inherit_event)
 
