@@ -1335,9 +1335,6 @@ class World:
 			print(time_stamp() + 'Current Date 02: {}'.format(self.now))
 			t3_start = time.perf_counter()
 			for entity in self.factory.get():
-				if str(self.now) == str('1986-10-03'):
-					if isinstance(entity, Individual):
-						entity.set_need('Hunger', -100)
 				#print('Entity: {}'.format(entity))
 				t3_1_start = time.perf_counter()
 				entity.depreciation_check()
