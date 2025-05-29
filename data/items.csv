@@ -58,7 +58,7 @@ Harvesting,None,None,None,Labour,None,None,None,None,None,None,None,None,None,No
 Spinning,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Basic Food,None,None,None,Commodity,"Arable Land, Cultivator, Collected Water","2, 2, 1",None,None,None,None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+Basic Food,None,None,None,Commodity,"Arable Land, Cultivator, Collected Water","5, 2, 1",None,None,None,None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
 Food,None,None,None,Commodity,"Arable Land, Cultivator, Water","1, 4, 1",None,None,None,None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
 Rancher,None,None,None,Labour,Cultivator,5,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 #Cow,"Grassland, Rancher","100, 40",animal,Equipment,"Grassland, Cow, Rancher","10, 2, 1",10,Grassland,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
@@ -85,7 +85,7 @@ Basic Clothing,None,None,continuous,Clothing,"Cloth, Tailor","2, 10",1,None,None
 Small Tent,None,None,start,Equipment,"Cloth, Wood","2, 20",1,None,None,None,None,None,Shelter,5,None,None,"100, 2000","usage, ticks",None,None,None,10,None,None,None,Textile Mill
 #Leather Clothing,None,None,continuous,Clothing,"Leather, Tanner","20, 10",1,None,None,None,None,None,Clothing,1,None,None,100,equipped,None,None,None,40,None,None,None,Individual
 Forge,None,None,continuous,Equipment,"Bellows, Wood, Rock, Clay","1, 5, 30, 15",100,None,None,None,None,None,None,None,Kiln,0.25,100,ticks,None,None,None,400,None,None,None,Blacksmith
-Metal Working,None,None,None,Technology,Time,100,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+Metal Working,None,None,None,Technology,Time,120,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Metal,None,None,None,Commodity,"Metal Working, Forge, Ore","1, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,None,Smelter
 Anvil,None,None,continuous,Equipment,"Grassland, Metal","1, 50",1,Grassland,2,None,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,None,Blacksmith
 Loom,None,None,start,Equipment,"Metal, Wood, Cloth","5, 50, 10",10,None,None,Cotton Gin,1,None,None,None,Weaving,0.5,"100, 2000","usage, ticks",None,None,None,100,None,None,None,Carpenter
