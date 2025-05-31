@@ -34,7 +34,11 @@ class Accounts:
 			self.db = 'acct.db'
 		elif isinstance(conn, str):
 			self.db = conn
-			if '/' not in conn:
+			if conn == 'mem':
+				conn = ':' + conn + 'ory:'
+			elif conn == 'memory':
+				conn = ':' + conn + ':'
+			if '/' not in conn and conn != ':memory:':
 				conn = 'db/' + conn
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/' + conn)
