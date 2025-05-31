@@ -22,10 +22,15 @@ import pickle
 from sqlite3 import Binary
 import timeit
 import cProfile
+# try:
+# 	from rich import print
+# except ImportError:
+# 	print('Rich print not supported.')
+# 	pass
 
 DISPLAY_WIDTH = 98
 pd.set_option('display.width', None)
-pd.options.display.float_format = '${:,.2f}'.format
+pd.options.display.float_format = '{:,.2f}'.format
 warnings.filterwarnings('ignore')
 
 args = None
@@ -1525,6 +1530,7 @@ class World:
 				# print('{} {} need at: {}'.format(entity.name, need, entity.needs[need]['Current Need']))
 			print(time_stamp() + 'Current Date 04.4: {}'.format(self.now))
 			t4_4_start = time.perf_counter()
+			print('Verbosity 01:', args.verbose)
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual), needs_only=True, v=args.verbose)
 			t4_4_end = time.perf_counter()
 			print(time_stamp() + '4.4: Demand list; needs check took {:,.2f} min for {}.\n'.format(t4_4_end - t4_4_start, entity.name))
@@ -1563,6 +1569,7 @@ class World:
 				# with pd.option_context('display.max_rows', None):
 				# 	print(f'tmp_demand repr: \n{repr(tmp_demand)}')
 				# 	print(f' world.demand repr: \n{repr(world.demand)}')
+				print('Verbosity 02:', args.verbose)
 				entity.check_demand(multi=True, others=not isinstance(entity, Individual), v=args.verbose)
 				t4_7_end = time.perf_counter()
 				print(time_stamp() + '4.7: Demand list; loop check took {:,.2f} sec for {}.\n'.format(t4_7_end - t4_7_start, entity.name))
@@ -1597,7 +1604,7 @@ class World:
 		print('Check Optional Items:')
 		for entity in self.factory.get(users=False):#(Corporation):
 			print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
-			entity.check_optional()
+			entity.check_optional(v=args.verbose)
 			entity.check_inv()
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 			# entity.tech_motivation()
@@ -1968,10 +1975,10 @@ class Entity:
 		world.set_table(world.prices, 'prices')
 		return price
 
-	def set_price(self, item=None, qty=0, price=None, markup=0.1, at_cost=False):
+	def set_price(self, item=None, qty=0, price=None, markup=0.1, at_cost=False, v=True):
 		if item is None: # TODO Look into why this is called in update_econ()
 			if self.produces is None:
-				print('{} produces no items.'.format(self.name))
+				if v: print('{} produces no items.'.format(self.name))
 				return
 			for item in self.produces:
 				price = world.get_price(item, self.entity_id)
@@ -1997,16 +2004,16 @@ class Entity:
 				if price < cost and qty_held <= qty:
 					if at_cost:
 						world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost
-						print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+						if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 					else:
 						world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost * (1 + markup)
-					print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+					if v: print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 		else:
 			if price is not None:
 				orig_price = world.get_price(item, self.entity_id)
 				# world.prices.at[item, 'price'] = price
 				world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = price
-				print('{} manually sets price for {} from {} to {}.'.format(self.name, item, orig_price, price))
+				if v: print('{} manually sets price for {} from {} to {}.'.format(self.name, item, orig_price, price))
 				return
 			price = world.get_price(item, self.entity_id)
 			item_type = world.get_item_type(item)
@@ -2025,16 +2032,16 @@ class Entity:
 				#print('Cost Entries: \n{}'.format(cost_entries))
 				cost = cost_entries.iloc[0]['price']
 			qty_held = self.ledger.get_qty(items=item, accounts=['Inventory'])
-			print('Qty held by {} when setting price for {}: {}'.format(self.name, item, qty_held))
+			if v: print('Qty held by {} when setting price for {}: {}'.format(self.name, item, qty_held))
 			self.ledger.reset()
-			print('{}\'s current price for {}: {}'.format(self.name, item, price))
+			if v: print('{}\'s current price for {}: {}'.format(self.name, item, price))
 			if price < cost and qty_held <= qty:
 				if at_cost:
 					world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost
-					print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+					if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 				else:
 					world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost * (1 + markup)
-					print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+					if v: print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				# 	print(world.prices)
 		world.set_table(world.prices, 'prices')
@@ -2052,7 +2059,7 @@ class Entity:
 			world.set_table(world.prices, 'prices')
 			return low_price
 
-	def transact(self, item, price, qty, counterparty, acct_buy='Inventory', acct_sell='Inventory', acct_rev='Sales', desc_pur=None, desc_sell=None, item_type=None, cash_used=0, buffer=False):
+	def transact(self, item, price, qty, counterparty, acct_buy='Inventory', acct_sell='Inventory', acct_rev='Sales', desc_pur=None, desc_sell=None, item_type=None, cash_used=0, buffer=False, v=True):
 		if qty == 0:
 			return [], False
 		purchase_event = []
@@ -2074,7 +2081,7 @@ class Entity:
 		# if item_type == 'Education': # TODO This causes issue
 		# 	qty_avail = abs(qty_avail)
 		if item_type != 'Service' and item_type != 'Education': # TODO Handle Services better
-			print('Qty Available to purchase from {}: {}'.format(counterparty.name, qty_avail))
+			if v: print('Qty Available to purchase from {}: {}'.format(counterparty.name, qty_avail))
 		self.ledger.reset()
 		if cash >= (qty * price) or counterparty.entity_id == self.entity_id:
 			#print('Transact Item Type: {}'.format(item_type))
@@ -2085,19 +2092,19 @@ class Entity:
 			except ZeroDivisionError as e:
 				qty_possible = qty
 			if qty_possible != 0 and price != 0:
-				print('{} does not have enough cash to purchase {} units of {} for {} each. Cash: {} | Qty Possible: {}'.format(self.name, qty, item, price, cash, qty_possible))
+				if v: print('{} does not have enough cash to purchase {} units of {} for {} each. Cash: {} | Qty Possible: {}'.format(self.name, qty, item, price, cash, qty_possible))
 		if qty_possible != 0:
 			qty = qty_possible
 			if qty > qty_avail or item_type == 'Service' or item_type == 'Education': # Will buy what is available
 				if item_type != 'Service' and item_type != 'Education': # TODO Combine this with above if stmt?
 					qty = qty_avail
 				if qty_avail != 0:
-					print('{} does not have enough {} on hand to sell {} units of {}. Will sell qty on hand: {}'.format(self.name, item, qty, item, qty_avail))
+					if v: print('{} does not have enough {} on hand to sell {} units of {}. Will sell qty on hand: {}'.format(self.name, item, qty, item, qty_avail))
 			if ((qty <= qty_avail and qty_avail != 0) or item_type == 'Service' or item_type == 'Education'):
 				if item_type is not None and item_type != 'Service' and item_type != 'Education':
-					print('{} transacted with {} for {} {}'.format(self.name, counterparty.name, qty, item))
+					if v: print('{} transacted with {} for {} {}'.format(self.name, counterparty.name, qty, item))
 					self.ledger.set_entity(counterparty.entity_id)
-					print('{} getting historical cost of {} {}.'.format(counterparty.name, qty, item))
+					if v: print('{} getting historical cost of {} {}.'.format(counterparty.name, qty, item))
 					cost_amt = self.ledger.hist_cost(qty, item, 'Inventory')#, v=True)
 					#print('Cost: {}'.format(cost_amt))
 					self.ledger.reset()
@@ -2115,7 +2122,7 @@ class Entity:
 					return purchase_event, cost
 				else:
 					if item_type is None:
-						print('{} transacted with {} for {} {} shares.'.format(self.name, counterparty.name, qty, item))
+						if v: print('{} transacted with {} for {} {} shares.'.format(self.name, counterparty.name, qty, item))
 					sell_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_sell, price * qty ]
 					purchase_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
 					purchase_event += [sell_entry, purchase_entry]
@@ -2126,16 +2133,16 @@ class Entity:
 					counterparty.adj_price(item, qty, direction='up')
 					return purchase_event, cost
 			else:
-				print('{} does not have enough {} on hand to sell {} units of {}. Qty on hand: {}'.format(self.name, item, qty, item, qty_avail))
+				if v: print('{} does not have enough {} on hand to sell {} units of {}. Qty on hand: {}'.format(self.name, item, qty, item, qty_avail))
 				return purchase_event, cost
 		else:
 			# qty_possible = math.floor(cash / price)
-			print('{} does not have enough cash to purchase {} units of {} for {} each. Cash: {} | Qty Possible: {}'.format(self.name, qty, item, price, cash, qty_possible))
+			if v: print('{} does not have enough cash to purchase {} units of {} for {} each. Cash: {} | Qty Possible: {}'.format(self.name, qty, item, price, cash, qty_possible))
 			if not self.user:
 				cost = True
 				result = self.loan(amount=((qty * price) - cash), item='Credit Line 5', auto=True)
 				if result:
-					purchase_event, cost = self.transact(item, price, qty, counterparty, acct_buy=acct_buy, acct_sell=acct_sell, acct_rev=acct_rev, desc_pur=desc_pur, desc_sell=desc_sell, item_type=item_type, buffer=buffer)
+					purchase_event, cost = self.transact(item, price, qty, counterparty, acct_buy=acct_buy, acct_sell=acct_sell, acct_rev=acct_rev, desc_pur=desc_pur, desc_sell=desc_sell, item_type=item_type, buffer=buffer, v=v)
 				if result is False:
 					self.bankruptcy()
 				# counterparty.adj_price(item, qty, direction='down')
@@ -2209,7 +2216,7 @@ class Entity:
 				counterparty = self.factory.get_by_id(counterparty_id)
 			if counterparty is None:
 				if v: print('No {} to offer {}{} service. Will add it to the demand table for {}.'.format(', '.join(producers), item, quirk, self.name))
-				self.item_demanded(item, qty, priority=priority, reason_need=reason_need)
+				self.item_demanded(item, qty, priority=priority, reason_need=reason_need, v=v)
 				return
 			if v: print('{} chooses {} for the {}{} service counterparty.'.format(self.name, counterparty.name, item, quirk))
 			if item_type == 'Service':
@@ -2263,12 +2270,12 @@ class Entity:
 			except AttributeError as e:
 				#print('Organizations do not have needs: {} | {}'.format(e, repr(e)))
 				pass
-			outcome, cost = self.transact(item, price=world.get_price(item, counterparty.entity_id), qty=qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, buffer=buffer)
+			outcome, cost = self.transact(item, price=world.get_price(item, counterparty.entity_id), qty=qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, buffer=buffer, v=v)
 			if outcome is None:
 				outcome = []
 			result += outcome
 		elif item_type == 'Education':
-			outcome, cost = self.transact(item, price=world.get_price(item, counterparty.entity_id), qty=qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, buffer=True)
+			outcome, cost = self.transact(item, price=world.get_price(item, counterparty.entity_id), qty=qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, buffer=True, v=v)
 			if outcome is None:
 				outcome = []
 			return outcome
@@ -3040,7 +3047,7 @@ class Entity:
 					if v: print('{} requires {} more {} to produce {}.'.format(self.name, needed_qty, req_item, item))
 					# Attempt to purchase land
 					if not man:
-						result = self.purchase(req_item, needed_qty, buffer=buffer)
+						result = self.purchase(req_item, needed_qty, buffer=buffer, v=v)
 						if result:
 							price = price # TODO Handle price when purchasing land better
 						if not result:
@@ -3166,7 +3173,7 @@ class Entity:
 							if v: print('{} does not have enough capacity in {} building and requires {}.'.format(self.name, req_item, required_qty))
 						if not man:
 							# Attempt to purchase before producing self if makes sense
-							result = self.purchase(req_item, required_qty, buffer=buffer)#, acct_buy='Buildings')#, wip_acct='Building Under Construction')
+							result = self.purchase(req_item, required_qty, buffer=buffer, v=v)#, acct_buy='Buildings')#, wip_acct='Building Under Construction')
 							req_time_required = False
 							if not result:
 								if v: print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
@@ -3317,7 +3324,7 @@ class Entity:
 							if v: print('{} does not have enough capacity on {} equipment and requires {}.'.format(self.name, req_item, required_qty))
 						if not man:
 							# Attempt to purchase before producing self if makes sense
-							result = self.purchase(req_item, required_qty, buffer=buffer)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
+							result = self.purchase(req_item, required_qty, buffer=buffer, v=v)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
 							# if vv: print('Equip Purchase Result:', result)
 							req_time_required = False
 							if not result:
@@ -3473,7 +3480,7 @@ class Entity:
 					if v: print('{} does not have enough {} components. Will attempt to aquire some.'.format(self.name, req_item))
 					if not man:
 						# TODO Improve to be more like commodities
-						result = self.purchase(req_item, qty_needed)#, 'Inventory')#, buffer=True)
+						result = self.purchase(req_item, qty_needed, v=v)#, 'Inventory')#, buffer=True)
 						req_time_required = False
 						if not result:
 							if v: print('{} will attempt to produce {} {} itself.'.format(self.name, qty_needed, req_item))
@@ -3601,7 +3608,7 @@ class Entity:
 					# TODO Maybe add logic so that producers wont try and purchase items they can produce
 					if not man:
 						# Attempt to purchase before producing
-						result = self.purchase(req_item, qty_needed)#, 'Inventory')#, buffer=True)
+						result = self.purchase(req_item, qty_needed, v=v)#, 'Inventory')#, buffer=True)
 						partial_qty = False
 						purchased_qty = 0
 						if result:
@@ -3702,7 +3709,7 @@ class Entity:
 				# TODO Add support for qty to Services
 				if v: print('{} will attempt to purchase the {} service to produce {} {}.'.format(self.name, req_item, qty, item))
 				qty_needed = req_qty * qty
-				entries = self.purchase(req_item, qty_needed, buffer=True)
+				entries = self.purchase(req_item, qty_needed, buffer=True, v=v)
 				if not entries:
 					if v: print('{} will attempt to produce {} {} itself.'.format(self.name, qty_needed, req_item))
 					entries, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, buffer=True) # TODO Consider if manual switch needed
@@ -4295,7 +4302,7 @@ class Entity:
 			if produce_event:
 				qty = produce_event[0][8]
 				max_qty_possible = max(0, max_qty_possible - qty)
-			outcome = self.purchase(item, qty)
+			outcome = self.purchase(item, qty, v=v)
 			if not outcome:
 				return [], time_required, max_qty_possible, incomplete
 			produce_event += outcome
@@ -4588,9 +4595,9 @@ class Entity:
 				world.set_table(world.delay, 'delay')
 				if vv: print('World Delay: \n{}'.format(world.delay))
 		if produce_event[-1][-3] in ['Inventory', 'WIP Inventory']:
-			self.set_price(item, qty)
+			self.set_price(item, qty, v=v)
 		else:
-			self.set_price(item, qty, at_cost=True)
+			self.set_price(item, qty, at_cost=True, v=v)
 		# if man: # TODO Make this the case for not man also
 		return produce_event, time_required, max_qty_possible, incomplete
 		# return qty, time_required # TODO Return the qty instead of True, or can use max_qty_possible for qty if complete
@@ -4981,7 +4988,7 @@ class Entity:
 					if v: print('WIP Event: \n{}'.format(wip_event))
 					self.ledger.journal_entry(wip_event)
 					if wip_event[-1][-3] == 'Inventory':
-						self.set_price(wip_lot['item_id'], wip_lot['qty'])
+						self.set_price(wip_lot['item_id'], wip_lot['qty'], v=v)
 					result += wip_event
 			return result
 
@@ -5484,6 +5491,7 @@ class Entity:
 			return item, qty
 
 	def check_demand(self, multi=True, others=True, needs_only=False, vv=False, v=True):
+		print('check_demand v:', v)
 		if self.produces is None:
 			return
 		if needs_only:
@@ -5509,7 +5517,7 @@ class Entity:
 				continue
 			elif item_type == 'Land': #TODO Handle land better
 				if isinstance(self, Individual) and not needs_only: # TODO Assumes land is never a direct need
-					if self.hours > 1:
+					if self.hours < 1:
 						if v: print(f'{self.name} has less than 1 hour left ({self.hours}) and cannot claim land from the demand list.')
 						continue
 					to_drop = []
@@ -5641,7 +5649,7 @@ class Entity:
 			# 		with pd.option_context('display.max_rows', None):
 			# 			print('World Demand: {} \n{}'.format(world.now, world.demand))
 
-	def check_optional(self, priority=False):
+	def check_optional(self, priority=False, v=True):
 		if self.produces is None:
 			return
 		items_list = world.items[world.items['producer'] != None]
@@ -5661,7 +5669,7 @@ class Entity:
 				priority = True
 			requirements = world.items.loc[item, 'requirements']
 			if requirements is None:
-				print('{} has no requirements.'.format(item))
+				if v: print('{} has no requirements.'.format(item))
 				continue
 			if isinstance(requirements, str):
 				requirements = [x.strip() for x in requirements.split(',')]
@@ -5693,7 +5701,7 @@ class Entity:
 							self.ledger.reset()
 							#print('Current Qty of {}: {}'.format(item['item_id'], current_qty))
 							if current_qty == 0:
-								result = self.purchase(prod_item['item_id'], qty=1, priority=priority)#, acct_buy=item_type) # TODO Handle more than 1 qty?
+								result = self.purchase(prod_item['item_id'], qty=1, priority=priority, v=v)#, acct_buy=item_type) # TODO Handle more than 1 qty?
 								if result:
 									break
 
@@ -5712,12 +5720,13 @@ class Entity:
 			price = world.get_price(item, counterparty.entity_id)
 			if price == 0:
 				price = INIT_PRICE
-				self.set_price(item, price=price)
+				self.set_price(item, price=price, v=v)
 			# print('Price of {} land set to: {}'.format(item, price))
 		explore_time = world.items['int_rate_fix'][item] # TODO Maybe create dedicated data column
 		if explore_time is None or pd.isnull(explore_time):
 			explore_time = EXPLORE_TIME
 		explore_time = int(explore_time)
+		explore_time = explore_time * 0.1 # Reduce land claim time requirements
 		time_needed = qty * explore_time
 		if isinstance(self, (Corporation)):
 			largest_shareholder_id = self.list_shareholders(largest=True)
@@ -5737,11 +5746,11 @@ class Entity:
 		if entity.hours < time_needed:
 			qty = math.floor(entity.hours / (explore_time))
 			if qty == 0:
-				if v: print('{} lacks time to claim {} units of {}. Can claim {} units with {} hours time.'.format(entity.name, orig_qty, item, qty, entity.hours))
+				if v: print(f'{entity.name} requires {explore_time} time to claim {orig_qty} units of {item}. Can claim {qty} units with {entity.hours} hours time.')
 				if account == 'Land':
-					self.item_demanded(item, orig_qty, priority=priority)
+					self.item_demanded(item, orig_qty, priority=priority, v=v)
 				return
-			if v: print('{} lacks time to claim {} units of {}. But can claim {} units with {} hours of time instead.'.format(entity.name, orig_qty, item, qty, entity.hours))
+			if v: print(f'{entity.name} requires {explore_time} time to claim {orig_qty} units of {item}. But can claim {qty} units with {entity.hours} hours of time instead.')
 			if self.user:
 				while True:
 					confirm = input('Do you want to claim {} units of {} instead? [Y/n]: '.format(qty, item))
@@ -6014,10 +6023,10 @@ class Entity:
 			counterparty.adj_price(job, labour_hours, direction='down')
 			return
 
-	def worker_counterparty(self, job, only_avail=True, exclude=None, man=False):
+	def worker_counterparty(self, job, only_avail=True, exclude=None, man=False, v=True):
 		if job == 'Study':# or 'Research':
 			return self
-		print('{} looking for worker for job: {}'.format(self.name, job))
+		if v: print('{} looking for worker for job: {}'.format(self.name, job))
 		option = 1
 		if exclude is None:
 			exclude = []
@@ -6055,7 +6064,7 @@ class Entity:
 		for individual in individuals:
 			price = world.get_price(job, individual.entity_id)
 			workers_price[individual] = price
-			print('{} {} price: {} | Experience: {:g} | Hours Left: {}'.format(individual.name, job, price, workers_exp[individual], individual.hours))
+			if v: print('{} {} price: {} | Experience: {:g} | Hours Left: {}'.format(individual.name, job, price, workers_exp[individual], individual.hours))
 		# Filter for workers with enough hours in the day left
 		if item_type == 'Job':
 			base_hours = WORK_DAY #4
@@ -6212,7 +6221,7 @@ class Entity:
 					worker_choosen, worker_event = worker_choosen
 				if worker_choosen is None:
 					return None, []
-		print('Worker Choosen for {}: {}'.format(job, worker_choosen.name))
+		if v: print('Worker Choosen for {}: {}'.format(job, worker_choosen.name))
 		if worker_event:
 			return worker_choosen, worker_event
 		return worker_choosen
@@ -6903,7 +6912,7 @@ class Entity:
 				# Try to purchase a new item if current one breaks
 				if not man:
 					# TODO Try to produce first, make aquire function that tries to produce first then attempt to purchase
-					outcome = self.purchase(item, new_qty)
+					outcome = self.purchase(item, new_qty, v=v)
 					if outcome:
 						entries, new_uses = self.depreciation(item, lifespan, metric, (orig_uses - uses), buffer)
 						if entries:

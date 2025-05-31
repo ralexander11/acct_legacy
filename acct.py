@@ -7,6 +7,10 @@ import logging
 import warnings
 import time
 import sys
+# try:
+# 	from rich import print
+# except ImportError:
+# 	pass
 # from contextlib import contextmanager
 
 
@@ -1153,7 +1157,9 @@ class Ledger:
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
 			tmp_df = pd.DataFrame({'line_item':['Net Asset Value:'], 'balance':[net_asset_value]})
-			self.bs = pd.concat([self.bs, tmp_df])
+			dfs = [self.bs, tmp_df]
+			dfs = [df for df in dfs if not df.empty]
+			self.bs = pd.concat(dfs)
 
 		if all_accts and gl is None:
 			if self.entity is None:
@@ -1273,7 +1279,9 @@ class Ledger:
 						if v: print('QTY: {}\n'.format(qty))
 						# inventory = inventory.append({'entity_id':entity_id, 'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
 						tmp_df = pd.DataFrame({'entity_id':[entity_id], 'item_id':[item], 'account':[acct], 'qty':[qty]})
-						inventory = pd.concat([inventory, tmp_df], ignore_index=True)
+						dfs = [inventory, tmp_df]
+						dfs = [df for df in dfs if not df.empty]
+						inventory = pd.concat(dfs, ignore_index=True)
 						inventory = inventory.sort_values(by='entity_id', ascending=True)
 						#if v: print(inventory)
 						self.reset()
@@ -1302,7 +1310,9 @@ class Ledger:
 					else:
 						# inventory = inventory.append({'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
 						tmp_df = pd.DataFrame({'item_id':[item], 'account':[acct], 'qty':[qty]})
-						inventory = pd.concat([inventory, tmp_df], ignore_index=True)
+						dfs = [inventory, tmp_df]
+						dfs = [df for df in dfs if not df.empty]
+						inventory = pd.concat(dfs, ignore_index=True)
 						#if v: print(inventory)
 		if single_item and not by_entity and not always_df:
 			if v: print('Return Total Qty: ', total_qty)
@@ -1967,7 +1977,9 @@ class Ledger:
 				if qty < self.gl.loc[current_index]['qty']: # Final case when the last sellable lot is larger than remaining qty to be sold
 					# price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(qty, 0), 'avail_qty':self.gl.loc[current_index]['qty'], 'event_id':self.gl.loc[current_index]['event_id']}, ignore_index=True)
 					tmp_df = pd.DataFrame({'price':[self.gl.loc[current_index]['price']], 'qty':[max(qty, 0)], 'avail_qty':[self.gl.loc[current_index]['qty']], 'event_id':[self.gl.loc[current_index]['event_id']]})
-					price_chart = pd.concat([price_chart, tmp_df], ignore_index=True)
+					dfs = [price_chart, tmp_df]
+					dfs = [df for df in dfs if not df.empty]
+					price_chart = pd.concat(dfs, ignore_index=True)
 					if price_chart.shape[0] >= 2:
 						print('Historical Cost Price Chart: \n{}'.format(price_chart))
 					if event_id:
@@ -1978,7 +1990,9 @@ class Ledger:
 				
 				# price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0), 'avail_qty':self.gl.loc[current_index]['qty'], 'event_id':self.gl.loc[current_index]['event_id']}, ignore_index=True)
 				tmp_df = pd.DataFrame({'price':[self.gl.loc[current_index]['price']], 'qty':[max(self.gl.loc[current_index]['qty'], 0)], 'avail_qty':[self.gl.loc[current_index]['qty']], 'event_id':[self.gl.loc[current_index]['event_id']]})
-				price_chart = pd.concat([price_chart, tmp_df], ignore_index=True)
+				dfs = [price_chart, tmp_df]
+				dfs = [df for df in dfs if not df.empty]
+				price_chart = pd.concat(dfs, ignore_index=True)
 				qty = qty - self.gl.loc[current_index]['qty']
 				if v: print('Qty Left to be Sold 2: {}'.format(qty))
 				count += 1
@@ -2214,6 +2228,7 @@ class Ledger:
 			inv = self.get_qty(accounts=accounts, by_entity=by_entity)#, v=True)
 			inv['date'] = date
 			hist_inv.append(inv)
+			hist_inv = [df for df in hist_inv if not df.empty]
 		hist_inv = pd.concat(hist_inv, ignore_index=True)
 		if v: print('hist_inv:')
 		if v: print(hist_inv)
