@@ -9422,13 +9422,13 @@ class Corporation(Organization):
 			investor.buy_shares(self.name, price, qty, self)
 
 	# TODO Maybe move to Entity class
-	def maintain_inv(self, buffer_qty=10, v=False):
+	def maintain_inv(self, buffer_qty=1, v=False):
 		if v: print('maintain_inv:')
 		for item_id in self.produces:
 			if v: print(item_id)
 			if not self.check_eligible(item_id):
 				continue
-			qty = buffer_qty
+			qty = buffer_qty #10
 			item_type = world.get_item_type(item_id)
 			if v: print('item_type:', item_type)
 			if item_type not in ['Commodity', 'Components', 'Equipment', 'Buildings', 'Subscription']:
