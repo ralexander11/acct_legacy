@@ -6891,6 +6891,10 @@ class Entity:
 				equip_bal = self.ledger.balance_sheet(accounts=['Equipped'], item=item)
 				if equip_bal == 0:
 					return [], None
+			if metric == 'ticks':
+				days = (world.now - datetime.datetime(1986,10,1).date()).days
+				if days % 7 != 0:
+					return [], None
 			depreciation_event = []
 			if v: print('Asset Bal for {}: {}'.format(item, asset_bal))
 			dep_amount = (asset_bal / lifespan) * uses
@@ -7150,7 +7154,7 @@ class Entity:
 		# 	world.check_end()
 		elif command.lower() == 'edititem':
 			world.edit_item()
-		elif command.lower() == 'user':
+		elif command.lower() == 'user' or command.lower() == 'toggle' or command.lower() == 'toggleuser':
 			target = world.toggle_user()
 			if target is None:
 				return
@@ -9850,12 +9854,31 @@ def create_world(accts=None, ledger=None, factory=None, governments=1, populatio
 	world = World(factory, accts, ledger, governments, population, new_db)#, args)
 	return world
 
+def timed_input(prompt, timeout=10):
+	import threading
+	user_input = [None]
+
+	def get_input():
+		user_input[0] = input(prompt)
+
+	thread = threading.Thread(target=get_input)
+	thread.daemon = True
+	thread.start()
+	thread.join(timeout)
+
+	if thread.is_alive():
+		print(f'\nNo input received in {timeout} seconds. Continuing...')
+		return None
+	else:
+		print(f'\nWill toggle for a player. {user_input[0]} |  {type(user_input[0])}')
+		return user_input[0]
+
 def parse_args(conn=None, command=None, external=False):
 	global args
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
 	parser.add_argument('-c', '--command', type=str, help='A command for the program.')
-	parser.add_argument('-d', '--delay', type=int, default=0, help='The amount of seconds to delay each econ update.')
+	parser.add_argument('-d', '--delay', type=int, default=0, help='Add a delay for a chance to take over the econ sim.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the sim!')
 	parser.add_argument('-rand', '--random', action='store_false', help='Remove randomness from the sim.') # TODO Is this still needed?
 	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
@@ -9968,7 +9991,10 @@ def main(conn=None, command=None, external=False):
 		world.update_econ()
 		if world.end:
 			break
-		time.sleep(args.delay)
+		if args.delay:
+			response = timed_input(f'Press any key and then enter to chose an entity to control ({args.delay}s to respond): ', timeout=args.delay)
+			if response:
+				world.toggle_user()
 
 	# pr.disable()
 	# pr.print_stats(sort='time')

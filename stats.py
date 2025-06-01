@@ -224,8 +224,13 @@ def main(v=True):
     df.to_csv('data/stats.csv', index=True)
     return df
 
+def gl_timings():
+
+    return
+
 if __name__ == '__main__':
     # main()
     main_logs()
+    # gl_timings()
 
 # [2022-Jun-09 06:01:48 AM] ['/home/robale5/becauseinterfaces.com/acct/econ.py', '-db', 'econ_2022-06-09.db', '-s', '11', '-p', '4', '--early', '-i', 'items03_no_wip.csv']
