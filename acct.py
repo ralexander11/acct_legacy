@@ -1878,11 +1878,13 @@ class Ledger:
 			if v: print('Total Balance: {}'.format(total_balance))
 			total_qty = ledger.get_qty(items=item, accounts=[acct])
 			if v: print('Total Qty: {}'.format(total_qty))
+			if v: print('Avg. Cost: {}'.format(total_balance / total_qty))
 			amount = qty * (total_balance / total_qty)
 			if v: print('Avg. Cost Amount: {}'.format(amount))
 			return amount
 		else:
 			if v: print('Getting historical cost of {} for {} qty.'.format(item, qty))
+			orig_qty = qty
 			qty_txns = self.get_qty_txns(item, acct)
 			m1 = qty_txns.credit_acct == acct
 			m2 = qty_txns.credit_acct != acct
@@ -1957,7 +1959,7 @@ class Ledger:
 				if event_id:
 					return price_chart
 				amount = price_chart.price.dot(price_chart.qty)
-				print('Historical Cost Case | One for {} {}: {}'.format(qty, item, amount))
+				print('Historical Cost Case | One for {} {}: {}'.format(orig_qty, item, amount))
 				return amount
 
 			price_chart = pd.DataFrame({'price':[self.gl.loc[start_index]['price']], 'qty':[max(avail_qty, 0)], 'avail_qty':[max(avail_qty, 0)], 'event_id':self.gl.loc[start_index]['event_id']}) # Create a list of lots with associated price
@@ -1989,7 +1991,7 @@ class Ledger:
 					if event_id:
 						return price_chart
 					amount = price_chart.price.dot(price_chart.qty) # Take dot product
-					print('Historical Cost Case | Two for {} {}: {}'.format(qty, item, amount))
+					print('Historical Cost Case | Two for {} {}: {}'.format(orig_qty, item, amount))
 					return amount
 				
 				# price_chart = price_chart.append({'price':self.gl.loc[current_index]['price'], 'qty':max(self.gl.loc[current_index]['qty'], 0), 'avail_qty':self.gl.loc[current_index]['qty'], 'event_id':self.gl.loc[current_index]['event_id']}, ignore_index=True)
@@ -2007,7 +2009,7 @@ class Ledger:
 			if event_id:
 				return price_chart
 			amount = price_chart.price.dot(price_chart.qty) # If remaining lot perfectly covers remaining amount to be sold
-			print('Historical Cost Case | Three for {} {}: {}'.format(qty, item, amount))
+			print('Historical Cost Case | Three for {} {}: {}'.format(orig_qty, item, amount))
 			return amount
 
 	def aggregate_gl(self, v=True):
