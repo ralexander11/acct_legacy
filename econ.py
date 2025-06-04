@@ -4763,6 +4763,7 @@ class Entity:
 			for index, wip_lot in wip_txns.iterrows():
 				time_check = False
 				wip_event = []
+				hours = None
 				item = wip_lot['item_id']
 				qty = wip_lot['qty']
 				if v: print('WIP Index Check: {}'.format(index))
@@ -4875,6 +4876,8 @@ class Entity:
 						if v: print('Partial WIP Fulfill - Incomplete: {} | Time Required: {}\nPartial WIP Event: \n{}'.format(incomplete, time_required, partial_work_event))
 						if incomplete or not partial_work_event:
 							world.delay.at[partial_index, 'delay'] += 1
+							days = (world.now - datetime.datetime(1986,10,1).date()).days
+							print('Current WIP day:', days)
 							print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
 							continue
 						else:
@@ -6927,7 +6930,7 @@ class Entity:
 				elif not outcome and uses == 0:
 					return [], None
 			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
-			depreciation_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation of ' + item, item, '', '', 'Depr. Expense', 'Accum. Depr.', dep_amount ]
+			depreciation_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation from' + metric + ' of ' + item, item, '', '', 'Depr. Expense', 'Accum. Depr.', dep_amount ]
 			depreciation_event += [depreciation_entry]
 			if buffer:
 				return depreciation_event, uses

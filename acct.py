@@ -1408,10 +1408,10 @@ class Ledger:
 			gl['dir'] = gl.apply(lambda x: -1 if x['credit_acct'] in accounts else x['dir'], axis=1)
 			gl['dir'] = gl.apply(lambda x: 0 if (x['debit_acct'] in accounts and x['credit_acct'] in accounts) else x['dir'], axis=1)
 
-		gl['delta_amount'] = gl['amount'] * gl['dir']
-		gl['run_amount'] = gl['delta_amount'].cumsum()
 		gl['delta_qty'] = gl['qty'] * gl['dir']
 		gl['run_qty'] = gl['delta_qty'].cumsum()
+		gl['delta_amount'] = gl['amount'] * gl['dir']
+		gl['run_amount'] = gl['delta_amount'].cumsum()
 
 		if v:
 			print(f'GL for {entity_id} entities, for item {items} for accounts {accounts}:') #TODO Improve description logic
