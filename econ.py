@@ -6930,7 +6930,7 @@ class Entity:
 				elif not outcome and uses == 0:
 					return [], None
 			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
-			depreciation_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation from' + metric + ' of ' + item, item, '', '', 'Depr. Expense', 'Accum. Depr.', dep_amount ]
+			depreciation_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation from ' + metric + ' of ' + item, item, '', '', 'Depr. Expense', 'Accum. Depr.', dep_amount ]
 			depreciation_event += [depreciation_entry]
 			if buffer:
 				return depreciation_event, uses
