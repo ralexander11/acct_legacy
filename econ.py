@@ -3552,14 +3552,18 @@ class Entity:
 					modifier = 0
 				try:
 					if not self.gl_tmp.empty:
-						# if item == 'Hydroponics' or item == 'Wire':
-						# 	print('Tmp GL commodity: \n{}'.format(self.gl_tmp.tail(10)))
+						if item == 'Hydroponics' or item == 'Wire' or item =='Cotton Gin' or item =='Cotton Spinner':
+							if v: print('Tmp GL commodity 01: \n{}'.format(self.gl_tmp.tail(10)))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 				except AttributeError as e:
-					# if item == 'Anvil':
-					# 	print('No Tmp GL Error commodity: {}'.format(repr(e)))
+					if item == 'Anvil' or item =='Cotton Gin' or item =='Cotton Spinner':
+						if v: print('No Tmp GL Error commodity: {}'.format(repr(e)))
 					pass
-				material_qty_held = self.ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=True)
+				if item =='Cotton Gin' or item =='Cotton Spinner':
+					tmp_v = True
+					if v: print(f'Get material_qty_held of {req_item} for item {item} by {self.name}.')
+				material_qty_held = self.ledger.get_qty(items=req_item, accounts=['Inventory'], v=tmp_v)#, v=True)
+				tmp_v = False
 
 				if isinstance(item_freq, str) and isinstance(req_freq, str):
 					if 'animal' in item_freq and 'animal' in req_freq and material_qty_held < 2 and not man:
@@ -3659,14 +3663,17 @@ class Entity:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
 						# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
 						self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
-						# print('tmp_gl_tmp: \n{}'.format(tmp_gl_tmp))
-						# print('Tmp GL Commodity: \n{}'.format(self.gl_tmp.tail()))
+						if item =='Cotton Gin' or item =='Cotton Spinner':
+							if v: print('tmp_gl_tmp: \n{}'.format(tmp_gl_tmp))
+							if v: print('Tmp GL Commodity 02: \n{}'.format(self.gl_tmp.tail()))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 					else:
-						# print('No Tmp GL Data for Commodity: {}'.format(self.gl_tmp))
+						if item =='Cotton Gin' or item =='Cotton Spinner':
+							if v: print('No Tmp GL Data for Commodity: {}'.format(self.gl_tmp))
 						self.ledger.set_entity(self.entity_id)
 				except AttributeError as e:
-					# print('No Tmp GL Error Commodity: {}'.format(repr(e)))
+					if item =='Cotton Gin' or item =='Cotton Spinner':
+						if v: print('No Tmp GL Error Commodity: {}'.format(repr(e)))
 					pass
 				material_qty = self.ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=True)
 				if v: print('Item: {} | qty: {} | req_item: {} | req_qty: {} | material_qty: {} | modifier: {} | max_qty_possible: {}'.format(item, qty, req_item, req_qty, material_qty, modifier, max_qty_possible))
@@ -3688,8 +3695,11 @@ class Entity:
 				if v: print('Commodity Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':material_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[material_qty], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				if item =='Cotton Gin' or item =='Cotton Spinner':
+					if v: print('commodity results:\n', results)
 				if not check:
 					consume_qty = req_qty * (1 - modifier) * qty # TODO Should this be qty_needed?
+					if v: print(f'consume_qty: {consume_qty} | qty_needed: {qty_needed} | req_item: {req_item} | qty: {qty} | constraint_qty: {constraint_qty} | modifier: {modifier} | item: {item}')
 					# TODO Needs if isinstance(item_freq, str) and isinstance(req_freq, str):
 					if not 'animal' in req_freq or not 'animal' in item_freq:
 						entries = self.consume(req_item, qty=consume_qty, buffer=True) # TODO Verify fix for how this assumed all required qty was obtained # req_qty * (1 - modifier) * qty # Old was qty=material_qty
@@ -3703,7 +3713,8 @@ class Entity:
 								# self.ledger.gl = self.ledger.gl.append(entry_df)
 								self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 							self.gl_tmp = self.ledger.gl
-							# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
+							if item =='Cotton Gin' or item =='Cotton Spinner':
+								if v: print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
 			elif req_item_type == 'Service' and partial is None:
 				# TODO Add support for qty to Services
