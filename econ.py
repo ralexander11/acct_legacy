@@ -2507,7 +2507,7 @@ class Entity:
 		if v: print(f'final hold_event_ids for {self.name}:', self.hold_event_ids)
 		return release_event
 
-	def consume(self, item, qty, need=None, buffer=False):
+	def consume(self, item, qty, need=None, buffer=False, v=True):
 		# TODO Test release Land and Buildings
 		consume_event = []
 		if qty == 0:
@@ -2517,12 +2517,12 @@ class Entity:
 		self.ledger.reset()
 		# if isinstance(qty_held, pd.DataFrame):
 		# 	qty_held = qty_held['qty'].sum()
-		print('{} holds {} qty of {} and is looking to consume {} units.'.format(self.name, qty_held, item, qty))
+		if v: print('{} holds {} qty of {} and is looking to consume {} units.'.format(self.name, qty_held, item, qty))
 		if qty_held >= qty:
-			print('{} consumes: {} {}'.format(self.name, qty, item))
+			if v: print('{} consumes: {} {}'.format(self.name, qty, item))
 			consume_event += self.release(item, qty=qty)
 			self.ledger.set_entity(self.entity_id)
-			print('{} getting historical cost of {} {}.'.format(self.name, qty, item))
+			if v: print('{} getting historical cost of {} {}.'.format(self.name, qty, item))
 			cost = self.ledger.hist_cost(qty, item, 'Inventory')#, v=True)
 			self.ledger.reset()
 			#print('Cost: {}'.format(cost))
@@ -2535,7 +2535,7 @@ class Entity:
 			self.adj_needs(item, qty) # TODO Add error checking
 			return consume_event
 		else:
-			print('{} does not have enough {} on hand to consume {} units of {}.'.format(self.name, item, qty, item))
+			if v: print('{} does not have enough {} on hand to consume {} units of {}.'.format(self.name, item, qty, item))
 			return consume_event
 
 	def in_use(self, item, qty=1, price=None, account=None, buffer=False, v=False):
@@ -3559,11 +3559,11 @@ class Entity:
 					if item == 'Anvil' or item =='Cotton Gin' or item =='Cotton Spinner':
 						if v: print('No Tmp GL Error commodity: {}'.format(repr(e)))
 					pass
+				tmp_v = False
 				if item =='Cotton Gin' or item =='Cotton Spinner':
 					tmp_v = True
 					if v: print(f'Get material_qty_held of {req_item} for item {item} by {self.name}.')
 				material_qty_held = self.ledger.get_qty(items=req_item, accounts=['Inventory'], v=tmp_v)#, v=True)
-				tmp_v = False
 
 				if isinstance(item_freq, str) and isinstance(req_freq, str):
 					if 'animal' in item_freq and 'animal' in req_freq and material_qty_held < 2 and not man:
