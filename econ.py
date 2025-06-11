@@ -3528,6 +3528,8 @@ class Entity:
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
 			elif req_item_type == 'Commodity' and partial is None:
+				# self.gl_tmp = self.ledger.gl # TODO Is this needed, but only for when recursion happens?
+				# self.ledger.reset() # TODO Or this?
 				modifier, items_info = self.check_productivity(req_item)
 				self.ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -3552,12 +3554,12 @@ class Entity:
 					modifier = 0
 				try:
 					if not self.gl_tmp.empty:
-						if item == 'Hydroponics' or item == 'Wire' or item =='Cotton Gin' or item =='Cotton Spinner':
-							if v: print('Tmp GL commodity 01: \n{}'.format(self.gl_tmp.tail(10)))
+						# if item == 'Hydroponics' or item == 'Wire' or item =='Cotton Gin' or item =='Cotton Spinner':
+						if v: print('Tmp GL commodity 01: \n{}'.format(self.gl_tmp.tail(10)))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 				except AttributeError as e:
-					if item == 'Anvil' or item =='Cotton Gin' or item =='Cotton Spinner':
-						if v: print('No Tmp GL Error commodity: {}'.format(repr(e)))
+					# if item == 'Anvil' or item =='Cotton Gin' or item =='Cotton Spinner':
+					if v: print('No Tmp GL Error commodity: {}'.format(repr(e)))
 					pass
 				tmp_v = False
 				if item =='Cotton Gin' or item =='Cotton Spinner':
