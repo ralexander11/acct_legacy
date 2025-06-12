@@ -2856,14 +2856,16 @@ class Entity:
 		return None, None
 
 	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, buffer=False, show_results=False, vv=False, v=True): # TODO Maybe add buffer=True
-		if vv: print(f'{self.name} fulfill {item} x {qty}. Partial: {partial} | Check: {check} | Reqs: {reqs} | Man: {man}')
+		if v: print(f'~{self.name} fulfill {item} x {qty}. Partial: {partial} | Check: {check} | Reqs: {reqs} | Man: {man}')
 		try:
 			if not self.gl_tmp.empty:
+				if v: print('gl_tmp is not empty.\n', self.gl_tmp.tail())
 				self.ledger.gl = self.gl_tmp
 		except AttributeError as e:
 			self.gl_tmp = pd.DataFrame(columns=world.cols)
 		incomplete = False
 		if qty == 0:
+			if v: print(f'!fulfill return due to qty == 0 for {item}')
 			return None, [], None, 0
 		event = []
 		hold_event_ids = []
@@ -2894,6 +2896,7 @@ class Entity:
 		item_type = world.get_item_type(item)
 		if vv: print('Item Info: \n{}'.format(item_info))
 		if item_info[reqs] is None or item_info[amts] is None:
+			if v: print(f'!fulfill return due to no reqs for: {item}')
 			return None, [], None, 0
 		requirements = [x.strip() for x in item_info[reqs].split(',')]
 		if vv: print('Requirements: {}'.format(requirements))
@@ -3013,6 +3016,7 @@ class Entity:
 					entity = owner.incorporate(req_item)
 				incomplete = True
 				max_qty_possible = 0
+				if v: print(f'!fulfill return due to Non-Profit or Governmental org: {req_item}')
 				return incomplete, event, time_required, max_qty_possible
 
 			elif req_item_type == 'Land' and partial is None:
@@ -3545,7 +3549,6 @@ class Entity:
 					if entries:
 						for entry in entries:
 							entry_df = pd.DataFrame([entry], columns=world.cols)
-							# self.ledger.gl = self.ledger.gl.append(entry_df)
 							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# if item == 'Hydroponics' or item == 'Wire':
@@ -3554,18 +3557,17 @@ class Entity:
 					modifier = 0
 				try:
 					if not self.gl_tmp.empty:
+						if v: print('##############################')
 						# if item == 'Hydroponics' or item == 'Wire' or item =='Cotton Gin' or item =='Cotton Spinner':
 						if v: print('Tmp GL commodity 01: \n{}'.format(self.gl_tmp.tail(10)))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
+						if v: print('self.ledger.gl 01: \n{}'.format(self.ledger.gl.tail(10)))
+						if v: print('##############################')
 				except AttributeError as e:
 					# if item == 'Anvil' or item =='Cotton Gin' or item =='Cotton Spinner':
 					if v: print('No Tmp GL Error commodity: {}'.format(repr(e)))
 					pass
-				tmp_v = False
-				if item =='Cotton Gin' or item =='Cotton Spinner':
-					tmp_v = True
-					if v: print(f'Get material_qty_held of {req_item} for item {item} by {self.name}.')
-				material_qty_held = self.ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=tmp_v)#, v=True)
+				material_qty_held = self.ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=True)
 
 				if isinstance(item_freq, str) and isinstance(req_freq, str):
 					if 'animal' in item_freq and 'animal' in req_freq and material_qty_held < 2 and not man:
@@ -3602,13 +3604,14 @@ class Entity:
 					# max_qty_possible = qty # TODO This could cause an issue if Land or Buildings are a restriction. Maybe keep a table instead
 					if v: print('Since qty is less than 1: {} requires {} {} commodity to produce {} {} and has: {}'.format(self.name, qty_needed, req_item, qty, item, material_qty_held))
 					if qty < whole_qty:
+						if v: print(f'!fulfill return due to qty < whole_qty: {req_item}')
 						return self.fulfill(item, max_qty_possible, man=man, v=v)
 					if v: print('{} {} is greater than or equal to the whole qty of {}. Max Qty Possible: {}'.format(qty, item, whole_qty, max_qty_possible))
 				qty_needed = max(qty_needed - material_qty_held, 0)
 				if isinstance(req_freq, str):
 					if 'animal' in req_freq and 'animal' not in item_freq:
 						qty_needed = max(qty_needed - material_qty_held + 2, 0)
-				if v: print('material_qty_held: {} | req_qty: {} | modifier: {} | qty: {} | qty_needed: {} | item: {} | req_item:{}'.format(material_qty_held, req_qty, modifier, qty, qty_needed, item, req_item))
+				if v: print('material_qty_held: {} | req_qty: {} | modifier: {} | qty: {} | qty_needed: {} | item: {} | req_item: {}'.format(material_qty_held, req_qty, modifier, qty, qty_needed, item, req_item))
 				if qty_needed > 0:
 					if v: print('{} does not have enough {} commodity and requires {} more units.'.format(self.name, req_item, qty_needed))
 					# TODO Maybe add logic so that producers wont try and purchase items they can produce
@@ -3662,13 +3665,17 @@ class Entity:
 				# self.ledger.set_entity(self.entity_id)
 				try:
 					if not self.gl_tmp.empty:
+						if v: print('******************************')
+						if v: print('Tmp GL Commodity 02: \n{}'.format(self.gl_tmp.tail()))
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-						# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
+						if v: print('tmp_gl_tmp: \n{}'.format(tmp_gl_tmp))
+						if v: print('self.ledger.gl 02: \n{}'.format(self.ledger.gl.tail()))
 						self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
 						# if item =='Cotton Gin' or item =='Cotton Spinner':
-						if v: print('tmp_gl_tmp: \n{}'.format(tmp_gl_tmp))
-						if v: print('Tmp GL Commodity 02: \n{}'.format(self.gl_tmp.tail()))
+						if v: print('Tmp GL Commodity 03: \n{}'.format(self.gl_tmp.tail()))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
+						if v: print('self.ledger.gl 03: \n{}'.format(self.ledger.gl.tail()))
+						if v: print('******************************')
 					else:
 						# if item =='Cotton Gin' or item =='Cotton Spinner':
 						if v: print('No Tmp GL Data for Commodity: {}'.format(self.gl_tmp))
@@ -3677,7 +3684,7 @@ class Entity:
 					# if item =='Cotton Gin' or item =='Cotton Spinner':
 					if v: print('No Tmp GL Error Commodity: {}'.format(repr(e)))
 					pass
-				material_qty = self.ledger.get_qty(items=req_item, accounts=['Inventory'], v=tmp_v)#, v=True)
+				material_qty = self.ledger.get_qty(items=req_item, accounts=['Inventory'], v=v)
 				if v: print('Item: {} | qty: {} | req_item: {} | req_qty: {} | material_qty: {} | modifier: {} | max_qty_possible: {}'.format(item, qty, req_item, req_qty, material_qty, modifier, max_qty_possible))
 				try:
 					# TODO Needs if isinstance(req_freq, str):
@@ -3776,6 +3783,7 @@ class Entity:
 						if experience < req_qty:
 							incomplete = True
 							# TODO Add to demand table
+							if v: print(f'!fulfill return due to not enough exp for Job: {req_item}')
 							return incomplete, event, time_required, max_qty_possible
 				else:
 					# TODO Add support for modifier
@@ -3845,6 +3853,7 @@ class Entity:
 						if experience < req_qty:
 							incomplete = True
 							# TODO Add to demand table maybe
+							if v: print(f'!fulfill return due to not enough exp for Labour or Job: {req_item}.')
 							return incomplete, event, time_required, max_qty_possible
 				else:
 					modifier, items_info = self.check_productivity(req_item)
@@ -4268,6 +4277,7 @@ class Entity:
 				if v: print(f'Result of {self.name} trying to produce {qty} {item}:\n{results}')
 			else:
 				if v: print(f'Result of {self.name} producing {qty} {item}:\n{results}')
+		if v: print(f'!fulfill return due to finishing for item {item}.')
 		return incomplete, event, time_required, max_qty_possible
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, wip=False, buffer=False, vv=False, v=True):
