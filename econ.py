@@ -2952,13 +2952,13 @@ class Entity:
 			req_qty = requirement[2]
 			if req_qty is None:
 				req_qty = 1
-			if vv: print('Requirement: {}'.format(requirement))
 			req_freq = world.items.loc[req_item, 'freq']
 			if req_freq is not None:
 				if isinstance(req_freq, str):
 					req_freq = [x.strip() for x in req_freq.split(',')]
 			else:
 				req_freq = []
+			if v: print(f'Required Item: {req_item} | Type: {req_item_type} | Qty: {req_qty} | Freq: {req_freq}')
 
 			if req_item_type == 'Time' and partial is None:
 				# TODO Consider how Equipment could reduce time requirements
@@ -4277,7 +4277,7 @@ class Entity:
 				if v: print(f'Result of {self.name} trying to produce {qty} {item}:\n{results}')
 			else:
 				if v: print(f'Result of {self.name} producing {qty} {item}:\n{results}')
-		if v: print(f'!fulfill return due to finishing for item {item}.')
+		if v: print(f'!fulfill return due to finishing for item: {item}.')
 		return incomplete, event, time_required, max_qty_possible
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, wip=False, buffer=False, vv=False, v=True):
@@ -10034,7 +10034,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-05-10.db -s 11 -p 4 -mp 10 --early -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-05-10.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-06-13.db -s 11 -p 4 -mp 10 --early -i items.csv -t 75 >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-06-13.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
