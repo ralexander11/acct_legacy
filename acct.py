@@ -94,9 +94,13 @@ class Accounts:
 			cur = self.conn.cursor()
 			cur.execute('PRAGMA database_list')
 			db_path = cur.fetchall()[0][-1]
+			if v: print('DB Path:', db_path)
 			db_name = db_path.rsplit('/', 1)[-1]
+			if db_name == '':
+				db_name = 'mem.db'
 			cur.close()
 			if v: print('DB Name:', db_name)
+			if v: print('DB Name type:', type(db_name))
 		if '/' not in db_name:
 			db_name = 'db/' + db_name
 		if dest_file is None:
@@ -104,8 +108,12 @@ class Accounts:
 		if '/' not in dest_file:
 			dest_file = 'db/' + dest_file
 		if v: print('dest_file:', dest_file)
-		import shutil
-		shutil.copyfile(db_name, dest_file)
+		if db_name == 'db/mem.db':
+			file_conn = sqlite3.connect(dest_file)
+			self.conn.backup(file_conn)
+		else:
+			import shutil
+			shutil.copyfile(db_name, dest_file)
 		print(f'Database copied from {db_name} to {dest_file}.')
 
 	def create_accts(self, standard_accts=None):
