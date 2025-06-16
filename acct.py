@@ -2287,6 +2287,8 @@ def main(conn=None, command=None, external=False):
 	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
 	parser.add_argument('-early', '--early', action='store_true', help='Automatically end the turn when no hours left when not in user mode.')
 	parser.add_argument('-j', '--jones', action='store_true', help='Enable game mode like Jones in the Fast Lane.')
+	parser.add_argument('-inf', '--inf_time', action='store_true', help='Toggles infinite time for labour and turns off waiting requirements.')
+	parser.add_argument('-v', '--verbose', action='store_false', help='Turn off verbosity for running the sim in auto mode.')
 	args = parser.parse_args()
 	print(str(sys.argv))
 

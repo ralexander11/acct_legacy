@@ -8352,7 +8352,7 @@ class Entity:
 			delay = 0
 			while True:
 				try:
-					delay = input('Enter amount to change interest rate by: ')
+					delay = input('Enter amount of sec to delay econ sim loop by: ')
 					if delay == '':
 						return
 					delay = int(delay)
@@ -8363,8 +8363,8 @@ class Entity:
 					if delay <= 0:
 						continue
 					break
-				args.delay = delay
-				print(f'Loop delay changed from {orig_delay} to {args.delay}')
+			args.delay = delay
+			print(f'Loop delay changed from {orig_delay} to {args.delay}')
 		elif command.lower() == 'help':
 			command_help = {
 				'select': 'Choose a different entity (Individual or Corporation).',
@@ -9909,7 +9909,7 @@ def create_world(accts=None, ledger=None, factory=None, governments=1, populatio
 	world = World(factory, accts, ledger, governments, population, new_db)#, args)
 	return world
 
-def timed_input(prompt, timeout=10):
+def timed_input(prompt, timeout=10, v=False):
 	import threading
 	user_input = [None]
 
@@ -9922,10 +9922,10 @@ def timed_input(prompt, timeout=10):
 	thread.join(timeout)
 
 	if thread.is_alive():
-		print(f'\nNo input received in {timeout} seconds. Continuing...')
+		if v: print(f'\nNo input received in {timeout} seconds. Continuing...')
 		return None
 	else:
-		print(f'\nWill toggle for a player. {user_input[0]} |  {type(user_input[0])}')
+		if v: print(f'\nReceived user input. Will ask for a player ID to toggle.')# {user_input[0]}')# |  {type(user_input[0])}')
 		return user_input[0]
 
 def parse_args(conn=None, command=None, external=False):
@@ -10046,9 +10046,8 @@ def main(conn=None, command=None, external=False):
 		world.update_econ()
 		if world.end:
 			break
-		# print(f'delay: {args.delay}')
 		if args.delay:
-			response = timed_input(f'Press any key and then enter to chose an entity to control ({args.delay}s to respond): ', timeout=args.delay)
+			response = timed_input(f'Press any key (except enter) and then enter, to chose an entity to control ({args.delay} sec to respond): ', timeout=args.delay)
 			if response:
 				world.toggle_user()
 
