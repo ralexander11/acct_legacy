@@ -2261,7 +2261,7 @@ class Entity:
 		# Check which entity has the goods for the cheapest
 		if item_type == 'Service':
 			if v: print('{} trying to purchase Service: {}'.format(self.name, item))
-			result, time_required, max_qty_possible, incomplete = counterparty.produce(item, qty, buffer=buffer)
+			result, time_required, max_qty_possible, incomplete = counterparty.produce(item, qty, buffer=buffer, v=v)
 			#print('Service purchase produce result: \n{}'.format(result))
 			if not result:
 				return
@@ -2316,12 +2316,12 @@ class Entity:
 					price = world.get_price(item, counterparty.entity_id)
 				#print('Purchase QTY: {}'.format(purchase_qty))
 				# Check if able to hold item
-				incomplete, in_use_event, time_required, max_qty_possible = self.fulfill(item, qty=purchase_qty, reqs='hold_req', amts='hold_amount')
+				incomplete, in_use_event, time_required, max_qty_possible = self.fulfill(item, qty=purchase_qty, reqs='hold_req', amts='hold_amount', v=v)
 				if incomplete:
 					if v: print('{} cannot purchase {} {} because it does not meet the requirements to hold it.'.format(self.name, purchase_qty, item))
 					break
 				result += in_use_event
-				result_tmp, cost = self.transact(item, price=price, qty=purchase_qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, cash_used=cash_used, buffer=buffer)
+				result_tmp, cost = self.transact(item, price=price, qty=purchase_qty, counterparty=counterparty, acct_buy=acct_buy, acct_sell=acct_sell, item_type=item_type, cash_used=cash_used, buffer=buffer, v=v)
 				if not result_tmp:
 					break
 				if counterparty.entity_id != self.entity_id:
@@ -2339,7 +2339,7 @@ class Entity:
 					else:
 						qty_demanded = max(qty_wanted - purchased_qty, 0)
 						self.item_demanded(item, qty_demanded, priority=priority, reason_need=reason_need, v=v)
-		# print('Purchase Result: {} {} \n{}'.format(qty, item, result))
+		# if v: print('Purchase Result: {} {} \n{}'.format(qty, item, result))
 		if buffer:
 			return result
 		else:
@@ -2856,10 +2856,10 @@ class Entity:
 		return None, None
 
 	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, buffer=False, show_results=False, vv=False, v=True): # TODO Maybe add buffer=True
-		if v: print(f'~{self.name} fulfill {item} x {qty}. Partial: {partial} | Check: {check} | Reqs: {reqs} | Man: {man}')
+		if v: print(f'~{self.name} fulfill: {item} Qty: {qty} | Partial: {partial} | Check: {check} | buffer: {buffer} | Man: {man} | Reqs: {reqs}')
 		try:
 			if not self.gl_tmp.empty:
-				if v: print('gl_tmp is not empty.\n', self.gl_tmp.tail())
+				if v: print('gl_tmp is not empty:\n', self.gl_tmp.tail())
 				self.ledger.gl = self.gl_tmp
 		except AttributeError as e:
 			self.gl_tmp = pd.DataFrame(columns=world.cols)
@@ -2896,7 +2896,7 @@ class Entity:
 		item_type = world.get_item_type(item)
 		if vv: print('Item Info: \n{}'.format(item_info))
 		if item_info[reqs] is None or item_info[amts] is None:
-			if v: print(f'!fulfill return due to no reqs for: {item}')
+			if v: print(f'!fulfill return due to no reqs for: {item} | Reqs: {reqs}')
 			return None, [], None, 0
 		requirements = [x.strip() for x in item_info[reqs].split(',')]
 		if vv: print('Requirements: {}'.format(requirements))
@@ -3181,7 +3181,7 @@ class Entity:
 							req_time_required = False
 							if not result:
 								if v: print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
-								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Buildings', buffer=buffer)
+								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Buildings', buffer=buffer, v=v)
 							if not result or req_time_required:
 								if req_time_required:
 									if v: print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
@@ -3336,7 +3336,7 @@ class Entity:
 								if 'animal' in item_freq and 'animal' in req_freq and equip_qty < 2 and not man:
 									required_qty = 1
 									if v: print('{} will attempt to catch remaining {} {} in the wild.'.format(self.name, required_qty, req_item))
-									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, reqs='int_rate_fix', amts='int_rate_var', debit_acct='Equipment', buffer=buffer) # TODO This is a bit hackey
+									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, reqs='int_rate_fix', amts='int_rate_var', debit_acct='Equipment', buffer=buffer, v=v) # TODO This is a bit hackey
 									equip_qty += req_max_qty_possible
 									if not req_incomplete:
 										if equip_qty < 2:
@@ -3355,7 +3355,7 @@ class Entity:
 									elif 'animal' in item_freq and 'animal' in req_freq:# and equip_qty - equip_qty_wip <= 3: # TODO Test if this is needed for large amounts
 										required_qty = max(math.floor((equip_qty - equip_qty_wip) / 2), 1)
 									if v: print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
-									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment', buffer=buffer)
+									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment', buffer=buffer, v=v)
 							if not result or req_time_required:
 								if req_time_required:
 									if v: print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
@@ -3488,7 +3488,7 @@ class Entity:
 						req_time_required = False
 						if not result:
 							if v: print('{} will attempt to produce {} {} itself.'.format(self.name, qty_needed, req_item))
-							result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed)#, buffer=True)
+							result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, v=v)#, buffer=True)
 						if not result or req_time_required:
 							if req_time_required:
 								if v: print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
@@ -3577,7 +3577,7 @@ class Entity:
 						else:
 							qty_needed = 1 #2
 						if v: print('{} will attempt to catch {} {} in the wild.'.format(self.name, qty_needed, req_item))
-						result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, reqs='int_rate_fix', amts='int_rate_var') # TODO This is a bit hackey
+						result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, reqs='int_rate_fix', amts='int_rate_var', v=v) # TODO This is a bit hackey
 						material_qty_held += req_max_qty_possible
 						if not req_incomplete:
 							if material_qty_held < 2:
@@ -3637,7 +3637,7 @@ class Entity:
 								# if incomplete:
 								# 	continue
 								if v: print('{} will attempt to catch remaining {} {} in the wild.'.format(self.name, qty_needed, req_item))
-								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, reqs='int_rate_fix', amts='int_rate_var') # TODO This is a bit hackey
+								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, reqs='int_rate_fix', amts='int_rate_var', v=v) # TODO This is a bit hackey
 								if not req_incomplete:
 									if material_qty_held < 2:
 										incomplete = True
@@ -3653,7 +3653,7 @@ class Entity:
 								if 'animal' in item_freq and 'animal' in req_freq and incomplete:
 									continue
 								if v: print('{} will attempt to produce {} {} itself.'.format(self.name, qty_needed, req_item))
-								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed)#, buffer=True)
+								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, v=v)#, buffer=True)
 						if not result or req_time_required:
 							if req_time_required:
 								if v: print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
@@ -3669,12 +3669,18 @@ class Entity:
 						if v: print('Tmp GL Commodity 02: \n{}'.format(self.gl_tmp.tail()))
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
 						if v: print('tmp_gl_tmp: \n{}'.format(tmp_gl_tmp))
-						if v: print('self.ledger.gl 02: \n{}'.format(self.ledger.gl.tail()))
-						self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
+						if v: print('self.ledger.gl 02: \n{}'.format(self.ledger.gl.tail(8)))
+						# self.ledger.reset()
+						# if v: print('self.ledger.gl 02b: \n{}'.format(self.ledger.gl.tail(8)))
+						tmp_gl_check = self.ledger.gl.loc[self.ledger.gl.index == 0]
+						if v: print('tmp_gl_check: \n{}'.format(tmp_gl_check))
+						if tmp_gl_check.empty:
+							if v: print('self.ledger.gl 02c: \n{}'.format(self.ledger.gl.tail(8)))
+							self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
 						# if item =='Cotton Gin' or item =='Cotton Spinner':
-						if v: print('Tmp GL Commodity 03: \n{}'.format(self.gl_tmp.tail()))
+						if v: print('Tmp GL Commodity 03: \n{}'.format(self.gl_tmp.tail(8)))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
-						if v: print('self.ledger.gl 03: \n{}'.format(self.ledger.gl.tail()))
+						if v: print('self.ledger.gl 03: \n{}'.format(self.ledger.gl.tail(8)))
 						if v: print('******************************')
 					else:
 						# if item =='Cotton Gin' or item =='Cotton Spinner':
@@ -3695,6 +3701,7 @@ class Entity:
 						self.item_demanded(req_item, 3 - material_qty, v=v)
 					else:
 						constraint_qty = math.floor(material_qty / (req_qty * (1-modifier)))
+						if v: print(f'Commodity Constraint Qty: {constraint_qty} | Max Qty Possible: {max_qty_possible} | material_qty: {material_qty} | req_qty: {req_qty} | modifier: {modifier}')
 						max_qty_possible = min(constraint_qty, max_qty_possible)
 				except ZeroDivisionError:
 					constraint_qty = 'inf'
@@ -3732,7 +3739,7 @@ class Entity:
 				entries = self.purchase(req_item, qty_needed, buffer=True, v=v)
 				if not entries:
 					if v: print('{} will attempt to produce {} {} itself.'.format(self.name, qty_needed, req_item))
-					entries, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, buffer=True) # TODO Consider if manual switch needed
+					entries, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty_needed, buffer=True, v=v) # TODO Consider if manual switch needed
 				if not entries: # TODO Consider if Time requirement can be handled like above
 					entries = []
 					if v: print('{} was unable to obtain {} service.'.format(self.name, req_item))
@@ -3913,7 +3920,7 @@ class Entity:
 						# 	print('{} has not studied enough {} today. Will attempt to study for {} hours.'.format(self.name, req_item, required_hours)) #MAX_HOURS = 12
 						# 	required_hours = min(required_hours, MAX_HOURS)
 						# 	counterparty = self
-						# 	entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, wage=0, buffer=True)
+						# 	entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, wage=0, buffer=True, v=v)
 						# else:
 						if v: print(f'{self.name} to {action} {qty} {item} requires {req_item} labour for {required_hours} hours.')
 						# TODO Maybe support WIP Services
@@ -4002,7 +4009,7 @@ class Entity:
 						# elif item_type == 'Education':
 						# 	counterparty = self
 						# else:
-						counterparty = self.worker_counterparty(req_item, man=man)
+						counterparty = self.worker_counterparty(req_item, man=man, v=v)
 						if isinstance(counterparty, tuple):
 							counterparty, entries = counterparty
 							event += entries
@@ -4016,7 +4023,7 @@ class Entity:
 						if counterparty == 'none_qualify':
 							none_qualify = True
 							counterparty = None
-						entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True)
+						entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, buffer=True, v=v)
 						# print('Labour Entries: \n{}'.format(entries))
 						# print('WIP Choice: {} | Labour Done: {}'.format(wip_choice, labour_done))
 						if not entries and ((not wip_choice) or not labour_done):# and not wip_complete: # TODO Test "and not wip_complete"
@@ -4173,7 +4180,7 @@ class Entity:
 								req_qty_needed = req_qty - (edu_status + edu_status_wip)
 								if v: print('Studying Education: {} | Hours Needed: {}'.format(req_item, req_qty_needed))
 								req_time_required = False
-								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty=req_qty_needed)#, buffer=True)
+								result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty=req_qty_needed, v=v)#, buffer=True)
 								self.ledger.set_entity(self.entity_id)
 								if req_time_required:
 									edu_status_wip = self.ledger.get_qty(items=req_item, accounts=['Studying Education'])
@@ -4218,7 +4225,7 @@ class Entity:
 					if not man:
 						if v: print('{} attempting to research technology: {}'.format(self.name, req_item))
 						req_time_required = False
-						result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty=req_qty)#, buffer=True)
+						result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, qty=req_qty, v=v)#, buffer=True)
 						if req_time_required:
 							tech_status = self.ledger.get_qty(items=req_item, accounts=['Researching Technology'])
 							if tech_status == 0:
@@ -4259,7 +4266,7 @@ class Entity:
 				event = []
 				# print('tmp_gl before recur for item: {} \n{}'.format(item, self.gl_tmp))
 				self.gl_tmp = pd.DataFrame(columns=world.cols) # TODO Confirm this is needed
-				if v: print(f'{self.name} will try again to {action} {item} but for {max_qty_possible} units.')
+				if v: print(f'{self.name} will try again to {action} {item} but for {max_qty_possible} units. whole_qty: {whole_qty} | max_qty_possible {max_qty_possible}')
 				incomplete, event_max_possible, time_required, max_qty_possible = self.fulfill(item, max_qty_possible, man=man, v=v)
 				event += event_max_possible
 		else:
@@ -4277,7 +4284,7 @@ class Entity:
 				if v: print(f'Result of {self.name} trying to produce {qty} {item}:\n{results}')
 			else:
 				if v: print(f'Result of {self.name} producing {qty} {item}:\n{results}')
-		if v: print(f'!fulfill return due to finishing for item: {item}.')
+		if v: print(f'!fulfill return due to finishing for item: {item}. | incomplete: {incomplete} | time_required: {time_required} | max_qty_possible: {max_qty_possible}')
 		return incomplete, event, time_required, max_qty_possible
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, wip=False, buffer=False, vv=False, v=True):
@@ -4301,11 +4308,13 @@ class Entity:
 					return [], False, 0, True
 				else:
 					qty -= wip_qty
+		print(f'Produce v: {v}')
 		incomplete, produce_event, time_required, max_qty_possible = self.fulfill(item, qty, reqs=reqs, amts=amts, man=man, show_results=True, v=v)
 		if incomplete:
 			return [], time_required, max_qty_possible, incomplete
 		orig_qty = qty
 		qty = max_qty_possible
+		if v: print(f'Qty after set to max_qty_possible: {qty} | orig_qty: {qty}')
 		# print('Item: {} | Max Qty Possible: {}'.format(item, max_qty_possible))
 		# print('Produced Qty: {} | Orig Qty:{}'.format(qty, orig_qty))
 		# Mark Land etc. as in use (is now handled in fulfill)
@@ -4508,9 +4517,12 @@ class Entity:
 					if item_type != 'Service' and item_type != 'Education':
 						produce_event += cost_entries
 					if vv: print('Cost 1: {}'.format(cost))
+			if v: print(f'Produce price 01: {price} | Cost: {cost} | Qty: {qty}')
 			price = cost / qty
+			if v: print(f'Produce price 02: {price}')
 			if price == 0: # No cost
 				price = world.get_price(item, self.entity_id)
+				if v: print(f'Produce price 03: {price}')
 				cost = price * qty
 		else:
 			cost = price * qty
@@ -4600,7 +4612,7 @@ class Entity:
 				if isinstance(self, Individual):
 					if entry[0] in self.prod_hold:
 						self.prod_hold = [event_id if x == entry[0] else x for x in self.prod_hold]
-				if v: print('{} Orig event_id: {} | New event_id: {} | {}'.format(self.name, entry[0], event_id, self.hold_event_ids))
+				if vv: print('{} Orig event_id: {} | New event_id: {} | {}'.format(self.name, entry[0], event_id, self.hold_event_ids))
 				entry[0] = event_id
 		self.ledger.journal_entry(produce_event)
 		if world.delay['txn_id'].isnull().values.any():
@@ -4966,7 +4978,7 @@ class Entity:
 						self.gl_tmp = self.ledger.gl
 						# if v: print('tail:\n', self.gl_tmp.tail())
 					# Mark Land, Buildings, and Equipment as in use
-					hold_incomplete, in_use_event, hold_time_required, hold_max_qty_possible = self.fulfill(item, qty=qty, reqs='hold_req', amts='hold_amount', buffer=True)#, v=True)
+					hold_incomplete, in_use_event, hold_time_required, hold_max_qty_possible = self.fulfill(item, qty=qty, reqs='hold_req', amts='hold_amount', buffer=True, v=v)
 					self.ledger.reset()
 					self.gl_tmp = None
 					if hold_incomplete:
@@ -5517,7 +5529,6 @@ class Entity:
 			return item, qty
 
 	def check_demand(self, multi=True, others=True, needs_only=False, vv=False, v=True):
-		print('check_demand v:', v)
 		if self.produces is None:
 			return
 		if needs_only:
@@ -5983,7 +5994,7 @@ class Entity:
 		if last_paid < PAY_PERIODS:
 			return True
 
-	def accru_wages(self, job, counterparty, labour_hours, wage=None, accrual=False, buffer=False, check=False):
+	def accru_wages(self, job, counterparty, labour_hours, wage=None, accrual=False, buffer=False, check=False, v=True):
 		if isinstance(counterparty, tuple):
 			counterparty = counterparty[0]
 		if accrual:
@@ -5993,10 +6004,10 @@ class Entity:
 			desc_exp = job + ' wages paid'
 			desc_rev = job + ' wages received'
 		if counterparty is None:
-			print('No workers available to do {} job for {} hours.'.format(job, labour_hours))
+			if v: print('No workers available to do {} job for {} hours.'.format(job, labour_hours))
 			return
 		if labour_hours == 0:
-			print(f'Cannot hire {counterparty.name} as a {job} for {labour_hours} hours.')
+			if v: print(f'Cannot hire {counterparty.name} as a {job} for {labour_hours} hours.')
 			return
 		#print('Labour Counterparty: {}'.format(counterparty.name))
 		if job == 'Study': # TODO Fix how Study works to use WIP system
@@ -6011,7 +6022,7 @@ class Entity:
 			recently_paid = True
 		else:
 			recently_paid = self.check_wages(job)
-		incomplete, accru_wages_event, time_required, max_qty_possible = self.fulfill(job, qty=labour_hours, reqs='usage_req', amts='use_amount', check=check)
+		incomplete, accru_wages_event, time_required, max_qty_possible = self.fulfill(job, qty=labour_hours, reqs='usage_req', amts='use_amount', check=check, v=v)
 		if check:
 			return
 		if recently_paid and not incomplete:
@@ -6028,12 +6039,12 @@ class Entity:
 				accru_wages_event += [wages_exp_entry, wages_rev_entry]
 			else:
 				if not incomplete: # TODO This is not needed
-					print('{} does not have enough time left to do {} job for {} hours. Hours: {}'.format(counterparty.name, job, labour_hours, counterparty.hours))
+					if v: print('{} does not have enough time left to do {} job for {} hours. Hours: {}'.format(counterparty.name, job, labour_hours, counterparty.hours))
 				else: # TODO This is not needed
-					print('{} cannot fulfill the requirements to allow {} to work.'.format(self.name, job))
+					if v: print('{} cannot fulfill the requirements to allow {} to work.'.format(self.name, job))
 				return
 			if buffer:
-				print('{} hired {} as a {} for {} hours.'.format(self.name, counterparty.name, job, hours_worked))
+				if v: print('{} hired {} as a {} for {} hours.'.format(self.name, counterparty.name, job, hours_worked))
 				# if job != 'Study' and job != 'Research':
 					# counterparty.adj_price(job, labour_hours, direction='up_low')
 				return accru_wages_event
@@ -6043,9 +6054,9 @@ class Entity:
 			# 	counterparty.adj_price(job, labour_hours, direction='up_low')
 		else:
 			if incomplete:
-				print('{} cannot fulfill requirements for {} job.'.format(self.name, job))
+				if v: print('{} cannot fulfill requirements for {} job.'.format(self.name, job))
 			else:
-				print('Wages have not been paid for {} recently by {}.'.format(job, self.name))
+				if v: print('Wages have not been paid for {} recently by {}.'.format(job, self.name))
 			counterparty.adj_price(job, labour_hours, direction='down')
 			return
 
@@ -6067,7 +6078,7 @@ class Entity:
 		else:
 			individuals_allowed = [indiv for indiv in world.gov.get(Individual) if indiv not in exclude]
 		for individual in individuals_allowed:
-			incomplete, entries, time_required, max_qty_possible = individual.fulfill(job, qty=1, man=man)#, check=True)
+			incomplete, entries, time_required, max_qty_possible = individual.fulfill(job, qty=1, man=man, v=v)#, check=True)
 			# TODO Capture entries
 			if not incomplete:
 				# This will cause all available workers to attempt to become qualified even if they don't get the job in the end. TODO Test if check=True will prevent this.
@@ -6242,7 +6253,7 @@ class Entity:
 							continue
 			if not confirm:
 				exclude.append(worker_choosen)
-				worker_choosen = self.worker_counterparty(job, only_avail=only_avail, exclude=exclude, man=man)
+				worker_choosen = self.worker_counterparty(job, only_avail=only_avail, exclude=exclude, man=man, v=v)
 				if isinstance(worker_choosen, tuple):
 					worker_choosen, worker_event = worker_choosen
 				if worker_choosen is None:
@@ -6252,17 +6263,17 @@ class Entity:
 			return worker_choosen, worker_event
 		return worker_choosen
 
-	def hire_worker(self, job, counterparty=None, price=0, qty=1, man=False, buffer=False):
+	def hire_worker(self, job, counterparty=None, price=0, qty=1, man=False, buffer=False, v=True):
 		entries = []
 		if counterparty is None:	
-			counterparty = self.worker_counterparty(job, only_avail=False, man=man)
+			counterparty = self.worker_counterparty(job, only_avail=False, man=man, v=v)
 			if isinstance(counterparty, tuple):
 				counterparty, entries = counterparty
 		if counterparty is None:
-			print('No workers available to do {} job for {}.'.format(job, self.name))
+			if v: print('No workers available to do {} job for {}.'.format(job, self.name))
 			return
 		price = world.get_price(job, counterparty.entity_id)
-		incomplete, hire_worker_event, time_required, max_qty_possible = self.fulfill(job, qty)
+		incomplete, hire_worker_event, time_required, max_qty_possible = self.fulfill(job, qty, v=v)
 		if incomplete:
 			return
 		if entries:
@@ -6280,7 +6291,7 @@ class Entity:
 				if entry[0] in self.hold_event_ids or entry[0] in counterparty.hold_event_ids:
 					self.hold_event_ids = [event_id if x == entry[0] else x for x in self.hold_event_ids]
 					counterparty.hold_event_ids = [event_id if x == entry[0] else x for x in counterparty.hold_event_ids]
-				print('Hire Orig event_id: {} | New event_id: {} | {} | {}'.format(entry[0], event_id, self.hold_event_ids, counterparty.hold_event_ids))
+				if v: print('Hire Orig event_id: {} | New event_id: {} | {} | {}'.format(entry[0], event_id, self.hold_event_ids, counterparty.hold_event_ids))
 				entry[0] = event_id
 		if not first_pay:
 			hire_worker_event = []
@@ -6289,11 +6300,11 @@ class Entity:
 			hire_worker_event += first_pay
 		if buffer:
 			if hire_worker_event:
-				print('{} hired {} as a fulltime {}.'.format(self.name, counterparty.name, job))
+				if v: print('{} hired {} as a fulltime {}.'.format(self.name, counterparty.name, job))
 				if first_pay:
 					self.adj_price(job, qty=1, direction='up')
 			else:
-				print('{} could not hire {} as a fulltime {}.'.format(self.name, counterparty.name, job))
+				if v: print('{} could not hire {} as a fulltime {}.'.format(self.name, counterparty.name, job))
 			return hire_worker_event
 		self.ledger.journal_entry(hire_worker_event)
 		if first_pay:
@@ -6432,13 +6443,13 @@ class Entity:
 				if v: print('Producer Entities: \n{}'.format(producer_entities))
 		serv_prices = {k:world.get_price(item, k) for k in producer_entities}
 		if not serv_prices and self.user:
-			incomplete, entries, time_required, max_qty_possible = self.fulfill(item, qty=1, man=self.user, check=True)
+			incomplete, entries, time_required, max_qty_possible = self.fulfill(item, qty=1, man=self.user, check=True, v=v)
 			if not incomplete:
 				counterparty = self
 			else:
 				for indiv in self.factory.get(Individual):
 					# TODO Display a list of available providers for user to choose from
-					incomplete, entries, time_required, max_qty_possible = indiv.fulfill(item, qty=1, man=indiv.user, check=True)
+					incomplete, entries, time_required, max_qty_possible = indiv.fulfill(item, qty=1, man=indiv.user, check=True, v=v)
 					if not incomplete:
 						counterparty = indiv
 						break
@@ -6486,7 +6497,7 @@ class Entity:
 			order_subscription_event += [order_subscription_entry, sell_subscription_entry]
 			if not args.jones:
 				for _ in range(int(qty)):
-					first_payment += self.pay_subscription(item, counterparty, buffer=buffer, first=True)
+					first_payment += self.pay_subscription(item, counterparty, buffer=buffer, first=True, v=v)
 			event_id = max([entry[0] for entry in order_subscription_event])
 			for entry in order_subscription_event:
 				if entry[0] != event_id:
@@ -6522,7 +6533,7 @@ class Entity:
 		counterparty.adj_price(item, qty=1, direction='down')
 		return cancel_subscription_event
 
-	def check_subscriptions(self, counterparty=None, check=False):
+	def check_subscriptions(self, counterparty=None, check=False, v=True):
 		self.ledger.set_entity(self.entity_id)
 		subscriptions_list = self.ledger.get_qty(accounts=['Subscription Info'])
 		# print('Subscriptions List: \n{}'.format(subscriptions_list))
@@ -6536,11 +6547,11 @@ class Entity:
 				freq = world.items.loc[item, 'freq']
 				if freq is None:
 					freq = 1
-				print(f'{item} payment freq: {freq}')
+				if v: print(f'{item} payment freq: {freq}')
 				days = (world.now - datetime.datetime(1986,10,1).date()).days
-				print('Current day:', days)
+				if v: print('Current day:', days)
 				if (args.jones and world.now == datetime.datetime(1986,10,1).date()):
-					print('No rent due on first day of play.')
+					if v: print('No rent due on first day of play.')
 					return
 				if days % freq != 0:
 					return
@@ -6557,9 +6568,9 @@ class Entity:
 				if not qty_active:
 					self.cancel_subscription(item, counterparty)
 				else:
-					self.pay_subscription(subscription['item_id'], counterparty, world.get_price(subscription['item_id'], counterparty.entity_id), subscription['qty'], check=check)
+					self.pay_subscription(subscription['item_id'], counterparty, world.get_price(subscription['item_id'], counterparty.entity_id), subscription['qty'], check=check, v=v)
 
-	def pay_subscription(self, item, counterparty, price=None, qty='', buffer=False, first=False, check=False):
+	def pay_subscription(self, item, counterparty, price=None, qty='', buffer=False, first=False, check=False, v=True):
 		if price is None:
 			price = world.get_price(item, counterparty.entity_id) # TODO Get price from subscription order
 		if first:
@@ -6577,7 +6588,7 @@ class Entity:
 		incomplete = False
 		pay_subscription_event = []
 		for _ in range(subscription_state):
-			incomplete, entries, time_required, max_qty_possible = self.fulfill(item, qty=1, reqs='usage_req', amts='use_amount', check=check)
+			incomplete, entries, time_required, max_qty_possible = self.fulfill(item, qty=1, reqs='usage_req', amts='use_amount', check=check, v=v)
 			pay_subscription_event += entries
 			if check:
 				continue
@@ -6600,15 +6611,15 @@ class Entity:
 						self.address_need(need)
 			else:
 				if not incomplete:
-					print('{} does not have enough cash to pay {} for {} subscription. Cash: {}'.format(self.name, price, item, cash))
+					if v: print('{} does not have enough cash to pay {} for {} subscription. Cash: {}'.format(self.name, price, item, cash))
 					result = self.loan(amount=(price - cash), item='Credit Line 5', auto=True)
 					if result:
-						pay_subscription_event = self.pay_subscription(item, counterparty, price=price, qty=qty, buffer=buffer, first=first, check=check)
+						pay_subscription_event = self.pay_subscription(item, counterparty, price=price, qty=qty, buffer=buffer, first=first, check=check, v=v)
 						return pay_subscription_event
 					if result is False:
 						self.bankruptcy()
 				else:
-					print('{} cannot fulfill the requirements to keep {} subscription.'.format(self.name, item))
+					if v: print('{} cannot fulfill the requirements to keep {} subscription.'.format(self.name, item))
 				if not first:
 					self.cancel_subscription(item, counterparty)
 		if not incomplete:
@@ -7357,7 +7368,7 @@ class Entity:
 				else:
 					print('Not a valid entry.')
 					continue
-			worker = self.worker_counterparty(item.title(), only_avail=True)#, qualified=True)
+			worker = self.worker_counterparty(item.title(), only_avail=True, v=True)#, qualified=True)
 			if worker == 'none_qualify':
 				if args.jones:
 					print(f'You are not qualified to work as a {item.title()}.')
@@ -8201,7 +8212,7 @@ class Entity:
 			items = []
 			for item in item_list.index.values:
 				print('item check:', item)
-				incomplete, entries, time_required, max_qty_possible = self.fulfill(item, qty=1, check=True)
+				incomplete, entries, time_required, max_qty_possible = self.fulfill(item, qty=1, check=True, v=False)
 				if not incomplete:
 					items.append(item)
 			print(items)
@@ -8336,6 +8347,24 @@ class Entity:
 				print('{} other_hire set to: {}'.format(self.name, self.other_hire))
 			else:
 				print('The "otherhire" command is only for Individuals.')
+		elif command.lower() == 'delayinput':
+			orig_delay = args.delay
+			delay = 0
+			while True:
+				try:
+					delay = input('Enter amount to change interest rate by: ')
+					if delay == '':
+						return
+					delay = int(delay)
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if delay <= 0:
+						continue
+					break
+				args.delay = delay
+				print(f'Loop delay changed from {orig_delay} to {args.delay}')
 		elif command.lower() == 'help':
 			command_help = {
 				'select': 'Choose a different entity (Individual or Corporation).',
@@ -8575,7 +8604,7 @@ class Individual(Entity):
 	def __repr__(self):
 		return 'Indv: {} | {}'.format(self.name, self.entity_id)
 
-	def set_hours(self, hours_delta=0, v=True):
+	def set_hours(self, hours_delta=0, v=False):
 		if v: print(f'Set Hours Before for {self.name}: {self.hours}')
 		self.hours -= hours_delta
 		if self.hours < 0:
@@ -9190,7 +9219,7 @@ class Individual(Entity):
 						if not outcome:
 							if (qty_wanted - qty_held) != 1:
 								if v: print(f'Trying to address {need} need again for 1 qty of {item_choosen}.')
-								outcome, time_required, max_qty_possible, incomplete = self.produce(item_choosen, qty=1)
+								outcome, time_required, max_qty_possible, incomplete = self.produce(item_choosen, qty=1, v=v)
 						self.ledger.set_entity(self.entity_id)
 						qty_held = self.ledger.get_qty(items=item_choosen, accounts=['Inventory'])
 						self.ledger.reset()
@@ -9473,7 +9502,7 @@ class Corporation(Organization):
 				if args.jones:
 					self.spawn_item(item_id, qty)
 				else:
-					self.produce(item_id, qty)
+					self.produce(item_id, qty, v=v)
 
 class Government(Organization):
 	def __init__(self, name, items=None, user=False, entity_id=None):# Government(Organization)
@@ -10017,6 +10046,7 @@ def main(conn=None, command=None, external=False):
 		world.update_econ()
 		if world.end:
 			break
+		# print(f'delay: {args.delay}')
 		if args.delay:
 			response = timed_input(f'Press any key and then enter to chose an entity to control ({args.delay}s to respond): ', timeout=args.delay)
 			if response:

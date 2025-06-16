@@ -1194,7 +1194,7 @@ class Ledger:
 		return qty_txns
 
 	def get_qty(self, items=None, accounts=None, gl=None, show_zeros=False, by_entity=False, single_item=False, always_df=False, credit=False, ignore_cash=True, v=False):
-		# if items == 'Rocky Land':
+		# if items == 'Wild Leather':
 		# 	if v: print('Get Qty GL: \n{}'.format(self.gl))
 		if gl is not None:
 			self.gl = gl
