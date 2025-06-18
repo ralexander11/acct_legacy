@@ -1530,7 +1530,6 @@ class World:
 				# print('{} {} need at: {}'.format(entity.name, need, entity.needs[need]['Current Need']))
 			print(time_stamp() + 'Current Date 04.4 for {}: {}'.format(entity.name, self.now))
 			t4_4_start = time.perf_counter()
-			print('Verbosity 01:', args.verbose)
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual), needs_only=True, v=args.verbose)
 			t4_4_end = time.perf_counter()
 			print(time_stamp() + '4.4: Demand list; needs check took {:,.2f} min for {}.\n'.format(t4_4_end - t4_4_start, entity.name))
@@ -1569,7 +1568,6 @@ class World:
 				# with pd.option_context('display.max_rows', None):
 				# 	print(f'tmp_demand repr: \n{repr(tmp_demand)}')
 				# 	print(f' world.demand repr: \n{repr(world.demand)}')
-				print('Verbosity 02:', args.verbose)
 				entity.check_demand(multi=True, others=not isinstance(entity, Individual), v=args.verbose)
 				t4_7_end = time.perf_counter()
 				print(time_stamp() + '4.7: Demand list; loop check took {:,.2f} sec for {}.\n'.format(t4_7_end - t4_7_start, entity.name))
@@ -2290,7 +2288,7 @@ class Entity:
 				try:
 					purchase_qty = global_inv.iloc[i].loc['qty']
 				except IndexError as e:
-					if v: print('No other entities hold {} to purchase the remaining qty of {}.\n'.format(item, qty))
+					if v: print('No other entities hold {} to purchase the remaining qty of {}.'.format(item, qty))
 					break
 				if purchase_qty > qty:
 					purchase_qty = qty
@@ -3355,11 +3353,11 @@ class Entity:
 									elif 'animal' in item_freq and 'animal' in req_freq:# and equip_qty - equip_qty_wip <= 3: # TODO Test if this is needed for large amounts
 										required_qty = max(math.floor((equip_qty - equip_qty_wip) / 2), 1)
 									if v: print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
-									print('&&&&&1')
-									print(f'Produce req_item: {req_item} | qty: {required_qty} | buffer: {buffer} | v: {v}')
+									if vv: print('&&&&&1')
+									if vv: print(f'Produce req_item: {req_item} | qty: {required_qty} | buffer: {buffer} | v: {v}')
 									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment', buffer=buffer, v=v)
-									print(f'Result for req_item: {req_item} | qty: {required_qty} | req_time_required: {req_time_required} | req_max_qty_possible: {req_max_qty_possible} | {req_incomplete} result:\n{result}')
-									print('&&&&&2')
+									if vv: print(f'Result for req_item: {req_item} | qty: {required_qty} | req_time_required: {req_time_required} | req_max_qty_possible: {req_max_qty_possible} | {req_incomplete} result:\n{result}')
+									if vv: print('&&&&&2')
 									if v: print('{} attempted to produce {} {} itself.'.format(self.name, required_qty, req_item))
 							if not result or req_time_required:
 								if req_time_required:
@@ -3537,8 +3535,6 @@ class Entity:
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
 			elif req_item_type == 'Commodity' and partial is None:
-				# self.gl_tmp = self.ledger.gl # TODO Is this needed, but only for when recursion happens?
-				# self.ledger.reset() # TODO Or this?
 				modifier, items_info = self.check_productivity(req_item)
 				self.ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -3557,20 +3553,20 @@ class Entity:
 							self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 						self.gl_tmp = self.ledger.gl
 						# if item == 'Hydroponics' or item == 'Wire':
-						# 	print('Ledger Temp commodity: \n{}'.format(self.ledger.gl.tail(10)))
+						# 	if vv: print('Ledger Temp commodity: \n{}'.format(self.ledger.gl.tail(10)))
 				else:
 					modifier = 0
 				try:
 					if not self.gl_tmp.empty:
-						if v: print('##############################')
+						if vv: print('##############################')
 						# if item == 'Hydroponics' or item == 'Wire' or item =='Cotton Gin' or item =='Cotton Spinner':
-						if v: print('Tmp GL commodity 01: \n{}'.format(self.gl_tmp.tail(10)))
+						if vv: print('Tmp GL commodity 01: \n{}'.format(self.gl_tmp.tail(10)))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
-						if v: print('self.ledger.gl 01: \n{}'.format(self.ledger.gl.tail(10)))
-						if v: print('##############################')
+						if vv: print('self.ledger.gl 01: \n{}'.format(self.ledger.gl.tail(10)))
+						if vv: print('##############################')
 				except AttributeError as e:
 					# if item == 'Anvil' or item =='Cotton Gin' or item =='Cotton Spinner':
-					if v: print('No Tmp GL Error commodity: {}'.format(repr(e)))
+					if vv: print('No Tmp GL Error commodity: {}'.format(repr(e)))
 					pass
 				material_qty_held = self.ledger.get_qty(items=req_item, accounts=['Inventory'])#, v=True)
 
@@ -3670,32 +3666,32 @@ class Entity:
 				# self.ledger.set_entity(self.entity_id)
 				try:
 					if not self.gl_tmp.empty:
-						if v: print('******************************')
-						if v: print('Tmp GL Commodity 02: \n{}'.format(self.gl_tmp.tail()))
+						if vv: print('******************************')
+						if vv: print('Tmp GL Commodity 02: \n{}'.format(self.gl_tmp.tail()))
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
-						if v: print('tmp_gl_tmp: \n{}'.format(tmp_gl_tmp))
-						if v: print('self.ledger.gl 02: \n{}'.format(self.ledger.gl.tail(8)))
+						if vv: print('tmp_gl_tmp: \n{}'.format(tmp_gl_tmp))
+						if vv: print('self.ledger.gl 02: \n{}'.format(self.ledger.gl.tail(8)))
 						# self.ledger.reset()
 						# if v: print('self.ledger.gl 02b: \n{}'.format(self.ledger.gl.tail(8)))
 						tmp_gl_check = self.ledger.gl.loc[self.ledger.gl.index == 0]
-						if v: print('tmp_gl_check: \n{}'.format(tmp_gl_check))
+						if vv: print('tmp_gl_check: \n{}'.format(tmp_gl_check))
 						if tmp_gl_check.empty:
-							if v: print('self.ledger.gl 02c: \n{}'.format(self.ledger.gl.tail(8)))
+							if vv: print('self.ledger.gl 02c: \n{}'.format(self.ledger.gl.tail(8)))
 							self.gl_tmp = pd.concat([self.ledger.gl, tmp_gl_tmp])
 						# if item =='Cotton Gin' or item =='Cotton Spinner':
-						if v: print('Tmp GL Commodity 03: \n{}'.format(self.gl_tmp.tail(8)))
+						if vv: print('Tmp GL Commodity 03: \n{}'.format(self.gl_tmp.tail(8)))
 						self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
-						if v: print('self.ledger.gl 03: \n{}'.format(self.ledger.gl.tail(8)))
-						if v: print('******************************')
+						if vv: print('self.ledger.gl 03: \n{}'.format(self.ledger.gl.tail(8)))
+						if vv: print('******************************')
 					else:
 						# if item =='Cotton Gin' or item =='Cotton Spinner':
 						if v: print('No Tmp GL Data for Commodity: {}'.format(self.gl_tmp))
 						self.ledger.set_entity(self.entity_id)
 				except AttributeError as e:
 					# if item =='Cotton Gin' or item =='Cotton Spinner':
-					if v: print('No Tmp GL Error Commodity: {}'.format(repr(e)))
+					if vv: print('No Tmp GL Error Commodity: {}'.format(repr(e)))
 					pass
-				material_qty = self.ledger.get_qty(items=req_item, accounts=['Inventory'], v=v)
+				material_qty = self.ledger.get_qty(items=req_item, accounts=['Inventory'], v=vv)
 				if v: print('Item: {} | qty: {} | req_item: {} | req_qty: {} | material_qty: {} | modifier: {} | max_qty_possible: {}'.format(item, qty, req_item, req_qty, material_qty, modifier, max_qty_possible))
 				try:
 					# TODO Needs if isinstance(req_freq, str):
@@ -3735,7 +3731,7 @@ class Entity:
 								self.ledger.gl = pd.concat([self.ledger.gl, entry_df])
 							self.gl_tmp = self.ledger.gl
 							# if item =='Cotton Gin' or item =='Cotton Spinner':
-							if v: print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
+							if vv: print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
 			elif req_item_type == 'Service' and partial is None:
 				# TODO Add support for qty to Services
@@ -4294,6 +4290,7 @@ class Entity:
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, wip=False, buffer=False, vv=False, v=True):
 		# TODO Replace man with self.user
+		if v: print()
 		item_type = world.get_item_type(item)
 		if item_type == 'Land': # TODO This is a temp hackey fix
 			produce_event = self.claim_land(item, qty, buffer=buffer)
@@ -4314,7 +4311,6 @@ class Entity:
 					return [], False, 0, True
 				else:
 					qty -= wip_qty
-		print(f'Produce v: {v}')
 		incomplete, produce_event, time_required, max_qty_possible = self.fulfill(item, qty, reqs=reqs, amts=amts, man=man, show_results=True, v=v)
 		if incomplete:
 			return [], time_required, max_qty_possible, incomplete
@@ -4640,6 +4636,7 @@ class Entity:
 		else:
 			self.set_price(item, qty, at_cost=True, v=v)
 		# if man: # TODO Make this the case for not man also
+		if v: print()
 		return produce_event, time_required, max_qty_possible, incomplete
 		# return qty, time_required # TODO Return the qty instead of True, or can use max_qty_possible for qty if complete
 
