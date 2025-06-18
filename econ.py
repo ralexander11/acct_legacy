@@ -1748,9 +1748,9 @@ class World:
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
 
 		self.checkpoint_entry()
-		self.ticktock(v=False) # TODO User
 		self.t1_end = time.perf_counter()
 		print('\n' + time_stamp() + 'End of Econ Update for {}. It took {:,.2f} min.'.format(self.now, (self.t1_end - self.t1_start) / 60))
+		self.ticktock(v=False) # TODO User
 		return end
 
 		# # Book End of Day entry
@@ -3213,9 +3213,9 @@ class Entity:
 				except ZeroDivisionError:
 					constraint_qty = 'inf'
 					max_qty_possible = min(max_qty_possible, qty)
-				if v: print('Buildings Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
+				if v: print(f'Buildings Max Qty Possible: {max_qty_possible} | Constraint Qty: {constraint_qty} | Building: {building}')
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':building, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[building], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[math.ceil(qty / capacity)], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[building], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				qty_to_use = 0
 				build_in_use = 0
 				if building != 0:
@@ -3355,7 +3355,12 @@ class Entity:
 									elif 'animal' in item_freq and 'animal' in req_freq:# and equip_qty - equip_qty_wip <= 3: # TODO Test if this is needed for large amounts
 										required_qty = max(math.floor((equip_qty - equip_qty_wip) / 2), 1)
 									if v: print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
+									print('&&&&&1')
+									print(f'Produce req_item: {req_item} | qty: {required_qty} | buffer: {buffer} | v: {v}')
 									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment', buffer=buffer, v=v)
+									print(f'Result for req_item: {req_item} | qty: {required_qty} | req_time_required: {req_time_required} | req_max_qty_possible: {req_max_qty_possible} | {req_incomplete} result:\n{result}')
+									print('&&&&&2')
+									if v: print('{} attempted to produce {} {} itself.'.format(self.name, required_qty, req_item))
 							if not result or req_time_required:
 								if req_time_required:
 									if v: print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
@@ -3387,9 +3392,9 @@ class Entity:
 				except ZeroDivisionError:
 					constraint_qty = 'inf'
 					max_qty_possible = min(max_qty_possible, qty)
-				if v: print('Equipment Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
+				if v: print(f'Equipment Max Qty Possible: {max_qty_possible} | Constraint Qty: {constraint_qty} | equip_qty: {equip_qty}')
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':equip_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[equip_qty], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[math.ceil(qty / capacity)], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[equip_qty], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				qty_to_use = 0
 				equip_in_use = 0
 				if equip_qty != 0:
@@ -4207,7 +4212,7 @@ class Entity:
 								max_qty_possible = 0
 						constraint_qty = None
 						# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':edu_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-						results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[edu_status], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+						results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[edu_status], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Technology' and partial is None:
 				modifier = 0
@@ -4298,6 +4303,7 @@ class Entity:
 				if item_type == 'Education':
 					pass
 			elif item not in self.produces: # TODO Should this be kept long term?
+				if v: print(f'{self.name} does not produce {item}.')
 				return [], False, 0, True
 		if wip: # TODO Test this
 			wip_result = self.wip_check(items=item)
@@ -5604,6 +5610,7 @@ class Entity:
 						world.set_table(world.demand, 'demand')
 						if to_drop:
 							if v: print('World Demand:\n{}'.format(world.demand))
+			if vv: print(f'{self.name} produces: {self.produces}')
 			if item not in self.produces:
 				continue
 			if vv: print('Check Demand Item for {}: {}'.format(self.name, item))
@@ -5621,7 +5628,9 @@ class Entity:
 								qty = int(math.ceil(qty))
 								break
 					else:
-						if others or (not others and demand_row['entity_id'] == self.entity_id):
+						demanded_by = self.factory.get_by_id(demand_row['entity_id'])
+						if vv: print(f'demanded_by: {demanded_by} | demanded_by type: {type(demanded_by)} | Is not individual? {not isinstance(demanded_by, Individual)}')
+						if others or (not others and demand_row['entity_id'] == self.entity_id) or not isinstance(demanded_by, Individual):
 							if demand_row['item_id'] == item:
 								qty += demand_row['qty']
 								qty = int(math.ceil(qty))
@@ -5635,6 +5644,7 @@ class Entity:
 					qty += demand_item['qty']
 					qty = int(math.ceil(qty))
 					to_drop.append(index)
+			if vv: print(f'Demand qty: {qty} for {item}')
 			if qty == 0:
 				continue
 			if isinstance(self, Corporation):
@@ -10005,6 +10015,8 @@ def parse_args(conn=None, command=None, external=False):
 		else:
 			print(time_stamp() + 'Randomness turned on with no seed provided.')
 			random.seed()
+	if not args.verbose:
+		print(time_stamp() + 'Verboseness turned off.')
 	if args.time is not None:
 		global END_DATE
 		END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
