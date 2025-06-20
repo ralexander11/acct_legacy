@@ -1217,7 +1217,7 @@ class World:
 		return price
 
 	def reduce_prices(self, v=False):
-		world.prices['price'] = world.prices['price'] * (1 - REDUCE_PRICE)
+		world.prices['price'] = (world.prices['price'] * (1 - REDUCE_PRICE)).clip(lower=0.01)
 		if v: print(world.prices)
 		print('All prices reduced by {0:.0%}.'.format(REDUCE_PRICE))
 		return world.prices
@@ -2857,7 +2857,7 @@ class Entity:
 		if v: print(f'~{self.name} fulfill: {item} Qty: {qty} | Partial: {partial} | Check: {check} | buffer: {buffer} | Man: {man} | Reqs: {reqs}')
 		try:
 			if not self.gl_tmp.empty:
-				if v: print('gl_tmp is not empty:\n', self.gl_tmp.tail())
+				if vv: print('gl_tmp is not empty:\n', self.gl_tmp.tail())
 				self.ledger.gl = self.gl_tmp
 		except AttributeError as e:
 			self.gl_tmp = pd.DataFrame(columns=world.cols)
@@ -3685,7 +3685,7 @@ class Entity:
 						if vv: print('******************************')
 					else:
 						# if item =='Cotton Gin' or item =='Cotton Spinner':
-						if v: print('No Tmp GL Data for Commodity: {}'.format(self.gl_tmp))
+						if vv: print('No Tmp GL Data for Commodity: {}'.format(self.gl_tmp))
 						self.ledger.set_entity(self.entity_id)
 				except AttributeError as e:
 					# if item =='Cotton Gin' or item =='Cotton Spinner':
@@ -4282,24 +4282,26 @@ class Entity:
 		self.gl_tmp = pd.DataFrame(columns=world.cols)
 		if show_results:
 			if incomplete:
-				if v: print(f'Result of {self.name} trying to produce {qty} {item}:\n{results}')
+				if v: print(f'\nResult of trying to produce {qty} {item} by {self.name}:\n{results}')
 			else:
-				if v: print(f'Result of {self.name} producing {qty} {item}:\n{results}')
+				if v: print(f'\nResult of producing {qty} {item} by {self.name}:\n{results}')
 		if v: print(f'!fulfill return due to finishing for item: {item}. | incomplete: {incomplete} | time_required: {time_required} | max_qty_possible: {max_qty_possible}')
 		return incomplete, event, time_required, max_qty_possible
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, wip=False, buffer=False, vv=False, v=True):
 		# TODO Replace man with self.user
 		if v: print()
+		if v: print(f'***** Produce {qty} {item} ****')
 		item_type = world.get_item_type(item)
 		if item_type == 'Land': # TODO This is a temp hackey fix
 			produce_event = self.claim_land(item, qty, buffer=buffer)
 			return produce_event, False, produce_event[-1][8], False
+		if v: print(f'Produce: {item} | qty: {qty} | item_type: {item_type} | wip: {wip} | name: {self.name} | user: {self.user} | produces: {self.produces}')
 		if not self.user:
-			if isinstance(self, Individual):
-				if item_type == 'Education':
-					pass
-			elif item not in self.produces: # TODO Should this be kept long term?
+			# if isinstance(self, Individual):
+			# 	if item_type == 'Education':
+			# 		pass
+			if item not in self.produces and not (isinstance(self, Individual) and item_type == 'Education'): # TODO Should this be kept long term?
 				if v: print(f'{self.name} does not produce {item}.')
 				return [], False, 0, True
 		if wip: # TODO Test this
@@ -4571,7 +4573,7 @@ class Entity:
 			world.set_table(world.demand, 'demand')
 			if v: print('{} exists on the demand table exactly for {} will drop index items {}.'.format(item, self.name, to_drop))
 			with pd.option_context('display.max_rows', None):
-				if v: print('World Demand: {} \n{}'.format(world.now, world.demand))
+				if vv: print('World Demand: {} \n{}'.format(world.now, world.demand))
 		to_drop = []
 		# if orig_qty != qty and qty != 0:
 		# 	print('World Demand: \n{}'.format(world.demand))
@@ -4599,7 +4601,7 @@ class Entity:
 			world.set_table(world.demand, 'demand')
 			if v: print('{} exists on the demand table will drop index items {}.'.format(item, to_drop))
 			with pd.option_context('display.max_rows', None):
-				if v: print('World Demand: {} \n{}'.format(world.now, world.demand))
+				if vv: print('World Demand: {} \n{}'.format(world.now, world.demand))
 		if orig_qty != qty and qty != 0:
 			if v: print('Partially Fulfilled Qty for: {} | Orig Qty: {} | Qty Produced: {}'.format(item, orig_qty, qty))
 			# print('World Demand Changed: \n{}'.format(world.demand))
@@ -4636,6 +4638,7 @@ class Entity:
 		else:
 			self.set_price(item, qty, at_cost=True, v=v)
 		# if man: # TODO Make this the case for not man also
+		if v: print(f'***** Produce end {qty} {item} ****')
 		if v: print()
 		return produce_event, time_required, max_qty_possible, incomplete
 		# return qty, time_required # TODO Return the qty instead of True, or can use max_qty_possible for qty if complete
@@ -5324,7 +5327,7 @@ class Entity:
 								world.set_table(world.demand, 'demand')
 								print('{} dropped {} [{}] Subscription from the demand table for {}. To Drop: {}'.format(self.name, item, demand_index, corp.name, to_drop))
 								with pd.option_context('display.max_rows', None):
-									print('World Demand: {} \n{}'.format(world.now, world.demand))
+									if v: print('World Demand: {} \n{}'.format(world.now, world.demand))
 							return corp
 				corp = self.incorporate(name=ticker, item=item)
 				# TODO Have the demand table item cleared when entity gets the subscription
@@ -5333,7 +5336,7 @@ class Entity:
 					world.set_table(world.demand, 'demand')
 					print('{} dropped {} [{}] Subscription from the demand table for {}.'.format(self.name, item, demand_index, corp.name))
 					with pd.option_context('display.max_rows', None):
-						print('World Demand: {} \n{}'.format(world.now, world.demand))
+						if v: print('World Demand: {} \n{}'.format(world.now, world.demand))
 				return corp
 
 	def tech_motivation(self):
