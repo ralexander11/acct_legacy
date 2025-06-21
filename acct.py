@@ -2371,10 +2371,13 @@ def main(conn=None, command=None, external=False):
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				print(ledger.get_qty(item, acct))
 			if args.command is not None: exit()
-		elif command.lower() == 'inv':
+		elif command.lower() == 'inv' or command.lower() == 'ppe':
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				pd.options.display.float_format = '{:,.2f}'.format
-				print(ledger.get_qty(accounts='Inventory', by_entity=True))#, v=True))
+				accts = ['Inventory']
+				accts += ['Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped'] # For econ sim
+				inv = ledger.get_qty(items=None, accounts=accts, by_entity=True, show_zeros=False)#, v=True))
+				print(inv)
 				pd.options.display.float_format = '${:,.2f}'.format
 			if args.command is not None: exit()
 		elif command.lower() == 'invhist':
