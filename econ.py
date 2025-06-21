@@ -466,6 +466,9 @@ class World:
 			print()
 			for typ in self.factory.registry.keys():
 				for entity in self.factory.get(typ):
+					entity.factory = factory
+					entity.accts = accts
+					entity.ledger = ledger
 					self.ledger.set_entity(entity.entity_id)
 					entity.cash = self.ledger.balance_sheet(['Cash'])
 					print('{} Cash: {}'.format(entity.name, entity.cash))
@@ -994,7 +997,7 @@ class World:
 					self.end = True
 		if END_DATE is not None: # Also for debugging
 			days_left = datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date() - self.now
-			print(f'Days left: {days_left.days}')
+			print(time_stamp() + f'Days left: {days_left.days}')
 			if self.now == datetime.datetime.strptime(END_DATE, '%Y-%m-%d').date():
 				self.end = True
 		# Confirm if want to end sim, ability to keep playing save
@@ -1217,7 +1220,8 @@ class World:
 		return price
 
 	def reduce_prices(self, v=False):
-		world.prices['price'] = (world.prices['price'] * (1 - REDUCE_PRICE)).clip(lower=0.01)
+		# world.prices['price'] = world.prices['price'] * (1 - REDUCE_PRICE)#).clip(lower=0.01)
+		world.prices['price'] = world.prices['price'].where(world.prices['price'] == 0, (world.prices['price'] * (1 - REDUCE_PRICE)).clip(lower=0.01)).round(2)
 		if v: print(world.prices)
 		print('All prices reduced by {0:.0%}.'.format(REDUCE_PRICE))
 		return world.prices
@@ -1803,7 +1807,8 @@ class World:
 
 	def checkpoint_entry(self, eod=True, save=False, v=False):
 		entities = self.accts.get_entities()
-		print('Entities: \n{}'.format(entities))
+		if v: print('Entities: \n{}'.format(entities))
+		if v: print()
 		cur = self.ledger.conn.cursor()
 		obj_query = '''
 			UPDATE entities
@@ -1832,13 +1837,35 @@ class World:
 			# print(entity.__dict__)
 			# print('new obj')
 			# print(tmp_entity)
+			# Save and strip references
+			if v: print()
+			# print(f'attr before: {entity.__dict__}')
+			accts = entity.__dict__.pop('accts', None)
+			ledger = entity.__dict__.pop('ledger', None)
+			factory = entity.__dict__.pop('factory', None)
+			bank = entity.__dict__.pop('bank', None)
+
 			try:
+				if v: print(f'pickleing: {entity} | repr: {repr(entity)}')
+				# if v: print(f'attr: {entity.__dict__}')
 				entity_data = pickle.dumps(entity, pickle.HIGHEST_PROTOCOL)
+				# if v: print(f'entity_data: {entity_data}')
 				values = (Binary(entity_data), entity.entity_id)
-				print('pickle values:', values)
-			except TypeError:
+				if v: print('pickle values:', values)
+			except TypeError as e:
+				if v: print(f'Save error on entity: {entity.name} | error: {e}')
 				values = (None, entity.entity_id)
-				print('pickle values err:', values)
+				if v: print('pickle values err:', values)
+			finally:
+				# Restore references
+				if accts:
+					entity.accts = accts
+				if ledger:
+					entity.ledger = ledger
+				if factory:
+					entity.factory = factory
+				if bank:
+					entity.bank = bank
 			cur.execute(obj_query, values)
 		self.ledger.conn.commit()
 		cur.close()
@@ -2099,6 +2126,7 @@ class Entity:
 				if qty_avail != 0:
 					if v: print('{} does not have enough {} on hand to sell {} units of {}. Will sell qty on hand: {}'.format(self.name, item, qty, item, qty_avail))
 			if ((qty <= qty_avail and qty_avail != 0) or item_type == 'Service' or item_type == 'Education'):
+				amount = round(price * qty, 2)
 				if item_type is not None and item_type != 'Service' and item_type != 'Education':
 					if v: print('{} transacted with {} for {} {}'.format(self.name, counterparty.name, qty, item))
 					self.ledger.set_entity(counterparty.entity_id)
@@ -2109,8 +2137,9 @@ class Entity:
 					purchase_event += counterparty.release(item, qty=qty) # TODO Needs to be tested further
 					avg_price = cost_amt / qty
 					cogs_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, avg_price, qty, 'Cost of Goods Sold', acct_sell, cost_amt ]
-					sale_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_rev, price * qty ]
-					purchase_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
+					
+					sale_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_rev, amount ]
+					purchase_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_pur, item, price, qty, acct_buy, 'Cash', amount ]
 					purchase_event += [cogs_entry, sale_entry, purchase_entry]
 					# if buffer:
 					# 	counterparty.adj_price(item, qty, direction='up')
@@ -2121,8 +2150,8 @@ class Entity:
 				else:
 					if item_type is None:
 						if v: print('{} transacted with {} for {} {} shares.'.format(self.name, counterparty.name, qty, item))
-					sell_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_sell, price * qty ]
-					purchase_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_pur, item, price, qty, acct_buy, 'Cash', price * qty ]
+					sell_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_sell, amount ]
+					purchase_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_pur, item, price, qty, acct_buy, 'Cash', amount ]
 					purchase_event += [sell_entry, purchase_entry]
 					# if buffer:
 					# 	counterparty.adj_price(item, qty, direction='up')
@@ -3899,7 +3928,8 @@ class Entity:
 					# self.ledger.reset()
 					# self.ledger.set_entity(self.entity_id)
 
-					labour_required = req_qty * (1-modifier) * qty
+					# labour_required = req_qty * (1-modifier) * qty
+					labour_required = math.ceil((req_qty * (1-modifier) * qty) * 100) / 100 # Round up to two decimal places
 					# Labourer does the amount they can, and get that value from the entries. Then add to the labour hours done and try again
 					if partial is not None:
 						if v: print('Partial Labour Index: {}'.format(partial))
@@ -3914,7 +3944,7 @@ class Entity:
 					orig_labour_required = labour_required # TODO This might not be needed
 					hours_remain = 0
 					while labour_done < labour_required:
-						required_hours = labour_required - labour_done
+						required_hours = max(labour_required - labour_done, 0)
 						if v: print('Labour Done in Cycle: {} | Labour Required: {} | Remaining Hours: {} | WIP Choice: {} | Time Req: {}'.format(labour_done, labour_required, required_hours, wip_choice, time_required))
 						orig_required_hours = required_hours
 						# if item_type == 'Education':
@@ -3991,9 +4021,9 @@ class Entity:
 								# required_hours = min(required_hours, WORK_DAY)
 								if isinstance(self, Individual):
 									if self.hours:
-										required_hours = min(orig_required_hours, self.hours)
+										required_hours = max(min(orig_required_hours, self.hours), 0)
 								else:
-									required_hours = min(required_hours, WORK_DAY)
+									required_hours = max(min(required_hours, WORK_DAY), 0)
 								 # TODO Or MAX_HOURS?
 								# if required_hours < WORK_DAY:# and labour_done > 0:
 								# 	wip_choice = False # TODO Test this
@@ -4004,6 +4034,7 @@ class Entity:
 								# 	required_hours = orig_required_hours
 							# if required_hours != orig_labour_required:
 							time_required = True
+						required_hours = math.ceil(required_hours * 100) / 100 # Round up to two decimal places
 						if v: print('{} will attempt to hire {} labour for {} hours. Time Req: {} | WIP Choice: {} | WIP Complete: {}'.format(self.name, req_item, required_hours, time_required, wip_choice, wip_complete))
 						# if 'Individual' in world.items.loc[item, 'producer'] and qty == 1:
 						# 	counterparty = self
@@ -4078,17 +4109,17 @@ class Entity:
 							if v: print('Labour done at end of cycle: {} | Hours done: {} | Incomplete: {}'.format(labour_done, hours_done, incomplete))
 							counterparty.set_hours(hours_done)
 							hours_deltas[counterparty.name] += hours_done
-							hours_remain = orig_required_hours - hours_done
+							hours_remain = max(orig_required_hours - hours_done, 0)
 							# if item_type == 'Education':
 							# 	break
 							# print('Partial - Orig Hours: {} | Hours Done: {} | Hours Remain: {} | Partial: {} | Time Required: {}'.format(orig_required_hours, hours_done, hours_remain, partial, time_required))
 						elif not entries and wip_choice:
-							hours_remain = orig_labour_required - labour_done
+							hours_remain = max(orig_labour_required - labour_done, 0)
 							if not hours_remain:
 								time_required = False
 							break
 						else:
-							hours_remain = orig_labour_required - labour_done
+							hours_remain = max(orig_labour_required - labour_done, 0)
 					# print('Partial - Partial: {} | Time Required: {}'.format(partial, time_required))
 					if wip_choice and time_required and partial is None and hours_remain:
 						# TODO Check existing delay table for same items
@@ -4296,7 +4327,8 @@ class Entity:
 		if item_type == 'Land': # TODO This is a temp hackey fix
 			produce_event = self.claim_land(item, qty, buffer=buffer)
 			return produce_event, False, produce_event[-1][8], False
-		if v: print(f'Produce: {item} | qty: {qty} | item_type: {item_type} | wip: {wip} | name: {self.name} | user: {self.user} | produces: {self.produces}')
+		if v: print(f'Produce: {item} | qty: {qty} | item_type: {item_type} | wip: {wip} | name: {self.name} | user: {self.user}')
+		if vv: print(f'produces: {self.produces}')
 		if not self.user:
 			# if isinstance(self, Individual):
 			# 	if item_type == 'Education':
@@ -4521,15 +4553,16 @@ class Entity:
 					if item_type != 'Service' and item_type != 'Education':
 						produce_event += cost_entries
 					if vv: print('Cost 1: {}'.format(cost))
+			cost = round(cost, 2)
 			if v: print(f'Produce price 01: {price} | Cost: {cost} | Qty: {qty}')
-			price = cost / qty
+			price = round(cost / qty, 2)
 			if v: print(f'Produce price 02: {price}')
 			if price == 0: # No cost
 				price = world.get_price(item, self.entity_id)
 				if v: print(f'Produce price 03: {price}')
-				cost = price * qty
+				cost = round(price * qty, 2)
 		else:
-			cost = price * qty
+			cost = round(price * qty, 2)
 		if item_type != 'Service' and item_type != 'Education':
 			if cost_entries[0]:
 				credit_acct = 'Cost Pool'
@@ -4558,7 +4591,7 @@ class Entity:
 					debit_acct_by = 'Inventory'
 				else:
 					debit_acct_by = 'Inventory'
-				byproduct_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', desc, byproduct, by_price, byproduct_amt * qty, debit_acct_by, credit_acct, by_price * byproduct_amt * qty ]
+				byproduct_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', desc, byproduct, by_price, round(byproduct_amt * qty), debit_acct_by, credit_acct, round(round(by_price * byproduct_amt) * qty, 2) ]
 				if byproduct_entry:
 					produce_event += [byproduct_entry]
 		qty_distribute = qty
@@ -5528,9 +5561,11 @@ class Entity:
 					world.demand = pd.concat([world.demand, pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['existance']})], ignore_index=True)
 				world.set_table(world.demand, 'demand')
 			if qty == 1:
-				if v: print('{} added to demand list for {} unit by {}.\n{}'.format(item, qty, self.name, world.demand))
+				if v: print('{} added to demand list for {} unit by {}.'.format(item, qty, self.name))
+				if v: print(world.demand)
 			else:
-				if v: print('{} added to demand list for {} units by {}.\n{}'.format(item, qty, self.name, world.demand))
+				if v: print('{} added to demand list for {} units by {}.'.format(item, qty, self.name))
+				if v: print(world.demand)
 			#print('Demand after addition: \n{}'.format(world.demand))
 			return item, qty
 
@@ -5774,7 +5809,7 @@ class Entity:
 			explore_time = EXPLORE_TIME
 		explore_time = int(explore_time)
 		explore_time = explore_time * 0.1 # Reduce land claim time requirements
-		time_needed = qty * explore_time
+		time_needed = round(qty * explore_time, 3)
 		if isinstance(self, (Corporation)):
 			largest_shareholder_id = self.list_shareholders(largest=True)
 			if largest_shareholder_id is None:
@@ -5814,7 +5849,7 @@ class Entity:
 						continue
 				if not confirm:
 					return
-			time_needed = qty * explore_time
+			time_needed = round(qty * explore_time, 3)
 		orig_hours = entity.hours
 		if isinstance(entity, Individual):
 			entity.set_hours(time_needed)
@@ -5834,12 +5869,14 @@ class Entity:
 		self.ledger.reset()
 		if v: print('{} available to claim by {} from {}: {}'.format(item, self.name, counterparty.name, unused_land))
 		if unused_land >= qty:
+			amount = round(qty * price, 2)
+			yield_amount = round(qty * yield_price, 2)
 			if counterparty.entity_id == world.env.entity_id:
-				claim_land_entry = [ self.ledger.get_event(), self.entity_id, world.env.entity_id, world.now, '', 'Claim land', item, price, qty, account, 'Natural Wealth', qty * price ]
-				yield_land_entry = [ self.ledger.get_event(), world.env.entity_id, self.entity_id, world.now, '', 'Bestow land', item, yield_price, qty, 'Natural Wealth', 'Land', qty * yield_price ]
+				claim_land_entry = [ self.ledger.get_event(), self.entity_id, world.env.entity_id, world.now, '', 'Claim land', item, price, qty, account, 'Natural Wealth', amount ]
+				yield_land_entry = [ self.ledger.get_event(), world.env.entity_id, self.entity_id, world.now, '', 'Bestow land', item, yield_price, qty, 'Natural Wealth', 'Land', yield_amount ]
 			else:
-				claim_land_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Claim land', item, price, qty, account, 'Natural Wealth', qty * price ]
-				yield_land_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Lose land', item, yield_price, qty, 'Natural Wealth', 'Land', qty * yield_price ]
+				claim_land_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Claim land', item, price, qty, account, 'Natural Wealth', amount ]
+				yield_land_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Lose land', item, yield_price, qty, 'Natural Wealth', 'Land', yield_amount ]
 			if claim_land_entry and yield_land_entry:
 				claim_land_event += [yield_land_entry, claim_land_entry]
 			if buffer:
@@ -6038,14 +6075,16 @@ class Entity:
 		if recently_paid and not incomplete:
 			if counterparty.hours > 0: # TODO Move this above fulfill()
 				hours_worked = min(labour_hours, counterparty.hours)
+				hours_worked = math.ceil(hours_worked * 100) / 100
 				if accrual:
 					debit_acct = 'Wages Receivable'
 					credit_acct = 'Wages Payable'
 				else:
 					debit_acct = 'Cash'
 					credit_acct = 'Cash'
-				wages_exp_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_exp, job, wage, hours_worked, 'Wages Expense', credit_acct, wage * hours_worked ]
-				wages_rev_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_rev, job, wage, hours_worked, debit_acct, 'Wages Income', wage * hours_worked ]
+				amount = round(wage * hours_worked, 2)
+				wages_exp_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_exp, job, wage, hours_worked, 'Wages Expense', credit_acct, amount ]
+				wages_rev_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_rev, job, wage, hours_worked, debit_acct, 'Wages Income', amount ]
 				accru_wages_event += [wages_exp_entry, wages_rev_entry]
 			else:
 				if not incomplete: # TODO This is not needed
@@ -6409,10 +6448,11 @@ class Entity:
 		self.ledger.set_entity(self.entity_id)
 		cash = self.ledger.balance_sheet(['Cash'])
 		self.ledger.reset()
-		if cash >= (salary * labour_hours) and not incomplete:
+		amount = round(salary * labour_hours, 2)
+		if cash >= amount and not incomplete:
 			# TODO Add check if enough cash, if not becomes salary payable
-			salary_exp_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', job + ' salary paid', job, salary, labour_hours, 'Salary Expense', 'Cash', salary * labour_hours ]
-			salary_rev_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', job + ' salary received', job, salary, labour_hours, 'Cash', 'Salary Income', salary * labour_hours ]
+			salary_exp_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', job + ' salary paid', job, salary, labour_hours, 'Salary Expense', 'Cash', amount ]
+			salary_rev_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', job + ' salary received', job, salary, labour_hours, 'Cash', 'Salary Income', amount ]
 			pay_salary_event += [salary_exp_entry, salary_rev_entry]
 			# TODO Don't set hours if production is not possible
 			counterparty.set_hours(labour_hours)
@@ -6425,8 +6465,8 @@ class Entity:
 			return True
 		else:
 			if not incomplete:
-				print('{} does not have enough cash to pay {} for {} salary. Cash: {}'.format(self.name, (salary * labour_hours), job, cash))
-				result = self.loan(amount=((salary * labour_hours) - cash), item='Credit Line 5', auto=True)
+				print('{} does not have enough cash to pay {} for {} salary. Cash: {}'.format(self.name, amount, job, cash))
+				result = self.loan(amount=(amount - cash), item='Credit Line 5', auto=True)
 				if result:
 					self.pay_salary(job, counterparty, salary=salary, labour_hours=labour_hours, buffer=buffer, first=first, check=check)
 				if result is False:
@@ -6973,7 +7013,8 @@ class Entity:
 						return [], None
 				elif not outcome and uses == 0:
 					return [], None
-			#print('Depreciation: {} {} {}'.format(item, lifespan, metric))
+			#print('Depreciation: {} {} {} {}'.format(item, lifespan, metric, dep_amount))
+			dep_amount = round(dep_amount, 5)
 			depreciation_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation from ' + metric + ' of ' + item, item, '', '', 'Depr. Expense', 'Accum. Depr.', dep_amount ]
 			depreciation_event += [depreciation_entry]
 			if buffer:
@@ -10075,7 +10116,7 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-06-13.db -s 11 -p 4 -mp 10 --early -i items.csv -t 75 >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-06-13.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-06-20.db -s 11 -p 4 -mp 10 --early -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-06-20.log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
