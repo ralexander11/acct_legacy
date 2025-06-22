@@ -2386,16 +2386,25 @@ class Entity:
 		self.ledger.reset()
 		if v: print('{} has {} {} on hand.'.format(self.name, qty, item))
 		if qty_on_hand >= qty:
-			self.ledger.set_entity(counterparty.entity_id)
+			self.ledger.set_entity(self.entity_id)
 			if v: print('{} getting historical cost of {} {}.'.format(self.name, qty, item))
 			cost_amt = self.ledger.hist_cost(qty, item, item_type)#, v=True)
 			self.ledger.reset()
-			price = cost_amt / qty
-			sale_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Put {} up for sale'.format(item), item, price, qty, 'Inventory', item_type, cost_amt ]
+			price = round(cost_amt / qty, 2)
+			sale_entry = [ self.ledger.get_event(), self.entity_id, self.entity_id, world.now, '', f'Put {item} up for sale', item, price, qty, 'Inventory', item_type, cost_amt ]
 			sale_event = [sale_entry]
-			self.ledger.journal_entry(gift_event)
+			self.ledger.journal_entry(sale_event)
 		else:
 			if v: print('{} does not have {} {} to put up for sale. Qty on hand: {}'.format(self.name, qty, item, qty_on_hand))
+
+	def check_sale(self, thresh=1, v=True):
+		self.ledger.set_entity(self.entity_id)
+		items_on_hand = self.ledger.get_qty(accounts=['Equipment'])
+		self.ledger.reset()
+		if v: print('items_on_hand:', items_on_hand)
+		for _, item in items_on_hand.iterrows():
+			if item['qty'] > tresh:
+				self.sale(self, item['item_id'], item['qty'] - tresh)
 
 	def gift(self, item, qty, counterparty, account=None):
 		gift_event = []
@@ -5450,7 +5459,7 @@ class Entity:
 			print('{} cannot add {} to demand list as it is constrained by {}.'.format(self.name, item, constraint))
 			return True
 
-	def item_demanded(self, item=None, qty=None, need=None, reason_need=False, cost=False, priority=False, v=True):
+	def item_demanded(self, item=None, qty=None, need=None, reason_need=False, cost=False, priority=False, vv=False, v=True):
 		if qty == 0:
 			return
 		if item is None and need is not None: # TODO This isn't used currently
@@ -5497,26 +5506,55 @@ class Entity:
 		if not self.check_eligible(item):
 			if v: print('{} does not have tech for {} so it cannot be added to the demand list.'.format(self.name, item))
 			return
+
+		if qty is None:
+			if item_type == 'Service':
+				qty = 1
+			else:
+				qty = self.qty_demand(item, need, item_type)
+		if v: print(f'Qty demanded: {qty} | Need: {need}')
+
 		# Check if entity already has item on demand list
-		if not world.demand.empty: # TODO Commodity replaces existing commodity if qty is bigger
-			#if item_type != 'Commodity': # TODO No longer needed
-			temp_df = world.demand[['entity_id','item_id']]
-			#print('Temp DF: \n{}'.format(temp_df))
-			#temp_new_df = pd.DataFrame({'entity_id': self.entity_id, 'item_id': item}, index=[0]) # Old
-			temp_new_df = pd.DataFrame(columns=['entity_id','item_id'])
-			# temp_new_df = temp_new_df.append({'entity_id': self.entity_id, 'item_id': item}, ignore_index=True)
-			temp_new_df = pd.concat([temp_new_df, pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item]})])
-			#print('Temp New DF: \n{}'.format(temp_new_df))
-			#check = temp_df.intersection(temp_new_df)
-			check = pd.merge(temp_df, temp_new_df, how='inner', on=['entity_id','item_id'])
-			#print('Check: \n{}'.format(check))
-			if not check.empty:
-				if item_type != 'Commodity' and item_type != 'Components':
-					if v: print('{} already on demand list for {}.'.format(item, self.name))
+		if not world.demand.empty:
+			vv = True
+			if vv: print(f'World Demand DF: \n{world.demand}')
+			item_demand = world.demand.loc[(world.demand['item_id'] == item) & (world.demand['entity_id'] == self.entity_id)]
+			if vv: print(f'Item Demand: \n{item_demand}')
+			qty_demand = item_demand['qty'].sum()
+			if vv: print(f'Qty already demanded: {qty_demand} | qty: {qty}')
+			if qty_demand >= qty:
+				if v: print(f'{self.name} already has {qty_demand} {item} on demand list.')
 				return
+			if qty_demand > 0 and qty_demand < qty:
+				qty -= qty_demand
+				if v: print(f'New qty demanded: {qty}')
+
+		# if not world.demand.empty: # TODO Commodity replaces existing commodity if qty is bigger. # TODO Need to factor in qty.
+		# 	vv = True
+		# 	if vv: print('World Demand DF 2: \n{}'.format(world.demand))
+		# 	#if item_type != 'Commodity': # TODO No longer needed
+		# 	# temp_df = world.demand[['entity_id','item_id']]
+		# 	temp_df = world.demand[['entity_id','item_id','qty']]
+		# 	if vv: print('Temp Demand DF: \n{}'.format(temp_df))
+		# 	#temp_new_df = pd.DataFrame({'entity_id': self.entity_id, 'item_id': item}, index=[0])  # TODO No longer needed
+		# 	temp_new_df = pd.DataFrame(columns=['entity_id','item_id','qty'])
+		# 	if vv: print('Temp Fresh Demand DF: \n{}'.format(temp_new_df))
+		# 	# temp_new_df = temp_new_df.append({'entity_id': self.entity_id, 'item_id': item}, ignore_index=True) # TODO No longer needed
+		# 	temp_new_df = pd.concat([temp_new_df, pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty]})])
+		# 	if vv: print('Temp New Demand DF: \n{}'.format(temp_new_df))
+		# 	#check = temp_df.intersection(temp_new_df) # TODO No longer needed
+		# 	check = pd.merge(temp_df, temp_new_df, how='inner', on=['entity_id','item_id'])
+		# 	if vv: print('Demand Already Check: \n{}'.format(check))
+		# 	if not check.empty:
+		# 		if vv: print('Demand Check not empty.')
+		# 		if item_type != 'Commodity' and item_type != 'Components':
+		# 			if v: print('{} already on demand list for {}.'.format(item, self.name))
+		# 		exit()
+		# 		return
+
 		if item_type == 'Service':
 			#print('Current Demand : \n{}'.format(world.demand['item_id']))
-			qty = 1
+			qty = 1 # TODO Is this needed still?
 			if item in world.demand['item_id'].values:
 				if v: print('{} service already on the demand table for {}.'.format(item, self.name)) # TODO Finish this
 				return
@@ -5530,9 +5568,7 @@ class Entity:
 				corp_shares = self.ledger.get_qty(ticker, ['Investments'])
 				if corp_shares != 0:
 					return
-		if qty is None:
-			qty = self.qty_demand(item, need, item_type)
-		#print('Demand QTY: {}'.format(qty))
+		
 		if qty != 0 and not self.check_constraint(item):
 			if cost:
 				if priority:
@@ -5547,7 +5583,6 @@ class Entity:
 					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, index=[0])
 					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
 				else:
-					if v: print('Adding item to demand list:', item)
 					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, ignore_index=True)
 					# world.demand = pd.concat([world.demand, pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['need']})])
 					world.demand.loc[len(world.demand)] = {'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}

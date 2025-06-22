@@ -89,10 +89,14 @@ Metal Working,None,None,None,Technology,Time,62,None,None,None,None,None,None,No
 Metal,None,None,None,Commodity,"Metal Working, Forge, Ore","1, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,None,Smelter
 Anvil,None,None,continuous,Equipment,"Grassland, Metal","1, 50",1,Grassland,2,None,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,None,Blacksmith
 Loom,None,None,start,Equipment,"Metal, Wood, Cloth","5, 50, 10",10,None,None,Cotton Gin,1,None,None,None,Weaving,0.5,"100, 1000","usage, ticks",None,None,None,100,None,None,None,Carpenter
-Pickaxe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Miner,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,"Individual, Blacksmith"
-Axe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Lumberjack,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,"Individual, Blacksmith"
-Shovel,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Cultivator,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,"Individual, Blacksmith"
-Hoe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Harvesting,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,"Individual, Blacksmith"
+#Pickaxe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Miner,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,"Individual, Blacksmith"
+#Axe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Lumberjack,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,"Individual, Blacksmith"
+#Shovel,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Cultivator,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,"Individual, Blacksmith"
+#Hoe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Harvesting,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,"Individual, Blacksmith"
+Pickaxe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Miner,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,Blacksmith
+Axe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","10, 2, 10, 4",10,None,None,None,None,None,None,None,Lumberjack,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,Blacksmith
+Shovel,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Cultivator,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,Blacksmith
+Hoe,None,None,start,Equipment,"Metal, Wood, Blacksmither, Carpenter","4, 6, 8, 6",10,None,None,None,None,None,None,None,Harvesting,0.25,"50, 1000","usage, ticks",None,None,None,100,None,None,None,Blacksmith
 #Paper,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Lumbermill
 Water Well,None,None,continuous,Equipment,"Grassland, Rock, Wood","10, 100, 20",4,Grassland,10,None,None,None,None,None,None,None,10,ticks,None,None,None,100,None,None,None,Well
 Water,None,None,None,Subscription,Water Well,1,None,None,None,None,None,None,Thirst,100,None,None,None,None,None,None,None,None,None,None,None,Well
