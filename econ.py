@@ -1046,6 +1046,62 @@ class World:
 		# print(self.accts.get_items())
 		return self.items
 
+	def util(self, gl=None, save=False, v=True):
+		# Function used to investigate the GL
+		# save = True
+		if v: print()
+		if save is None:
+			while True:
+				save = input('Save? [Y/n]: ')
+				if save == '':
+					save = 'Y'
+				if save.upper() == 'Y':
+					save = True
+					break
+				elif save.upper() == 'N':
+					save = False
+					break
+				else:
+					print('Not a valid entry. Must be "Y" or "N".')
+					continue
+		if gl is None:
+			gl = self.ledger.gl.copy(deep=True)
+		hist_hours = self.hist_hours
+		hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
+		hist_hours['total_hours'] = self.hist_hours.groupby('date')['hours'].transform('sum')
+		hist_hours['total_Thirst'] = self.hist_hours.groupby('date')['Thirst'].transform('sum')
+		hist_hours['total_Hunger'] = self.hist_hours.groupby('date')['Hunger'].transform('sum')
+		hist_hours['total_Clothing'] = self.hist_hours.groupby('date')['Clothing'].transform('sum')
+		hist_hours['total_Shelter'] = self.hist_hours.groupby('date')['Shelter'].transform('sum')
+		hist_hours['total_Fun'] = self.hist_hours.groupby('date')['Fun'].transform('sum')
+		hist_hours['max_hours'] = self.hist_hours['population'] * 12
+		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['total_hours']
+		hist_hours = hist_hours.drop(['hours', 'Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun'], axis=1)
+		hist_hours = hist_hours.drop_duplicates(subset='date')
+		if v: print('hist_hours:\n', hist_hours)
+
+		hist_demand = self.hist_demand
+		hist_demand['date'] = pd.to_datetime(hist_demand['date']).dt.strftime('%Y-%m-%d')
+		hist_demand['total_qty'] = self.hist_demand.groupby('date')['qty'].transform('sum')
+		hist_demand = hist_demand.drop(['date_saved', 'entity_id', 'item_id', 'qty', 'reason'], axis=1)
+		hist_demand = hist_demand.drop_duplicates(subset='date')
+		if v: print('hist_demand:\n', hist_demand)
+
+		gl = pd.merge(gl, hist_hours, on='date', how='left')
+		gl = pd.merge(gl, hist_demand, on='date', how='left')
+		self.set_table(gl, 'util')
+		if v: print(f'util gl:\n{gl}')
+		if save:
+			# TODO Improve save name logic
+			outfile = 'econ_util_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
+			save_location = 'data/'
+			try:
+				gl.to_csv(save_location + outfile, date_format='%Y-%m-%d')
+				print('File saved as ' + save_location + outfile)
+			except Exception as e:
+				print(f'Error saving: {e}')
+		return gl
+
 	def valid_corp(self, ticker):
 		if not isinstance(ticker, str):
 			return False
@@ -1930,6 +1986,7 @@ class World:
 			self.set_table(self.prior_delay, 'prior_delay')
 			self.prior_produce_queue = self.produce_queue
 			self.set_table(self.prior_produce_queue, 'prior_produce_queue')
+		self.util(save=False)
 
 
 class Entity:
