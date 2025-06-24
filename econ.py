@@ -207,6 +207,8 @@ class World:
 			self.set_table(self.demand, 'demand')
 			self.delay = pd.DataFrame(columns=['txn_id', 'entity_id','delay','hours','job','item_id'])
 			self.set_table(self.delay, 'delay')
+			self.tech = pd.DataFrame(columns=['technology', 'date', 'entity_id','time_req','days_left','status'])
+			self.set_table(self.tech, 'tech')
 			self.governments = governments
 			self.population = population
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -327,8 +329,7 @@ class World:
 			self.demand['qty'] = self.demand['qty'].astype(float)#, errors='ignore')
 			# self.demand['qty'].astype(int)#, errors='ignore')
 			self.delay = self.get_table('prior_delay')
-			if 'entity_id' not in self.delay.columns: # TODO Remove as this is for legacy compatibility
-				self.delay['entity_id'] = None
+			self.tech = self.get_table('tech') # TODO Should this be prior_tech?
 			self.entities = self.accts.get_entities('prior_entities').reset_index()
 			individuals = self.entities.loc[self.entities['entity_type'] == 'Individual']
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -425,6 +426,7 @@ class World:
 			self.prices = self.get_table('prior_prices')
 			with pd.option_context('display.max_rows', None):
 				print('\nPrices: \n{}\n'.format(self.prices))
+				print('Technology: \n{}\n'.format(self.tech))
 				print('Delays: \n{}\n'.format(self.delay))
 			try: # TODO Remove error checking because of legacy db files
 				self.hist_prices = self.get_table('hist_prices')
@@ -1332,9 +1334,11 @@ class World:
 			self.prices = self.prices.sort_values(['entity_id'], na_position='first')
 			with pd.option_context('display.max_rows', None):
 				print('\nPrices: \n{}\n'.format(self.prices))
+				print('Technology: \n{}\n'.format(self.tech))
 				print('Delays: \n{}\n'.format(self.delay))
 				print('Auto: \n{}\n'.format(self.produce_queue))
 
+			self.set_table(self.tech, 'tech')
 			demand_items = self.demand.drop_duplicates(['item_id']) # TODO Is this needed?
 			self.set_table(self.demand, 'demand')
 
@@ -4295,7 +4299,7 @@ class Entity:
 			self.ledger.reset()
 		if incomplete or check:
 			for individual in world.gov.get(Individual):
-				if vv: print('Reset hours for {} from {} to {}.'.format(individual.name, individual.hours, individual.hours+hours_deltas[individual.name]))
+				if v: print('Reset hours for {} from {} to {}.'.format(individual.name, individual.hours, individual.hours+hours_deltas[individual.name]))
 				individual.set_hours(-hours_deltas[individual.name])
 			hold_event_ids = []
 			if v: print(f'{self.name} cannot {action} {qty} {item} at this time. The max possible is: {max_qty_possible}\n')
@@ -4939,14 +4943,14 @@ class Entity:
 							if v: print('Partial Index: {}'.format(partial_index))
 						if hours is None:
 							if delay == 1:
-								print('{} delayed by {} day.'.format(item, delay))
+								print(f'{item} delayed by {delay} day.')
 							else:
-								print('{} delayed by {} days.'.format(item, delay))
+								print(f'{item} delayed by {delay} days.')
 						else:
 							if delay == 1:
-								print('{} delayed by {} day and {} hours.'.format(item, delay, hours))
+								print(f'{item} delayed by {delay} day and {hours} hours.')
 							else:
-								print('{} delayed by {} days and {} hours.'.format(item, delay, hours))
+								print(f'{item} delayed by {delay} days and {hours} hours.')
 					except (KeyError, IndexError) as e:
 						delay = 0
 						hours = None
@@ -4966,7 +4970,11 @@ class Entity:
 						else:
 							work_df = pd.DataFrame(partial_work_event, columns=world.cols)
 							hours_worked = work_df.loc[(work_df['item_id'] == job) & (work_df['debit_acct'] == 'Wages Expense')]['qty'].sum()
-							world.delay.at[partial_index, 'hours'] -= hours_worked #partial_work_event[-1][8]
+							print(f'wip hours_worked: {hours_worked}')
+							current_delay_hours = world.delay.loc[partial_index, 'hours']
+							print(f'wip current_delay_hours: {current_delay_hours}')
+							remain_wip_hours = max(current_delay_hours - hours_worked, 0)
+							world.delay.at[partial_index, 'hours'] = remain_wip_hours #partial_work_event[-1][8]
 							if world.delay.at[partial_index, 'hours'] != 0:
 								world.delay.at[partial_index, 'delay'] += 1 # TODO This may not be needed with hours == 0 check below
 							if v: print('World Delay Adj: \n{}'.format(world.delay))
@@ -4986,14 +4994,14 @@ class Entity:
 						hours = world.delay.loc[world.delay['txn_id'] == index, 'hours'].values[0]
 						if hours is None:
 							if delay == 1:
-								print('{} delayed by {} day after.'.format(item, delay))
+								print(f'{item} delayed by {delay} day after.')
 							else:
-								print('{} delayed by {} days after.'.format(item, delay))
+								print(f'{item} delayed by {delay} days after.')
 						else:
 							if delay == 1:
-								print('{} delayed by {} day and {} hours after.'.format(item, delay, hours))
+								print(f'{item} delayed by {delay} day and {hours} hours after.')
 							else:
-								print('{} delayed by {} days and {} hours after.'.format(item, delay, hours))
+								print(f'{item} delayed by {delay} days and {hours} hours after.')
 					except (KeyError, IndexError) as e:
 						delay = 0
 						hours = None
@@ -5004,9 +5012,15 @@ class Entity:
 				days_left = (date_done - world.now).days
 				if days_left < timespan and days_left >= 0:
 					if hours is None:
-						print('{} has {} WIP days left for {} out of {}. [{}]'.format(self.name, days_left, item, timespan, index))
+						if wip_lot['debit_acct'] == 'Researching Technology':
+							world.tech = world.tech.set_index('technology')
+							world.tech.at[item, 'time_req'] = int(timespan)
+							world.tech.at[item, 'days_left'] = days_left
+							world.tech = world.tech.reset_index()
+							if v: print('wip tech table:\n', world.tech)
+						print(f'{self.name} has {days_left} WIP days left for {item} out of {timespan}. [{index}]')
 					else:
-						print('{} has {} WIP days and {} hours left for {} out of {} days. [{}]'.format(self.name, days_left, hours, item, timespan, index))
+						print(f'{self.name} has {days_left} WIP days and {hours} hours left for {item} out of {timespan} days. [{index}]')
 				# If the time elapsed has passed
 				if hours == 0 and not time_check:
 					date_done = world.now
@@ -5073,6 +5087,11 @@ class Entity:
 							entry[0] = wip_lot['event_id']
 					if v: print('WIP Event: \n{}'.format(wip_event))
 					self.ledger.journal_entry(wip_event)
+					if wip_lot['debit_acct'] == 'Researching Technology':
+						world.tech = world.tech.set_index('technology')
+						world.tech = world.tech.at[item, 'status'] = 'done'
+						world.tech = world.tech.reset_index()
+						if v: print('wip tech table:\n', world.tech)
 					if wip_event[-1][-3] == 'Inventory':
 						self.set_price(wip_lot['item_id'], wip_lot['qty'], v=v)
 					result += wip_event
@@ -5381,11 +5400,11 @@ class Entity:
 						if v: print('World Demand: {} \n{}'.format(world.now, world.demand))
 				return corp
 
-	def tech_motivation(self):
+	def tech_motivation(self, v=False):
 		tech_info = world.items[world.items['child_of'] == 'Technology']
 		tech_info.reset_index(inplace=True)
 		#print('Tech Info: \n{}'.format(tech_info))
-		# self.ledger.reset()
+		# self.ledger.reset() # No longer needed
 		for _, tech_row in tech_info.iterrows():
 			tech = tech_row['item_id']
 			# print('Checking motivation for tech: {}'.format(tech))
@@ -5398,7 +5417,10 @@ class Entity:
 					#print('Tech Needed: {}'.format(tech))
 					outcome = self.item_demanded(tech, qty=1)
 					if outcome:
-						return tech
+						print('tech table before:\n', world.tech)
+						world.tech = pd.concat([world.tech, pd.DataFrame({'technology':[tech], 'date':[world.now], 'entity_id':[self.entity_id], 'time_req':[''], 'days_left':[''], 'status':['wip']})], ignore_index=True)
+						print('tech table after:\n', world.tech)
+					# 	return tech
 
 	def check_eligible(self, item, check=False, v=False):
 		if v: print(f'Eligible Item Check: {item} | Check all: {check}')
@@ -5516,7 +5538,7 @@ class Entity:
 
 		# Check if entity already has item on demand list
 		if not world.demand.empty:
-			vv = True
+			# vv = True
 			if vv: print(f'World Demand DF: \n{world.demand}')
 			item_demand = world.demand.loc[(world.demand['item_id'] == item) & (world.demand['entity_id'] == self.entity_id)]
 			if vv: print(f'Item Demand: \n{item_demand}')
@@ -8692,9 +8714,7 @@ class Individual(Entity):
 
 	def set_hours(self, hours_delta=0, v=False):
 		if v: print(f'Set Hours Before for {self.name}: {self.hours}')
-		self.hours -= hours_delta
-		if self.hours < 0:
-			self.hours = 0
+		self.hours = round(max(self.hours - hours_delta, 0), 3)
 		cur = self.ledger.conn.cursor()
 		set_need_query = '''
 			UPDATE entities
