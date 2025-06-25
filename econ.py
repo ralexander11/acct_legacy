@@ -207,7 +207,7 @@ class World:
 			self.set_table(self.demand, 'demand')
 			self.delay = pd.DataFrame(columns=['txn_id', 'entity_id','delay','hours','job','item_id'])
 			self.set_table(self.delay, 'delay')
-			self.tech = pd.DataFrame(columns=['technology', 'date', 'entity_id','time_req','days_left','status'])
+			self.tech = pd.DataFrame(columns=['technology', 'date', 'entity_id','time_req','days_left', 'done_date','status'])
 			self.set_table(self.tech, 'tech')
 			self.governments = governments
 			self.population = population
@@ -1068,6 +1068,12 @@ class World:
 			gl = self.ledger.gl.copy(deep=True)
 		hist_hours = self.hist_hours
 		hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
+		# date_mask = hist_hours['date'] == '1986-10-01'
+		# print(hist_hours['date'] == '1986-10-01')
+		# print('date_mask:\n', date_mask)
+		# to_drop = hist_hours[date_mask].head(args.population).index
+		# print('to_drop:', to_drop)
+		# hist_hours = hist_hours.drop(to_drop)
 		hist_hours['total_hours'] = self.hist_hours.groupby('date')['hours'].transform('sum')
 		hist_hours['total_Thirst'] = self.hist_hours.groupby('date')['Thirst'].transform('sum')
 		hist_hours['total_Hunger'] = self.hist_hours.groupby('date')['Hunger'].transform('sum')
@@ -5146,7 +5152,8 @@ class Entity:
 					self.ledger.journal_entry(wip_event)
 					if wip_lot['debit_acct'] == 'Researching Technology':
 						world.tech = world.tech.set_index('technology')
-						world.tech = world.tech.at[item, 'status'] = 'done'
+						world.tech.at[item, 'status'] = 'done'
+						world.tech.at[item, 'done_date'] = world.now
 						world.tech = world.tech.reset_index()
 						if v: print('wip tech table:\n', world.tech)
 					if wip_event[-1][-3] == 'Inventory':
@@ -5475,7 +5482,7 @@ class Entity:
 					outcome = self.item_demanded(tech, qty=1)
 					if outcome:
 						print('tech table before:\n', world.tech)
-						world.tech = pd.concat([world.tech, pd.DataFrame({'technology':[tech], 'date':[world.now], 'entity_id':[self.entity_id], 'time_req':[''], 'days_left':[''], 'status':['wip']})], ignore_index=True)
+						world.tech = pd.concat([world.tech, pd.DataFrame({'technology':[tech], 'date':[world.now], 'entity_id':[self.entity_id], 'time_req':[''], 'days_left':[''], 'done_date':[''], 'status':['wip']})], ignore_index=True)
 						print('tech table after:\n', world.tech)
 					# 	return tech
 
