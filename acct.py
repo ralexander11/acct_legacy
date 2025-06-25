@@ -631,6 +631,8 @@ class Accounts:
 	def print_table(self, table_name=None):
 		if table_name is None:
 			table_name = input('Enter a table to display: ')
+			if table_name == '':
+				return
 		try:
 			table = pd.read_sql_query('SELECT * FROM ' + table_name + ';', self.conn)
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -2456,7 +2458,8 @@ def main(conn=None, command=None, external=False):
 			accts.load_items()
 		elif command.lower() == 'tables':
 			tables = pd.read_sql_query('SELECT name FROM sqlite_master WHERE type=\'table\';', ledger.conn)
-			print(tables)
+			print(f'{tables}\n')
+			accts.print_table()
 			if args.command is not None: exit()
 		elif command.lower() == 'table':
 			accts.print_table()
