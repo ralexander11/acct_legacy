@@ -1075,14 +1075,17 @@ class World:
 		# print('to_drop:', to_drop)
 		# hist_hours = hist_hours.drop(to_drop)
 		hist_hours['total_hours'] = self.hist_hours.groupby('date')['hours'].transform('sum')
-		hist_hours['total_Thirst'] = self.hist_hours.groupby('date')['Thirst'].transform('sum')
-		hist_hours['total_Hunger'] = self.hist_hours.groupby('date')['Hunger'].transform('sum')
-		hist_hours['total_Clothing'] = self.hist_hours.groupby('date')['Clothing'].transform('sum')
-		hist_hours['total_Shelter'] = self.hist_hours.groupby('date')['Shelter'].transform('sum')
-		hist_hours['total_Fun'] = self.hist_hours.groupby('date')['Fun'].transform('sum')
+		try:
+			hist_hours['total_Thirst'] = self.hist_hours.groupby('date')['Thirst'].transform('sum')
+			hist_hours['total_Hunger'] = self.hist_hours.groupby('date')['Hunger'].transform('sum')
+			hist_hours['total_Clothing'] = self.hist_hours.groupby('date')['Clothing'].transform('sum')
+			hist_hours['total_Shelter'] = self.hist_hours.groupby('date')['Shelter'].transform('sum')
+			hist_hours['total_Fun'] = self.hist_hours.groupby('date')['Fun'].transform('sum')
+			hist_hours = hist_hours.drop(['hours', 'Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun'], axis=1)
+		except KeyError as e:
+			print(f'Util key error: {e}')
 		hist_hours['max_hours'] = self.hist_hours['population'] * 12
 		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['total_hours']
-		hist_hours = hist_hours.drop(['hours', 'Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun'], axis=1)
 		hist_hours = hist_hours.drop_duplicates(subset='date')
 		if v: print('hist_hours:\n', hist_hours)
 
@@ -5318,7 +5321,10 @@ class Entity:
 			# qty = 5000 # TODO Fix temp defaults
 			demand_qty = world.demand.loc[world.demand['item_id'] == item]['qty'].sum()
 			raw_mats = self.get_raw(item, demand_qty)
-			qty = raw_mats.iloc[-1]['qty'] * INIT_PRICE * INC_BUFFER
+			try:
+				qty = raw_mats.iloc[-1]['qty'] * INIT_PRICE * INC_BUFFER
+			except AttributeError as e:
+				qty = None
 			print(f'{item} ({demand_qty}) incorp amount: {qty}')
 		if auth_qty is None:
 			auth_qty = 100000 # TODO Determine dynamically?
@@ -5328,6 +5334,11 @@ class Entity:
 			if args.jones:
 				if isinstance(self, Government):
 					founders = {self.bank: qty}
+					# print(f'Jones founders Gov: {founders}')
+				else:
+					founders = {world.gov.bank: qty}
+					# print(f'Jones Founders world: {founders}')
+				# print(f'Jones founders: {founders}')
 			else:
 				founders = {self: qty}
 		if qty is None:
