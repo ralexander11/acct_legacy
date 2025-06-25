@@ -1096,8 +1096,8 @@ class World:
 		hist_demand = hist_demand.drop_duplicates(subset='date')
 		if v: print('hist_demand:\n', hist_demand)
 
-		gl = pd.merge(gl, hist_hours, on='date', how='left')
-		gl = pd.merge(gl, hist_demand, on='date', how='left')
+		gl = pd.merge(gl, hist_hours, on='date', how='left').fillna(0)
+		gl = pd.merge(gl, hist_demand, on='date', how='left').fillna(0)
 		self.set_table(gl, 'util')
 		if v: print(f'util gl:\n{gl}')
 		if save:
@@ -2205,7 +2205,7 @@ class Entity:
 					#print('Cost: {}'.format(cost_amt))
 					self.ledger.reset()
 					purchase_event += counterparty.release(item, qty=qty) # TODO Needs to be tested further
-					avg_price = cost_amt / qty
+					avg_price = round(cost_amt / qty, 2) # TODO Will this rounding cause issues?
 					cogs_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, avg_price, qty, 'Cost of Goods Sold', acct_sell, cost_amt ]
 					
 					sale_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, price, qty, 'Cash', acct_rev, amount ]
