@@ -49,6 +49,7 @@ INIT_PRICE = 10.0
 INIT_CAPITAL = 25000 # Not used
 EXPLORE_TIME = 1
 INC_BUFFER = 3
+MARKUP = 0.1
 REDUCE_PRICE = 0.01 # 0.1
 
 def time_stamp(offset=0):
@@ -2070,7 +2071,7 @@ class Entity:
 		world.set_table(world.prices, 'prices')
 		return price
 
-	def set_price(self, item=None, qty=0, price=None, markup=0.1, at_cost=False, v=True):
+	def set_price(self, item=None, qty=0, price=None, markup=MARKUP, at_cost=False, v=True):
 		if item is None: # TODO Look into why this is called in update_econ()
 			if self.produces is None:
 				if v: print('{} produces no items.'.format(self.name))
@@ -3426,12 +3427,25 @@ class Entity:
 					if v: print('{} equipment being manufactured: {}'.format(req_item, equip_qty_wip))
 					equip_qty += equip_qty_wip
 					if (equip_qty * capacity) < qty_needed: # TODO Fix this
+						# Decision: Should you build multiple equipment to produce in parallel
 						remaining_qty = max(qty_needed - (equip_qty * capacity), 0)
 						required_qty = int(math.ceil(remaining_qty / capacity))
 						if equip_qty == 0:
 							if v: print('{} does not have any {} equipment and requires {}.'.format(self.name, req_item, required_qty))
 						else:
-							if v: print('{} does not have enough capacity on {} equipment and requires {}.'.format(self.name, req_item, required_qty))
+							if v: print('{} does not have enough capacity on {} {} equipment and could use up to {}.'.format(self.name, equip_qty, req_item, required_qty))
+
+						# If item is expensive keep required_qty at 1
+						equip_cost = world.get_price(req_item)
+						print(f'equip_cost: {equip_cost} | price: {price}')
+						item_cost = world.get_price(item)
+						print(f'item_cost: {item_cost}')
+						thresh = item_cost * qty * MARKUP
+						print(f'thresh: {thresh} | qty: {qty} | required_qty: {required_qty}')
+						if price > thresh:
+							required_qty = 1
+						print(f'required_qty: {required_qty}')
+
 						if not man:
 							# Attempt to purchase before producing self if makes sense
 							result = self.purchase(req_item, required_qty, buffer=buffer, v=v)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
@@ -4392,9 +4406,9 @@ class Entity:
 		self.gl_tmp = pd.DataFrame(columns=world.cols)
 		if show_results:
 			if incomplete:
-				if v: print(f'\nResult of trying to produce {qty} {item} by {self.name}:\n{results}')
+				if v: print(f'\nResult of trying to produce {qty} {item} by {self.name}:\n{results}\n')
 			else:
-				if v: print(f'\nResult of producing {qty} {item} by {self.name}:\n{results}')
+				if v: print(f'\nResult of producing {qty} {item} by {self.name}:\n{results}\n')
 		if v: print(f'!fulfill return due to finishing for item: {item}. | incomplete: {incomplete} | time_required: {time_required} | max_qty_possible: {max_qty_possible}')
 		return incomplete, event, time_required, max_qty_possible
 
@@ -4405,6 +4419,7 @@ class Entity:
 		item_type = world.get_item_type(item)
 		if item_type == 'Land': # TODO This is a temp hackey fix
 			produce_event = self.claim_land(item, qty, buffer=buffer)
+			if v: print(f'***** Produce land {qty} {item} ****')
 			return produce_event, False, produce_event[-1][8], False
 		if v: print(f'Produce: {item} | qty: {qty} | item_type: {item_type} | wip: {wip} | name: {self.name} | user: {self.user}')
 		if vv: print(f'produces: {self.produces}')
@@ -4414,6 +4429,7 @@ class Entity:
 			# 		pass
 			if item not in self.produces and not (isinstance(self, Individual) and item_type == 'Education'): # TODO Should this be kept long term?
 				if v: print(f'{self.name} does not produce {item}.')
+				if v: print(f'***** Produce {self.name} does not produce {qty} {item} ****')
 				return [], False, 0, True
 		if wip: # TODO Test this
 			wip_result = self.wip_check(items=item)
@@ -4421,11 +4437,13 @@ class Entity:
 				wip_qty = wip_result[-1][8]
 				if v: print(f'WIP for {item} completed for {wip_qty}.')
 				if wip_qty >= qty:
+					if v: print(f'***** Produce WIP {qty} {item} ****')
 					return [], False, 0, True
 				else:
 					qty -= wip_qty
 		incomplete, produce_event, time_required, max_qty_possible = self.fulfill(item, qty, reqs=reqs, amts=amts, man=man, show_results=True, v=v)
 		if incomplete:
+			if v: print(f'***** Produce fail {qty} {item} ****')
 			return [], time_required, max_qty_possible, incomplete
 		orig_qty = qty
 		qty = max_qty_possible
@@ -4441,6 +4459,7 @@ class Entity:
 		if item_type == 'Subscription':
 			if v: print('Cannot produce a Subscription; will try and order it.')
 			outcome = self.order_subscription(item, v=v)
+			if v: print(f'***** Produce Sub {qty} {item} ****')
 			return [], time_required, max_qty_possible, incomplete
 		elif item_type == 'Education':
 			# Treat Education like a service
@@ -4451,6 +4470,7 @@ class Entity:
 				max_qty_possible = max(0, max_qty_possible - qty)
 			outcome = self.purchase(item, qty, v=v)
 			if not outcome:
+				if v: print(f'***** Produce Edu fail {qty} {item} ****')
 				return [], time_required, max_qty_possible, incomplete
 			produce_event += outcome
 			# return [], time_required, max_qty_possible, incomplete
@@ -4718,6 +4738,7 @@ class Entity:
 			if v: print('Partially Fulfilled Qty for: {} | Orig Qty: {} | Qty Produced: {}'.format(item, orig_qty, qty))
 			# print('World Demand Changed: \n{}'.format(world.demand))
 		if buffer:
+			if v: print(f'***** Produce buffer {qty} {item} ****')
 			return produce_event, time_required, max_qty_possible, incomplete
 		# Ensure the same event_id for all transactions
 		event_id = max([entry[0] for entry in produce_event])
@@ -5615,10 +5636,13 @@ class Entity:
 		if not world.demand.empty:
 			# vv = True
 			if vv: print(f'World Demand DF: \n{world.demand}')
-			item_demand = world.demand.loc[(world.demand['item_id'] == item) & (world.demand['entity_id'] == self.entity_id)]
+			if item_type == 'Building':# or item_type == 'Equipment':
+				item_demand = world.demand.loc[world.demand['item_id'] == item]
+			else:
+				item_demand = world.demand.loc[(world.demand['item_id'] == item) & (world.demand['entity_id'] == self.entity_id)]
 			if vv: print(f'Item Demand: \n{item_demand}')
 			qty_demand = item_demand['qty'].sum()
-			if vv: print(f'Qty already demanded: {qty_demand} | qty: {qty}')
+			if v: print(f'Qty already demanded: {qty_demand} | qty: {qty} | item: {item} | entity: {self.entity_id}')
 			if qty_demand >= qty:
 				if v: print(f'{self.name} already has {qty_demand} {item} on demand list.')
 				return
