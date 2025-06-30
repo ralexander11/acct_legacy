@@ -1092,15 +1092,27 @@ class World:
 
 		hist_demand = self.hist_demand
 		hist_demand['date'] = pd.to_datetime(hist_demand['date']).dt.strftime('%Y-%m-%d')
-		hist_demand['total_qty'] = self.hist_demand.groupby('date')['qty'].transform('sum')
+		hist_demand['demand_qty'] = self.hist_demand.groupby('date')['qty'].transform('sum')
 		hist_demand = hist_demand.drop(['date_saved', 'entity_id', 'item_id', 'qty', 'reason'], axis=1)
 		hist_demand = hist_demand.drop_duplicates(subset='date')
 		if v: print('hist_demand:\n', hist_demand)
 
-		gl = pd.merge(gl, hist_hours, on='date', how='left').fillna(0)
+		# Add columns for inventory of different types, Inventory, Equipment, Land, Land In Use
+		inventory = self.ledger.get_qty(items=None, accounts=['Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped', 'Land', 'Land In Use'], show_zeros=False, by_entity=False)
+		inventory['date'] = world.now
+		# inv['account'] = inv['account'].replace({'Equipment In Use': 'Equipment', 'Equipped': 'Equipment', 'Buildings In Use': 'Buildings'})
+		inv = inventory.groupby(['date', 'item_id'])['qty'].sum().reset_index()
+		inv = inv.rename(columns={'qty': 'inv_qty'})
+		if v: print(f'inventory:\n{inv}')
+		inv_totals = inventory.groupby(['account', 'date'])['qty'].sum().unstack('account')
+		if v: print(f'inv_totals:\n{inv_totals}')
+
+		gl = pd.merge(gl, hist_hours, on=['date', 'entity_id'], how='left').fillna(0)
 		gl = pd.merge(gl, hist_demand, on='date', how='left').fillna(0)
+		gl = pd.merge(gl, inv, on=['date', 'item_id'], how='left').fillna(0)
+		gl = pd.merge(gl, inv_totals, on=['date'], how='left').fillna(0)
 		self.set_table(gl, 'util')
-		if v: print(f'util gl:\n{gl}')
+		if v: print(f'\nutil gl:\n{gl}')
 		if save:
 			# TODO Improve save name logic
 			outfile = 'econ_util_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
@@ -3149,11 +3161,12 @@ class Entity:
 				if not self.gl_tmp.empty:
 					# if vv: print('Tmp GL land: \n{}'.format(self.gl_tmp.tail()))
 					self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
-				land = self.ledger.get_qty(items=req_item, accounts=['Land'])
+				land = self.ledger.get_qty(items=req_item, accounts=['Land']) # TODO Should I factor in Land In Use also?
 				qty_needed = req_qty * (1-modifier) * qty
-				if v: print(f'{self.name} requires {qty_needed} {req_item} to {action} {qty} {item} and has: {land}')
+				max_land = self.max_land(item, v=v)
+				if v: print(f'{self.name} requires {qty_needed} {req_item} to {action} {qty} {item} and has: {land} | max_land: {max_land}')
 				price = world.get_price(req_item, world.env.entity_id)
-				if land < qty_needed:
+				if land < qty_needed and land < max_land:
 					needed_qty = (req_qty * (1-modifier) * qty) - land
 					if v: print('{} requires {} more {} to produce {}.'.format(self.name, needed_qty, req_item, item))
 					# Attempt to purchase land
@@ -3436,15 +3449,16 @@ class Entity:
 							if v: print('{} does not have enough capacity on {} {} equipment and could use up to {}.'.format(self.name, equip_qty, req_item, required_qty))
 
 						# If item is expensive keep required_qty at 1
-						equip_cost = world.get_price(req_item)
-						print(f'equip_cost: {equip_cost} | price: {price}')
-						item_cost = world.get_price(item)
-						print(f'item_cost: {item_cost}')
-						thresh = item_cost * qty * MARKUP
-						print(f'thresh: {thresh} | qty: {qty} | required_qty: {required_qty}')
-						if price > thresh:
-							required_qty = 1
-						print(f'required_qty: {required_qty}')
+						if required_qty > 1:
+							equip_cost = world.get_price(req_item)
+							if v: print(f'equip_cost: {equip_cost} | price: {price} | total_price: {required_qty * price}')
+							item_cost = world.get_price(item)
+							if v: print(f'item_cost: {item_cost}')
+							thresh = item_cost * qty * MARKUP
+							if v: print(f'thresh: {thresh} | qty: {qty} | required_qty: {required_qty}')
+							if (price * required_qty) > thresh:
+								required_qty = 1
+							if v: print(f'required_qty: {required_qty}')
 
 						if not man:
 							# Attempt to purchase before producing self if makes sense
@@ -4643,7 +4657,12 @@ class Entity:
 					#print('Cost DF After Swap: \n{}'.format(cost_df))
 					cost_df.rename({'debit_acct': 'credit_acct', 'credit_acct': 'debit_acct'}, axis='columns', inplace=True)
 					#print('Cost DF After Rename: \n{}'.format(cost_df))
-					cost_df.debit_acct = 'Cost Pool'
+					# cost_df.description = cost_df.description + cost_df.index.astype(str)
+					# cost_df.date = world.now
+					# cost_df.debit_acct = 'Cost Pool'
+					cost_df['description'] = cost_df['description'] + ' [' + cost_df['date'].astype(str) + ']' #Orig date:
+					cost_df['date'] = world.now
+					cost_df['debit_acct'] = 'Cost Pool'
 					with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 						if vv: print('Cost DF End: \n{}'.format(cost_df))
 					cost_entries = cost_df.values.tolist()
@@ -5943,10 +5962,53 @@ class Entity:
 								if result:
 									break
 
+	# Max land to claim should be a function of the sim population
+	# If Wood takes some labour and land, the max hours for labour available should be the max land to claim
+	def max_land(self, item, v=True):
+		return 10000000000
+		item_info = world.items.loc[item]
+		print(f'item_info:\n{item_info}')
+		if item_info is None:
+			return
+		requirements = [x.strip() for x in item_info['requirements'].split(',')]
+		amounts = [x.strip() for x in item_info['amount'].split(',')]
+		amounts = list(map(float, amounts))
+		# requirements_details = list(itertools.zip_longest(requirements, requirement_types, amounts))
+		requirements_details = list(itertools.zip_longest(requirements, amounts))
+		if v: print(f'item req deets:\n{requirements_details}')
+		lands = {}
+		labour = {}
+		for req in requirements_details:
+			req_type = world.get_item_type(req[0])
+			if req_type == 'Land':
+				lands[req[0]] = req[1]
+			elif req_type == 'Labour':
+				labour[req[0]] = req[1]
+		if v: print(f'lands:\n{lands}')
+		if v: print(f'labour:\n{labour}')
+
+		land_qty = max(lands.values())
+		labour_qty = min(labour.values())
+		if v: print(f'land_qty: {land_qty}')
+		if v: print(f'labour_qty: {labour_qty}')
+		
+		population = len(world.factory.registry[Individual])
+		max_land = math.ceil((land_qty * population * MAX_HOURS) / labour_qty)
+		if v: print(f'max_land: {max_land}')
+		return max_land
+
 	def claim_land(self, item, qty, price=0, counterparty=None, account='Land', priority=False, buffer=False, v=True):
 		# If too much land is claimed by user, the min possible will be claimed automatically
 		if qty <= 0:
 			return
+		# max_land = self.max_land(item, v=v)
+		# land_held = self.ledger.get_qty(items=item, accounts=['Land', 'Land In Use'])
+		# if land_held >= max_land:
+		# 	if v: print(f'{self.name} holds {land_held} {item} and the maximum to hold for this item is {max_land}.')
+		# 	return
+		# if land_held + qty >= max_land:
+		# 	qty = max_land - land_held
+		# 	if v: print(f'{self.name} holds {land_held} {item} and the maximum to hold for this item is {max_land}. Will attempt to claim {qty} now.')
 		yield_price = price
 		if counterparty is None:
 			counterparty = world.env

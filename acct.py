@@ -628,7 +628,7 @@ class Accounts:
 		print('-' * DISPLAY_WIDTH)
 		return self.items
 
-	def print_table(self, table_name=None):
+	def print_table(self, table_name=None, v=True):
 		if table_name is None:
 			table_name = input('Enter a table to display: ')
 			if table_name == '':
@@ -636,7 +636,7 @@ class Accounts:
 		try:
 			table = pd.read_sql_query('SELECT * FROM ' + table_name + ';', self.conn)
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				print('{} table: \n{}'.format(table_name, table))
+				if v: print('{} table: \n{}'.format(table_name, table))
 		except Exception as e:
 			print('There exists no table called: {}'.format(table_name))
 			print('Error: {}'.format(repr(e)))
@@ -2433,6 +2433,14 @@ def main(conn=None, command=None, external=False):
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				ledger.get_util(entity_id, item, acct)
 			if args.command is not None: exit()
+		elif command.lower() == 'demand': # This only works for the econ sim
+			demand = accts.print_table('demand', v=False)
+			demand['qty'] = demand['qty'].astype(float)
+			demand['qty'] = demand['qty'].astype(int)
+			demand = demand.groupby(['item_id']).sum()['qty']
+			total_demand = demand.sum()
+			print(demand)
+			print(f'Total demand: {total_demand}')
 		elif command.lower() == 'entities':
 			accts.print_entities()
 			if args.command is not None: exit()
