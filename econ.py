@@ -1068,7 +1068,12 @@ class World:
 		if gl is None:
 			gl = self.ledger.gl.copy(deep=True)
 		hist_hours = self.hist_hours
-		hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
+		# hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
+		hist_hours['date'] = hist_hours['date'].astype(str)
+		print('hours type:')
+		print(hist_hours['date'].apply(type).value_counts())
+		print(pd.api.types.is_datetime64_any_dtype(hist_hours['date']))
+		print(pd.api.types.is_string_dtype(hist_hours['date']))
 		# date_mask = hist_hours['date'] == '1986-10-01'
 		# print(hist_hours['date'] == '1986-10-01')
 		# print('date_mask:\n', date_mask)
@@ -1117,7 +1122,7 @@ class World:
 		inv_totals.columns.name = None
 		if v: print(f'\ninv_totals:\n{inv_totals}\n')
 
-		gl = pd.merge(gl, hist_hours, on=['date', 'entity_id'], how='left').fillna(0)
+		gl = pd.merge(gl, hist_hours, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, hist_demand, on='date', how='left').fillna(0)
 		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
 		gl = pd.merge(gl, inv, on=['date', 'item_id'], how='left').fillna(0)
