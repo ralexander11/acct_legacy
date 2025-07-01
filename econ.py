@@ -1092,27 +1092,39 @@ class World:
 
 		hist_demand = self.hist_demand
 		hist_demand['date'] = pd.to_datetime(hist_demand['date']).dt.strftime('%Y-%m-%d')
-		hist_demand['demand_qty'] = self.hist_demand.groupby('date')['qty'].transform('sum')
+		# hist_demand['item_demand_qty'] = self.hist_demand.groupby(['date', 'item_id'])['qty'].transform('sum')
+		hist_demand['demand_qty'] = self.hist_demand.groupby(['date'])['qty'].transform('sum')
 		hist_demand = hist_demand.drop(['date_saved', 'entity_id', 'item_id', 'qty', 'reason'], axis=1)
 		hist_demand = hist_demand.drop_duplicates(subset='date')
 		if v: print('hist_demand:\n', hist_demand)
+
+		# item_demand = self.hist_demand
+		item_demand = self.hist_demand.groupby(['date', 'item_id'])['qty'].sum().reset_index()
+		item_demand= item_demand.rename(columns={'qty': 'item_demand_qty'})
+		if v: print('item_demand:\n', item_demand)
 
 		# Add columns for inventory of different types, Inventory, Equipment, Land, Land In Use
 		inventory = self.ledger.get_qty(items=None, accounts=['Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped', 'Land', 'Land In Use'], show_zeros=False, by_entity=False)
 		inventory['date'] = world.now
 		# inv['account'] = inv['account'].replace({'Equipment In Use': 'Equipment', 'Equipped': 'Equipment', 'Buildings In Use': 'Buildings'})
+		if v: print(f'inventory:\n{inventory}')
+		inventory['date'] = inventory['date'].astype(str)
 		inv = inventory.groupby(['date', 'item_id'])['qty'].sum().reset_index()
 		inv = inv.rename(columns={'qty': 'inv_qty'})
-		if v: print(f'inventory:\n{inv}')
-		inv_totals = inventory.groupby(['account', 'date'])['qty'].sum().unstack('account')
-		if v: print(f'inv_totals:\n{inv_totals}')
+		if v: print(f'inv:\n{inv}')
+
+		inv_totals = inventory.groupby(['account', 'date'])['qty'].sum().unstack('account').reset_index()
+		inv_totals.columns.name = None
+		if v: print(f'\ninv_totals:\n{inv_totals}\n')
 
 		gl = pd.merge(gl, hist_hours, on=['date', 'entity_id'], how='left').fillna(0)
 		gl = pd.merge(gl, hist_demand, on='date', how='left').fillna(0)
+		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
 		gl = pd.merge(gl, inv, on=['date', 'item_id'], how='left').fillna(0)
 		gl = pd.merge(gl, inv_totals, on=['date'], how='left').fillna(0)
 		self.set_table(gl, 'util')
-		if v: print(f'\nutil gl:\n{gl}')
+		if v: print('\nutil gl:')
+		if v: print(gl)
 		if save:
 			# TODO Improve save name logic
 			outfile = 'econ_util_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
@@ -4627,7 +4639,9 @@ class Entity:
 				#print('Cost DF After Swap: \n{}'.format(indirect_costs))
 				indirect_costs.rename({'debit_acct': 'credit_acct', 'credit_acct': 'debit_acct'}, axis='columns', inplace=True)
 				#print('Cost DF After Rename: \n{}'.format(indirect_costs))
-				indirect_costs.debit_acct = 'Cost Pool'
+				indirect_costs['description'] = indirect_costs['description'] + ' [' + indirect_costs['date'].astype(str) + ']'
+				indirect_costs['date'] = world.now
+				indirect_costs['debit_acct'] = 'Cost Pool'
 				indirect_costs['qty'] = indirect_costs['qty'].fillna('')
 				indirect_costs['price'] = indirect_costs['price'].fillna('')
 				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
