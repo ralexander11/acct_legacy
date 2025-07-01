@@ -1112,6 +1112,7 @@ class World:
 		inventory = self.ledger.get_qty(items=None, accounts=['Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped', 'Land', 'Land In Use'], show_zeros=False, by_entity=False)
 		inventory['date'] = world.now
 		# inv['account'] = inv['account'].replace({'Equipment In Use': 'Equipment', 'Equipped': 'Equipment', 'Buildings In Use': 'Buildings'})
+		inventory = inventory[inventory['item_id'] != 'Wood Chips']
 		if v: print(f'inventory:\n{inventory}')
 		inventory['date'] = inventory['date'].astype(str)
 		inv = inventory.groupby(['date', 'item_id'])['qty'].sum().reset_index()
