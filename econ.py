@@ -1126,11 +1126,14 @@ class World:
 		gl = pd.merge(gl, hist_hours, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, hist_demand, on='date', how='left').fillna(0)
 		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
-		gl = pd.merge(gl, inv, on=['date', 'item_id'], how='left').fillna(0)
-		gl = pd.merge(gl, inv_totals, on=['date'], how='left').fillna(0)
+		gl_today = gl[gl['date'] == str(world.now)]
+		gl_past = gl[gl['date'] != str(world.now)]
+		gl_today = pd.merge(gl_today, inv, on=['date', 'item_id'], how='left').fillna(0)
+		gl_today = pd.merge(gl_today, inv_totals, on=['date'], how='left').fillna(0)
+		gl = pd.concat([gl_past, gl_today], ignore_index=True)
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
-		if v: print(gl)
+		if v: print(gl.tail(10))
 		if save:
 			# TODO Improve save name logic
 			outfile = 'econ_util_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
