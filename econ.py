@@ -1075,7 +1075,7 @@ class World:
 					continue
 		if gl is None:
 			gl = self.ledger.gl.copy(deep=True)
-		hist_hours = self.hist_hours
+		hist_hours = self.hist_hours.copy(deep=True)
 		# hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
 		hist_hours['date'] = hist_hours['date'].astype(str)
 		hist_hours.drop(['entity_id'], axis=1, inplace=True)
