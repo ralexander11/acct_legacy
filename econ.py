@@ -3023,7 +3023,7 @@ class Entity:
 			return modifier, equip_info
 		return None, None
 
-	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, buffer=False, show_results=False, vv=False, v=True): # TODO Maybe add buffer=True
+	def fulfill(self, item, qty, reqs='requirements', amts='amount', partial=None, man=False, check=False, buffer=False, show_results=True, vv=False, v=True): # TODO Maybe add buffer=True
 		if v: print(f'~{self.name} fulfill: {item} Qty: {qty} | Partial: {partial} | Check: {check} | buffer: {buffer} | Man: {man} | Reqs: {reqs}')
 		try:
 			if not self.gl_tmp.empty:
@@ -3109,7 +3109,7 @@ class Entity:
 				item_freq = [x.strip() for x in item_freq.split(',')]
 		else:
 			item_freq = []
-		results = pd.DataFrame(columns=['item_id', 'qty', 'modifier', 'qty_req', 'qty_held', 'incomplete', 'max_qty'], index=None)
+		results = pd.DataFrame(columns=['item_type', 'item_id', 'qty', 'modifier', 'qty_req', 'qty_held', 'incomplete', 'max_qty'], index=None)
 		# TODO Sort so requirements with a capacity are first after time
 		max_qty_possible = qty
 		# print('item: {} | max_qty_possible: {}'.format(item, max_qty_possible))
@@ -3188,6 +3188,7 @@ class Entity:
 				return incomplete, event, time_required, max_qty_possible
 
 			elif req_item_type == 'Land' and partial is None:
+				land_incomplete = False
 				modifier, items_info = self.check_productivity(req_item)
 				self.ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -3236,6 +3237,7 @@ class Entity:
 							# print('Land Claim Result: \n{}'.format(result))
 							if not result:
 								incomplete = True
+								land_incomplete = True
 						if result and buffer:
 							for entry in result:
 								entry_df = pd.DataFrame([entry], columns=world.cols)
@@ -3245,6 +3247,7 @@ class Entity:
 							# print('Tmp GL Land 2: \n{}'.format(self.gl_tmp.tail()))
 					else:
 						incomplete = True
+						land_incomplete = True
 					if not self.gl_tmp.empty and 'animal' not in item_freq: # TODO Look into this
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
 						test_gl_tmp = self.gl_tmp.loc[self.gl_tmp['post_date'].isna()] # TODO This works
@@ -3270,9 +3273,10 @@ class Entity:
 						max_qty_possible = 0
 				if max_qty_possible == 0: # TODO Handle in similar way for commodities and other item types?
 					incomplete = True
+					land_incomplete = True
 				if v: print('Land Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty)) # TODO Show the max possible above qty requested
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':land, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[land], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[land], 'incomplete':[land_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				# if (reqs == 'hold_req' or time_required):# and not incomplete: # TODO Test is "not incomplete" is still needed here
 				# TODO Handle land in use during one tick
 				# qty_needed = req_qty * (1-modifier) * qty
@@ -3281,6 +3285,7 @@ class Entity:
 				if not entries:
 					entries = []
 					incomplete = True
+					land_incomplete = True
 				else:
 					if reqs != 'hold_req' and not time_required:
 						hold_event_ids += [entry[0] for entry in entries]
@@ -3300,6 +3305,7 @@ class Entity:
 					# print('Ledger Temp New: \n{}'.format(self.ledger.gl.tail()))
 
 			elif req_item_type == 'Buildings' and partial is None:
+				build_incomplete = False
 				in_use = False
 				modifier, items_info = self.check_productivity(req_item)
 				self.ledger.set_entity(self.entity_id)
@@ -3355,6 +3361,7 @@ class Entity:
 								if req_time_required:
 									if v: print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
 								incomplete = True
+								build_incomplete = True
 							if result and buffer:
 								for entry in result:
 									entry_df = pd.DataFrame([entry], columns=world.cols)
@@ -3363,9 +3370,11 @@ class Entity:
 								self.gl_tmp = self.ledger.gl
 						else:
 							incomplete = True
+							build_incomplete = True
 					else:
 						if v: print('{} cannot complete {} now due to requiring time to produce {}.'.format(self.name, item, req_item))
 						incomplete = True
+						build_incomplete = True
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
 						# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
@@ -3384,7 +3393,7 @@ class Entity:
 					max_qty_possible = min(max_qty_possible, qty)
 				if v: print(f'Buildings Max Qty Possible: {max_qty_possible} | Constraint Qty: {constraint_qty} | Building: {building}')
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':building, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[math.ceil(qty / capacity)], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[building], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[math.ceil(qty / (capacity * req_qty))], 'modifier':[modifier], 'qty_req':[math.ceil(qty / (capacity * req_qty * (1-modifier)))], 'qty_held':[building], 'incomplete':[build_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				qty_to_use = 0
 				build_in_use = 0
 				if building != 0:
@@ -3406,6 +3415,7 @@ class Entity:
 					if not entries:
 						entries = []
 						incomplete = True
+						build_incomplete = True
 						max_qty_possible = 0 # TODO Is this needed?
 					else:
 						if reqs != 'hold_req' and not time_required:
@@ -3431,6 +3441,7 @@ class Entity:
 					if not entries:
 						entries = []
 						incomplete = True
+						build_incomplete = True
 						max_qty_possible = 0 # TODO Is this needed?
 					if entries is True:
 						entries = []
@@ -3449,6 +3460,7 @@ class Entity:
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
 			elif req_item_type == 'Equipment' and partial is None: # TODO Make generic for process
+				equip_incomplete = False
 				in_use = False
 				modifier, items_info = self.check_productivity(req_item)
 				self.ledger.set_entity(self.entity_id)
@@ -3486,16 +3498,16 @@ class Entity:
 					self.ledger.reset()
 					equip_qty_wip = self.ledger.get_qty(items=req_item, accounts=['WIP Equipment'])
 					self.ledger.set_entity(self.entity_id)
-					if v: print('{} equipment being manufactured: {}'.format(req_item, equip_qty_wip))
+					if v: print(f'{req_item} equipment being manufactured: {equip_qty_wip}')
 					equip_qty += equip_qty_wip
 					if (equip_qty * capacity) < qty_needed: # TODO Fix this
 						# Decision: Should you build multiple equipment to produce in parallel
 						remaining_qty = max(qty_needed - (equip_qty * capacity), 0)
 						required_qty = int(math.ceil(remaining_qty / capacity))
 						if equip_qty == 0:
-							if v: print('{} does not have any {} equipment and requires {}.'.format(self.name, req_item, required_qty))
+							if v: print(f'{self.name} does not have any {req_item} equipment and requires {required_qty}.')
 						else:
-							if v: print('{} does not have enough capacity on {} {} equipment and could use up to {}.'.format(self.name, equip_qty, req_item, required_qty))
+							if v: print(f'{self.name} does not have enough capacity on {equip_qty} {req_item} equipment and could use up to {required_qty}.')
 
 						# If item is expensive keep required_qty at 1
 						if required_qty > 1:
@@ -3518,17 +3530,19 @@ class Entity:
 								# TODO Needs if isinstance(item_freq, str):
 								if 'animal' in item_freq and 'animal' in req_freq and equip_qty < 2 and not man:
 									required_qty = 1
-									if v: print('{} will attempt to catch remaining {} {} in the wild.'.format(self.name, required_qty, req_item))
+									if v: print(f'{self.name} will attempt to catch remaining {required_qty} {req_item} in the wild.')
 									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, reqs='int_rate_fix', amts='int_rate_var', debit_acct='Equipment', buffer=buffer, v=v) # TODO This is a bit hackey
 									equip_qty += req_max_qty_possible
 									if not req_incomplete:
 										if equip_qty < 2:
 											incomplete = True
+											equip_incomplete = True
 											max_qty_possible = 0
 										continue
 									else:
 										if req_max_qty_possible == 0:
 											incomplete = True
+											equip_incomplete = True
 											max_qty_possible = 0
 											continue
 										req_qty = req_max_qty_possible
@@ -3537,17 +3551,18 @@ class Entity:
 										continue
 									elif 'animal' in item_freq and 'animal' in req_freq:# and equip_qty - equip_qty_wip <= 3: # TODO Test if this is needed for large amounts
 										required_qty = max(math.floor((equip_qty - equip_qty_wip) / 2), 1)
-									if v: print('{} will attempt to produce {} {} itself.'.format(self.name, required_qty, req_item))
+									if v: print(f'{self.name} will attempt to produce {required_qty} {req_item} itself.')
 									if vv: print('&&&&&1')
 									if vv: print(f'Produce req_item: {req_item} | qty: {required_qty} | buffer: {buffer} | v: {v}')
 									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment', buffer=buffer, v=v)
 									if vv: print(f'Result for req_item: {req_item} | qty: {required_qty} | req_time_required: {req_time_required} | req_max_qty_possible: {req_max_qty_possible} | {req_incomplete} result:\n{result}')
 									if vv: print('&&&&&2')
-									if v: print('{} attempted to produce {} {} itself.'.format(self.name, required_qty, req_item))
+									if v: print(f'{self.name} attempted to produce {required_qty} {req_item} itself.')
 							if not result or req_time_required:
 								if req_time_required:
-									if v: print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
+									if v: print(f'{self.name} cannot complete {item} now due to {req_item} requiring time to produce.')
 								incomplete = True
+								equip_incomplete = True
 							if result and buffer:
 								for entry in result:
 									entry_df = pd.DataFrame([entry], columns=world.cols)
@@ -3556,9 +3571,11 @@ class Entity:
 								self.gl_tmp = self.ledger.gl
 						else:
 							incomplete = True
+							equip_incomplete = True
 					else:
 						if v: print('{} cannot complete {} now due to requiring time to produce {}.'.format(self.name, item, req_item))
 						incomplete = True
+						equip_incomplete = True
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
 						# self.gl_tmp = self.ledger.gl.append(tmp_gl_tmp)
@@ -3577,7 +3594,7 @@ class Entity:
 					max_qty_possible = min(max_qty_possible, qty)
 				if v: print(f'Equipment Max Qty Possible: {max_qty_possible} | Constraint Qty: {constraint_qty} | equip_qty: {equip_qty}')
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':equip_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[math.ceil(qty / capacity)], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[equip_qty], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[math.ceil(qty / (capacity * req_qty))], 'modifier':[modifier], 'qty_req':[math.ceil(qty / (capacity * req_qty * (1-modifier)))], 'qty_held':[equip_qty], 'incomplete':[equip_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				qty_to_use = 0
 				equip_in_use = 0
 				if equip_qty != 0:
@@ -3596,6 +3613,7 @@ class Entity:
 					if not entries:
 						entries = []
 						incomplete = True
+						equip_incomplete = True
 					else:
 						if reqs != 'hold_req' and not time_required:
 							hold_event_ids += [entry[0] for entry in entries]
@@ -3620,6 +3638,7 @@ class Entity:
 					if not entries:
 						entries = []
 						incomplete = True
+						equip_incomplete = True
 					if entries is True:
 						entries = []
 					event += entries
@@ -3637,6 +3656,7 @@ class Entity:
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
 			elif req_item_type == 'Components' and partial is None:
+				comp_incomplete = False
 				modifier, items_info = self.check_productivity(req_item)
 				self.ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -3681,8 +3701,10 @@ class Entity:
 							if req_time_required:
 								if v: print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
 							incomplete = True
+							comp_incomplete = True
 					else:
 						incomplete = True
+						comp_incomplete = True
 				try:
 					if not self.gl_tmp.empty:
 						tmp_gl_tmp = self.gl_tmp.loc[self.gl_tmp.index == 0]
@@ -3704,12 +3726,13 @@ class Entity:
 					max_qty_possible = min(max_qty_possible, qty)
 				if v: print('Components Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':component_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[component_qty], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[component_qty], 'incomplete':[comp_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				if not check:
 					entries = self.consume(req_item, qty=qty_needed, buffer=True)
 					if not entries:
 						entries = []
 						incomplete = True
+						comp_incomplete = True
 					event += entries
 					if entries:
 						for entry in entries:
@@ -3720,6 +3743,7 @@ class Entity:
 						# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
 			elif req_item_type == 'Commodity' and partial is None:
+				comm_incomplete = False
 				modifier, items_info = self.check_productivity(req_item)
 				self.ledger.set_entity(self.entity_id)
 				if modifier is not None:
@@ -3768,11 +3792,13 @@ class Entity:
 						if not req_incomplete:
 							if material_qty_held < 2:
 								incomplete = True
+								comm_incomplete = True
 								max_qty_possible = 0
 							continue
 						else:
 							if req_max_qty_possible == 0:
 								incomplete = True
+								comm_incomplete = True
 								max_qty_possible = 0
 								continue
 							req_qty = req_max_qty_possible # TODO Investigate this further
@@ -3827,11 +3853,13 @@ class Entity:
 								if not req_incomplete:
 									if material_qty_held < 2:
 										incomplete = True
+										comm_incomplete = True
 										max_qty_possible = 0
 									continue
 								else:
 									if req_max_qty_possible == 0:
 										incomplete = True
+										comm_incomplete = True
 										max_qty_possible = 0
 										continue
 									req_qty = req_max_qty_possible
@@ -3844,10 +3872,12 @@ class Entity:
 							if req_time_required:
 								if v: print('{} cannot complete {} now due to {} requiring time to produce.'.format(self.name, item, req_item))
 							incomplete = True
+							comm_incomplete = True
 							if 'animal' in item_freq and 'animal' in req_freq:
 								max_qty_possible = 0 # TODO Test if this causes issues for non-animals
 					else:
 						incomplete = True
+						comm_incomplete = True
 				# self.ledger.set_entity(self.entity_id)
 				try:
 					if not self.gl_tmp.empty:
@@ -3884,6 +3914,7 @@ class Entity:
 						max_qty_possible = 0
 						constraint_qty = 0
 						incomplete = True
+						comm_incomplete = True
 						self.item_demanded(req_item, 3 - material_qty, v=v)
 					else:
 						constraint_qty = math.floor(material_qty / (req_qty * (1-modifier)))
@@ -3896,7 +3927,7 @@ class Entity:
 				# 	incomplete = True
 				if v: print('Commodity Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':material_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[material_qty], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[material_qty], 'incomplete':[comm_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				if item =='Cotton Gin' or item =='Cotton Spinner':
 					if v: print('Commodity results:\n', results)
 				if not check:
@@ -3908,6 +3939,7 @@ class Entity:
 						if not entries:
 							entries = []
 							incomplete = True
+							comm_incomplete = True
 						event += entries
 						if entries:
 							for entry in entries:
@@ -3919,6 +3951,7 @@ class Entity:
 							if vv: print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 
 			elif req_item_type == 'Service' and partial is None:
+				serv_incomplete = False
 				# TODO Add support for qty to Services
 				if v: print('{} will attempt to purchase the {} service to produce {} {}.'.format(self.name, req_item, qty, item))
 				qty_needed = req_qty * qty
@@ -3930,8 +3963,13 @@ class Entity:
 					entries = []
 					if v: print('{} was unable to obtain {} service.'.format(self.name, req_item))
 					max_qty_possible = 0
+					serv_qty = 0
 					incomplete = True
+					serv_incomplete = True
+				else:
+					serv_qty = entries[0][8]
 				event += entries
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[0], 'qty_req':[(req_qty * (1-0) * qty)], 'qty_held':[serv_qty], 'incomplete':[serv_incomplete], 'max_qty':[req_qty * qty]})], ignore_index=True)
 				if entries:
 					for entry in entries:
 						entry_df = pd.DataFrame([entry], columns=world.cols)
@@ -3943,6 +3981,7 @@ class Entity:
 			elif req_item_type == 'Subscription' and partial is None:
 				# TODO Add support for capacity to Subscriptions
 				# TODO Add check to ensure payment has been made recently (maybe on day of)
+				sub_incomplete = False
 				qty_needed = qty * req_qty
 				subscription_state = self.ledger.get_qty(items=req_item, accounts=['Subscription Info'])
 				if v: print(f'{self.name} requires {qty_needed} {req_item} subscription to {action} {qty} {item} and has: {subscription_state}')
@@ -3956,6 +3995,7 @@ class Entity:
 							entries = []
 							if v: print('{} was unable to activate {} subscription.'.format(self.name, req_item))
 							incomplete = True
+							sub_incomplete = True
 							max_qty_possible = 0
 						event += entries
 						if entries:
@@ -3967,14 +4007,18 @@ class Entity:
 							# print('Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 					else:
 						incomplete = True
+						sub_incomplete = True
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[0], 'qty_req':[(req_qty * (1-0) * qty)], 'qty_held':[subscription_state], 'incomplete':[sub_incomplete], 'max_qty':[req_qty * qty]})], ignore_index=True) # TODO Do max_qty properly
 
 			elif req_item_type == 'Job' and partial is None:
+				job_incomplete = False
 				modifier = 0
 				if item_type == 'Job' or item_type == 'Labour':
 					if isinstance(self, Individual):
 						experience = abs(self.ledger.get_qty(items=req_item, accounts=['Salary Income']))
 						if experience < req_qty:
 							incomplete = True
+							job_incomplete = True
 							# TODO Add to demand table
 							if v: print(f'!fulfill return due to not enough exp for Job: {req_item}')
 							return incomplete, event, time_required, max_qty_possible
@@ -4003,6 +4047,7 @@ class Entity:
 								if not entries:
 									entries = []
 									incomplete = True # TODO Fix failing if only one cannot be hired
+									job_incomplete = True
 								event += entries
 								if entries:
 									for entry in entries:
@@ -4013,6 +4058,7 @@ class Entity:
 									# print('Job Ledger Temp: \n{}'.format(self.ledger.gl.tail()))
 						else:
 							incomplete = True
+							job_incomplete = True
 						# print('req_item: {} | qty: {} | workers: {} | req_qty: {} | max_qty_possible: {}'.format(req_item, qty, workers, req_qty, max_qty_possible))
 						try:
 							if not self.gl_tmp.empty:
@@ -4035,9 +4081,10 @@ class Entity:
 							max_qty_possible = min(max_qty_possible, qty)
 						if v: print('Job Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
 						# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':workers, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-						results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[workers], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+						results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[workers], 'incomplete':[job_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Labour':
+				lab_incomplete = False
 				qty_held = None
 				none_qualify = False
 				if item_type == 'Job' or item_type == 'Labour':
@@ -4045,6 +4092,7 @@ class Entity:
 						experience = abs(self.ledger.get_qty(items=req_item, accounts=['Wages Income']))
 						if experience < req_qty:
 							incomplete = True
+							lab_incomplete = True
 							# TODO Add to demand table maybe
 							if v: print(f'!fulfill return due to not enough exp for Labour or Job: {req_item}.')
 							return incomplete, event, time_required, max_qty_possible
@@ -4217,6 +4265,7 @@ class Entity:
 						if not entries and ((not wip_choice) or not labour_done):# and not wip_complete: # TODO Test "and not wip_complete"
 							entries = []
 							incomplete = True
+							lab_incomplete = True
 							if wip_choice:
 								time_required = False
 							# if item_type != 'Education':
@@ -4346,9 +4395,10 @@ class Entity:
 								constraint_qty = 0
 					if v: print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | WIP Complete: {} | Time Req: {} | Partial: {} | Labour Done: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, wip_complete, time_required, partial, labour_done, constraint_qty, incomplete))
 					# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':qty_held, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-					results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[qty_held], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+					results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[qty_held], 'incomplete':[lab_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Education' and partial is None:
+				edu_incomplete = False
 				modifier = 0
 				if item_type == 'Job' or item_type == 'Labour' or item_type == 'Education':
 					# if type(self) == Individual:
@@ -4362,6 +4412,7 @@ class Entity:
 						elif edu_status + edu_status_wip >= req_qty:
 							if v: print('{} is working on knowledge of {} to create {}.'.format(self.name, req_item, item))
 							incomplete = True
+							edu_incomplete = True
 							max_qty_possible = 0
 						else:
 							if not man and not check:
@@ -4378,6 +4429,7 @@ class Entity:
 									if v: print('Studying Education not successfull for: {}'.format(req_item))
 									#entries = []
 									incomplete = True
+									edu_incomplete = True
 									max_qty_possible = 0
 									edu_status = self.ledger.get_qty(items=req_item, accounts=['Studying Education'])
 									if edu_status == 0 and not req_time_required:
@@ -4388,16 +4440,19 @@ class Entity:
 									if edu_status < req_qty:
 										#entries = []
 										incomplete = True
+										edu_incomplete = True
 										max_qty_possible = 0
 							else:
 								# TODO Test this
 								incomplete = True
+								edu_incomplete = True
 								max_qty_possible = 0
 						constraint_qty = None
 						# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':edu_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-						results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[edu_status], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+						results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[edu_status], 'incomplete':[edu_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Technology' and partial is None:
+				tech_incomplete = False
 				modifier = 0
 				self.ledger.reset()
 				tech_done_status = self.ledger.get_qty(items=req_item, accounts=['Technology'])
@@ -4409,6 +4464,7 @@ class Entity:
 					if v: print('{} is working on knowledge of {} technology to create {}.'.format(self.name, req_item, item))
 					max_qty_possible = 0
 					incomplete = True
+					tech_incomplete = True
 				else:
 					if not man:
 						if v: print('{} attempting to research technology: {}'.format(self.name, req_item))
@@ -4424,6 +4480,7 @@ class Entity:
 							if v: print('{} technology researching not successfull for: {}'.format(self.name, req_item))
 							#entries = []
 							incomplete = True
+							tech_incomplete = True
 							tech_status = self.ledger.get_qty(items=req_item, accounts=['Researching Technology'])
 							if tech_status == 0 and not req_time_required:
 								self.item_demanded(req_item, req_qty, v=v)
@@ -4433,12 +4490,14 @@ class Entity:
 							if tech_status == 0:
 								#entries = []
 								incomplete = True
+								tech_incomplete = True
 						max_qty_possible = 0
 					else:
 						incomplete = True
+						tech_incomplete = True
 				constraint_qty = None
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':tech_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[tech_status], 'incomplete':[incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[tech_status], 'incomplete':[tech_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 			self.ledger.reset()
 		if incomplete or check:
 			for individual in world.gov.get(Individual):
