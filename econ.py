@@ -206,6 +206,8 @@ class World:
 			print(time_stamp() + 'Loading items from: {}'.format(items_file))
 			self.demand = pd.DataFrame(columns=['date','entity_id','item_id','qty','reason'])
 			self.set_table(self.demand, 'demand')
+			self.hist_inv = pd.DataFrame(columns=['date', 'item_id', 'account', 'qty'])
+			self.set_table(self.hist_inv, 'hist_inv')
 			self.delay = pd.DataFrame(columns=['txn_id', 'entity_id','delay','hours','job','item_id'])
 			self.set_table(self.delay, 'delay')
 			self.tech = pd.DataFrame(columns=['technology', 'date', 'entity_id','time_req','days_left', 'done_date','status'])
@@ -280,9 +282,14 @@ class World:
 			self.hist_demand = pd.DataFrame(tmp_demand, columns=['date_saved','date','entity_id','item_id','qty','reason'])
 			self.set_table(self.hist_demand, 'hist_demand')
 			# Track historical hours and needs
+			# hist_hours_cols = ['entity_id', 'date', 'hours', 'population']
+			# for need in self.global_needs:
+			# 	hist_hours_cols.append(need)
+			# self.hist_hours = pd.DataFrame(columns=hist_hours_cols)
+
 			self.hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
 			self.hist_hours = self.hist_hours[['entity_id','hours']].set_index(['entity_id'])
-			self.hist_hours['date'] = self.now
+			self.hist_hours['date'] = 'start' #self.now
 			self.hist_hours = self.hist_hours[['date','hours']]
 			self.hist_hours['population'] = len(self.factory.registry[Individual])
 			for need in self.global_needs:
@@ -433,6 +440,7 @@ class World:
 				self.hist_prices = self.get_table('hist_prices')
 				self.hist_demand = self.get_table('hist_demand')
 				self.hist_hours = self.get_table('hist_hours')
+				self.hist_inv = self.get_table('hist_inv')
 			except Exception as e:
 				print('Loading Error: {}'.format(repr(e)))
 			self.gov = self.factory.get(Government)[0]
@@ -1110,37 +1118,43 @@ class World:
 		inventory['date'] = world.now
 		# inv['account'] = inv['account'].replace({'Equipment In Use': 'Equipment', 'Equipped': 'Equipment', 'Buildings In Use': 'Buildings'})
 		inventory = inventory[inventory['item_id'] != 'Wood Chips']
-		if v: print(f'inventory:\n{inventory}')
 		inventory['date'] = inventory['date'].astype(str)
-		inv = inventory.groupby(['date', 'item_id'])['qty'].sum().reset_index()
+		if v: print(f'inventory:\n{inventory}')
+
+		self.hist_inv = pd.concat([self.hist_inv, inventory])
+		self.set_table(self.hist_inv, 'hist_inv')
+		if v: print(f'hist_inv:\n{self.hist_inv}')
+
+		inv = self.hist_inv.groupby(['date', 'item_id'])['qty'].sum().reset_index()
 		inv = inv.rename(columns={'qty': 'inv_qty'})
 		if v: print(f'inv:\n{inv}')
 
-		inv_totals = inventory.groupby(['account', 'date'])['qty'].sum().unstack('account').reset_index()
+		inv_totals = self.hist_inv.groupby(['account', 'date'])['qty'].sum().unstack('account').reset_index()
 		inv_totals.columns.name = None
 		if v: print(f'\ninv_totals:\n{inv_totals}\n')
 
 		gl = pd.merge(gl, hist_hours, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, hist_demand, on='date', how='left').fillna(0)
 		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
-		gl_today = gl[gl['date'] == str(world.now)]
-		gl_past = gl[gl['date'] != str(world.now)]
+		# gl_today = gl[gl['date'] == str(world.now)]
+		# gl_past = gl[gl['date'] != str(world.now)]
+		# gl_past = pd.merge(gl_past, self.hist_inv, on=['date'], how='left').fillna(0)
 
-		try:
-			util_past = self.get_table('util')
-			# util_past = util_past[ ['date', 'inv_qty', 'Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped', 'Land', 'Land In Use'] ]
-			util_past.drop(['event_id', 'entity_id', 'cp_id', 'post_date', 'loc', 'description', 'item_id', 'price', 'qty', 'debit_acct', 'credit_acct', 'amount', 'population', 'total_hours', 'total_Thirst', 'total_Hunger', 'total_Clothing', 'total_Shelter', 'total_Fun', 'max_hours', 'hours_used', 'demand_qty', 'item_demand_qty'], axis=1, inplace=True)			
-			print('util_past:')
-			print(util_past)
-			gl_past = pd.merge(gl_past, util_past, on=['date'], how='left').fillna(0)
-			print('gl_past:')
-			print(gl_past)
-		except pd.errors.DatabaseError as e:
-			print(f'Error util_past as: {e}')
+		# try:
+		# 	util_past = self.get_table('util')
+		# 	# util_past = util_past[ ['date', 'inv_qty', 'Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped', 'Land', 'Land In Use'] ]
+		# 	util_past.drop(['event_id', 'entity_id', 'cp_id', 'post_date', 'loc', 'description', 'item_id', 'price', 'qty', 'debit_acct', 'credit_acct', 'amount', 'population', 'total_hours', 'total_Thirst', 'total_Hunger', 'total_Clothing', 'total_Shelter', 'total_Fun', 'max_hours', 'hours_used', 'demand_qty', 'item_demand_qty'], axis=1, inplace=True)			
+		# 	print('util_past:')
+		# 	print(util_past)
+		# 	gl_past = pd.merge(gl_past, util_past, on=['date'], how='left').fillna(0)
+		# 	print('gl_past:')
+		# 	print(gl_past)
+		# except pd.errors.DatabaseError as e:
+		# 	print(f'Error util_past as: {e}')
 
-		gl_today = pd.merge(gl_today, inv, on=['date', 'item_id'], how='left').fillna(0)
-		gl_today = pd.merge(gl_today, inv_totals, on=['date'], how='left').fillna(0)
-		gl = pd.concat([gl_past, gl_today], ignore_index=True)
+		gl = pd.merge(gl, inv, on=['date', 'item_id'], how='left').fillna(0)
+		gl = pd.merge(gl, inv_totals, on=['date'], how='left').fillna(0)
+		# gl = pd.concat([gl_past, gl_today], ignore_index=True)
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
 		if v: print(gl.head(10))
@@ -2029,6 +2043,7 @@ class World:
 			tmp_hist_hours = tmp_hist_hours.rename(columns={'index': 'entity_id'})
 			self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
 			self.set_table(self.hist_hours, 'hist_hours')
+			self.util(save=False)
 			# if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
 		else:
 			# Save prior days tables: entities, prices, demand, delay, produce_queue
@@ -2043,7 +2058,6 @@ class World:
 			self.set_table(self.prior_delay, 'prior_delay')
 			self.prior_produce_queue = self.produce_queue
 			self.set_table(self.prior_produce_queue, 'prior_produce_queue')
-		self.util(save=False)
 
 
 class Entity:
