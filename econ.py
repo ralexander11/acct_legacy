@@ -1070,10 +1070,7 @@ class World:
 		hist_hours = self.hist_hours
 		# hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
 		hist_hours['date'] = hist_hours['date'].astype(str)
-		print('hours type:')
-		print(hist_hours['date'].apply(type).value_counts())
-		print(pd.api.types.is_datetime64_any_dtype(hist_hours['date']))
-		print(pd.api.types.is_string_dtype(hist_hours['date']))
+		hist_hours.drop(['entity_id'], axis=1, inplace=True)
 		# date_mask = hist_hours['date'] == '1986-10-01'
 		# print(hist_hours['date'] == '1986-10-01')
 		# print('date_mask:\n', date_mask)
@@ -1128,12 +1125,29 @@ class World:
 		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
 		gl_today = gl[gl['date'] == str(world.now)]
 		gl_past = gl[gl['date'] != str(world.now)]
+
+		try:
+			util_past = self.get_table('util')
+			# util_past = util_past[ ['date', 'inv_qty', 'Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped', 'Land', 'Land In Use'] ]
+			util_past.drop(['event_id', 'entity_id', 'cp_id', 'post_date', 'loc', 'description', 'item_id', 'price', 'qty', 'debit_acct', 'credit_acct', 'amount', 'population', 'total_hours', 'total_Thirst', 'total_Hunger', 'total_Clothing', 'total_Shelter', 'total_Fun', 'max_hours', 'hours_used', 'demand_qty', 'item_demand_qty'], axis=1, inplace=True)			
+			print('util_past:')
+			print(util_past)
+			gl_past = pd.merge(gl_past, util_past, on=['date'], how='left').fillna(0)
+			print('gl_past:')
+			print(gl_past)
+		except pd.errors.DatabaseError as e:
+			print(f'Error util_past as: {e}')
+
 		gl_today = pd.merge(gl_today, inv, on=['date', 'item_id'], how='left').fillna(0)
 		gl_today = pd.merge(gl_today, inv_totals, on=['date'], how='left').fillna(0)
 		gl = pd.concat([gl_past, gl_today], ignore_index=True)
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
+		if v: print(gl.head(10))
+		print()
 		if v: print(gl.tail(10))
+		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+		# 	if v: print(gl)
 		if save:
 			# TODO Improve save name logic
 			outfile = 'econ_util_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
