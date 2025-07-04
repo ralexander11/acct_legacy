@@ -1055,7 +1055,7 @@ class World:
 		# print(self.accts.get_items())
 		return self.items
 
-	def util(self, gl=None, save=False, v=True):
+	def util(self, gl=None, save=False, vv=False, v=True):
 		# Function used to investigate the GL
 		# save = True
 		if v: print()
@@ -1098,7 +1098,7 @@ class World:
 		hist_hours['max_hours'] = self.hist_hours['population'] * 12
 		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['total_hours']
 		hist_hours = hist_hours.drop_duplicates(subset='date')
-		if v: print('hist_hours:\n', hist_hours)
+		if vv: print('hist_hours:\n', hist_hours)
 
 		hist_demand = self.hist_demand
 		hist_demand['date'] = pd.to_datetime(hist_demand['date']).dt.strftime('%Y-%m-%d')
@@ -1106,12 +1106,12 @@ class World:
 		hist_demand['demand_qty'] = self.hist_demand.groupby(['date'])['qty'].transform('sum')
 		hist_demand = hist_demand.drop(['date_saved', 'entity_id', 'item_id', 'qty', 'reason'], axis=1)
 		hist_demand = hist_demand.drop_duplicates(subset='date')
-		if v: print('hist_demand:\n', hist_demand)
+		if vv: print('hist_demand:\n', hist_demand)
 
 		# item_demand = self.hist_demand
 		item_demand = self.hist_demand.groupby(['date', 'item_id'])['qty'].sum().reset_index()
 		item_demand= item_demand.rename(columns={'qty': 'item_demand_qty'})
-		if v: print('item_demand:\n', item_demand)
+		if vv: print('item_demand:\n', item_demand)
 
 		# Add columns for inventory of different types, Inventory, Equipment, Land, Land In Use
 		inventory = self.ledger.get_qty(items=None, accounts=['Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped', 'Land', 'Land In Use'], show_zeros=False, by_entity=False)
@@ -1119,46 +1119,29 @@ class World:
 		# inv['account'] = inv['account'].replace({'Equipment In Use': 'Equipment', 'Equipped': 'Equipment', 'Buildings In Use': 'Buildings'})
 		inventory = inventory[inventory['item_id'] != 'Wood Chips']
 		inventory['date'] = inventory['date'].astype(str)
-		if v: print(f'inventory:\n{inventory}')
+		if vv: print(f'inventory:\n{inventory}')
 
 		self.hist_inv = pd.concat([self.hist_inv, inventory])
 		self.set_table(self.hist_inv, 'hist_inv')
-		if v: print(f'hist_inv:\n{self.hist_inv}')
+		if vv: print(f'hist_inv:\n{self.hist_inv}')
 
 		inv = self.hist_inv.groupby(['date', 'item_id'])['qty'].sum().reset_index()
 		inv = inv.rename(columns={'qty': 'inv_qty'})
-		if v: print(f'inv:\n{inv}')
+		if vv: print(f'inv:\n{inv}')
 
 		inv_totals = self.hist_inv.groupby(['account', 'date'])['qty'].sum().unstack('account').reset_index()
 		inv_totals.columns.name = None
-		if v: print(f'\ninv_totals:\n{inv_totals}\n')
+		if vv: print(f'\ninv_totals:\n{inv_totals}\n')
 
 		gl = pd.merge(gl, hist_hours, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, hist_demand, on='date', how='left').fillna(0)
 		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
-		# gl_today = gl[gl['date'] == str(world.now)]
-		# gl_past = gl[gl['date'] != str(world.now)]
-		# gl_past = pd.merge(gl_past, self.hist_inv, on=['date'], how='left').fillna(0)
-
-		# try:
-		# 	util_past = self.get_table('util')
-		# 	# util_past = util_past[ ['date', 'inv_qty', 'Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped', 'Land', 'Land In Use'] ]
-		# 	util_past.drop(['event_id', 'entity_id', 'cp_id', 'post_date', 'loc', 'description', 'item_id', 'price', 'qty', 'debit_acct', 'credit_acct', 'amount', 'population', 'total_hours', 'total_Thirst', 'total_Hunger', 'total_Clothing', 'total_Shelter', 'total_Fun', 'max_hours', 'hours_used', 'demand_qty', 'item_demand_qty'], axis=1, inplace=True)			
-		# 	print('util_past:')
-		# 	print(util_past)
-		# 	gl_past = pd.merge(gl_past, util_past, on=['date'], how='left').fillna(0)
-		# 	print('gl_past:')
-		# 	print(gl_past)
-		# except pd.errors.DatabaseError as e:
-		# 	print(f'Error util_past as: {e}')
-
 		gl = pd.merge(gl, inv, on=['date', 'item_id'], how='left').fillna(0)
 		gl = pd.merge(gl, inv_totals, on=['date'], how='left').fillna(0)
-		# gl = pd.concat([gl_past, gl_today], ignore_index=True)
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
-		if v: print(gl.head(10))
-		print()
+		if vv: print(gl.head(10))
+		if vv: print()
 		if v: print(gl.tail(10))
 		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 		# 	if v: print(gl)
@@ -3109,7 +3092,7 @@ class Entity:
 				item_freq = [x.strip() for x in item_freq.split(',')]
 		else:
 			item_freq = []
-		results = pd.DataFrame(columns=['item_type', 'item_id', 'qty', 'modifier', 'qty_req', 'qty_held', 'incomplete', 'max_qty'], index=None)
+		results = pd.DataFrame(columns=['item_type', 'item_id', 'qty', 'modifier', 'qty_req', 'qty_held', 'success', 'max_qty'], index=None)
 		# TODO Sort so requirements with a capacity are first after time
 		max_qty_possible = qty
 		# print('item: {} | max_qty_possible: {}'.format(item, max_qty_possible))
@@ -3393,7 +3376,7 @@ class Entity:
 					max_qty_possible = min(max_qty_possible, qty)
 				if v: print(f'Buildings Max Qty Possible: {max_qty_possible} | Constraint Qty: {constraint_qty} | Building: {building}')
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':building, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[math.ceil(qty / (capacity * req_qty))], 'modifier':[modifier], 'qty_req':[math.ceil(qty / (capacity * req_qty * (1-modifier)))], 'qty_held':[building], 'incomplete':[build_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[math.ceil(qty / (capacity * req_qty))], 'modifier':[modifier], 'qty_req':[math.ceil(qty / (capacity * req_qty * (1-modifier)))], 'qty_held':[building], 'success':[not build_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				qty_to_use = 0
 				build_in_use = 0
 				if building != 0:
@@ -3594,7 +3577,7 @@ class Entity:
 					max_qty_possible = min(max_qty_possible, qty)
 				if v: print(f'Equipment Max Qty Possible: {max_qty_possible} | Constraint Qty: {constraint_qty} | equip_qty: {equip_qty}')
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':equip_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[math.ceil(qty / (capacity * req_qty))], 'modifier':[modifier], 'qty_req':[math.ceil(qty / (capacity * req_qty * (1-modifier)))], 'qty_held':[equip_qty], 'incomplete':[equip_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[math.ceil(qty / (capacity * req_qty))], 'modifier':[modifier], 'qty_req':[math.ceil(qty / (capacity * req_qty * (1-modifier)))], 'qty_held':[equip_qty], 'success':[not equip_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				qty_to_use = 0
 				equip_in_use = 0
 				if equip_qty != 0:
@@ -3726,7 +3709,7 @@ class Entity:
 					max_qty_possible = min(max_qty_possible, qty)
 				if v: print('Components Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':component_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[component_qty], 'incomplete':[comp_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[component_qty], 'success':[not comp_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				if not check:
 					entries = self.consume(req_item, qty=qty_needed, buffer=True)
 					if not entries:
@@ -3927,7 +3910,7 @@ class Entity:
 				# 	incomplete = True
 				if v: print('Commodity Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':material_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[material_qty], 'incomplete':[comm_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[material_qty], 'success':[not comm_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				if item =='Cotton Gin' or item =='Cotton Spinner':
 					if v: print('Commodity results:\n', results)
 				if not check:
@@ -3969,7 +3952,7 @@ class Entity:
 				else:
 					serv_qty = entries[0][8]
 				event += entries
-				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[0], 'qty_req':[(req_qty * (1-0) * qty)], 'qty_held':[serv_qty], 'incomplete':[serv_incomplete], 'max_qty':[req_qty * qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[0], 'qty_req':[(req_qty * (1-0) * qty)], 'qty_held':[serv_qty], 'success':[not serv_incomplete], 'max_qty':[req_qty * qty]})], ignore_index=True)
 				if entries:
 					for entry in entries:
 						entry_df = pd.DataFrame([entry], columns=world.cols)
@@ -4008,7 +3991,7 @@ class Entity:
 					else:
 						incomplete = True
 						sub_incomplete = True
-				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[0], 'qty_req':[(req_qty * (1-0) * qty)], 'qty_held':[subscription_state], 'incomplete':[sub_incomplete], 'max_qty':[req_qty * qty]})], ignore_index=True) # TODO Do max_qty properly
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[0], 'qty_req':[(req_qty * (1-0) * qty)], 'qty_held':[subscription_state], 'success':[not sub_incomplete], 'max_qty':[req_qty * qty]})], ignore_index=True) # TODO Do max_qty properly
 
 			elif req_item_type == 'Job' and partial is None:
 				job_incomplete = False
@@ -4081,7 +4064,7 @@ class Entity:
 							max_qty_possible = min(max_qty_possible, qty)
 						if v: print('Job Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty))
 						# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':workers, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-						results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[workers], 'incomplete':[job_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+						results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[workers], 'success':[not job_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Labour':
 				lab_incomplete = False
@@ -4395,7 +4378,7 @@ class Entity:
 								constraint_qty = 0
 					if v: print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | WIP Complete: {} | Time Req: {} | Partial: {} | Labour Done: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, wip_complete, time_required, partial, labour_done, constraint_qty, incomplete))
 					# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':qty_held, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-					results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[qty_held], 'incomplete':[lab_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+					results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[qty_held], 'success':[not lab_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Education' and partial is None:
 				edu_incomplete = False
@@ -4449,7 +4432,7 @@ class Entity:
 								max_qty_possible = 0
 						constraint_qty = None
 						# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':edu_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-						results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[edu_status], 'incomplete':[edu_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+						results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[edu_status], 'success':[not edu_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
 			elif req_item_type == 'Technology' and partial is None:
 				tech_incomplete = False
@@ -4497,7 +4480,7 @@ class Entity:
 						tech_incomplete = True
 				constraint_qty = None
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':tech_status, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[tech_status], 'incomplete':[tech_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[tech_status], 'success':[not tech_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 			self.ledger.reset()
 		if incomplete or check:
 			for individual in world.gov.get(Individual):
@@ -4528,9 +4511,9 @@ class Entity:
 		self.gl_tmp = pd.DataFrame(columns=world.cols)
 		if show_results:
 			if incomplete:
-				if v: print(f'\nResult of trying to produce {qty} {item} by {self.name}:\n{results}\n')
+				print(f'\nResult of trying to produce {qty} {item} by {self.name}:\n{results}\n')#if v: 
 			else:
-				if v: print(f'\nResult of producing {qty} {item} by {self.name}:\n{results}\n')
+				print(f'\nResult of producing {qty} {item} by {self.name}:\n{results}\n')#if v: 
 		if v: print(f'!fulfill return due to finishing for item: {item}. | incomplete: {incomplete} | time_required: {time_required} | max_qty_possible: {max_qty_possible}')
 		return incomplete, event, time_required, max_qty_possible
 
