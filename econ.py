@@ -1272,7 +1272,7 @@ class World:
 		# TODO Update entities table in db
 		return target
 
-	def get_price(self, item, entity_id=None):
+	def get_price(self, item, entity_id=None, v=True):
 		# if not isinstance(entity_id, int) and entity_id is not None:
 		# if not np.issubdtype(entity_id, np.integer) and entity_id is not None:
 		if isinstance(entity_id, Entity):
@@ -1285,12 +1285,14 @@ class World:
 			#print('Item Prices: \n{}'.format(current_prices))
 		except KeyError as e:
 			new = True
+			if v: print(f'Need new price for {item}.')
 		if entity_id and not new:
 			#print('Entity: {}'.format(entity_id))
 			current_prices = current_prices.loc[current_prices['entity_id'] == entity_id]
 			if current_prices.empty:
 				# Add price for that entity if it doesn't exist yet
 				new = True
+				if v: print(f'Need new price for {item} by entity: {entity_id}.')
 				# cur_price = self.get_price(item)
 				# new_price = pd.DataFrame({'entity_id': [entity_id], 'item_id': [item],'price': [cur_price]}).set_index('item_id')
 				# self.prices = self.prices.append(new_price)
@@ -1300,13 +1302,16 @@ class World:
 				# self.set_table(self.prices, 'prices')
 				# return cur_price
 		if entity_id and new:
+			item_type = world.get_item_type(item)
 			if entity_id == world.env.entity_id:
 				cur_price = 0.0
 			else:
 				cur_price = self.get_price(item)
-			new_price = pd.DataFrame({'entity_id': [entity_id], 'item_id': [item],'price': [cur_price]}).set_index('item_id')
-			# self.prices = self.prices.append(new_price)
-			self.prices = pd.concat([self.prices, new_price])
+			if cur_price != INIT_PRICE or item_type == 'Land' or item_type == 'Labour': # TODO Maybe check if Labour has requirements
+				new_price = pd.DataFrame({'entity_id': [entity_id], 'item_id': [item],'price': [cur_price]}).set_index('item_id')
+				self.prices = pd.concat([self.prices, new_price])
+				if v: print(f'cur_price of {item} by {entity_id}: {cur_price}')
+
 			# print('After appending: \n{}'.format(new_price))
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print(self.prices)
@@ -1318,7 +1323,7 @@ class World:
 			price = self.items.loc[item, 'start_price']
 			if price is not None:
 				price = float(price)
-				print(f'{item} has a default start price of: {price}')
+				print(f'Default price for {item} of: {price}')
 				return price
 
 			item_type = world.get_item_type(item)
@@ -1328,7 +1333,7 @@ class World:
 			return INIT_PRICE
 		#print('Current Prices: \n{}'.format(current_prices))
 		price = current_prices['price'].min()
-		# print('Price for {}: {}'.format(item, price))
+		if v: print(f'Price for {item}: {price}')
 		return price
 
 	def reduce_prices(self, v=False):
@@ -1859,6 +1864,8 @@ class World:
 		self.inventory = self.entities[['entity_id','name']].merge(self.inventory, on=['entity_id'])
 		with pd.option_context('display.max_rows', None):
 			print('Global Items: \n{}'.format(self.inventory))
+			print()
+			print(f'Prices end:\n{self.prices}')
 		print()
 		t9_end = time.perf_counter()
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
@@ -2176,11 +2183,20 @@ class Entity:
 			self.ledger.reset()
 			if v: print('{}\'s current price for {}: {}'.format(self.name, item, price))
 			if price < cost and qty_held <= qty:
+				mask = (world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)
 				if at_cost:
-					world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost
+					if world.prices[mask].empty:
+						new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost}], index=[item])
+						world.prices = pd.concat([world.prices, new_price])
+					else:
+						world.prices.loc[mask, 'price'] = cost
 					if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 				else:
-					world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost * (1 + markup)
+					if world.prices[mask].empty:
+						new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost * (1 + markup)}], index=[item])
+						world.prices = pd.concat([world.prices, new_price])
+					else:
+						world.prices.loc[mask, 'price'] = cost * (1 + markup)
 					if v: print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				# 	print(world.prices)
@@ -3259,7 +3275,7 @@ class Entity:
 					land_incomplete = True
 				if v: print('Land Max Qty Possible: {} | Constraint Qty: {}'.format(max_qty_possible, constraint_qty)) # TODO Show the max possible above qty requested
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':land, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
-				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[land], 'incomplete':[land_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
+				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[land], 'success':[not land_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				# if (reqs == 'hold_req' or time_required):# and not incomplete: # TODO Test is "not incomplete" is still needed here
 				# TODO Handle land in use during one tick
 				# qty_needed = req_qty * (1-modifier) * qty
@@ -3333,6 +3349,18 @@ class Entity:
 							if v: print('{} does not have any {} building and requires {}.'.format(self.name, req_item, required_qty))
 						else:
 							if v: print('{} does not have enough capacity in {} building and requires {}.'.format(self.name, req_item, required_qty))
+						
+						# If item is expensive keep required_qty at 1
+						if required_qty > 1:
+							build_cost = world.get_price(req_item)
+							item_cost = world.get_price(item)
+							if v: print(f'build_cost: {build_cost} | item_cost: {item_cost} | price: {price} | total_price: {required_qty * price}')
+							thresh = item_cost * qty * MARKUP
+							if v: print(f'thresh: {thresh} | qty: {qty} | MARKUP: {MARKUP} | required_qty: {required_qty}')
+							if (price * required_qty) > thresh:
+								required_qty = 1
+							if v: print(f'required_qty after: {required_qty}')
+
 						if not man:
 							# Attempt to purchase before producing self if makes sense
 							result = self.purchase(req_item, required_qty, buffer=buffer, v=v)#, acct_buy='Buildings')#, wip_acct='Building Under Construction')
@@ -3495,14 +3523,13 @@ class Entity:
 						# If item is expensive keep required_qty at 1
 						if required_qty > 1:
 							equip_cost = world.get_price(req_item)
-							if v: print(f'equip_cost: {equip_cost} | price: {price} | total_price: {required_qty * price}')
 							item_cost = world.get_price(item)
-							if v: print(f'item_cost: {item_cost}')
+							if v: print(f'equip_cost: {equip_cost} | item_cost: {item_cost} | price: {price} | total_price: {required_qty * price}')
 							thresh = item_cost * qty * MARKUP
-							if v: print(f'thresh: {thresh} | qty: {qty} | required_qty: {required_qty}')
+							if v: print(f'thresh: {thresh} | qty: {qty} | MARKUP: {MARKUP} | required_qty: {required_qty}')
 							if (price * required_qty) > thresh:
 								required_qty = 1
-							if v: print(f'required_qty: {required_qty}')
+							if v: print(f'required_qty after: {required_qty}')
 
 						if not man:
 							# Attempt to purchase before producing self if makes sense
