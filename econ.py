@@ -1864,8 +1864,8 @@ class World:
 		self.inventory = self.entities[['entity_id','name']].merge(self.inventory, on=['entity_id'])
 		with pd.option_context('display.max_rows', None):
 			print('Global Items: \n{}'.format(self.inventory))
-			print()
-			print(f'Prices end:\n{self.prices}')
+			# print()
+			# print(f'Prices end:\n{self.prices}')
 		print()
 		t9_end = time.perf_counter()
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
@@ -2186,14 +2186,16 @@ class Entity:
 				mask = (world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)
 				if at_cost:
 					if world.prices[mask].empty:
-						new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost}], index=[item])
+						new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost]}).set_index('item_id')
+						# new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost}], index=[item])
 						world.prices = pd.concat([world.prices, new_price])
 					else:
 						world.prices.loc[mask, 'price'] = cost
 					if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 				else:
 					if world.prices[mask].empty:
-						new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost * (1 + markup)}], index=[item])
+						new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost * (1 + markup)]}).set_index('item_id')
+						# new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost * (1 + markup)}], index=[item])
 						world.prices = pd.concat([world.prices, new_price])
 					else:
 						world.prices.loc[mask, 'price'] = cost * (1 + markup)
