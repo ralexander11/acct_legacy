@@ -1110,24 +1110,31 @@ class World:
 
 		# item_demand = self.hist_demand
 		item_demand = self.hist_demand.groupby(['date', 'item_id'])['qty'].sum().reset_index()
-		item_demand= item_demand.rename(columns={'qty': 'item_demand_qty'})
+		item_demand = item_demand.rename(columns={'qty': 'item_demand_qty'})
 		if vv: print('item_demand:\n', item_demand)
 
 		# Add columns for inventory of different types, Inventory, Equipment, Land, Land In Use
+		# TODO Exclude environment entity from inventory query
 		inventory = self.ledger.get_qty(items=None, accounts=['Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped', 'Land', 'Land In Use'], show_zeros=False, by_entity=False)
 		inventory['date'] = world.now
 		# inv['account'] = inv['account'].replace({'Equipment In Use': 'Equipment', 'Equipped': 'Equipment', 'Buildings In Use': 'Buildings'})
 		inventory = inventory[inventory['item_id'] != 'Wood Chips']
 		inventory['date'] = inventory['date'].astype(str)
-		if vv: print(f'inventory:\n{inventory}')
+		if vv: print(f'\ninventory:\n{inventory}')
 
 		self.hist_inv = pd.concat([self.hist_inv, inventory])
 		self.set_table(self.hist_inv, 'hist_inv')
-		if vv: print(f'hist_inv:\n{self.hist_inv}')
+		if vv: print(f'\nhist_inv:\n{self.hist_inv}')
 
-		inv = self.hist_inv.groupby(['date', 'item_id'])['qty'].sum().reset_index()
+		inv = self.hist_inv[self.hist_inv['account'] != 'Land']
+		inv = inv.groupby(['date'])['qty'].sum().reset_index()
 		inv = inv.rename(columns={'qty': 'inv_qty'})
-		if vv: print(f'inv:\n{inv}')
+		if vv: print(f'\ninv:\n{inv}')
+
+		item_inv = self.hist_inv[self.hist_inv['account'] != 'Land']
+		item_inv = item_inv.groupby(['date', 'item_id'])['qty'].sum().reset_index()
+		item_inv = item_inv.rename(columns={'qty': 'item_inv_qty'})
+		if vv: print(f'\nitem_inv:\n{item_inv}')
 
 		inv_totals = self.hist_inv.groupby(['account', 'date'])['qty'].sum().unstack('account').reset_index()
 		inv_totals.columns.name = None
@@ -1136,7 +1143,8 @@ class World:
 		gl = pd.merge(gl, hist_hours, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, hist_demand, on='date', how='left').fillna(0)
 		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
-		gl = pd.merge(gl, inv, on=['date', 'item_id'], how='left').fillna(0)
+		gl = pd.merge(gl, inv, on=['date'], how='left').fillna(0)
+		gl = pd.merge(gl, item_inv, on=['date', 'item_id'], how='left').fillna(0)
 		gl = pd.merge(gl, inv_totals, on=['date'], how='left').fillna(0)
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
@@ -1333,7 +1341,7 @@ class World:
 			return INIT_PRICE
 		#print('Current Prices: \n{}'.format(current_prices))
 		price = current_prices['price'].min()
-		if v: print(f'Price for {item}: {price}')
+		# if v: print(f'Price for {item}: {price}')
 		return price
 
 	def reduce_prices(self, v=False):
@@ -4577,7 +4585,7 @@ class Entity:
 					qty -= wip_qty
 		incomplete, produce_event, time_required, max_qty_possible = self.fulfill(item, qty, reqs=reqs, amts=amts, man=man, show_results=True, v=v)
 		if incomplete:
-			if v: print(f'***** Produce fail {qty} {item} ****')
+			if v: print(f'***** Produce fail {qty} {item} ****\n')
 			return [], time_required, max_qty_possible, incomplete
 		orig_qty = qty
 		qty = max_qty_possible
