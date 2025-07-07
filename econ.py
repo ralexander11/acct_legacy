@@ -2316,7 +2316,7 @@ class Entity:
 				# counterparty.adj_price(item, qty, direction='down')
 			return purchase_event, cost
 
-	def purchase(self, item, qty, acct_buy=None, acct_sell='Inventory', acct_rev='Sales', wip_acct='WIP Inventory', priority=False, reason_need=False, buffer=False, v=True):
+	def purchase(self, item, qty, acct_buy=None, acct_sell='Inventory', acct_rev='Sales', wip_acct='WIP Inventory', priority=False, reason_need=False, buffer=False, vv=False, v=True):
 		# TODO Clean up
 		if qty == 0:
 			return
@@ -2401,11 +2401,11 @@ class Entity:
 		# TODO Consider if want to purchase none inventory assets by replacing Inventory below with acct_buy
 		global_inv = self.ledger.get_qty(item, ['Inventory'], by_entity=True)#, v=True)
 		prices_tmp = world.prices.reset_index()
-		# print('prices_tmp:', prices_tmp)
+		if vv: print('prices_tmp:', prices_tmp)
 		prices_tmp.rename(columns={'index': 'item_id'}, inplace=True)
-		global_inv = global_inv.merge(prices_tmp, on=['entity_id','item_id'])
+		global_inv = global_inv.merge(prices_tmp, on=['entity_id','item_id']) # TODO Fix what to do if no price exists for item
 		global_inv.sort_values(by=['price'], ascending=True, inplace=True)
-		# print('Global purchase inventory for: {} \n{}'.format(item, global_inv))
+		if vv: print('Global purchase inventory for: {} \n{}'.format(item, global_inv))
 		if item_type in ['Commodity', 'Components']:
 			global_inv = global_inv.loc[global_inv['entity_id'] != self.entity_id]
 		if self.entity_id in global_inv['entity_id'].values:
@@ -2507,7 +2507,7 @@ class Entity:
 					else:
 						qty_demanded = max(qty_wanted - purchased_qty, 0)
 						self.item_demanded(item, qty_demanded, priority=priority, reason_need=reason_need, v=v)
-		# if v: print('Purchase Result: {} {} \n{}'.format(qty, item, result))
+		if vv: print('Purchase Result: {} {} \n{}'.format(qty, item, result))
 		if buffer:
 			return result
 		else:
@@ -5086,6 +5086,7 @@ class Entity:
 			for index, wip_lot in wip_txns.iterrows():
 				time_check = False
 				wip_event = []
+				partial_cost = 0
 				hours = None
 				item = wip_lot['item_id']
 				qty = wip_lot['qty']
@@ -5224,6 +5225,10 @@ class Entity:
 											self.prod_hold = [wip_lot['event_id'] if x == entry[0] else x for x in self.prod_hold]
 									if v: print('{} WIP Orig Partial event_id: {} | New Partial event_id: {} | {}'.format(self.name, entry[0], wip_lot['event_id'], self.hold_event_ids))
 									entry[0] = wip_lot['event_id']
+								if v: print('partial wip amount:', entry[11])
+								if entry[9] == 'Wages Expense':
+									partial_cost += entry[11] # TODO Should this be a Cost Pool type event like in produce() func?
+								if v: print('partial wip partial_cost:', partial_cost)
 							self.ledger.journal_entry(partial_work_event)
 					try:
 						delay = world.delay.loc[world.delay['txn_id'] == index, 'delay'].values[0]
@@ -5330,7 +5335,16 @@ class Entity:
 						world.tech = world.tech.reset_index()
 						if v: print('wip tech table:\n', world.tech)
 					if wip_event[-1][-3] == 'Inventory':
-						self.set_price(wip_lot['item_id'], wip_lot['qty'], v=v)
+						if v: print('wip item:', wip_lot['item_id'])
+						if wip_lot['item_id'] not in world.prices.index:
+							cost = partial_cost + wip_lot['amount']
+							price = round(cost / wip_lot['qty'], 2)
+							print('wip_lot price:', wip_lot['amount'])
+							print(f'partial_cost: {partial_cost} | init wip cost: {cost} | init wip price: {price}')
+							self.set_price(wip_lot['item_id'], wip_lot['qty'], price, v=v)
+							print('Setting initial price for {} to {} from finishing {} WIP.'.format(wip_lot['item_id'], price, wip_lot['qty']))
+						else:
+							self.set_price(wip_lot['item_id'], wip_lot['qty'], v=v)
 					result += wip_event
 			return result
 
