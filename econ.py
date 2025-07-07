@@ -1871,9 +1871,11 @@ class World:
 		self.inventory = self.ledger.get_qty(items=None, accounts=['Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped'], show_zeros=False, by_entity=True)
 		self.inventory = self.entities[['entity_id','name']].merge(self.inventory, on=['entity_id'])
 		with pd.option_context('display.max_rows', None):
-			print('Global Items: \n{}'.format(self.inventory))
-			# print()
-			# print(f'Prices end:\n{self.prices}')
+			print('Global Items:\n{}'.format(self.inventory))
+			print()
+			print('Delays:\n{}'.format(self.delay))
+			print()
+			print(f'Prices end:\n{self.prices}')
 		print()
 		t9_end = time.perf_counter()
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
@@ -2132,6 +2134,7 @@ class Entity:
 
 	def set_price(self, item=None, qty=0, price=None, markup=MARKUP, at_cost=False, v=True):
 		if item is None: # TODO Look into why this is called in update_econ()
+			print(f'Setting price for any item {self.name} produces.')
 			if self.produces is None:
 				if v: print('{} produces no items.'.format(self.name))
 				return
@@ -2144,6 +2147,7 @@ class Entity:
 						price = 0
 						world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = price
 						#print('{} sets price for {} from {} to {}.'.format(self.name, item, price, 0))
+					world.set_table(world.prices, 'prices')
 					return
 				cost = 0
 				self.ledger.set_entity(self.entity_id)
@@ -2158,17 +2162,33 @@ class Entity:
 				#print('{}\'s current price for {}: {}'.format(self.name, item, price))
 				if price < cost and qty_held <= qty:
 					if at_cost:
-						world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost
-						if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+						if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
+							new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost]}).set_index('item_id')
+							world.prices = pd.concat([world.prices, new_price])
+							if v: print('{} sets new price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+						else:
+							world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost
+							if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 					else:
-						world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost * (1 + markup)
-					if v: print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+						if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
+							new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost * (1 + markup)]}).set_index('item_id')
+							world.prices = pd.concat([world.prices, new_price])
+							if v: print('{} sets new price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+						else:
+							world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost * (1 + markup)
+							if v: print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 		else:
 			if price is not None:
 				orig_price = world.get_price(item, self.entity_id)
 				# world.prices.at[item, 'price'] = price
-				world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = price
-				if v: print('{} manually sets price for {} from {} to {}.'.format(self.name, item, orig_price, price))
+				if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
+					new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [price]}).set_index('item_id')
+					world.prices = pd.concat([world.prices, new_price])
+					if v: print('{} manually sets new price for {} from {} to {}.'.format(self.name, item, orig_price, price))
+				else:
+					world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = price
+					if v: print('{} manually sets price for {} from {} to {}.'.format(self.name, item, orig_price, price))
+				world.set_table(world.prices, 'prices')
 				return
 			price = world.get_price(item, self.entity_id)
 			item_type = world.get_item_type(item)
@@ -2178,6 +2198,7 @@ class Entity:
 					price = 0
 					world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = price
 					#print('{} sets price for {} from {} to {}.'.format(self.name, item, price, 0))
+				world.set_table(world.prices, 'prices')
 				return
 			cost = 0
 			self.ledger.set_entity(self.entity_id)
@@ -2197,17 +2218,19 @@ class Entity:
 						new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost]}).set_index('item_id')
 						# new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost}], index=[item])
 						world.prices = pd.concat([world.prices, new_price])
+						if v: print('{} sets new price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 					else:
 						world.prices.loc[mask, 'price'] = cost
-					if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+						if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 				else:
 					if world.prices[mask].empty:
 						new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost * (1 + markup)]}).set_index('item_id')
 						# new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost * (1 + markup)}], index=[item])
 						world.prices = pd.concat([world.prices, new_price])
+						if v: print('{} sets new price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 					else:
 						world.prices.loc[mask, 'price'] = cost * (1 + markup)
-					if v: print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+						if v: print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				# 	print(world.prices)
 		world.set_table(world.prices, 'prices')
@@ -5833,7 +5856,6 @@ class Entity:
 		# 		if vv: print('Demand Check not empty.')
 		# 		if item_type != 'Commodity' and item_type != 'Components':
 		# 			if v: print('{} already on demand list for {}.'.format(item, self.name))
-		# 		exit()
 		# 		return
 
 		if item_type == 'Service':
