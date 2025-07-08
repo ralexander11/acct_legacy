@@ -1288,12 +1288,15 @@ class World:
 		new = False
 		try:
 			current_prices = self.prices.loc[item]
+			# print('current_prices 1:\n{}'.format(current_prices))
 			if isinstance(current_prices, pd.Series):
 				current_prices = current_prices.to_frame().transpose()
-			#print('Item Prices: \n{}'.format(current_prices))
+				# print('current_prices 2:\n{}'.format(current_prices))
 		except KeyError as e:
 			new = True
-			if v: print(f'Need new price for {item}.')
+			if v: print(f'Need new price for {item}. | {e} | {repr(e)}')
+			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 	print(self.prices)
 		if entity_id and not new:
 			#print('Entity: {}'.format(entity_id))
 			current_prices = current_prices.loc[current_prices['entity_id'] == entity_id]
@@ -2165,34 +2168,38 @@ class Entity:
 						if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
 							new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost]}).set_index('item_id')
 							world.prices = pd.concat([world.prices, new_price])
-							if v: print('{} sets new price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+							print('{} sets new price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 						else:
 							world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost
-							if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+							print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 					else:
 						if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
 							new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost * (1 + markup)]}).set_index('item_id')
 							world.prices = pd.concat([world.prices, new_price])
-							if v: print('{} sets new price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+							print('{} sets new price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 						else:
 							world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost * (1 + markup)
-							if v: print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+							print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 		else:
 			if price is not None:
 				orig_price = world.get_price(item, self.entity_id)
 				# world.prices.at[item, 'price'] = price
+				print('{} will set new price manually for {}.'.format(self.name, item))
+				print(world.prices[world.prices.index == item])
+				print(world.prices[world.prices['entity_id'] == self.entity_id])
+				print(world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)])
 				if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
 					new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [price]}).set_index('item_id')
 					world.prices = pd.concat([world.prices, new_price])
-					if v: print('{} manually sets new price for {} from {} to {}.'.format(self.name, item, orig_price, price))
+					print('{} manually sets new price for {} from {} to {}.\n{}'.format(self.name, item, orig_price, price, world.prices))
 				else:
 					world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = price
-					if v: print('{} manually sets price for {} from {} to {}.'.format(self.name, item, orig_price, price))
+					print('{} manually sets price for {} from {} to {}.'.format(self.name, item, orig_price, price))
 				world.set_table(world.prices, 'prices')
 				return
 			price = world.get_price(item, self.entity_id)
 			item_type = world.get_item_type(item)
-			if item_type in ['Technology','Education'] or isinstance(self, Environment): # TODO Maybe support creating types of land like planting trees to make forest
+			if item_type in ['Technology', 'Education'] or isinstance(self, Environment): # TODO Maybe support creating types of land like planting trees to make forest
 				if price != 0:
 					# world.prices.at[item, 'price'] = 0
 					price = 0
@@ -2218,19 +2225,19 @@ class Entity:
 						new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost]}).set_index('item_id')
 						# new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost}], index=[item])
 						world.prices = pd.concat([world.prices, new_price])
-						if v: print('{} sets new price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+						print('{} sets new price for {} from {} to cost at {}.\n{}'.format(self.name, item, price, cost, world.prices))
 					else:
 						world.prices.loc[mask, 'price'] = cost
-						if v: print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+						print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
 				else:
 					if world.prices[mask].empty:
 						new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost * (1 + markup)]}).set_index('item_id')
 						# new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost * (1 + markup)}], index=[item])
 						world.prices = pd.concat([world.prices, new_price])
-						if v: print('{} sets new price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+						print('{} sets new price for {} from {} to {}.\n{}'.format(self.name, item, price, cost * (1 + markup), world.prices))
 					else:
 						world.prices.loc[mask, 'price'] = cost * (1 + markup)
-						if v: print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+						print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 				# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				# 	print(world.prices)
 		world.set_table(world.prices, 'prices')
