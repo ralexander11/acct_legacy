@@ -1098,20 +1098,26 @@ class World:
 		hist_hours['max_hours'] = self.hist_hours['population'] * 12
 		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['total_hours']
 		hist_hours = hist_hours.drop_duplicates(subset='date')
-		if vv: print('hist_hours:\n', hist_hours)
+		if vv: print('\nhist_hours:\n', hist_hours)
 
-		hist_demand = self.hist_demand
-		hist_demand['date'] = pd.to_datetime(hist_demand['date']).dt.strftime('%Y-%m-%d')
-		# hist_demand['item_demand_qty'] = self.hist_demand.groupby(['date', 'item_id'])['qty'].transform('sum')
-		hist_demand['demand_qty'] = self.hist_demand.groupby(['date'])['qty'].transform('sum')
-		hist_demand = hist_demand.drop(['date_saved', 'entity_id', 'item_id', 'qty', 'reason'], axis=1)
-		hist_demand = hist_demand.drop_duplicates(subset='date')
-		if vv: print('hist_demand:\n', hist_demand)
+		# hist_demand = self.hist_demand
+		# hist_demand['date'] = pd.to_datetime(hist_demand['date']).dt.strftime('%Y-%m-%d')
+		# # hist_demand['item_demand_qty'] = self.hist_demand.groupby(['date', 'item_id'])['qty'].transform('sum')
+		# hist_demand['demand_qty'] = self.hist_demand.groupby(['date'])['qty'].transform('sum')
+		# hist_demand = hist_demand.drop(['date_saved', 'entity_id', 'item_id', 'qty', 'reason'], axis=1)
+		# hist_demand = hist_demand.drop_duplicates(subset='date')
+		# if vv: print('\nhist_demand old:\n', hist_demand)
+
+		hist_demand = self.hist_demand.groupby(['date_saved'])['qty'].sum().reset_index()
+		hist_demand = hist_demand.rename(columns={'date_saved': 'date', 'qty': 'demand_qty'})
+		hist_demand['date'] = hist_demand['date'].astype(str)
+		if vv: print('\nhist_demand:\n', hist_demand)
 
 		# item_demand = self.hist_demand
-		item_demand = self.hist_demand.groupby(['date', 'item_id'])['qty'].sum().reset_index()
-		item_demand = item_demand.rename(columns={'qty': 'item_demand_qty'})
-		if vv: print('item_demand:\n', item_demand)
+		item_demand = self.hist_demand.groupby(['date_saved', 'item_id'])['qty'].sum().reset_index()
+		item_demand = item_demand.rename(columns={'date_saved': 'date', 'qty': 'item_demand_qty'})
+		item_demand['date'] = item_demand['date'].astype(str)
+		if vv: print('\nitem_demand:\n', item_demand)
 
 		# Add columns for inventory of different types, Inventory, Equipment, Land, Land In Use
 		# TODO Exclude environment entity from inventory query
@@ -1141,7 +1147,7 @@ class World:
 		if vv: print(f'\ninv_totals:\n{inv_totals}\n')
 
 		gl = pd.merge(gl, hist_hours, on=['date'], how='left').fillna(0)
-		gl = pd.merge(gl, hist_demand, on='date', how='left').fillna(0)
+		gl = pd.merge(gl, hist_demand, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
 		gl = pd.merge(gl, inv, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, item_inv, on=['date', 'item_id'], how='left').fillna(0)
@@ -1801,8 +1807,6 @@ class World:
 			for entity in self.factory.get(typ):
 				entity.release_check()#v=True)
 		print()
-		self.get_hours(v=True)
-		print()
 		world.unused_land(all_land=True)
 		print()
 		for typ in self.factory.registry.keys():
@@ -1811,13 +1815,13 @@ class World:
 					entity.negative_bal()
 				self.ledger.set_entity(entity.entity_id)
 				entity.cash = self.ledger.balance_sheet(['Cash'])
-				print('{} Cash: {}'.format(entity.name, entity.cash))
+				print('{} Cash: {}'.format(entity.name, round(entity.cash, 2)))
 				self.ledger.reset()
 			print()
 			for entity in self.factory.get(typ):
 				self.ledger.set_entity(entity.entity_id)
 				entity.nav = self.ledger.balance_sheet()
-				print('{} NAV: {}'.format(entity.name, entity.nav))
+				print('{} NAV: {}'.format(entity.name, round(entity.nav, 2)))
 				self.ledger.reset()
 
 			# TODO Add a way to see the NAV and Cash for the country, which is different than the gov. It would be all the entities of the gov consolidated
@@ -1866,6 +1870,8 @@ class World:
 
 		print()
 		print(time_stamp() + 'Current Date 09: {}'.format(self.now))
+		print()
+		self.get_hours(v=True)
 		print()
 		with pd.option_context('display.max_rows', None):
 			print('World Demand End: \n{}'.format(world.demand))
@@ -2168,10 +2174,10 @@ class Entity:
 						if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
 							new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost]}).set_index('item_id')
 							world.prices = pd.concat([world.prices, new_price])
-							print('{} sets new price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+							print('{} sets new price for {} from {} at cost of {}.'.format(self.name, item, price, cost))
 						else:
 							world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost
-							print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
+							print('{} sets price for {} from {} at cost of {}.'.format(self.name, item, price, cost))
 					else:
 						if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
 							new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost * (1 + markup)]}).set_index('item_id')
@@ -2185,9 +2191,9 @@ class Entity:
 				orig_price = world.get_price(item, self.entity_id)
 				# world.prices.at[item, 'price'] = price
 				print('{} will set new price manually for {}.'.format(self.name, item))
-				print(world.prices[world.prices.index == item])
-				print(world.prices[world.prices['entity_id'] == self.entity_id])
-				print(world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)])
+				# print(world.prices[world.prices.index == item])
+				# print(world.prices[world.prices['entity_id'] == self.entity_id])
+				# print(world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)])
 				if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
 					new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [price]}).set_index('item_id')
 					world.prices = pd.concat([world.prices, new_price])
@@ -2225,7 +2231,7 @@ class Entity:
 						new_price = pd.DataFrame({'entity_id': [self.entity_id], 'item_id': [item],'price': [cost]}).set_index('item_id')
 						# new_price = pd.DataFrame([{'entity_id': self.entity_id, 'price': cost}], index=[item])
 						world.prices = pd.concat([world.prices, new_price])
-						print('{} sets new price for {} from {} to cost at {}.\n{}'.format(self.name, item, price, cost, world.prices))
+						print('{} sets new price for {} from {} at cost of {}.\n{}'.format(self.name, item, price, cost, world.prices))
 					else:
 						world.prices.loc[mask, 'price'] = cost
 						print('{} sets price for {} from {} to cost at {}.'.format(self.name, item, price, cost))
