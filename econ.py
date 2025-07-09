@@ -1152,11 +1152,12 @@ class World:
 		gl = pd.merge(gl, inv, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, item_inv, on=['date', 'item_id'], how='left').fillna(0)
 		gl = pd.merge(gl, inv_totals, on=['date'], how='left').fillna(0)
+		gl = gl.iloc[::-1]
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
-		if vv: print(gl.head(10))
+		if vv: print(gl.tail(10))
 		if vv: print()
-		if v: print(gl.tail(10))
+		if v: print(gl.head(10))
 		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 		# 	if v: print(gl)
 		if save:
