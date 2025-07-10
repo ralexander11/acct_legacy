@@ -4953,9 +4953,17 @@ class Entity:
 				world.set_table(world.delay, 'delay')
 				if vv: print('World Delay: \n{}'.format(world.delay))
 		if produce_event[-1][-3] in ['Inventory', 'WIP Inventory']:
-			self.set_price(item, qty, v=v)
+			if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
+				print(f'{self.name} produced {qty} {item} for the first time and set the price to: {price}')
+				self.set_price(item, qty, price, v=v)
+			else:
+				self.set_price(item, qty, v=v)
 		else:
-			self.set_price(item, qty, at_cost=True, v=v)
+			if world.prices[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)].empty:
+				print(f'{self.name} produced {qty} {item} for the first time and set the price at cost to: {price}')
+				self.set_price(item, qty, price, v=v)
+			else:
+				self.set_price(item, qty, at_cost=True, v=v)
 		# if man: # TODO Make this the case for not man also
 		if v: print(f'***** Produce end {qty} {item} ****')
 		if v: print()
