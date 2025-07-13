@@ -433,9 +433,9 @@ class World:
 				# self.factory.create(legal_form, nonprof['name'], nonprof['outputs'], int(nonprof['government']), int(nonprof['founder']), nonprof['auth_shares'], nonprof['entity_id'])
 			self.prices = self.get_table('prior_prices')
 			with pd.option_context('display.max_rows', None):
-				print('\nPrices: \n{}\n'.format(self.prices))
-				print('Technology: \n{}\n'.format(self.tech))
-				print('Delays: \n{}\n'.format(self.delay))
+				print('\nPrices:\n{}\n'.format(self.prices))
+				print('Technology:\n{}\n'.format(self.tech))
+				print('Delays:\n{}\n'.format(self.delay))
 			try: # TODO Remove error checking because of legacy db files
 				self.hist_prices = self.get_table('hist_prices')
 				self.hist_demand = self.get_table('hist_demand')
@@ -1152,6 +1152,8 @@ class World:
 		gl = pd.merge(gl, inv, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, item_inv, on=['date', 'item_id'], how='left').fillna(0)
 		gl = pd.merge(gl, inv_totals, on=['date'], how='left').fillna(0)
+		gl['price'] = gl['price'].round(2)
+		gl['amount'] = gl['amount'].round(2)
 		gl = gl.iloc[::-1]
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
@@ -1386,6 +1388,7 @@ class World:
 		return global_needs
 
 	def update_econ(self):
+		v = args.verbose
 		self.t1_start = time.perf_counter()
 		if not self.active_day:
 			if str(self.now) == str(self.ledger.gl['date'].min()):
@@ -1466,10 +1469,10 @@ class World:
 				individual.reset_hours()
 			self.prices = self.prices.sort_values(['entity_id'], na_position='first')
 			with pd.option_context('display.max_rows', None):
-				print('\nPrices: \n{}\n'.format(self.prices))
-				print('Technology: \n{}\n'.format(self.tech))
-				print('Delays: \n{}\n'.format(self.delay))
-				print('Auto: \n{}\n'.format(self.produce_queue))
+				print('\nPrices:\n{}\n'.format(self.prices))
+				print('Technology:\n{}\n'.format(self.tech))
+				print('Delays:\n{}\n'.format(self.delay))
+				print('Auto:\n{}\n'.format(self.produce_queue))
 
 			self.set_table(self.tech, 'tech')
 			demand_items = self.demand.drop_duplicates(['item_id']) # TODO Is this needed?
@@ -1703,7 +1706,7 @@ class World:
 				# if self.end_turn(check_hrs=True, user_check=user_check): return
 				hours = self.get_hours(total=True)
 				if hours < 1:
-					print(f'Total entity hours: {hours}')
+					if v: print(f'Total entity hours: {hours}')
 					break
 				tmp_demand = world.demand
 				# with pd.option_context('display.max_rows', None):
@@ -2721,7 +2724,7 @@ class Entity:
 		if v: print(f'final hold_event_ids for {self.name}:', self.hold_event_ids)
 		return release_event
 
-	def consume(self, item, qty, need=None, buffer=False, v=True):
+	def consume(self, item, qty, need=None, buffer=False, v=False):
 		# TODO Test release Land and Buildings
 		consume_event = []
 		if qty == 0:
@@ -3785,7 +3788,7 @@ class Entity:
 				# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':component_qty, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 				results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[component_qty], 'success':[not comp_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 				if not check:
-					entries = self.consume(req_item, qty=qty_needed, buffer=True)
+					entries = self.consume(req_item, qty=qty_needed, buffer=True, v=v)
 					if not entries:
 						entries = []
 						incomplete = True
@@ -3992,7 +3995,7 @@ class Entity:
 					if v: print(f'consume_qty: {consume_qty} | qty_needed: {qty_needed} | req_item: {req_item} | qty: {qty} | constraint_qty: {constraint_qty} | modifier: {modifier} | item: {item}')
 					# TODO Needs if isinstance(item_freq, str) and isinstance(req_freq, str):
 					if not 'animal' in req_freq or not 'animal' in item_freq:
-						entries = self.consume(req_item, qty=consume_qty, buffer=True) # TODO Verify fix for how this assumed all required qty was obtained # req_qty * (1 - modifier) * qty # Old was qty=material_qty
+						entries = self.consume(req_item, qty=consume_qty, buffer=True, v=v) # TODO Verify fix for how this assumed all required qty was obtained # req_qty * (1 - modifier) * qty # Old was qty=material_qty
 						if not entries:
 							entries = []
 							incomplete = True
@@ -5104,6 +5107,7 @@ class Entity:
 		return raw
 
 	def wip_check(self, check=False, time_only=False, items=None, v=False):
+		# v = True
 		if items is not None: # TODO Not finished
 			if not isinstance(items, (list, tuple)):
 				items = [x.strip().title() for x in items.split(',')]
@@ -5121,10 +5125,10 @@ class Entity:
 			wip_done_txns = self.ledger.gl[(self.ledger.gl['credit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
 			if v: print('wip_done_txns:\n', wip_done_txns)
 			wip_txns = self.ledger.gl[(self.ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (~self.ledger.gl['event_id'].isin(rvsl_txns)) & (~self.ledger.gl['event_id'].isin(wip_done_txns))]
-		if v: print('WIP TXNs: \n{}'.format(wip_txns))
+		if v: print('WIP TXNs:\n{}'.format(wip_txns))
 		if not wip_txns.empty:
 			result = []
-			if v: print('WIP Transactions: \n{}'.format(wip_txns))
+			# if v: print('WIP Transactions:\n{}'.format(wip_txns))
 			# Compare the gl dates to the WIP time from the items table
 			#items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
 			items_continuous = world.items[world.items['freq'].str.contains('continuous', na=False)]
@@ -5171,11 +5175,13 @@ class Entity:
 					if days_left < 0 and delayed is None:
 						continue
 					for equip_requirement in requirements:
-						if v: print('Equip Requirement: {}'.format(equip_requirement))
-						if equip_requirement in items_continuous.index.values:
+						if v: print(f'WIP Equip Requirement: {equip_requirement} | check: {check}')
+						# if v: print(items_continuous.index.values)
+						if equip_requirement in items_continuous.index.values: # TODO Clean this all up. Is this how items should be added as a delay?
 							result = self.use_item(equip_requirement, check=check)
+							if v: print(f'wip result:\n{result}')
 							if not result and not check:
-								print('{} WIP Progress for {} using equipment was not successfull.'.format(self.name, item))
+								print(f'{self.name} WIP Progress for {item} using {equip_requirement} continuous requirement was not successfull.')
 								if world.delay.empty:
 									# world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
 									world.delay = pd.concat([world.delay, pd.DataFrame({'txn_id':[index], 'entity_id':[self.entity_id], 'delay':[1], 'hours':[None], 'job':[None], 'item_id':[item]})], ignore_index=True)
@@ -5187,7 +5193,7 @@ class Entity:
 									# world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
 									world.delay = pd.concat([world.delay, pd.DataFrame({'txn_id':[index], 'entity_id':[self.entity_id], 'delay':[1], 'hours':[None], 'job':[None], 'item_id':[item]})], ignore_index=True)
 									world.set_table(world.delay, 'delay')
-								return
+								continue# return
 					start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d').date()
 					if v: print('Start Date: {}'.format(start_date))
 					self.ledger.set_date(str(start_date))
@@ -5242,19 +5248,19 @@ class Entity:
 						partial_index = world.delay.loc[world.delay['txn_id'] == index].index.tolist()[0]
 						if v: print('Partial Index: {}'.format(partial_index))
 						incomplete, partial_work_event, time_required, max_qty_possible = self.fulfill(item, qty=1, partial=partial_index, man=self.user, v=v)
-						if v: print('Partial WIP Fulfill - Incomplete: {} | Time Required: {}\nPartial WIP Event: \n{}'.format(incomplete, time_required, partial_work_event))
+						if v: print(f'Partial WIP Fulfill for {item} - Incomplete: {incomplete} | Time Required: {time_required}\nPartial WIP Event: \n{partial_work_event}')
 						if incomplete or not partial_work_event:
 							world.delay.at[partial_index, 'delay'] += 1
 							days = (world.now - datetime.datetime(1986,10,1).date()).days
-							print('Current WIP day:', days)
-							print('{} WIP Progress for {} was not successfull.'.format(self.name, item))
+							print(f'Current WIP day: {days} | Hours: {hours}')
+							print(f'{self.name} WIP Progress for {item} was not successfull with index: {index}')
 							continue
 						else:
 							work_df = pd.DataFrame(partial_work_event, columns=world.cols)
 							hours_worked = work_df.loc[(work_df['item_id'] == job) & (work_df['debit_acct'] == 'Wages Expense')]['qty'].sum()
-							print(f'wip hours_worked: {hours_worked}')
+							if v: print(f'wip hours_worked: {hours_worked}')
 							current_delay_hours = world.delay.loc[partial_index, 'hours']
-							print(f'wip current_delay_hours: {current_delay_hours}')
+							if v: print(f'wip current_delay_hours: {current_delay_hours}')
 							remain_wip_hours = max(current_delay_hours - hours_worked, 0)
 							world.delay.at[partial_index, 'hours'] = remain_wip_hours #partial_work_event[-1][8]
 							if world.delay.at[partial_index, 'hours'] != 0:
@@ -5280,14 +5286,14 @@ class Entity:
 						hours = world.delay.loc[world.delay['txn_id'] == index, 'hours'].values[0]
 						if hours is None:
 							if delay == 1:
-								print(f'{item} delayed by {delay} day after.')
+								if v: print(f'{item} delayed by {delay} day after.')
 							else:
-								print(f'{item} delayed by {delay} days after.')
+								if v: print(f'{item} delayed by {delay} days after.')
 						else:
 							if delay == 1:
-								print(f'{item} delayed by {delay} day and {hours} hours after.')
+								if v: print(f'{item} delayed by {delay} day and {hours} hours after.')
 							else:
-								print(f'{item} delayed by {delay} days and {hours} hours after.')
+								if v: print(f'{item} delayed by {delay} days and {hours} hours after.')
 					except (KeyError, IndexError) as e:
 						delay = 0
 						hours = None
@@ -5331,7 +5337,7 @@ class Entity:
 					self.gl_tmp = None
 					if hold_incomplete:
 						print('{} cannot hold {} {} that it produced over time.'.format(self.name, qty, item))
-						return
+						return # TODO Deal with this better. Where does the item go?
 					wip_event += in_use_event
 					if v: print('WIP is done for {} - Date Done: {} | Today is: {} | Hours: {}'.format(item, date_done, world.now, hours))
 					# if partial_complete:
@@ -9680,7 +9686,7 @@ class Individual(Entity):
 						self.ledger.reset()
 						#print('QTY Held: {}'.format(qty_held))
 				if qty_held:
-					result = self.consume(item_choosen, min(qty_needed, qty_held), need)
+					result = self.consume(item_choosen, min(qty_needed, qty_held), need, v=v)
 					if args.jones:
 						if result:
 							self.lose_time = False
