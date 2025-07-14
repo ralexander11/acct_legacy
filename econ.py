@@ -3108,7 +3108,11 @@ class Entity:
 		hours_deltas = collections.OrderedDict()
 		for individual in self.factory.get(Individual):
 			hours_deltas[individual.name] = 0
+		print(f'tmp_delay 063:\n{tmp_delay}')
+		print(f'delay 064:\n{world.delay}')
 		tmp_delay = world.delay.copy(deep=True)
+		print(f'delay 065:\n{world.delay}')
+		print(f'tmp_delay 066:\n{tmp_delay}')
 		item_info = world.items.loc[item]
 		item_type = world.get_item_type(item)
 		if vv: print('Item Info: \n{}'.format(item_info))
@@ -4394,13 +4398,17 @@ class Entity:
 							txn_id = row['txn_id']
 							try:
 								check_row = self.ledger.gl.loc[txn_id]
+								print(f'delay 051a:\n{world.delay}')
 							except KeyError:
+								print(f'delay 051b:\n{world.delay}')
 								continue
 							# print('Entity ID: {} | Item ID: {}'.format(check_row['entity_id'], check_row['item_id']))
 							if check_row['entity_id'] != self.entity_id:
+								print(f'delay 051c:\n{world.delay}')
 								continue
 							if check_row['item_id'] == item:
 								already_wip = True
+								print(f'delay 051d:\n{world.delay}')
 								break
 						print(f'delay 052:\n{world.delay}')
 						if not already_wip:
@@ -4581,9 +4589,11 @@ class Entity:
 				incomplete, event_max_possible, time_required, max_qty_possible = self.fulfill(item, max_qty_possible, man=man, v=v)
 				event += event_max_possible
 		else:
+			print(f'delay 061t:\n{tmp_delay}')
 			print(f'delay 061:\n{world.delay}')
 			world.delay = tmp_delay.copy(deep=True) # TODO This would not factor in any changes to world.delay from a lower stack frame but that might not matter
 			print(f'delay 062:\n{world.delay}')
+			print(f'delay 062t:\n{tmp_delay}')
 			world.set_table(world.delay, 'delay')
 			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
 			if not wip_choice or man:
