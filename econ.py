@@ -1085,7 +1085,7 @@ class World:
 		# to_drop = hist_hours[date_mask].head(args.population).index
 		# print('to_drop:', to_drop)
 		# hist_hours = hist_hours.drop(to_drop)
-		hist_hours['total_hours'] = self.hist_hours.groupby('date')['hours'].transform('sum')
+		hist_hours['hours_remain'] = self.hist_hours.groupby('date')['hours'].transform('sum')
 		try:
 			hist_hours['total_Thirst'] = self.hist_hours.groupby('date')['Thirst'].transform('sum')
 			hist_hours['total_Hunger'] = self.hist_hours.groupby('date')['Hunger'].transform('sum')
@@ -1096,7 +1096,7 @@ class World:
 		except KeyError as e:
 			print(f'Util key error: {e}')
 		hist_hours['max_hours'] = self.hist_hours['population'] * 12
-		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['total_hours']
+		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['hours_remain']
 		hist_hours = hist_hours.drop_duplicates(subset='date')
 		if vv: print('\nhist_hours:\n', hist_hours)
 
@@ -4389,6 +4389,7 @@ class Entity:
 					if wip_choice and time_required and partial is None and hours_remain:
 						# TODO Check existing delay table for same items
 						already_wip = False
+						print(f'delay 051:\n{world.delay}')
 						for index, row in tmp_delay.iterrows():
 							txn_id = row['txn_id']
 							try:
@@ -4401,6 +4402,7 @@ class Entity:
 							if check_row['item_id'] == item:
 								already_wip = True
 								break
+						print(f'delay 052:\n{world.delay}')
 						if not already_wip:
 							# if time_check:
 							# 	for i, req in enumerate(requirements_details): # Incase Time isn't the first item
@@ -4411,8 +4413,10 @@ class Entity:
 							# 	delay_amount = 1
 							delay_amount = 1
 							# tmp_delay = tmp_delay.append({'txn_id':None, 'entity_id':self.entity_id, 'delay':delay_amount, 'hours':hours_remain, 'job':req_item, 'item_id':item}, ignore_index=True)
+							print(f'delay 053:\n{world.delay}')
 							tmp_delay = pd.concat([tmp_delay, pd.DataFrame({'txn_id':[None], 'entity_id':[self.entity_id], 'delay':[delay_amount], 'hours':[hours_remain], 'job':[req_item], 'item_id':[item]})], ignore_index=True)
-							# print('tmp_delay: \n{}'.format(tmp_delay))
+							print(f'tmp_delay added to delay table on {world.now}:\n{tmp_delay}')
+							print(f'delay 054:\n{world.delay}')
 					# print('Labour Done End: {} | Labour Required: {} | WIP Choice: {}'.format(labour_done, labour_required, wip_choice))
 					if (wip_choice or wip_complete) and not hours_remain and not time_check:
 						time_required = False
@@ -4577,7 +4581,9 @@ class Entity:
 				incomplete, event_max_possible, time_required, max_qty_possible = self.fulfill(item, max_qty_possible, man=man, v=v)
 				event += event_max_possible
 		else:
+			print(f'delay 061:\n{world.delay}')
 			world.delay = tmp_delay.copy(deep=True) # TODO This would not factor in any changes to world.delay from a lower stack frame but that might not matter
+			print(f'delay 062:\n{world.delay}')
 			world.set_table(world.delay, 'delay')
 			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
 			if not wip_choice or man:
@@ -5107,7 +5113,7 @@ class Entity:
 		return raw
 
 	def wip_check(self, check=False, time_only=False, items=None, v=False):
-		# v = True
+		v = True
 		if items is not None: # TODO Not finished
 			if not isinstance(items, (list, tuple)):
 				items = [x.strip().title() for x in items.split(',')]
@@ -5123,23 +5129,24 @@ class Entity:
 			wip_txns = self.ledger.gl[(self.ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (self.ledger.gl['item_id'].isin(items)) & (~self.ledger.gl['event_id'].isin(rvsl_txns)) & (~self.ledger.gl['event_id'].isin(wip_done_txns))]
 		else:
 			wip_done_txns = self.ledger.gl[(self.ledger.gl['credit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]['event_id']
-			if v: print('wip_done_txns:\n', wip_done_txns)
+			if v: print(f'wip_done_txns:\n{wip_done_txns}')
 			wip_txns = self.ledger.gl[(self.ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (~self.ledger.gl['event_id'].isin(rvsl_txns)) & (~self.ledger.gl['event_id'].isin(wip_done_txns))]
-		if v: print('WIP TXNs:\n{}'.format(wip_txns))
+		# if v: print(f'WIP TXNs on {world.now}:\n{wip_txns}')
 		if not wip_txns.empty:
 			result = []
-			# if v: print('WIP Transactions:\n{}'.format(wip_txns))
+			if v: print(f'WIP TXNs on {world.now}:\n{wip_txns}')
 			# Compare the gl dates to the WIP time from the items table
 			#items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
 			items_continuous = world.items[world.items['freq'].str.contains('continuous', na=False)]
-			for index, wip_lot in wip_txns.iterrows():
+			for wip_index, wip_lot in wip_txns.iterrows():
+				print(f'delay 001:\n{world.delay}')
 				time_check = False
 				wip_event = []
 				partial_cost = 0
 				hours = None
 				item = wip_lot['item_id']
 				qty = wip_lot['qty']
-				if v: print('WIP Index Check: {}'.format(index))
+				if v: print('WIP Index Check: {}'.format(wip_index))
 				if v: print('WIP Item Check: {}'.format(item))
 				#if v: print('Continuous Items: \n{}'.format(items_continuous))
 				requirements = world.items.loc[item, 'requirements']
@@ -5155,6 +5162,7 @@ class Entity:
 						time_check = True
 						break
 				if v: print('Time Requirement: {}'.format(requirement))
+				print(f'delay 002:\n{world.delay}')
 				#amounts = [x.strip() for x in items_time['amount'][item].split(',')]
 				amounts = world.items.loc[item, 'amount']
 				if isinstance(amounts, str):
@@ -5162,6 +5170,7 @@ class Entity:
 				amounts = list(map(float, amounts))
 				if v: print('Amounts: {}'.format(amounts))
 				if time_check: # TODO This will cause problems where an item requires Time and a lot of labour such that it becomes WIP
+					print(f'delay 003:\n{world.delay}')
 					if v: print('Time Check for: {}'.format(requirement))
 					timespan = amounts[i]
 					date_done = (datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=int(timespan))).date()
@@ -5169,38 +5178,62 @@ class Entity:
 					delayed = None
 					if not world.delay.empty:
 						try:
-							delayed = world.delay.loc[world.delay['txn_id'] == index, 'delay'].values[0]
+							delayed = world.delay.loc[world.delay['txn_id'] == wip_index, 'delay'].values[0]
 						except Exception as e:
 							delayed = None
+						print(f'delay 004:\n{world.delay}')
 					if days_left < 0 and delayed is None:
 						continue
+					print(f'delay 005:\n{world.delay}')
 					for equip_requirement in requirements:
-						if v: print(f'WIP Equip Requirement: {equip_requirement} | check: {check}')
+						if v: print(f'WIP Equip Requirement: {equip_requirement} | check: {check} | time_only: {time_only}')
 						# if v: print(items_continuous.index.values)
 						if equip_requirement in items_continuous.index.values: # TODO Clean this all up. Is this how items should be added as a delay?
+							print(f'delay 006:\n{world.delay}')
 							result = self.use_item(equip_requirement, check=check)
 							if v: print(f'wip result:\n{result}')
+							print(f'delay 007:\n{world.delay}')
 							if not result and not check:
 								print(f'{self.name} WIP Progress for {item} using {equip_requirement} continuous requirement was not successfull.')
-								if world.delay.empty:
-									# world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
-									world.delay = pd.concat([world.delay, pd.DataFrame({'txn_id':[index], 'entity_id':[self.entity_id], 'delay':[1], 'hours':[None], 'job':[None], 'item_id':[item]})], ignore_index=True)
+								if world.delay.empty: # TODO Remove this and make the elif the if
+									# world.delay = world.delay.append({'txn_id':wip_index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
+									world.delay = pd.concat([world.delay, pd.DataFrame({'txn_id':[wip_index], 'entity_id':[self.entity_id], 'delay':[1], 'hours':[None], 'job':[None], 'item_id':[item]})], ignore_index=True)
+									print(f'Added to empty delay table on {world.now}:')
+									print(world.delay)
 									world.set_table(world.delay, 'delay')
-								elif index in world.delay['txn_id'].values:
-									world.delay.loc[world.delay['txn_id'] == index, 'delay'] += 1
+								elif wip_index in world.delay['txn_id'].values:
+									world.delay.loc[world.delay['txn_id'] == wip_index, 'delay'] += 1
 									world.set_table(world.delay, 'delay')
+									print(f'Incimented delay table on {world.now}:')
+									print(world.delay)
 								else:
-									# world.delay = world.delay.append({'txn_id':index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
-									world.delay = pd.concat([world.delay, pd.DataFrame({'txn_id':[index], 'entity_id':[self.entity_id], 'delay':[1], 'hours':[None], 'job':[None], 'item_id':[item]})], ignore_index=True)
+									# world.delay = world.delay.append({'txn_id':wip_index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
+									world.delay = pd.concat([world.delay, pd.DataFrame({'txn_id':[wip_index], 'entity_id':[self.entity_id], 'delay':[1], 'hours':[None], 'job':[None], 'item_id':[item]})], ignore_index=True)
 									world.set_table(world.delay, 'delay')
+									print(f'Added to delay table on {world.now}:')
+									print(world.delay)
 								continue# return
+
+# tmp_delay added to delay table: 1986-12-04
+#   txn_id entity_id delay  hours    job   item_id
+# 0   None         4     1   2.20  Study  Strength
+
+# 9164	3991	4	4	1986-12-04	2025-07-13 08:24:36.411635		Researching Electricity	Electricity	0.00	1.00	Researching Technology	Technology Produced	0.00
+
+# tmp_delay added to delay table: 1986-12-07
+#   txn_id entity_id delay  hours     job       item_id
+# 0   9165         4     4   2.20   Study      Strength
+# 1   None         5     1   3.00  Hunter  Wild Leather
+
 					start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d').date()
 					if v: print('Start Date: {}'.format(start_date))
 					self.ledger.set_date(str(start_date))
+					print(f'delay 008:\n{world.delay}')
 					modifier, items_info = self.check_productivity(requirement)
 					if v: print('Modifier: {}'.format(modifier))
 					self.ledger.reset()
 					self.ledger.set_entity(self.entity_id)
+					print(f'delay 009:\n{world.delay}')
 					if modifier:
 						if v: print('Time Modifier Item: {}'.format(items_info['item_id'].iloc[0]))
 						entries = self.use_item(items_info['item_id'].iloc[0], check=check)
@@ -5223,11 +5256,12 @@ class Entity:
 				hours = None
 				partial_index = None
 				if not world.delay.empty:
+					print(f'delay 010:\n{world.delay}')
 					try:
-						delay = world.delay.loc[world.delay['txn_id'] == index, 'delay'].values[0]
-						hours = world.delay.loc[world.delay['txn_id'] == index, 'hours'].values[0]
+						delay = world.delay.loc[world.delay['txn_id'] == wip_index, 'delay'].values[0]
+						hours = world.delay.loc[world.delay['txn_id'] == wip_index, 'hours'].values[0]
 						if hours is not None:
-							partial_index = world.delay.loc[world.delay['txn_id'] == index].index.tolist()[0]
+							partial_index = world.delay.loc[world.delay['txn_id'] == wip_index].index.tolist()[0]
 							if v: print('Partial Index: {}'.format(partial_index))
 						if hours is None:
 							if delay == 1:
@@ -5242,48 +5276,61 @@ class Entity:
 					except (KeyError, IndexError) as e:
 						delay = 0
 						hours = None
+					print(f'delay 011:\n{world.delay}')
 					if hours:# is not None:
-						job = world.delay.loc[world.delay['txn_id'] == index, 'job'].values[0] # TODO Test items requiring lots of labour for more than one job
+						job = world.delay.loc[world.delay['txn_id'] == wip_index, 'job'].values[0] # TODO Test items requiring lots of labour for more than one job
 						if v: print('WIP Partial Job: {}'.format(job))
-						partial_index = world.delay.loc[world.delay['txn_id'] == index].index.tolist()[0]
+						partial_index = world.delay.loc[world.delay['txn_id'] == wip_index].index.tolist()[0]
 						if v: print('Partial Index: {}'.format(partial_index))
+						print(f'delay 012:\n{world.delay}')
 						incomplete, partial_work_event, time_required, max_qty_possible = self.fulfill(item, qty=1, partial=partial_index, man=self.user, v=v)
-						if v: print(f'Partial WIP Fulfill for {item} - Incomplete: {incomplete} | Time Required: {time_required}\nPartial WIP Event: \n{partial_work_event}')
+						print(f'delay 013:\n{world.delay}')
+						if v: print(f'Partial WIP Fulfill for {item} - Incomplete: {incomplete} | Time Required: {time_required} | Hours: {hours}\nPartial WIP Event: \n{partial_work_event}')
 						if incomplete or not partial_work_event:
 							world.delay.at[partial_index, 'delay'] += 1
 							days = (world.now - datetime.datetime(1986,10,1).date()).days
 							print(f'Current WIP day: {days} | Hours: {hours}')
-							print(f'{self.name} WIP Progress for {item} was not successfull with index: {index}')
+							print(f'{self.name} WIP Progress for {item} was not successfull with index: {wip_index}')
+							print(f'delay 014:\n{world.delay}')
 							continue
 						else:
+							print(f'delay 015:\n{world.delay}')
 							work_df = pd.DataFrame(partial_work_event, columns=world.cols)
 							hours_worked = work_df.loc[(work_df['item_id'] == job) & (work_df['debit_acct'] == 'Wages Expense')]['qty'].sum()
 							if v: print(f'wip hours_worked: {hours_worked}')
+							print(f'delay 016:\n{world.delay}')
 							current_delay_hours = world.delay.loc[partial_index, 'hours']
 							if v: print(f'wip current_delay_hours: {current_delay_hours}')
 							remain_wip_hours = max(current_delay_hours - hours_worked, 0)
+							print(f'delay 017:\n{world.delay}')
 							world.delay.at[partial_index, 'hours'] = remain_wip_hours #partial_work_event[-1][8]
+							print(f'delay 018:\n{world.delay}')
 							if world.delay.at[partial_index, 'hours'] != 0:
 								world.delay.at[partial_index, 'delay'] += 1 # TODO This may not be needed with hours == 0 check below
 							if v: print('World Delay Adj: \n{}'.format(world.delay))
 							world.set_table(world.delay, 'delay')
 							for entry in partial_work_event:
+								print(f'delay 019:\n{world.delay}')
 								if entry[0] != wip_lot['event_id']:
 									if entry[0] in self.hold_event_ids:
 										self.hold_event_ids = [wip_lot['event_id'] if x == entry[0] else x for x in self.hold_event_ids]
+										print(f'delay 020:\n{world.delay}')
 									if isinstance(self, Individual):
 										if entry[0] in self.prod_hold:
 											self.prod_hold = [wip_lot['event_id'] if x == entry[0] else x for x in self.prod_hold]
+											print(f'delay 021:\n{world.delay}')
 									if v: print('{} WIP Orig Partial event_id: {} | New Partial event_id: {} | {}'.format(self.name, entry[0], wip_lot['event_id'], self.hold_event_ids))
 									entry[0] = wip_lot['event_id']
+									print(f'delay 022:\n{world.delay}')
 								if v: print('partial wip amount:', entry[11])
 								if entry[9] == 'Wages Expense':
 									partial_cost += entry[11] # TODO Should this be a Cost Pool type event like in produce() func?
 								if v: print('partial wip partial_cost:', partial_cost)
 							self.ledger.journal_entry(partial_work_event)
 					try:
-						delay = world.delay.loc[world.delay['txn_id'] == index, 'delay'].values[0]
-						hours = world.delay.loc[world.delay['txn_id'] == index, 'hours'].values[0]
+						print(f'delay 023:\n{world.delay}')
+						delay = world.delay.loc[world.delay['txn_id'] == wip_index, 'delay'].values[0]
+						hours = world.delay.loc[world.delay['txn_id'] == wip_index, 'hours'].values[0]
 						if hours is None:
 							if delay == 1:
 								if v: print(f'{item} delayed by {delay} day after.')
@@ -5297,6 +5344,7 @@ class Entity:
 					except (KeyError, IndexError) as e:
 						delay = 0
 						hours = None
+					print(f'delay 024:\n{world.delay}')
 				timespan += delay
 				if v: print('WIP lifespan with delay of {} for {}: {}'.format(delay, item, timespan))
 				date_done = (datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=int(timespan))).date()
@@ -5310,9 +5358,10 @@ class Entity:
 							world.tech.at[item, 'days_left'] = days_left
 							world.tech = world.tech.reset_index()
 							if v: print('wip tech table:\n', world.tech)
-						print(f'{self.name} has {days_left} WIP days left for {item} out of {timespan}. [{index}]')
+						print(f'{self.name} has {days_left} WIP days left for {item} out of {timespan}. [{wip_index}]')
 					else:
-						print(f'{self.name} has {days_left} WIP days and {hours} hours left for {item} out of {timespan} days. [{index}]')
+						print(f'{self.name} has {days_left} WIP days and {hours} hours left for {item} out of {timespan} days. [{wip_index}]')
+				print(f'delay 025:\n{world.delay}')
 				# If the time elapsed has passed
 				if hours == 0 and not time_check:
 					date_done = world.now
@@ -5341,8 +5390,10 @@ class Entity:
 					wip_event += in_use_event
 					if v: print('WIP is done for {} - Date Done: {} | Today is: {} | Hours: {}'.format(item, date_done, world.now, hours))
 					# if partial_complete:
+					print(f'delay 026:\n{world.delay}')
 					if partial_index is not None: # TODO Capture additional labour costs in finished WIP entry
 						world.delay = world.delay.drop([partial_index]).reset_index(drop=True)
+					print(f'delay 027:\n{world.delay}')
 					self.ledger.journal_entry(release_event)
 
 					# Book the entry to move from WIP to Inventory
@@ -5396,6 +5447,7 @@ class Entity:
 							print('Setting initial price for {} to {} from finishing {} WIP.'.format(wip_lot['item_id'], price, wip_lot['qty']))
 						else:
 							self.set_price(wip_lot['item_id'], wip_lot['qty'], v=v)
+					print(f'delay 028:\n{world.delay}')
 					result += wip_event
 			return result
 
