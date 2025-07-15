@@ -1289,7 +1289,7 @@ class World:
 		# TODO Update entities table in db
 		return target
 
-	def get_price(self, item, entity_id=None, v=True):
+	def get_price(self, item, entity_id=None, v=False):
 		# if not isinstance(entity_id, int) and entity_id is not None:
 		# if not np.issubdtype(entity_id, np.integer) and entity_id is not None:
 		if isinstance(entity_id, Entity):
@@ -1881,10 +1881,15 @@ class World:
 			print('World Demand End: \n{}'.format(world.demand))
 		print()
 		self.entities = self.accts.get_entities().reset_index()
-		self.inventory = self.ledger.get_qty(items=None, accounts=['Inventory','Equipment','Buildings','Equipment In Use', 'Buildings In Use', 'Equipped'], show_zeros=False, by_entity=True)
+		self.inventory = self.ledger.get_qty(items=None, accounts=['Inventory', 'Equipment', 'Buildings', 'Equipment In Use', 'Buildings In Use', 'Equipped'], show_zeros=False, by_entity=True)
 		self.inventory = self.entities[['entity_id','name']].merge(self.inventory, on=['entity_id'])
+		self.exp = self.ledger.get_qty(items=None, accounts=['Wages Income', 'Education', 'Salary Income'], show_zeros=False, by_entity=True, credit=True)#, v=True)
+		self.exp = self.entities[['entity_id','name']].merge(self.exp, on=['entity_id'])
+		self.exp['qty'] = self.exp['qty'].abs()
 		with pd.option_context('display.max_rows', None):
 			print('Global Items:\n{}'.format(self.inventory))
+			print()
+			print('Global Experience:\n{}'.format(self.exp))
 			print()
 			print('Delays:\n{}'.format(self.delay))
 			print()
