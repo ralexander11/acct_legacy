@@ -1691,7 +1691,7 @@ class World:
 			print(time_stamp() + 'Current Date 04.6 for {}: {}'.format(entity.name, self.now))
 			t4_6_start = time.perf_counter()
 			print(time_stamp() + f'WIP List Check for: {entity.name}')
-			entity.wip_check()
+			entity.wip_check()#v=True)
 			t4_6_end = time.perf_counter()
 			print(time_stamp() + '4.6: Demand list; WIP check took {:,.2f} sec for {}.\n'.format(t4_6_end - t4_6_start, entity.name))
 			if self.end_turn(check_hrs=True, user_check=user_check): return
@@ -1883,7 +1883,7 @@ class World:
 		self.entities = self.accts.get_entities().reset_index()
 		self.inventory = self.ledger.get_qty(items=None, accounts=['Inventory', 'Equipment', 'Buildings', 'Equipment In Use', 'Buildings In Use', 'Equipped'], show_zeros=False, by_entity=True)
 		self.inventory = self.entities[['entity_id','name']].merge(self.inventory, on=['entity_id'])
-		self.exp = self.ledger.get_qty(items=None, accounts=['Wages Income', 'Education', 'Salary Income'], show_zeros=False, by_entity=True, credit=True)#, v=True)
+		self.exp = self.ledger.get_qty(items=None, accounts=['Wages Income', 'Education', 'Salary Income'], show_zeros=False, by_entity=True, credit=True)
 		self.exp = self.entities[['entity_id','name']].merge(self.exp, on=['entity_id'])
 		self.exp['qty'] = self.exp['qty'].abs()
 		with pd.option_context('display.max_rows', None):
@@ -4406,7 +4406,7 @@ class Entity:
 							if check_row['item_id'] == item:
 								already_wip = True
 								break
-						if not already_wip:
+						if not already_wip and req_item != 'Study': # TODO Not sure if this Study check should be here
 							# if time_check:
 							# 	for i, req in enumerate(requirements_details): # Incase Time isn't the first item
 							# 		if req[1] == 'Time':
@@ -4502,7 +4502,7 @@ class Entity:
 										self.item_demanded(req_item, req_qty_needed, v=v)
 								else:
 									edu_status = self.ledger.get_qty(items=req_item, accounts=['Education','Education Expense'])
-									if v: print('{} now has {} education hours for {} and requires {} to be a {}.'.format(self.name, edu_status, req_item, req_qty, item))
+									if v: print('{} now has {} education hours for {} and requires {} to be a {}. | req_time_required: {}'.format(self.name, edu_status, req_item, req_qty, item, req_time_required))
 									if edu_status < req_qty:
 										#entries = []
 										incomplete = True
@@ -4631,7 +4631,7 @@ class Entity:
 					qty -= wip_qty
 		incomplete, produce_event, time_required, max_qty_possible = self.fulfill(item, qty, reqs=reqs, amts=amts, man=man, show_results=True, v=v)
 		if incomplete:
-			if v: print(f'***** Produce fail {qty} {item} ****\n')
+			if v: print(f'***** Produce fail {qty} {item} | time_required: {time_required} ****\n')
 			return [], time_required, max_qty_possible, incomplete
 		orig_qty = qty
 		qty = max_qty_possible
@@ -4947,11 +4947,13 @@ class Entity:
 				if vv: print('{} Orig event_id: {} | New event_id: {} | {}'.format(self.name, entry[0], event_id, self.hold_event_ids))
 				entry[0] = event_id
 		self.ledger.journal_entry(produce_event)
-		if world.delay['txn_id'].isnull().values.any():
+		if world.delay['txn_id'].isnull().values.any() and item_type != 'Technology': # TODO This Technology check wouldn't let you require lots of labour required for a Technology
+			# vv = True
+			if vv: print('World Delay Before: \n{}'.format(world.delay))
 			rvsl_txns = self.ledger.gl[self.ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 			# Get list of WIP txns for different item types
 			wip_txns = self.ledger.gl[(self.ledger.gl['debit_acct'].isin(['WIP Inventory','WIP Equipment','Researching Technology','Studying Education','Building Under Construction'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (self.ledger.gl['item_id'] == item) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]
-			if vv: print('Prod WIP TXNs: \n{}'.format(wip_txns))
+			if vv: print('Prod WIP TXNs:\n{}'.format(wip_txns))
 			if not wip_txns.empty:
 				txn_id = int(wip_txns.index[-1])
 				if vv: print('Partial txn_id: \n{}'.format(txn_id))
@@ -4976,7 +4978,7 @@ class Entity:
 			else:
 				self.set_price(item, qty, at_cost=True, v=v)
 		# if man: # TODO Make this the case for not man also
-		if v: print(f'***** Produce end {qty} {item} ****')
+		if v: print(f'***** Produce end {qty} {item} | time_required: {time_required} ****')
 		if v: print()
 		return produce_event, time_required, max_qty_possible, incomplete
 		# return qty, time_required # TODO Return the qty instead of True, or can use max_qty_possible for qty if complete
@@ -5206,19 +5208,7 @@ class Entity:
 									world.set_table(world.delay, 'delay')
 									print(f'Added to delay table on {world.now}:')
 									print(world.delay)
-								continue# return
-
-# tmp_delay added to delay table: 1986-12-04
-#   txn_id entity_id delay  hours    job   item_id
-# 0   None         4     1   2.20  Study  Strength
-
-# 9164	3991	4	4	1986-12-04	2025-07-13 08:24:36.411635		Researching Electricity	Electricity	0.00	1.00	Researching Technology	Technology Produced	0.00
-
-# tmp_delay added to delay table: 1986-12-07
-#   txn_id entity_id delay  hours     job       item_id
-# 0   9165         4     4   2.20   Study      Strength
-# 1   None         5     1   3.00  Hunter  Wild Leather
-
+								return
 					start_date = datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d').date()
 					if v: print('Start Date: {}'.format(start_date))
 					self.ledger.set_date(str(start_date))
@@ -5251,9 +5241,10 @@ class Entity:
 					try:
 						delay = world.delay.loc[world.delay['txn_id'] == wip_index, 'delay'].values[0]
 						hours = world.delay.loc[world.delay['txn_id'] == wip_index, 'hours'].values[0]
+						if v: print(world.delay)
 						if hours is not None:
 							partial_index = world.delay.loc[world.delay['txn_id'] == wip_index].index.tolist()[0]
-							if v: print('Partial Index: {}'.format(partial_index))
+							if v: print('Partial Index 1: {}'.format(partial_index))
 						if hours is None:
 							if delay == 1:
 								print(f'{item} delayed by {delay} day.')
@@ -5327,6 +5318,7 @@ class Entity:
 				date_done = (datetime.datetime.strptime(wip_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=int(timespan))).date()
 				if v: print('WIP date done for {}: {} | Today is: {} | Hours: {}'.format(item, date_done, world.now, hours))
 				days_left = (date_done - world.now).days
+				if v: print(f'days_left: {days_left}')
 				if days_left < timespan and days_left >= 0:
 					if hours is None:
 						if wip_lot['debit_acct'] == 'Researching Technology':
