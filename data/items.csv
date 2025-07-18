@@ -150,8 +150,8 @@ Fence,None,None,continuous,Buildings,"Grassland, Wood","1, 1",None,Grassland,1,N
 Fence Gate,1,None,continuous,Buildings,"Grassland, Wood","1, 5",None,Grassland,1,None,None,None,None,None,None,None,10000,ticks,None,None,None,1000,None,None,None,Construction Company
 Barred Window,None,None,continuous,Buildings,"Grassland, Wood","1, 20",None,Grassland,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
 Barred Door,None,None,continuous,Buildings,"Grassland, Wood","1, 50",None,Grassland,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
-City Wall,None,None,continuous,Buildings,"Grassland, Stone","1, 10",None,Grassland,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
-City Gate,0.25,1,continuous,Buildings,"Grassland, Stone","1, 5",None,Grassland,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
+City Wall,None,None,continuous,Buildings,"Grassland, Rock","1, 10",None,Grassland,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
+City Gate,0.25,1,continuous,Buildings,"Grassland, Rock","1, 5",None,Grassland,1,None,None,None,None,None,None,None,100000,ticks,None,None,None,1000,None,None,None,Construction Company
 Shares,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Init Capital,0,0,365,Loan,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Bank
