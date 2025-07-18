@@ -1517,8 +1517,8 @@ class World:
 				# 	print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
 				if isinstance(entity, Corporation):
 					t3_7_start = time.perf_counter()
-					if args.jones: # TODO Handle this better
-						entity.maintain_inv()
+					if args.jones or args.buffer_qty: # TODO Handle this better
+						entity.maintain_inv(args.buffer_qty)
 					t3_7_end = time.perf_counter()
 					print(time_stamp() + '3.7: Inv check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id)) # TODO This is very slow
 			t3_end = time.perf_counter()
@@ -1886,6 +1886,9 @@ class World:
 		self.exp = self.ledger.get_qty(items=None, accounts=['Wages Income', 'Education', 'Salary Income'], show_zeros=False, by_entity=True, credit=True)
 		self.exp = self.entities[['entity_id','name']].merge(self.exp, on=['entity_id'])
 		self.exp['qty'] = self.exp['qty'].abs()
+		self.exp.sort_values(by=['qty'], ascending=False, inplace=True)
+		self.inventory.sort_values(by=['qty'], ascending=False, inplace=True)
+		self.prices.sort_values(by=['item_id'], ascending=True, inplace=True)
 		with pd.option_context('display.max_rows', None):
 			print('Global Items:\n{}'.format(self.inventory))
 			print()
@@ -9959,15 +9962,13 @@ class Corporation(Organization):
 			investor.buy_shares(self.name, price, qty, self)
 
 	# TODO Maybe move to Entity class
-	def maintain_inv(self, buffer_qty=1, v=False):
-		if v: print('maintain_inv:')
+	def maintain_inv(self, buffer_qty=1, buff_per=0.2, v=True):
+		if v: print('Maintain Inventory for Corporations:')
 		for item_id in self.produces:
-			if v: print(item_id)
 			if not self.check_eligible(item_id):
 				continue
 			qty = buffer_qty #10
 			item_type = world.get_item_type(item_id)
-			if v: print('item_type:', item_type)
 			if item_type not in ['Commodity', 'Components', 'Equipment', 'Buildings', 'Subscription']:
 				_ = world.get_price(item_id, self.entity_id)
 				continue
@@ -9975,7 +9976,8 @@ class Corporation(Organization):
 				qty = qty * 100 #1000
 			self.ledger.set_entity(self.entity_id)
 			inv_qty = self.ledger.get_qty(items=item_id, accounts=['Inventory'])
-			if inv_qty < qty * 0.8: # Buffer of 20%
+			if v: print(f'Maintain Inventory for item: {item_id} | item_type: {item_type} | buffer_qty: {qty} | inv_qty: {inv_qty}')
+			if inv_qty < qty * (1-buff_per): # Buffer of 20%
 				qty = qty - inv_qty
 				if args.jones:
 					self.spawn_item(item_id, qty)
@@ -10428,6 +10430,7 @@ def parse_args(conn=None, command=None, external=False):
 	parser.add_argument('-early', '--early', action='store_true', help='Automatically end the turn when no hours left when not in user mode.')
 	parser.add_argument('-j', '--jones', action='store_true', help='Enable game mode like Jones in the Fast Lane.')
 	parser.add_argument('-inf', '--inf_time', action='store_true', help='Toggles infinite time for labour and turns off waiting requirements.')
+	parser.add_argument('-b', '--buffer_qty', type=int, default=0, help='Set the default amount of inventory buffer corps try to hold.')
 	parser.add_argument('-v', '--verbose', action='store_false', help='Turn off verbosity for running the sim in auto mode.')
 	# TODO Add argparse for setting win conditions
 	# User would choose one or more goals for Wealth, Tech, Population, Land
