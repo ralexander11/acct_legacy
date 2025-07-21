@@ -482,13 +482,13 @@ class World:
 					entity.ledger = ledger
 					self.ledger.set_entity(entity.entity_id)
 					entity.cash = self.ledger.balance_sheet(['Cash'])
-					print('{} Cash: {}'.format(entity.name, entity.cash))
+					print('{} Cash: {}'.format(entity.name, round(entity.cash, 2)))
 					self.ledger.reset()
 				print()
 				for entity in self.factory.get(typ):
 					self.ledger.set_entity(entity.entity_id)
 					entity.nav = self.ledger.balance_sheet()
-					print('{} NAV: {}'.format(entity.name, entity.nav))
+					print('{} NAV: {}'.format(entity.name, round(entity.nav,2 )))
 					self.ledger.reset()
 				if len(self.factory.registry[typ]) != 0 and typ != Environment and typ != Government and typ != Bank:
 					print('\nPre Entity Sort by NAV: {} \n{}'.format(typ, self.factory.registry[typ]))
@@ -6000,15 +6000,17 @@ class Entity:
 								if demand_row['item_id'] == item:
 									qty = demand_row['qty']
 									if v: print(f'{self.name} attempting to claim {qty} {item} for its self from the demand table.')
-									result = self.claim_land(item, demand_row['qty'], account='Inventory', v=v)
+									result = self.claim_land(item, qty, account='Inventory', v=v)
 									if not result:
-										result = self.purchase(item, demand_row['qty'], acct_buy='Inventory', v=v)
+										result = self.purchase(item, qty, acct_buy='Inventory', v=v)
 									if result:
 										if result[0][8] == demand_row['qty']:
 											to_drop.append(idx)
 										else:
 											world.demand.at[idx, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
 											if v: print('World Self Demand Land:\n{}'.format(world.demand))
+									else:
+										if v: print(f'{self.name} attempted to claim {qty} {item} for its self from the demand table.')
 							world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 							world.set_table(world.demand, 'demand')
 							if to_drop:
@@ -6031,6 +6033,14 @@ class Entity:
 									else:
 										world.demand.at[idx, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
 										if v: print('World Demand Land:\n{}'.format(world.demand))
+								else:
+									self.ledger.set_entity(world.env)
+									avail_land = self.ledger.get_qty(items=item, accounts=['Land'])
+									self.ledger.reset()
+									if v: print(f'{self.name} attempted to claim {qty} {item} from the demand table. Available land: {avail_land}')
+									if avail_land == 0:
+										to_drop.append(idx)
+										if v: print(f'No {item} land available from Environment to claim. Will drop row [{idx}] from the demand table.')
 						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 						world.set_table(world.demand, 'demand')
 						if to_drop:
