@@ -2638,19 +2638,25 @@ class Entity:
 
 	def release(self, item=None, qty=1, event_id=None, reqs='hold_req', amts='hold_amount', v=False):
 		if v: print('{} release for {} x {}.'.format(self.name, item, qty))
+		# TODO Should this release the item being passed in no matter what?
 		release_event = []
 		if item is not None:
 			item_info = world.items.loc[item]
 			# reqs = 'requirements' #'usage_req' #
 			# amts = 'amount' #'use_amount' #
 			if item_info[reqs] is None or item_info[amts] is None:
-				return release_event
-			requirements = [x.strip() for x in item_info[reqs].split(',')]
-			req_types = [world.get_item_type(x) for x in requirements] # TODO This check might not be needed anymore
-			if v: print('Requirement types for {}: {}'.format(item, req_types))
+				print(f'{item} has no requirements for {reqs} to release.')
+				requirements = []
+				req_types = []
+				# return release_event
+			else:
+				requirements = [x.strip() for x in item_info[reqs].split(',')]
+				req_types = [world.get_item_type(x) for x in requirements] # TODO This check might not be needed anymore
+			if v: print('Release Requirement types for {}: {}'.format(item, req_types))
 			if not any(x in req_types for x in ['Land', 'Buildings', 'Equipment']):
-				# if v: print('No Land, Buildings, or Equipment required for {}.'.format(item))
-				return release_event
+				if v: print('No Land, Buildings, or Equipment required for {}.'.format(item))
+				# return release_event
+
 			# freq = item_info['freq']
 			# if freq is None:
 			# 	freq = []
@@ -2661,6 +2667,8 @@ class Entity:
 				event_ids = self.ledger.hist_cost(qty, item, acct='Inventory', event_id=True)
 			except IndexError as e:
 				item_type = world.get_item_type(item)
+				if item_type == 'Equipment':
+					item_type = 'Equipment In Use'
 				event_ids = self.ledger.hist_cost(qty, item, acct=item_type, event_id=True)
 			if event_ids.empty:
 				return release_event
@@ -7411,7 +7419,12 @@ class Entity:
 					self.depreciation(item, lifespan, metric)
 
 	def depreciation(self, item, lifespan, metric, uses=1, man=False, buffer=False, v=False):
+		# TODO This whole thing needs to be rewritten
+
 		# TODO Refactor to separate useage vs ticks apart
+		if item == 'Table':
+			v = True
+		if v: print(f'\nDepreciation for: {item} | lifespan: {lifespan} | metric: {metric} | uses: {uses} | man: {man} | buffer: {buffer}')
 		if (metric == 'ticks') or (metric == 'usage') or (metric == 'equipped'):
 			self.ledger.set_entity(self.entity_id)
 			asset_bal = self.ledger.balance_sheet(accounts=['Buildings','Equipment','Buildings In Use', 'Equipment In Use', 'Equipped'], item=item) # TODO Maybe support other accounts and remove Inventory
@@ -7428,34 +7441,39 @@ class Entity:
 			depreciation_event = []
 			if v: print('Asset Bal for {}: {}'.format(item, asset_bal))
 			dep_amount = (asset_bal / lifespan) * uses
-			if v: print('Dep. amount for {}: {}'.format(item, dep_amount))
-			accum_dep_bal = self.ledger.balance_sheet(accounts=['Accum. Depr.'], item=item)
+			if v: print('Depr. amount for {}: {}'.format(item, dep_amount))
+			accum_dep_bal = self.ledger.balance_sheet(accounts=['Accum. Depr.'], item=item) # Negative value
 			self.ledger.reset()
 			if v: print('Accumulated Depreciation for {}: {}'.format(item, accum_dep_bal))
-			remaining_amount = asset_bal - accum_dep_bal
+			if v: print('New Depr. bal for{}: {}'.format(item,abs(accum_dep_bal) + dep_amount))
+			remaining_amount = asset_bal + accum_dep_bal
+			if v: print('Remaining Amount for {}: {}'.format(item, remaining_amount))
 			orig_uses = uses
-			if dep_amount > remaining_amount:
+			if dep_amount >= remaining_amount:
+				dep_amount = max(dep_amount, remaining_amount)
+
 				uses = math.floor(remaining_amount / (asset_bal / lifespan))
-				self.derecognize(item, 1, metric) # TODO Handle more than 1 qty
-				dep_amount = (asset_bal / lifespan) * uses
+				# self.derecognize(item, 1, metric) # TODO Handle more than 1 qty
+				# dep_amount = (asset_bal / lifespan) * uses
 				new_qty = int(math.ceil((orig_uses - uses) / lifespan))
+				if v: print(f'Derecognize new dep_amount: {dep_amount} | new uses: {uses} | orig_uses: {orig_uses} | new_qty: {new_qty}')
 				if new_qty == 1:
 					print('The {} breaks for the {}. Another {} is required to use.'.format(item, self.name, new_qty))
 				else:
 					print('The {} breaks for the {}. Another {} are required to use.'.format(item, self.name, new_qty))
 				# Try to purchase a new item if current one breaks
-				if not man:
-					# TODO Try to produce first, make aquire function that tries to produce first then attempt to purchase
-					outcome = self.purchase(item, new_qty, v=v)
-					if outcome:
-						entries, new_uses = self.depreciation(item, lifespan, metric, (orig_uses - uses), buffer)
-						if entries:
-							depreciation_event += entries
-							uses += new_uses
-					elif not outcome and uses == 0:
-						return [], None
-				elif not outcome and uses == 0:
-					return [], None
+				# if not man:
+				# 	# TODO Try to produce first, make aquire function that tries to produce first then attempt to purchase
+				# 	outcome = self.purchase(item, new_qty, v=v)
+				# 	if outcome:
+				# 		entries, new_uses = self.depreciation(item, lifespan, metric, (orig_uses - uses), buffer) # TODO Is this right?
+				# 		if entries:
+				# 			depreciation_event += entries
+				# 			uses += new_uses
+				# 	elif not outcome and uses == 0:
+				# 		return [], None
+				# elif not outcome and uses == 0:
+				# 	return [], None
 			#print('Depreciation: {} {} {} {}'.format(item, lifespan, metric, dep_amount))
 			dep_amount = round(dep_amount, 5)
 			depreciation_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation from ' + metric + ' of ' + item, item, '', '', 'Depr. Expense', 'Accum. Depr.', dep_amount ]
@@ -7465,6 +7483,7 @@ class Entity:
 			if metric == 'usage':
 				print('{} uses {} {} times.'.format(self.name, item, uses))
 			self.ledger.journal_entry(depreciation_event)
+			self.derecognize(item, 1, metric) # TODO Handle more than 1 qty
 			return depreciation_event, uses
 
 		if (metric == 'spoilage') or (metric == 'obsolescence'):
@@ -7540,41 +7559,48 @@ class Entity:
 		return impairment_event
 
 	def derecognize(self, item, qty=1, metric=None, v=False):
-		if item == 'Hydroponics':
+		if item == 'Hydroponics' or item == 'Table':
 			v = True
 		# TODO Check if item in use
 		# TODO Check if item uses land and release that land
+		if v: print(f'Derecognize for: {item} | qty: {qty} | metric: {metric}')
 		# item_type = world.get_item_type(item)
 		self.ledger.set_entity(self.entity_id)
 		asset_bal = self.ledger.balance_sheet(accounts=['Buildings','Equipment','Buildings In Use', 'Equipment In Use', 'Equipped'], item=item)# TODO Maybe support other accounts
-		if v: print(f'derecognize bal for {item}: {asset_bal}')
+		if v: print(f'Account bal for {item}: {asset_bal}')
 		if asset_bal == 0:
 			return
 		accum_dep_bal = self.ledger.balance_sheet(accounts=['Accum. Depr.'], item=item)
 		accum_imp_bal = self.ledger.balance_sheet(accounts=['Accum. Impairment Losses'], item=item)
 		self.ledger.reset()
 		accum_reduction = abs(accum_dep_bal) + abs(accum_imp_bal)
-		if v: print(f'derecognize accum for {item}: {accum_reduction}')
+		if v: print(f'Derecognize accum for {item}: {accum_reduction}')
+		print(accum_reduction >= asset_bal)
 		if accum_reduction >= asset_bal:
+			if v: print(f'Will derecognize: {item}')
 			derecognition_event = []
 			item_info = world.items.loc[item]
-			if (item_info['usage_req'] is None or item_info['use_amount'] is None) and (item_info['hold_req'] is None or item_info['hold_amount'] is None):
-				return None, [], None
-			if metric == 'usage':
+
+			use_hold_check = (item_info['usage_req'] is None or item_info['use_amount'] is None) and (item_info['hold_req'] is None or item_info['hold_amount'] is None)
+			if v: print(f'Usage req and hold req check: {use_hold_check}')
+			if not use_hold_check and metric == 'usage':
 				requirements_use = [x.strip() for x in item_info['usage_req'].split(',') if x is not None]
 				amounts_use = [x.strip() for x in item_info['use_amount'].split(',') if x is not None]
 				amounts_use = list(map(float, amounts_use))
 			else:
 				requirements_use = []
 				amounts_use = []
-
-			requirements_hold = [x.strip() for x in item_info['hold_req'].split(',') if x is not None]
-			amounts_hold = [x.strip() for x in item_info['hold_amount'].split(',') if x is not None]
-			amounts_hold = list(map(float, amounts_hold))
+			if not use_hold_check:
+				requirements_hold = [x.strip() for x in item_info['hold_req'].split(',') if x is not None]
+				amounts_hold = [x.strip() for x in item_info['hold_amount'].split(',') if x is not None]
+				amounts_hold = list(map(float, amounts_hold))
+			else:
+				requirements_hold = []
+				amounts_hold = []
 			requirements = requirements_use + requirements_hold
 			amounts = amounts_use + amounts_hold
-			if v: print(f'requirements of {item} for {metric}: {requirements}')
-			if v: print(f'amounts of {item} for {metric}: {amounts}')
+			if v: print(f'Requirements of {item} for {metric}: {requirements}')
+			if v: print(f'Amounts of {item} for {metric}: {amounts}')
 
 			for i, requirement in enumerate(requirements):
 				requirement_type = world.get_item_type(requirement)
@@ -7584,16 +7610,19 @@ class Entity:
 					release_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Release ' + requirement + ' used by ' + item, requirement, req_price, req_qty, requirement_type, requirement_type + ' In Use', req_price * req_qty ]
 					derecognition_event += [release_entry]
 
-			derecognition_event += self.release(item, qty=qty)
+			derecognition_event += self.release(item, qty=qty, v=v)
+			if v: print('derecognition_event 1:', derecognition_event)
 			# TODO Check if item is In Use
 			derecognition_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item, item, asset_bal / qty, qty, 'Accum. Depr.', 'Equipment', asset_bal ]
 			overage_entry = []
+			if v: print('derecognition_event 2:', derecognition_event)
 			if accum_reduction > asset_bal:
 				overage = accum_reduction - asset_bal
 				overage_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item + ' (Overage)', item, overage / qty, qty, 'Accum. Depr.', 'Depr. Expense', overage ]
 				derecognition_event += [derecognition_entry, overage_entry]
 			else:
 				derecognition_event += [derecognition_entry]
+			if v: print('derecognition_event 3:', derecognition_event)
 			self.ledger.journal_entry(derecognition_event)
 
 	def action(self, command=None, external=False):
