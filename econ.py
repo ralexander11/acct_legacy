@@ -1714,7 +1714,7 @@ class World:
 				# 	print(f' world.demand repr: \n{repr(world.demand)}')
 				entity.check_demand(multi=True, others=not isinstance(entity, Individual), v=args.verbose)
 				t4_7_end = time.perf_counter()
-				print(time_stamp() + '4.7: Demand list; loop check took {:,.2f} sec for {}.\n'.format(t4_7_end - t4_7_start, entity.name))
+				print(time_stamp() + '4.7: Demand list loop for {}; loop ({}) check took {:,.2f} sec.\n'.format(entity.name, i, t4_7_end - t4_7_start))
 				# print(f'Demand equals: {tmp_demand.equals(world.demand)}')
 				if isinstance(entity, Individual) and not entity.user: # TODO Is the user guard needed?
 					if entity.hours == 0:
@@ -4582,12 +4582,14 @@ class Entity:
 				if v: print('Reset hours for {} from {} to {}.'.format(individual.name, individual.hours, individual.hours+hours_deltas[individual.name]))
 				individual.set_hours(-hours_deltas[individual.name])
 			hold_event_ids = []
-			if v: print(f'{self.name} cannot {action} {qty} {item} at this time. The max possible is: {max_qty_possible}\n')
+			if v: print(f'{self.name} cannot {action} {qty} {item} at this time (wip_choice: {wip_choice}). The max possible is: {max_qty_possible}\n')
 			if v: print(time_stamp() + 'Hours reset on {}:'.format(world.now))
 			for individual in world.gov.get(Individual):
 				if v: print('{} Hours: {}'.format(individual.name, individual.hours))
 			if v: print()
+			if v: print(f'Fulfill incomplete for {qty} {item}. max_qty_possible: {max_qty_possible} | man: {man} | check: {check} | wip_choice: {wip_choice} | wip_complete: {wip_complete} | whole_qty: {whole_qty}')
 			if max_qty_possible and not man and not check and not wip_choice and whole_qty <= max_qty_possible:
+			# if max_qty_possible and not man and not check and (not wip_choice or not wip_complete) and whole_qty <= max_qty_possible: # This causes recursion issues
 				event = []
 				# print('tmp_gl before recur for item: {} \n{}'.format(item, self.gl_tmp))
 				self.gl_tmp = pd.DataFrame(columns=world.cols) # TODO Confirm this is needed
@@ -4609,7 +4611,7 @@ class Entity:
 				print(f'\nResult of trying to produce {qty} {item} by {self.name}:\n{results}\n')#if v: 
 			else:
 				print(f'\nResult of producing {qty} {item} by {self.name}:\n{results}\n')#if v: 
-		if v: print(f'!fulfill return due to finishing for item: {item}. | incomplete: {incomplete} | time_required: {time_required} | max_qty_possible: {max_qty_possible}')
+		if v: print(f'!fulfill return due to finishing for item: {item}. | incomplete: {incomplete} | time_required: {time_required} | wip_choice: {wip_choice} | wip_complete: {wip_complete} | max_qty_possible: {max_qty_possible}')
 		return incomplete, event, time_required, max_qty_possible
 
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, wip=False, buffer=False, vv=False, v=True):
@@ -4647,7 +4649,7 @@ class Entity:
 			return [], time_required, max_qty_possible, incomplete
 		orig_qty = qty
 		qty = max_qty_possible
-		if v: print(f'Qty after set to max_qty_possible: {qty} | orig_qty: {qty}')
+		if v: print(f'Qty after set to max_qty_possible: {qty} | orig_qty: {orig_qty}')
 		# print('Item: {} | Max Qty Possible: {}'.format(item, max_qty_possible))
 		# print('Produced Qty: {} | Orig Qty:{}'.format(qty, orig_qty))
 		# Mark Land etc. as in use (is now handled in fulfill)
@@ -6198,7 +6200,7 @@ class Entity:
 	# Max land to claim should be a function of the sim population
 	# If Wood takes some labour and land, the max hours for labour available should be the max land to claim
 	def max_land(self, item, v=True):
-		return 10000000000
+		return 10000000000 # TODO What is this here for? Testing maybe?
 		item_info = world.items.loc[item]
 		print(f'item_info:\n{item_info}')
 		if item_info is None:
