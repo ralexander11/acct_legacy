@@ -1896,6 +1896,7 @@ class Ledger:
 			if v: print('Getting historical cost of {} for {} qty.'.format(item, qty))
 			orig_qty = qty
 			qty_txns = self.get_qty_txns(item, acct)
+			if v: print('Qty TXNs Raw: {} \n{}'.format(len(qty_txns), qty_txns))
 			m1 = qty_txns.credit_acct == acct
 			m2 = qty_txns.credit_acct != acct
 			credit_qtys = -qty_txns['qty']

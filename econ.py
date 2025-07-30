@@ -2664,12 +2664,19 @@ class Entity:
 		self.ledger.set_entity(self.entity_id)
 		if event_id is None:
 			try:
-				event_ids = self.ledger.hist_cost(qty, item, acct='Inventory', event_id=True)
+				event_ids = self.ledger.hist_cost(qty, item, acct='Inventory', event_id=True, v=v)
 			except IndexError as e:
 				item_type = world.get_item_type(item)
-				if item_type == 'Equipment':
-					item_type = 'Equipment In Use'
-				event_ids = self.ledger.hist_cost(qty, item, acct=item_type, event_id=True)
+				if item_type == 'Equipment': # TODO Not sure if this is needed
+					item_type = 'Equipment In Use'#, 'Equipment'
+				if v: print('Release item_type:', item_type)
+				try:
+					event_ids = self.ledger.hist_cost(qty, item, acct=item_type, event_id=True, v=v)
+				except (IndexError, ValueError) as e:
+					if v: print('Release error:', e)
+					return release_event
+# 21           4           Table         Equipment    -1.00
+# 192          4           Table  Equipment In Use     1.00
 			if event_ids.empty:
 				return release_event
 			if v: print('event_ids:\n', event_ids)
@@ -2828,6 +2835,7 @@ class Entity:
 				print('{} does not have {} item to use.'.format(self.name, item))
 			else:
 				print('{} does not have {} item to attack {}\'s {} with.'.format(self.name, item, counterparty.name, target))
+			self.item_demanded(item, 1)
 			return
 		v = False
 		if item == 'Hydroponics':
@@ -5214,7 +5222,7 @@ class Entity:
 								elif wip_index in world.delay['txn_id'].values:
 									world.delay.loc[world.delay['txn_id'] == wip_index, 'delay'] += 1
 									world.set_table(world.delay, 'delay')
-									print(f'Incimented delay table on {world.now}:')
+									print(f'Incremented delay table on {world.now}:')
 									print(world.delay)
 								else:
 									# world.delay = world.delay.append({'txn_id':wip_index, 'entity_id':self.entity_id, 'delay':1, 'hours':None, 'job':None, 'item_id':item}, ignore_index=True)
@@ -5341,7 +5349,7 @@ class Entity:
 							world.tech.at[item, 'days_left'] = days_left
 							world.tech = world.tech.reset_index()
 							if v: print('wip tech table:\n', world.tech)
-						print(f'{self.name} has {days_left} WIP days left for {item} out of {timespan}. [{wip_index}]')
+						print(f'{self.name} has {days_left} WIP days left for {item} out of {timespan}. [{wip_index}]')# 1986-10-28
 					else:
 						print(f'{self.name} has {days_left} WIP days and {hours} hours left for {item} out of {timespan} days. [{wip_index}]')
 				# If the time elapsed has passed
@@ -5758,9 +5766,9 @@ class Entity:
 					#print('Tech Needed: {}'.format(tech))
 					outcome = self.item_demanded(tech, qty=1)
 					if outcome:
-						print('tech table before:\n', world.tech)
+						print('Tech table before:\n', world.tech)
 						world.tech = pd.concat([world.tech, pd.DataFrame({'technology':[tech], 'date':[world.now], 'entity_id':[self.entity_id], 'time_req':[''], 'days_left':[''], 'done_date':[''], 'status':['wip']})], ignore_index=True)
-						print('tech table after:\n', world.tech)
+						print('Tech table after:\n', world.tech)
 					# 	return tech
 
 	def check_eligible(self, item, check=False, v=False):
@@ -7577,7 +7585,7 @@ class Entity:
 		self.ledger.reset()
 		accum_reduction = abs(accum_dep_bal) + abs(accum_imp_bal)
 		if v: print(f'Derecognize accum for {item}: {accum_reduction}')
-		print(accum_reduction >= asset_bal)
+		if v: print(accum_reduction >= asset_bal)
 		if accum_reduction >= asset_bal:
 			if v: print(f'Will derecognize: {item}')
 			derecognition_event = []
