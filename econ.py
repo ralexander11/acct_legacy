@@ -1886,10 +1886,9 @@ class World:
 		self.exp = self.ledger.get_qty(items=None, accounts=['Wages Income', 'Education', 'Salary Income'], show_zeros=False, by_entity=True, credit=True)
 		self.exp = self.entities[['entity_id', 'name']].merge(self.exp, on=['entity_id'])
 		self.exp['qty'] = self.exp['qty'].abs()
-		self.exp.sort_values(by=['qty', 'item_id', 'name'], ascending=False, inplace=True)
+		self.exp.sort_values(by=['name', 'item_id', 'qty'], ascending=False, inplace=True)
 		self.inventory.sort_values(by=['qty', 'account', 'item_id', 'name'], ascending=False, inplace=True)
-		self.prices.sort_values(by=['entity_id', 'price'], ascending=True, inplace=True)
-		self.prices.sort_index(ascending=False, inplace=True)
+		prices_report = self.prices.reset_index().sort_values(by=['item_id', 'entity_id', 'price'], ascending=[False, True, True]).set_index('item_id')
 		with pd.option_context('display.max_rows', None):
 			print('Global Items:\n{}'.format(self.inventory))
 			print()
@@ -1897,7 +1896,7 @@ class World:
 			print()
 			print('Delays:\n{}'.format(self.delay))
 			print()
-			print(f'Prices end:\n{self.prices}')
+			print(f'Prices end:\n{prices_report}')
 		print()
 		t9_end = time.perf_counter()
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
@@ -5164,11 +5163,14 @@ class Entity:
 			#items_time = world.items[world.items['requirements'].str.contains('Time', na=False)]
 			items_continuous = world.items[world.items['freq'].str.contains('continuous', na=False)]
 			for wip_index, wip_lot in wip_txns.iterrows():
+				v = False
 				time_check = False
 				wip_event = []
 				partial_cost = 0
 				hours = None
 				item = wip_lot['item_id']
+				if item == 'Metal Working':
+					v = True
 				qty = wip_lot['qty']
 				if v: print('WIP Index Check: {}'.format(wip_index))
 				if v: print('WIP Item Check: {}'.format(item))
@@ -5987,7 +5989,11 @@ class Entity:
 		# for item in self.produces:
 		checked = []
 		for index, demand_item in world.demand.iterrows():
+			vv = False
 			item = demand_item['item_id']
+			if item == 'Table':
+				v = True
+				vv = True
 			if vv: print(f'Demand Index: {index} | Item: {item} | multi: {multi} | others: {others} | needs_only: {needs_only}')
 			if item in checked:
 				if vv: print(f'Already checked item {item}.')
