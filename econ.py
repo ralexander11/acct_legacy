@@ -1888,7 +1888,7 @@ class World:
 		self.exp['qty'] = self.exp['qty'].abs()
 		self.exp.sort_values(by=['name', 'item_id', 'qty'], ascending=False, inplace=True)
 		self.inventory.sort_values(by=['qty', 'account', 'item_id', 'name'], ascending=False, inplace=True)
-		prices_report = self.prices.reset_index().sort_values(by=['item_id', 'entity_id', 'price'], ascending=[False, True, True]).set_index('item_id')
+		prices_report = self.prices.reset_index().sort_values(by=['item_id', 'entity_id', 'price'], ascending=[False, True, True])#.set_index('item_id')
 		with pd.option_context('display.max_rows', None):
 			print('Global Items:\n{}'.format(self.inventory))
 			print()
