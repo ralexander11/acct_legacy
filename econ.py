@@ -2663,19 +2663,17 @@ class Entity:
 		self.ledger.set_entity(self.entity_id)
 		if event_id is None:
 			try:
-				event_ids = self.ledger.hist_cost(qty, item, acct='Inventory', event_id=True, v=v)
+				event_ids = self.ledger.hist_cost(qty, item, acct='Inventory', event_id=True)#, v=v)
 			except IndexError as e:
 				item_type = world.get_item_type(item)
 				if item_type == 'Equipment': # TODO Not sure if this is needed
 					item_type = 'Equipment In Use'#, 'Equipment'
 				if v: print('Release item_type:', item_type)
 				try:
-					event_ids = self.ledger.hist_cost(qty, item, acct=item_type, event_id=True, v=v)
+					event_ids = self.ledger.hist_cost(qty, item, acct=item_type, event_id=True)#, v=v)
 				except (IndexError, ValueError) as e:
 					if v: print('Release error:', e)
 					return release_event
-# 21           4           Table         Equipment    -1.00
-# 192          4           Table  Equipment In Use     1.00
 			if event_ids.empty:
 				return release_event
 			if v: print('event_ids:\n', event_ids)
@@ -2836,10 +2834,10 @@ class Entity:
 				print('{} does not have {} item to attack {}\'s {} with.'.format(self.name, item, counterparty.name, target))
 			self.item_demanded(item, 1)
 			return
-		v = False
-		if item == 'Hydroponics':
-			v = True
-		incomplete, use_event, time_required, max_qty_possible = self.fulfill(item, qty=uses, reqs='usage_req', amts='use_amount', check=check, v=v)
+		# v = False
+		# if item == 'Hydroponics':
+		# 	v = True
+		incomplete, use_event, time_required, max_qty_possible = self.fulfill(item, qty=uses, reqs='usage_req', amts='use_amount', check=check)#, v=v)
 		# TODO Maybe book journal entries within function and add buffer argument
 		if incomplete or check: # TODO Exit early on check after depreciation
 			if not check:
@@ -4613,7 +4611,6 @@ class Entity:
 				print(f'Old refulfill path for {item} x {qty}: {max_qty_possible}')
 			if max_qty_possible != qty and not man and not check and (not wip_choice or req_max_result) and whole_qty <= max_qty_possible: # This could cause recursion issues
 				print(f'New refulfill path for {item} x {qty}: {max_qty_possible}')
-				exit()
 				event = []
 				# print('tmp_gl before recur for item: {} \n{}'.format(item, self.gl_tmp))
 				self.gl_tmp = pd.DataFrame(columns=world.cols) # TODO Confirm this is needed
@@ -5106,6 +5103,7 @@ class Entity:
 		world.set_table(world.produce_queue, 'produce_queue')
 
 	def get_raw(self, item, qty=1, raw=None, orig_item=None, base=False, v=False):
+		# TODO Have a version where full cost of capital items for 1 unit and another version with no cost of capital items due to economies of scale
 		if raw is None:
 			raw = collections.defaultdict(int)
 		if orig_item is None:
@@ -6006,11 +6004,11 @@ class Entity:
 		# for item in self.produces:
 		checked = []
 		for index, demand_item in world.demand.iterrows():
-			vv = False
+			# vv = False
 			item = demand_item['item_id']
-			if item == 'Table':
-				v = True
-				vv = True
+			# if item == 'Table':
+			# 	v = True
+			# 	vv = True
 			if vv: print(f'Demand Index 1: {index} | Item: {item} | multi: {multi} | others: {others} | needs_only: {needs_only}')
 			if item in checked:
 				if vv: print(f'Already checked item {item}.')
@@ -7466,8 +7464,8 @@ class Entity:
 		# TODO This whole thing needs to be rewritten
 
 		# TODO Refactor to separate useage vs ticks apart
-		if item == 'Table':
-			v = True
+		# if item == 'Table':
+		# 	v = True
 		if v: print(f'\nDepreciation for: {item} | lifespan: {lifespan} | metric: {metric} | uses: {uses} | man: {man} | buffer: {buffer}')
 		if (metric == 'ticks') or (metric == 'usage') or (metric == 'equipped'):
 			self.ledger.set_entity(self.entity_id)
@@ -7603,8 +7601,8 @@ class Entity:
 		return impairment_event
 
 	def derecognize(self, item, qty=1, metric=None, v=False):
-		if item == 'Hydroponics' or item == 'Table':
-			v = True
+		# if item == 'Hydroponics' or item == 'Table':
+		# 	v = True
 		# TODO Check if item in use
 		# TODO Check if item uses land and release that land
 		if v: print(f'Derecognize for: {item} | qty: {qty} | metric: {metric}')
