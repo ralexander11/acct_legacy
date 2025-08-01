@@ -1888,15 +1888,15 @@ class World:
 		self.exp['qty'] = self.exp['qty'].abs()
 		self.exp.sort_values(by=['name', 'item_id', 'qty'], ascending=False, inplace=True)
 		self.inventory.sort_values(by=['qty', 'account', 'item_id', 'name'], ascending=False, inplace=True)
-		prices_report = self.prices.reset_index().sort_values(by=['item_id', 'entity_id', 'price'], ascending=[False, True, True])#.set_index('item_id')
+		# prices_report = self.prices.reset_index().sort_values(by=['item_id', 'entity_id', 'price'], ascending=[False, True, True])#.set_index('item_id')
 		with pd.option_context('display.max_rows', None):
 			print('Global Items:\n{}'.format(self.inventory))
 			print()
 			print('Global Experience:\n{}'.format(self.exp))
 			print()
 			print('Delays:\n{}'.format(self.delay))
-			print()
-			print(f'Prices end:\n{prices_report}')
+			# print()
+			# print(f'Prices end:\n{prices_report}')
 		print()
 		t9_end = time.perf_counter()
 		print(time_stamp() + '9: Birth check and reporting took {:,.2f} min.'.format((t9_end - t9_start) / 60))
@@ -5994,7 +5994,7 @@ class Entity:
 			if item == 'Table':
 				v = True
 				vv = True
-			if vv: print(f'Demand Index: {index} | Item: {item} | multi: {multi} | others: {others} | needs_only: {needs_only}')
+			if vv: print(f'Demand Index 1: {index} | Item: {item} | multi: {multi} | others: {others} | needs_only: {needs_only}')
 			if item in checked:
 				if vv: print(f'Already checked item {item}.')
 				continue
@@ -6069,14 +6069,24 @@ class Entity:
 						world.set_table(world.demand, 'demand')
 						if to_drop:
 							if v: print('World Demand:\n{}'.format(world.demand))
-			if vv: print(f'{self.name} produces: {self.produces}')
-			if item not in self.produces:
-				continue
-			if vv: print('Check Demand Item for {}: {}'.format(self.name, item))
-			#print('World Demand: \n{}'.format(world.demand))
 			to_drop = []
 			qty = 0
 			qty_existance = 0
+			if vv: print(f'{self.name} produces: {self.produces}')
+			if item not in self.produces:
+				if vv: print(f'{self.name} try demand purchase {item} for: ', demand_item['entity_id'])
+				if demand_item['entity_id'] == self.entity_id:
+					pur_result = self.purchase(item, demand_item['qty'], v=v)
+					if vv: print('Demand Purchase result:', pur_result)
+					if pur_result:
+						if v: print(f'Demand Purchase before: {item}\n', world.demand)
+						to_drop.append(index)
+						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+						world.set_table(world.demand, 'demand')
+						if v: print(f'Demand Purchase after: {item}\n', world.demand)
+				continue
+			if vv: print('Check Demand Item for {}: {}'.format(self.name, item))
+			#print('World Demand: \n{}'.format(world.demand))
 			# Filter for item and add up all qtys to support multiple entries
 			if multi:
 				for idx, demand_row in world.demand.iterrows():
@@ -6123,6 +6133,7 @@ class Entity:
 			outcome, time_required, max_qty_possible, incomplete = self.produce(item, qty, wip=True, v=v)#reason_need)
 			if vv: print('Demand Check Outcome: {} \n{}'.format(time_required, outcome))
 			if to_drop:
+				if vv: print('to_drop:', to_drop)
 				index = to_drop[-1]
 			try: # TODO Not needed any more
 				if not outcome and world.demand.loc[index, 'reason'] == 'Labour':
