@@ -3116,6 +3116,17 @@ class Entity:
 		time_required = False
 		time_check = False
 		whole_qty = 1
+		land_incomplete = False
+		build_incomplete = False
+		equip_incomplete = False
+		comp_incomplete = False
+		comm_incomplete = False
+		serv_incomplete = False # Not max qty req
+		sub_incomplete = False # Not max qty req
+		job_incomplete = False # Not max qty req
+		lab_incomplete = False # Not max qty req
+		edu_incomplete = False # Not max qty req
+		tech_incomplete = False # Not max qty req
 		if reqs == 'hold_req':
 			action = 'hold'
 		elif reqs == 'usage_req':
@@ -4595,8 +4606,14 @@ class Entity:
 				if v: print('{} Hours: {}'.format(individual.name, individual.hours))
 			if v: print()
 			if v: print(f'Fulfill incomplete for {qty} {item}. max_qty_possible: {max_qty_possible} | man: {man} | check: {check} | wip_choice: {wip_choice} | wip_complete: {wip_complete} | whole_qty: {whole_qty}')
+			print('req_max_result:')
+			print([not land_incomplete, not build_incomplete, not equip_incomplete, not comp_incomplete, not comm_incomplete])
+			req_max_result = all([not land_incomplete, not build_incomplete, not equip_incomplete, not comp_incomplete, not comm_incomplete])
 			if max_qty_possible and not man and not check and not wip_choice and whole_qty <= max_qty_possible:
-			# if max_qty_possible and not man and not check and (not wip_choice or not wip_complete) and whole_qty <= max_qty_possible: # This causes recursion issues
+				print(f'Old refulfill path for {item} x {qty}: {max_qty_possible}')
+			if max_qty_possible != qty and not man and not check and (not wip_choice or req_max_result) and whole_qty <= max_qty_possible: # This could cause recursion issues
+				print(f'New refulfill path for {item} x {qty}: {max_qty_possible}')
+				exit()
 				event = []
 				# print('tmp_gl before recur for item: {} \n{}'.format(item, self.gl_tmp))
 				self.gl_tmp = pd.DataFrame(columns=world.cols) # TODO Confirm this is needed
@@ -6078,7 +6095,7 @@ class Entity:
 				if demand_item['entity_id'] == self.entity_id:
 					pur_result = self.purchase(item, demand_item['qty'], v=v)
 					if vv: print('Demand Purchase result:', pur_result)
-					if pur_result:
+					if pur_result and item_type != 'Land':
 						if v: print(f'Demand Purchase before: {item}\n', world.demand)
 						to_drop.append(index)
 						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
