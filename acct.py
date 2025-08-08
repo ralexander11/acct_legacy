@@ -2442,6 +2442,10 @@ def main(conn=None, command=None, external=False):
 			total_demand = demand.sum()
 			print(demand)
 			print(f'Total demand: {total_demand}')
+		elif command.lower() == 'eutil': # This only works for the econ sim
+			eutil = accts.print_table('util', v=False)
+			eutil = eutil.head(1)
+			print(eutil)
 		elif command.lower() == 'entities':
 			accts.print_entities()
 			if args.command is not None: exit()

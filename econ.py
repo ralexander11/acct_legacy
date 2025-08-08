@@ -1157,9 +1157,7 @@ class World:
 		gl = gl.iloc[::-1]
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
-		if vv: print(gl.tail(10))
-		if vv: print()
-		if v: print(gl.head(10))
+		if v: print(gl.head(1))
 		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 		# 	if v: print(gl)
 		if save:
@@ -1886,15 +1884,15 @@ class World:
 		self.exp = self.ledger.get_qty(items=None, accounts=['Wages Income', 'Education', 'Salary Income'], show_zeros=False, by_entity=True, credit=True)
 		self.exp = self.entities[['entity_id', 'name']].merge(self.exp, on=['entity_id'])
 		self.exp['qty'] = self.exp['qty'].abs()
-		self.exp.sort_values(by=['name', 'item_id', 'qty'], ascending=False, inplace=True)
-		self.inventory.sort_values(by=['qty', 'account', 'item_id', 'name'], ascending=False, inplace=True)
+		self.exp = self.exp.sort_values(by=['qty', 'item_id', 'name'], ascending=False)
+		self.inventory = self.inventory.sort_values(by=['qty', 'account', 'item_id', 'name'], ascending=False)
 		# prices_report = self.prices.reset_index().sort_values(by=['item_id', 'entity_id', 'price'], ascending=[False, True, True])#.set_index('item_id')
 		with pd.option_context('display.max_rows', None):
 			print('Global Items:\n{}'.format(self.inventory))
 			print()
 			print('Global Experience:\n{}'.format(self.exp))
 			print()
-			print('Delays:\n{}'.format(self.delay))
+			print('Delays end:\n{}'.format(self.delay))
 			# print()
 			# print(f'Prices end:\n{prices_report}')
 		print()
@@ -4605,10 +4603,12 @@ class Entity:
 			if v: print()
 			if v: print(f'Fulfill incomplete for {qty} {item}. max_qty_possible: {max_qty_possible} | man: {man} | check: {check} | wip_choice: {wip_choice} | wip_complete: {wip_complete} | whole_qty: {whole_qty}')
 			print('req_max_result:')
-			print([not land_incomplete, not build_incomplete, not equip_incomplete, not comp_incomplete, not comm_incomplete])
-			req_max_result = all([not land_incomplete, not build_incomplete, not equip_incomplete, not comp_incomplete, not comm_incomplete])
+			print([not build_incomplete, not equip_incomplete, not comp_incomplete, not comm_incomplete])
+			req_max_result = all([not build_incomplete, not equip_incomplete, not comp_incomplete, not comm_incomplete])
 			if max_qty_possible and not man and not check and not wip_choice and whole_qty <= max_qty_possible:
 				print(f'Old refulfill path for {item} x {qty}: {max_qty_possible}')
+			if max_qty_possible != qty and not man and not check and not wip_choice and whole_qty <= max_qty_possible:
+				print(f'Mod old refulfill path for {item} x {qty}: {max_qty_possible}')
 			if max_qty_possible != qty and not man and not check and (not wip_choice or req_max_result) and whole_qty <= max_qty_possible: # This could cause recursion issues
 				print(f'New refulfill path for {item} x {qty}: {max_qty_possible}')
 				event = []
@@ -5366,7 +5366,9 @@ class Entity:
 							world.tech.at[item, 'days_left'] = days_left
 							world.tech = world.tech.reset_index()
 							if v: print('wip tech table:\n', world.tech)
-						print(f'{self.name} has {days_left} WIP days left for {item} out of {timespan}. [{wip_index}]')# 1986-10-28
+							if days_left == 0:
+								partial_index = wip_index # This is done to drop the item below
+						print(f'{self.name} has {days_left} WIP days left for {item} out of {timespan}. [{wip_index}]')
 					else:
 						print(f'{self.name} has {days_left} WIP days and {hours} hours left for {item} out of {timespan} days. [{wip_index}]')
 				# If the time elapsed has passed
@@ -5440,7 +5442,7 @@ class Entity:
 						world.tech.at[item, 'status'] = 'done'
 						world.tech.at[item, 'done_date'] = world.now
 						world.tech = world.tech.reset_index()
-						if v: print('wip tech table:\n', world.tech)
+						if v: print('wip tech table done:\n', world.tech)
 					if wip_event[-1][-3] == 'Inventory':
 						if v: print('wip item:', wip_lot['item_id'])
 						if wip_lot['item_id'] not in world.prices.index:
@@ -9690,7 +9692,7 @@ class Individual(Entity):
 		# If first item is not available, try the next one
 		for index, item in items_info.iterrows():
 			item_choosen = items_info['item_id'].iloc[index]
-			# print(f'{need} item_choosen: {item_choosen}')
+			# if v: print(f'{need} item_choosen: {item_choosen}')
 			if not self.check_eligible(item_choosen):
 				continue
 			# TODO Support multiple satisfies
@@ -9801,7 +9803,7 @@ class Individual(Entity):
 				self.ledger.reset()
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				uses_needed = int(math.ceil(need_needed / satisfy_rate))
-				if v: print(f'{self.name} has {qty_held} {item_choosen} to use {uses_needed} times to address {need_needed} {need} need.')
+				if v: print(f'{self.name} has {qty_held} {item_choosen} to use {uses_needed} times to address {need_needed} {need} needed. Will obtain: {obtain}')
 				event = []
 				if qty_held == 0 and obtain:
 					qty_purchase = 1

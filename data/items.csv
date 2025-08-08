@@ -102,7 +102,7 @@ Water Well,None,None,continuous,Equipment,"Grassland, Rock, Wood","10, 100, 20",
 Water,None,None,None,Subscription,Water Well,1,None,None,None,None,None,None,Thirst,100,None,None,None,None,None,None,None,None,None,None,None,Well
 Carpenter,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Table,None,None,continuous,Equipment,Wood,1,None,None,None,None,None,None,None,None,None,None,"10, 100","usage, ticks",None,None,None,100,None,None,None,Carpenter
-Toy,None,None,continuous,Equipment,Wood,10,None,None,None,None,None,None,Fun,10,None,None,"100, 100","usage, ticks",None,None,None,20,None,None,None,Carpenter
+Toy,None,None,continuous,Equipment,Wood,1000,None,None,None,None,None,None,Fun,10,None,None,"2, 100","usage, ticks",None,None,None,20,None,None,None,Carpenter
 Plow,None,None,start,Equipment,"Metal Working, Blacksmither, Metal, Wood","1, 1, 10, 20",12,None,None,None,None,None,None,None,Cultivator,0.5,"100, 5000","usage, ticks",None,None,None,100,None,None,None,Blacksmith
 Pottery Wheel,None,None,continuous,Equipment,"Metal Working, Carpenter, Metal, Wood","1, 1, 10, 200",1,None,None,None,None,None,None,None,None,None,"40, 5000","usage, ticks",None,None,None,80,None,None,None,Carpenter
 #Barber,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
