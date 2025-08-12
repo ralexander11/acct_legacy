@@ -1325,10 +1325,10 @@ class World:
 				cur_price = 0.0
 			else:
 				cur_price = self.get_price(item)
-			if cur_price != INIT_PRICE or item_type == 'Land' or item_type == 'Labour': # TODO Maybe check if Labour has requirements
+			if cur_price != INIT_PRICE or item_type == 'Labour':# or item_type == 'Land': # TODO Maybe check if Labour has requirements
 				new_price = pd.DataFrame({'entity_id': [entity_id], 'item_id': [item],'price': [cur_price]}).set_index('item_id')
 				self.prices = pd.concat([self.prices, new_price])
-				if v: print(f'cur_price of {item} by {entity_id}: {cur_price}')
+				print(f'cur_price of {item} by {entity_id}: {cur_price}')#if v: 
 
 			# print('After appending: \n{}'.format(new_price))
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -1519,6 +1519,10 @@ class World:
 						entity.maintain_inv(args.buffer_qty)
 					t3_7_end = time.perf_counter()
 					print(time_stamp() + '3.7: Inv check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id)) # TODO This is very slow
+				t3_8_start = time.perf_counter()
+				entity.sale_land_check()
+				t3_8_end = time.perf_counter()
+				print(time_stamp() + '3.8: Lnd check took {:,.2f} sec for {}.'.format((t3_8_end - t3_8_start), entity.name, entity.entity_id))
 			t3_end = time.perf_counter()
 			print(time_stamp() + '3: Entity check took {:,.2f} min.'.format((t3_end - t3_start) / 60))
 			print()
@@ -4959,7 +4963,7 @@ class Entity:
 						world.demand.at[index, 'qty'] -= qty_distribute
 						qty_distribute -= qty_distribute
 		if to_drop:
-			world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+			world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
 			world.set_table(world.demand, 'demand')
 			if v: print('{} exists on the demand table will drop index items {}.'.format(item, to_drop))
 			with pd.option_context('display.max_rows', None):
@@ -5297,7 +5301,9 @@ class Entity:
 					except (KeyError, IndexError) as e:
 						delay = 0
 						hours = None
-					if hours:# is not None:
+					if pd.isna(hours):
+						print('Delayed by nan hours:\n', world.delay)
+					if hours and not pd.isna(hours):# is not None:
 						job = world.delay.loc[world.delay['txn_id'] == wip_index, 'job'].values[0] # TODO Test items requiring lots of labour for more than one job
 						if v: print('WIP Partial Job: {}'.format(job))
 						partial_index = world.delay.loc[world.delay['txn_id'] == wip_index].index.tolist()[0]
@@ -5377,7 +5383,7 @@ class Entity:
 					hours = None
 				elif hours == 0:
 					hours = None
-				if date_done == world.now and (hours is None):# or hours is np.nan):
+				if date_done == world.now and (hours is None or pd.isna(hours)):
 					# Undo "in use" entries for related items
 					release_event = []
 					release_event += self.release(item, event_id=wip_lot['event_id'], qty=qty, reqs='requirements', amts='amount')#, v=True)
@@ -6005,10 +6011,11 @@ class Entity:
 			if vv: print('{} demand check for items: \n{}'.format(self.name, self.produces))
 		# for item in self.produces:
 		checked = []
-		for index, demand_item in world.demand.iterrows():
+		for index, demand_item in world.demand.iterrows():#world.demand.copy().iterrows(): # TODO This used to be able to drop rows while looping
 			# vv = False
 			item = demand_item['item_id']
-			# if item == 'Table':
+			if item == 'Table':
+				if v: print(f'Demand Purchase before init: {item} | Drop: {index}\n', world.demand)
 			# 	v = True
 			# 	vv = True
 			if vv: print(f'Demand Index 1: {index} | Item: {item} | multi: {multi} | others: {others} | needs_only: {needs_only}')
@@ -6040,7 +6047,7 @@ class Entity:
 								# if item_type == 'Land':
 								if demand_row['item_id'] == item:
 									qty = demand_row['qty']
-									if v: print(f'{self.name} attempting to claim {qty} {item} for its self from the demand table.')
+									if v: print(f'{self.name} attempting to claim {qty} {item} for itself from the demand table.')
 									result = self.claim_land(item, qty, account='Inventory', v=v)
 									if not result:
 										result = self.purchase(item, qty, acct_buy='Inventory', v=v)
@@ -6051,12 +6058,13 @@ class Entity:
 											world.demand.at[idx, 'qty'] = demand_row['qty'] - result[0][8] # If not all the Land demanded was claimed
 											if v: print('World Self Demand Land:\n{}'.format(world.demand))
 									else:
-										if v: print(f'{self.name} attempted to claim {qty} {item} for its self from the demand table.')
+										if v: print(f'{self.name} attempted to claim {qty} {item} for itself from the demand table.')
 							world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 							world.set_table(world.demand, 'demand')
 							if to_drop:
 								if v: print('World Self Demand Land:\n{}'.format(world.demand))
-					else: # TODO Test this better
+					# else: # TODO Test this better
+					elif others:
 						for idx, demand_row in world.demand.iterrows():
 							# item = demand_row['item_id']
 							# item_type = world.get_item_type(item)
@@ -6086,6 +6094,22 @@ class Entity:
 						world.set_table(world.demand, 'demand')
 						if to_drop:
 							if v: print('World Demand:\n{}'.format(world.demand))
+				if isinstance(self, Corporation):
+					qty = demand_item['qty']
+					if v: print(f'{self.name} corp has {qty} {item} land to purchase on the demand table.')
+					result = self.purchase(item, qty, acct_buy='Land', v=v) # Originally had the corp try and claim the land first
+					# if not result:
+					# 	result = self.claim_land(item, qty, account='Land', v=v) # This seemed to slow things down a lot
+					if result:
+						if result[0][8] == qty:
+							to_drop.append(index)
+						else:
+							world.demand.at[index, 'qty'] = qty - result[0][8] # If not all the Land demanded was purchased
+						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+						world.set_table(world.demand, 'demand')
+						if v: print('World Corp Demand Land:\n{}'.format(world.demand))
+					else:
+						if v: print(f'{self.name} corp attempted to purchase {qty} {item} for itself from the demand table.')
 			to_drop = []
 			qty = 0
 			qty_existance = 0
@@ -6096,7 +6120,7 @@ class Entity:
 					pur_result = self.purchase(item, demand_item['qty'], v=v)
 					if vv: print('Demand Purchase result:', pur_result)
 					if pur_result and item_type != 'Land':
-						if v: print(f'Demand Purchase before: {item}\n', world.demand)
+						if v: print(f'Demand Purchase before: {item} | Drop: {index}\n', world.demand)
 						to_drop.append(index)
 						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
 						world.set_table(world.demand, 'demand')
@@ -7432,13 +7456,27 @@ class Entity:
 		self.ledger.journal_entry(bankruptcy_event)
 		return bankruptcy_event
 
+	def sale_land_check(self, items=None, v=True):
+		if not isinstance(self, Individual):
+			return
+		if items is None: # TODO Add support for explicitly provided items
+			self.ledger.set_entity(self.entity_id)
+			land_list = self.ledger.get_qty(accounts=['Land'])
+			if v: print(f'Land Items List:\n{land_list}')
+			self.ledger.reset()
+		for _, land in land_list.iterrows():
+			print(f'Land Item:\n{land}')
+			qty = land['qty']
+			item = land['item_id']
+			self.sale(item, qty, v=v)
+
 	def depreciation_check(self, items=None): # TODO Add support for explicitly provided items
 		if items is None:
 			self.ledger.set_entity(self.entity_id)
 			items_list = self.ledger.get_qty(accounts=['Buildings','Equipment','Inventory','Buildings In Use', 'Equipment In Use', 'Equipped'])
 			#print('Dep. Items List: \n{}'.format(items_list))
 			self.ledger.reset()
-		for index, item in items_list.iterrows():
+		for _, item in items_list.iterrows():
 			#print('Depreciation Items: \n{}'.format(item))
 			qty = item['qty']
 			item = item['item_id']
@@ -7520,6 +7558,7 @@ class Entity:
 				# 	return [], None
 			#print('Depreciation: {} {} {} {}'.format(item, lifespan, metric, dep_amount))
 			dep_amount = round(dep_amount, 5)
+			# TODO Could I use a qty and price for these entries? Maybe the qty could be the number of items of that type held?
 			depreciation_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Depreciation from ' + metric + ' of ' + item, item, '', '', 'Depr. Expense', 'Accum. Depr.', dep_amount ]
 			depreciation_event += [depreciation_entry]
 			if buffer:
@@ -10245,6 +10284,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 	def print_money(self, amount=None):
 		if amount is None:
 			amount = INIT_CAPITAL
+		# TODO Should I make the price 1 and the qty the amount of cash for all cash entries? Could this have unintended consequences for other functions when querying quantanties?
 		capital_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Create capital', '', '', '', 'Cash', 'Nation Wealth', amount ]
 		capital_event = [capital_entry]
 		self.ledger.journal_entry(capital_event)
