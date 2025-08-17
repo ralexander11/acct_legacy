@@ -1152,13 +1152,16 @@ class World:
 		gl = pd.merge(gl, inv, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, item_inv, on=['date', 'item_id'], how='left').fillna(0)
 		gl = pd.merge(gl, inv_totals, on=['date'], how='left').fillna(0)
+		gl = gl.drop('Land', axis=1)
 		gl['price'] = gl['price'].round(2)
 		gl['amount'] = gl['amount'].round(2)
 		gl = gl.iloc[::-1]
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
 		if v: print(gl.head(1))
+		# eod_gl = gl.loc[gl['description'] == 'End of day entry']
 		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+		# 	if v: print(eod_gl)#.head(10))
 		# 	if v: print(gl)
 		if save:
 			# TODO Improve save name logic
@@ -1723,8 +1726,18 @@ class World:
 						print(f'{entity.name} has no hours left to check demand list.')
 						break
 				if tmp_demand.equals(world.demand):
-					print(time_stamp() + f'No change in demand for: {entity.name}')
-					break
+					if not isinstance(entity, Individual):
+						print(time_stamp() + f'No change in demand for: {entity.name}')
+					if isinstance(entity, Individual):
+						print(time_stamp() + f'No change in demand for: {entity.name} | Hours left: {entity.hours}')
+						# This should be to claim Land for others only
+						entity.check_demand(multi=True, others=True, item_types='Land', v=args.verbose)
+					if tmp_demand.equals(world.demand):
+						if isinstance(entity, Individual):
+							print(time_stamp() + f'No change in demand after attempting to claim land for others for: {entity.name} | Hours left: {entity.hours}')
+						else:
+							print(time_stamp() + f'No change in demand after attempting to claim land for others for: {entity.name}')
+						break
 			if isinstance(entity, Individual) and not entity.user:
 				print(time_stamp() + 'Current Date 04.8 for {}: {}'.format(entity.name, self.now))
 				t4_8_start = time.perf_counter()
@@ -2290,6 +2303,9 @@ class Entity:
 		self.ledger.set_entity(self.entity_id)
 		cash = self.ledger.balance_sheet(['Cash'])
 		self.ledger.reset()
+		if cash_used > cash:
+			print(F'{self.name} does not have enough cash remaining to transact with {counterparty.name} for {qty} {item}. Cash: {cash} | cash_used: {cash_used}')
+			return [], False
 		cash -= cash_used
 		#print('Cash: {}'.format(cash))
 		self.ledger.set_entity(counterparty.entity_id)
@@ -5373,7 +5389,8 @@ class Entity:
 							world.tech = world.tech.reset_index()
 							if v: print('wip tech table:\n', world.tech)
 							if days_left == 0:
-								partial_index = wip_index # This is done to drop the item below
+								print(f'partial_index as wip_index: {wip_index}')
+							# 	partial_index = wip_index # This is done to drop the item below
 						print(f'{self.name} has {days_left} WIP days left for {item} out of {timespan}. [{wip_index}]')
 					else:
 						print(f'{self.name} has {days_left} WIP days and {hours} hours left for {item} out of {timespan} days. [{wip_index}]')
@@ -5406,7 +5423,9 @@ class Entity:
 					if v: print('WIP is done for {} - Date Done: {} | Today is: {} | Hours: {}'.format(item, date_done, world.now, hours))
 					# if partial_complete:
 					if partial_index is not None: # TODO Capture additional labour costs in finished WIP entry
+						print(f'Delay table before partial_index [{partial_index}]:\n{world.delay}')
 						world.delay = world.delay.drop([partial_index]).reset_index(drop=True)
+						print(f'Delay table after partial_index [{partial_index}]:\n{world.delay}')
 					self.ledger.journal_entry(release_event)
 
 					# Book the entry to move from WIP to Inventory
@@ -6002,13 +6021,16 @@ class Entity:
 			#print('Demand after addition: \n{}'.format(world.demand))
 			return item, qty
 
-	def check_demand(self, multi=True, others=True, needs_only=False, vv=False, v=True):
+	def check_demand(self, multi=True, others=True, needs_only=False, item_types=None, vv=False, v=True):
 		if self.produces is None:
 			return
 		if needs_only:
 			if vv: print('{} demand check for needed items: \n{}'.format(self.name, self.produces))
 		else:
 			if vv: print('{} demand check for items: \n{}'.format(self.name, self.produces))
+		if item_types is not None:
+			if isinstance(item_types, str):
+				item_types = [x.strip() for x in item_types.split(',')]
 		# for item in self.produces:
 		checked = []
 		for index, demand_item in world.demand.iterrows():#world.demand.copy().iterrows(): # TODO This used to be able to drop rows while looping
@@ -6027,6 +6049,9 @@ class Entity:
 					continue
 			item_type = world.get_item_type(item)
 			if v: print(f'Demand Index: {index} | Item: {item} | Item type: {item_type} | multi: {multi} | others: {others} | needs_only: {needs_only}')
+			if item_types is not None:
+				if item_type not in item_types:
+					continue
 			if item_type != 'Land':
 				checked.append(item)
 			if item_type == 'Subscription':
