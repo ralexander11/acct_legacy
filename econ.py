@@ -6373,11 +6373,11 @@ class Entity:
 		if entity.hours < time_needed:
 			qty = math.floor(entity.hours / (explore_time))
 			if qty == 0:
-				if v: print(f'{entity.name} requires {explore_time} time to claim {orig_qty} units of {item}. Can claim {qty} units with {entity.hours} hours time.')
+				if v: print(f'{entity.name} requires {explore_time * orig_qty} hours to claim {orig_qty} units of {item}. Can claim {qty} units with {entity.hours} hours time.')
 				if account == 'Land':
 					self.item_demanded(item, orig_qty, priority=priority, v=v)
 				return
-			if v: print(f'{entity.name} requires {explore_time} time to claim {orig_qty} units of {item}. But can claim {qty} units with {entity.hours} hours of time instead.')
+			if v: print(f'{entity.name} requires {explore_time * orig_qty} hours to claim {orig_qty} units of {item}. But can claim {qty} units with {entity.hours} hours of time instead.')
 			if self.user:
 				while True:
 					confirm = input('Do you want to claim {} units of {} instead? [Y/n]: '.format(qty, item))
@@ -6428,7 +6428,7 @@ class Entity:
 				if v: print('{} claims {} units of {} in {} hours. Hours left: {}'.format(self.name, qty, item, time_needed, entity.hours))
 				return claim_land_event
 			self.ledger.journal_entry(claim_land_event)
-			self.item_demanded(item, orig_qty - qty, priority=priority, v=v)
+			# self.item_demanded(item, orig_qty - qty, priority=priority, v=v)
 			if v: print('{} claims {} units of {} in {} hours. Hours left: {}'.format(self.name, qty, item, time_needed, entity.hours))
 			return claim_land_event
 		else:
