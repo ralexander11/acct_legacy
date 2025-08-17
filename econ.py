@@ -1055,7 +1055,7 @@ class World:
 		# print(self.accts.get_items())
 		return self.items
 
-	def util(self, gl=None, save=False, vv=False, v=True):
+	def util(self, gl=None, eod=True , save=False, vv=False, v=True):
 		# Function used to investigate the GL
 		# save = True
 		if v: print()
@@ -1155,7 +1155,9 @@ class World:
 		gl = gl.drop('Land', axis=1)
 		gl['price'] = gl['price'].round(2)
 		gl['amount'] = gl['amount'].round(2)
-		gl = gl.loc[gl['description'] == 'End of day entry']
+		if eod:
+			gl = gl.loc[gl['description'] == 'End of day entry']
+			gl['dur'] = pd.to_datetime(gl['post_date']).diff(periods=1)
 		gl = gl.iloc[::-1]
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
