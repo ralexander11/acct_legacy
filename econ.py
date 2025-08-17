@@ -5302,10 +5302,10 @@ class Entity:
 						delay = world.delay.loc[world.delay['txn_id'] == wip_index, 'delay'].values[0]
 						hours = world.delay.loc[world.delay['txn_id'] == wip_index, 'hours'].values[0]
 						if v: print(world.delay)
-						if hours is not None:
+						if hours is not None and not pd.isna(hours):
 							partial_index = world.delay.loc[world.delay['txn_id'] == wip_index].index.tolist()[0]
 							if v: print('Partial Index 1: {}'.format(partial_index))
-						if hours is None:
+						if hours is None or pd.isna(hours):
 							if delay == 1:
 								print(f'{item} delayed by {delay} day.')
 							else:
@@ -5319,7 +5319,7 @@ class Entity:
 						delay = 0
 						hours = None
 					if pd.isna(hours):
-						print('Delayed by nan hours:\n', world.delay)
+						print('Delayed by nan or None hours:\n', world.delay)
 					if hours and not pd.isna(hours):# is not None:
 						job = world.delay.loc[world.delay['txn_id'] == wip_index, 'job'].values[0] # TODO Test items requiring lots of labour for more than one job
 						if v: print('WIP Partial Job: {}'.format(job))
@@ -5362,7 +5362,7 @@ class Entity:
 					try:
 						delay = world.delay.loc[world.delay['txn_id'] == wip_index, 'delay'].values[0]
 						hours = world.delay.loc[world.delay['txn_id'] == wip_index, 'hours'].values[0]
-						if hours is None:
+						if hours is None or pd.isna(hours):
 							if delay == 1:
 								if v: print(f'{item} delayed by {delay} day after.')
 							else:
@@ -5382,7 +5382,7 @@ class Entity:
 				days_left = (date_done - world.now).days
 				if v: print(f'days_left: {days_left}')
 				if days_left < timespan and days_left >= 0:
-					if hours is None:
+					if hours is None or pd.isna(hours):
 						if wip_lot['debit_acct'] == 'Researching Technology':
 							world.tech = world.tech.set_index('technology')
 							world.tech.at[item, 'time_req'] = int(timespan)
