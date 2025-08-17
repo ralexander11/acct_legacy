@@ -1155,6 +1155,7 @@ class World:
 		gl = gl.drop('Land', axis=1)
 		gl['price'] = gl['price'].round(2)
 		gl['amount'] = gl['amount'].round(2)
+		gl = gl.loc[gl['description'] == 'End of day entry']
 		gl = gl.iloc[::-1]
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
@@ -1162,7 +1163,7 @@ class World:
 		# eod_gl = gl.loc[gl['description'] == 'End of day entry']
 		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 		# 	if v: print(eod_gl)#.head(10))
-		# 	if v: print(gl)
+			# if v: print(gl)
 		if save:
 			# TODO Improve save name logic
 			outfile = 'econ_util_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
