@@ -1,22 +1,28 @@
 import acct
+import sys, os
 import glob
 import pandas as pd
 # import numpy as np
 import re
+import argparse
 
 def get_all_dbs(v=True):
-    databases = glob.glob('/home/robale5/becauseinterfaces.com/acct/db/*econ*.db')
-    # databases = glob.glob('../acct_legacy/db/*econ*')
+    path = '/home/robale5/becauseinterfaces.com/acct/db/'
+    if not os.path.exists(path):
+        path = '../acct_legacy/db/'
+    databases = glob.glob(path + '*econ*.db')
     if v: print(databases)
     return databases
 
 def get_all_logs(v=True):
-    # logs = glob.glob('/home/robale5/becauseinterfaces.com/acct/logs/*econ*.log')
-    logs = glob.glob('../acct_legacy/logs/*econ*')
+    path = '/home/robale5/becauseinterfaces.com/acct/logs/'
+    if not os.path.exists(path):
+        path = '../acct_legacy/logs/'
+    logs = glob.glob(path + '*econ*.log')
     if v: print(logs)
     return logs
 
-def main_logs(v=True):
+def main_logs(save=False, v=True):
     timings = []
     cols = ['db_file', 'date', '2: Corp (min)', '3: Entity check (min)', '5: Optional check (min)', '6: Prices check (sec)', '7: Needs decay (min)', '8: Cash check (sec)', '9: Birth check (min)', '4: Demand check (min)', '4.1: Demand auto (sec)', '4.2: ', '4.3: ', '4.4: ', '4.5: ', '4.6: ', '4.7: ', '4.8: ', '4.9: ', '1: End (min)']
     logs = get_all_logs()
@@ -174,10 +180,12 @@ def main_logs(v=True):
 
     df = pd.DataFrame(timings, columns=cols)
     print(df)
-    df.to_csv('data/timings.csv', index=True)
+    if save:
+        df.to_csv('data/timings.csv', index=True)
+        print('File saved as ' + 'data/' + 'timings.csv')
     return df
 
-def main(v=True):
+def main(save=False, v=True):
     stats = []
     dbs = get_all_dbs()
     num_dbs = len(dbs)
@@ -221,16 +229,80 @@ def main(v=True):
     # print('----------------------------------------')
     df = pd.DataFrame(stats, columns=cols)
     print(df)
-    df.to_csv('data/stats.csv', index=True)
+    if save:
+        df.to_csv('data/stats.csv', index=True)
+        print('File saved as ' + 'data/' + 'stats.csv')
     return df
 
-def gl_timings():
-
-    return
+def gl_timings(dbs=None, save=False, v=True):
+    from functools import reduce
+    stats = []
+    # dbs = ['econ_dur_test01.db', 'econ_dur_test02.db']
+    if dbs is None:
+        dbs = get_all_dbs()
+    num_dbs = len(dbs)
+    print('num_dbs:', num_dbs)
+    dbs.sort()
+    df = pd.DataFrame()
+    most_days = 0
+    dfs = []
+    for i, db in enumerate(dbs):
+        print(f'{i+1}/{num_dbs} db:', db)
+        db = db.split('/')[-1]
+        if v: print('db file:', db)
+        try:
+            accts = acct.Accounts(conn=db)
+            ledger = acct.Ledger(accts)
+            util = accts.print_table('util', v=False)
+        except Exception as e:
+            print(f'Error with file: {db}')
+            print(e)
+            print('------------------------------------------')
+            continue
+        if isinstance(util, str):
+            continue
+        util = util.loc[util['description'] == 'End of day entry']
+        if util.empty:
+            if v: print(f'Skipping empty util for {db}.')
+            continue
+        # print(util)#.head(3))
+        days = util.shape[0]
+        if days > most_days:
+            most_days = days
+        if 'dur' not in util.columns:
+            print('Will calc dur.')
+            util['dur'] = pd.to_datetime(util['post_date']).diff(periods=-1)
+        dfs.append(util[['date', 'dur']].rename(columns={'dur': db}))
+    df = reduce(lambda left, right: pd.merge(left, right, on='date', how='outer'), dfs)
+    df.loc[df['date'] == '1986-10-01', df.columns.difference(['date'])] = pd.to_timedelta(0)
+    df[df.columns.difference(['date'])] = df[df.columns.difference(['date'])].apply(pd.to_timedelta, unit='ns')
+    df = df.sort_values('date', ascending=False)
+    print('most_days:', most_days)
+    print('db timings:')
+    print(df)
+    if save:
+        df.to_csv('data/gl_timings.csv', index=True)
+        print('File saved as ' + 'data/' + 'gl_timings.csv')
+    return df
 
 if __name__ == '__main__':
-    # main()
-    main_logs()
-    # gl_timings()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-m', '--mode', type=str, help='1) for main 2) for main_logs 3) for gl_timings.')
+    parser.add_argument('-s', '--save', action='store_true', help='Save the result to a csv.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbosity.')
+    parser.add_argument('-d', '--display', action='store_false', help='Display the result [unused].') # Not used yet
+    args = parser.parse_args()
+    print(str(sys.argv))
+
+    if args.mode == '1':
+        main(save=args.save, v=args.verbose)
+    elif args.mode == '2':
+        main_logs(save=args.save, v=args.verbose)
+    elif args.mode == '3':
+        gl_timings(save=args.save, v=args.verbose)
+    else:
+        # main(save=args.save, v=args.verbose)
+        gl_timings(save=args.save, v=args.verbose)
 
 # [2022-Jun-09 06:01:48 AM] ['/home/robale5/becauseinterfaces.com/acct/econ.py', '-db', 'econ_2022-06-09.db', '-s', '11', '-p', '4', '--early', '-i', 'items03_no_wip.csv']
+# scp stats.py robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct

@@ -2471,7 +2471,8 @@ def main(conn=None, command=None, external=False):
 			accts.load_items()
 		elif command.lower() == 'tables':
 			tables = pd.read_sql_query('SELECT name FROM sqlite_master WHERE type=\'table\';', ledger.conn)
-			print(f'{tables}\n')
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print(f'{tables}\n')
 			accts.print_table()
 			if args.command is not None: exit()
 		elif command.lower() == 'table':
