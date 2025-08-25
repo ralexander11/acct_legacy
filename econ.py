@@ -272,10 +272,12 @@ class World:
 			self.entities = self.accts.get_entities()
 			self.set_table(self.prices, 'prices')
 			# Track historical prices
-			tmp_prices = self.prices.reset_index()
+			# tmp_prices = self.prices.reset_index()
+			tmp_prices = self.prices.reset_index().rename(columns={'index': 'item_id'})
 			tmp_prices['date'] = self.now
 			self.hist_prices = pd.DataFrame(tmp_prices, columns=['date','entity_id','price'])
 			self.set_table(self.hist_prices, 'hist_prices')
+			# print('init hist_prices:\n', self.hist_prices)
 			# Track historical demand
 			tmp_demand = self.demand.copy(deep=True)#.reset_index()
 			tmp_demand['date_saved'] = self.now
@@ -443,6 +445,7 @@ class World:
 				self.hist_inv = self.get_table('hist_inv')
 			except Exception as e:
 				print('Loading Error: {}'.format(repr(e)))
+			# print('load hist_prices:\n', self.hist_prices)
 			self.gov = self.factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
 			self.selection = None
@@ -1862,7 +1865,7 @@ class World:
 				# 	lst.append(lst.pop(0))
 
 		t8_end = time.perf_counter()
-		print(time_stamp() + '8: Cash check took {:,.2f} sec.'.format(t8_end - t8_start))
+		print(time_stamp() + '8: Cash check took {:,.2f} min.'.format((t8_end - t8_start) / 60))
 		print()
 
 		t9_start = time.perf_counter()
@@ -1931,9 +1934,9 @@ class World:
 		# # Track historical prices
 		# tmp_prices = self.prices.reset_index()
 		# tmp_prices['date'] = self.now
-		# self.hist_prices = pd.concat([self.hist_prices, tmp_prices])
-		# # self.hist_prices = self.hist_prices.dropna()
-		# self.set_table(self.hist_prices, 'hist_prices')
+		# self.hist_pr ices = pd.concat([self.hist_pr ices, tmp_prices])
+		# # self.hist_pr ices = self.hist_pr ices.dropna()
+		# self.set_table(self.hist_pr ices, 'hist_pr ices')
 		# # Track historical demand
 		# tmp_demand = self.demand.copy(deep=True)#.reset_index()
 		# tmp_demand['date_saved'] = self.now
@@ -2055,10 +2058,12 @@ class World:
 			self.ledger.journal_entry([eot_entry])
 		if eod:
 			# Track historical prices
-			tmp_prices = self.prices.reset_index()
+			tmp_prices = self.prices.reset_index().rename(columns={'index': 'item_id'})
 			tmp_prices['date'] = self.now
-			self.hist_prices = pd.concat([self.hist_prices, tmp_prices])
+			# print('eod tmp_prices:\n', tmp_prices)
+			self.hist_prices = pd.concat([self.hist_prices, tmp_prices], ignore_index=True)
 			self.set_table(self.hist_prices, 'hist_prices')
+			# print('eod hist_prices:\n', self.hist_prices)
 			# Track historical demand
 			tmp_demand = self.demand.copy(deep=True)
 			tmp_demand['date_saved'] = self.now

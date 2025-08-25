@@ -2442,10 +2442,12 @@ def main(conn=None, command=None, external=False):
 			total_demand = demand.sum()
 			print(demand)
 			print(f'Total demand: {total_demand}')
+			if args.command is not None: exit()
 		elif command.lower() == 'eutil': # This only works for the econ sim
 			eutil = accts.print_table('util', v=False)
 			eutil = eutil.head(1)
 			print(eutil)
+			if args.command is not None: exit()
 		elif command.lower() == 'entities':
 			accts.print_entities()
 			if args.command is not None: exit()
@@ -2490,6 +2492,7 @@ def main(conn=None, command=None, external=False):
 			else:
 				db = accts.db
 			print('Current database: {}'.format(db))
+			if args.command is not None: exit()
 		elif command.lower() == 'copydb':
 			accts.copy_db()
 			if args.command is not None: exit()
@@ -2506,7 +2509,7 @@ def main(conn=None, command=None, external=False):
 			tbal_end = time.perf_counter()
 			print(bal)
 			print('BS took {:,.2f} sec.'.format((tbal_end - tbal_start)))
-
+			if args.command is not None: exit()
 		elif command.lower() == 'histcost':
 			result = ledger.hist_cost(400, 'Rock', 'Inventory', avg_cost=True, v=True)
 			print('Historical cost of {} {}: {}'.format(400, 'Rock', result))
