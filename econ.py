@@ -1651,6 +1651,7 @@ class World:
 		print()
 		print(time_stamp() + 'Current Date 04: {}'.format(self.now))
 		t4_start = time.perf_counter()
+		self.get_hours(v=True)
 		print(time_stamp() + 'Check Demand List:')
 		for entity in self.factory.get(users=False):
 			t4_1_start = time.perf_counter()
@@ -1660,6 +1661,7 @@ class World:
 			entity.auto_produce()
 			t4_1_end = time.perf_counter()
 			print(time_stamp() + '4.1: Demand list; auto check took {:,.2f} sec for {}.\n'.format(t4_1_end - t4_1_start, entity.name))
+			# self.get_hours(v=True)
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 			# if isinstance(entity, Individual):
 			# 	entity.needs_decay()
@@ -1675,12 +1677,14 @@ class World:
 				entity.address_needs(priority=True, method='consumption', v=args.verbose)
 				t4_2_end = time.perf_counter()
 				print(time_stamp() + '4.2: Demand list; address needs consumption 1 check took {:,.2f} sec for {}.\n'.format(t4_2_end - t4_2_start, entity.name))
+				self.get_hours(v=True)
 				if self.end_turn(check_hrs=True, user_check=user_check): return
 				print(time_stamp() + 'Current Date 04.3 for {}: {}'.format(entity.name, self.now))
 				t4_3_start = time.perf_counter()
 				entity.address_needs(method='capital', v=args.verbose)
 				t4_3_end = time.perf_counter()
 				print(time_stamp() + '4.3: Demand list; address needs capital check took {:,.2f} sec for {}.\n'.format(t4_3_end - t4_3_start, entity.name))
+				self.get_hours(v=True)
 				if self.end_turn(check_hrs=True, user_check=user_check): return
 				# print('{} {} need at: {}'.format(entity.name, need, entity.needs[need]['Current Need']))
 			print(time_stamp() + 'Current Date 04.4 for {}: {}'.format(entity.name, self.now))
@@ -1688,6 +1692,7 @@ class World:
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual), needs_only=True, v=args.verbose)
 			t4_4_end = time.perf_counter()
 			print(time_stamp() + '4.4: Demand list; needs check took {:,.2f} min for {}.\n'.format(t4_4_end - t4_4_start, entity.name))
+			self.get_hours(v=True)
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 			if isinstance(entity, Individual) and not entity.user:
 				print(time_stamp() + 'Current Date 04.5 for {}: {}'.format(entity.name, self.now))
@@ -1695,8 +1700,10 @@ class World:
 				entity.address_needs(obtain=False, priority=False, method='consumption', v=args.verbose)
 				t4_5_end = time.perf_counter()
 				print(time_stamp() + '4.5: Demand list; address needs consumption 2 check took {:,.2f} sec for {}.\n'.format(t4_5_end - t4_5_start, entity.name))
+				self.get_hours(v=True)
 				if self.end_turn(check_hrs=True, user_check=user_check): return
-			
+		
+		self.get_hours(v=True)
 
 		for entity in self.factory.get(users=False):
 			print(time_stamp() + 'Current Date 04.6 for {}: {}'.format(entity.name, self.now))
@@ -1706,6 +1713,8 @@ class World:
 			t4_6_end = time.perf_counter()
 			print(time_stamp() + '4.6: Demand list; WIP check took {:,.2f} sec for {}.\n'.format(t4_6_end - t4_6_start, entity.name))
 			if self.end_turn(check_hrs=True, user_check=user_check): return
+
+		self.get_hours(v=True)
 
 		for entity in self.factory.get(users=False):
 			print(time_stamp() + f'Demand List Check for: {entity.name}')
@@ -1753,6 +1762,7 @@ class World:
 			print(time_stamp() + 'Current Date 04.9 for {}: {}'.format(entity.name, self.now))
 			t4_9_start = time.perf_counter()
 			entity.check_inv()
+			self.get_hours(v=True)
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 			entity.tech_motivation()
 			t4_9_end = time.perf_counter()
@@ -3442,32 +3452,43 @@ class Entity:
 				if capacity is None or pd.isna(capacity):
 					capacity = 1
 				capacity = float(capacity)
-				qty_needed = qty * (1-modifier) * req_qty
+				qty_needed = qty * math.ceil((1-modifier) * req_qty)
+				min_qty_needed = math.ceil((1-modifier) * req_qty)
 				if v: print(f'{self.name} requires {req_qty} {req_item} building (Capacity: {capacity}) to {action} {qty} {item} and has: {building}')
 				price = world.get_price(req_item, self.entity_id)
-				if (building * capacity) < qty_needed:
+
+				building_to_use = int(math.ceil(qty_needed / capacity))
+				required_qty = max(0, building_to_use - building)
+				if required_qty > 0:
+				# if (building * capacity) < qty_needed:
 					self.ledger.reset()
 					building_wip = self.ledger.get_qty(items=req_item, accounts=['Building Under Construction'])
 					self.ledger.set_entity(self.entity_id)
 					if v: print('{} building under construction: {}'.format(req_item, building_wip))
 					building += building_wip
-					if (building * capacity) < qty_needed:
-						remaining_qty = max(qty_needed - (building * capacity), 0)
-						required_qty = int(math.ceil(remaining_qty / capacity))
+					required_qty = max(0, building_to_use - building)
+					if required_qty > 0:
+					# if (building * capacity) < qty_needed:
+						# remaining_qty = max(qty_needed - (building * capacity), 0)
+						# required_qty = int(math.ceil(remaining_qty / capacity))
 						if building == 0:
 							if v: print('{} does not have any {} building and requires {}.'.format(self.name, req_item, required_qty))
 						else:
 							if v: print('{} does not have enough capacity in {} building and requires {}.'.format(self.name, req_item, required_qty))
 						
 						# If item is expensive keep required_qty at 1
-						if required_qty > 1:
+						if required_qty > min_qty_needed:
 							build_cost = world.get_price(req_item)
 							item_cost = world.get_price(item)
 							if v: print(f'build_cost: {build_cost} | item_cost: {item_cost} | price: {price} | total_price: {required_qty * price}')
 							thresh = item_cost * qty * MARKUP
 							if v: print(f'thresh: {thresh} | qty: {qty} | MARKUP: {MARKUP} | required_qty: {required_qty}')
 							if (price * required_qty) > thresh:
-								required_qty = 1
+								if equip_qty >= min_qty_needed:
+									required_qty = 0
+									if v: print(f'{self.name} has at least {min_qty_needed} building.')
+								else:	
+									required_qty = 1
 							if v: print(f'required_qty after: {required_qty}')
 
 						if not man:
@@ -3611,46 +3632,58 @@ class Entity:
 					if 'animal' in item_freq and 'animal' in req_freq:
 						capacity = 1
 				capacity = float(capacity)
-				qty_needed = qty * (1-modifier) * req_qty
-				if v: print(f'{self.name} requires {req_qty} {req_item} equipment (Capacity: {capacity}) to {action} {qty} {item} and has: {equip_qty}')
+				qty_needed = qty * math.ceil((1-modifier) * req_qty)
+				min_qty_needed = math.ceil((1-modifier) * req_qty)
+				if v: print(f'{self.name} requires {req_qty} {req_item} equipment (Capacity: {capacity}) to {action} {qty} {item} and has: {equip_qty} | qty_needed: {qty_needed}')
 				price = world.get_price(req_item, self.entity_id)
-				if (equip_qty * capacity) < qty_needed: # TODO Test item with capacity
+
+				equipment_to_use = int(math.ceil(qty_needed / capacity))
+				equip_needed = max(0, equipment_to_use - equip_qty)
+				if equip_needed > 0: # TODO Maybe make same changes in Job
+				# if (equip_qty * capacity) < qty_needed: # TODO Test item with capacity
 					self.ledger.reset()
 					equip_qty_wip = self.ledger.get_qty(items=req_item, accounts=['WIP Equipment'])
 					self.ledger.set_entity(self.entity_id)
 					if v: print(f'{req_item} equipment being manufactured: {equip_qty_wip}')
 					equip_qty += equip_qty_wip
-					if (equip_qty * capacity) < qty_needed: # TODO Fix this
-						# Decision: Should you build multiple equipment to produce in parallel
-						remaining_qty = max(qty_needed - (equip_qty * capacity), 0)
-						required_qty = int(math.ceil(remaining_qty / capacity))
+					equip_needed = max(0, equipment_to_use - equip_qty)
+					if equip_needed > 0:
+					# if (equip_qty * capacity) < qty_needed: # TODO Fix this
+						# Decision: Should the entity build multiple equipment to produce in parallel
+						# remaining_qty = max(qty_needed - (equip_qty * capacity), 0)
+						# required_qty = int(math.ceil(remaining_qty / capacity))
 						if equip_qty == 0:
-							if v: print(f'{self.name} does not have any {req_item} equipment and requires {required_qty}.')
+							if v: print(f'{self.name} does not have any {req_item} equipment and requires {equip_needed}.')
 						else:
-							if v: print(f'{self.name} does not have enough capacity on {equip_qty} {req_item} equipment and could use up to {required_qty}.')
+							if v: print(f'{self.name} does not have enough capacity on {equip_qty} {req_item} equipment and could use up to {equipment_to_use}.')
 
-						# If item is expensive keep required_qty at 1
-						if required_qty > 1:
+						# If item is expensive keep equip_needed at 1 or 0 if have enough equip
+						# if equip_needed > 1 or (equip_qty > 0 and equip_needed == 1):
+						if equip_needed > min_qty_needed:
 							equip_cost = world.get_price(req_item)
 							item_cost = world.get_price(item)
-							if v: print(f'equip_cost: {equip_cost} | item_cost: {item_cost} | price: {price} | total_price: {required_qty * price}')
+							if v: print(f'equip_cost: {equip_cost} | item_cost: {item_cost} | price: {price} | total_price: {equip_needed * price}')
 							thresh = item_cost * qty * MARKUP
-							if v: print(f'thresh: {thresh} | qty: {qty} | MARKUP: {MARKUP} | required_qty: {required_qty}')
-							if (price * required_qty) > thresh:
-								required_qty = 1
-							if v: print(f'required_qty after: {required_qty}')
+							if v: print(f'thresh: {thresh} | qty: {qty} | MARKUP: {MARKUP} | equip_needed: {equip_needed} | min_qty_needed: {min_qty_needed}')
+							if (price * equip_needed) > thresh:
+								if equip_qty >= min_qty_needed:
+									equip_needed = 0
+									if v: print(f'{self.name} has at least {min_qty_needed} equipment.')
+								else:	
+									equip_needed = 1
+							if v: print(f'equip_needed after: {equip_needed}')
 
 						if not man:
 							# Attempt to purchase before producing self if makes sense
-							result = self.purchase(req_item, required_qty, buffer=buffer, v=v)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
+							result = self.purchase(req_item, equip_needed, buffer=buffer, v=v)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
 							# if vv: print('Equip Purchase Result:', result)
 							req_time_required = False
 							if not result:
 								# TODO Needs if isinstance(item_freq, str):
 								if 'animal' in item_freq and 'animal' in req_freq and equip_qty < 2 and not man:
-									required_qty = 1
-									if v: print(f'{self.name} will attempt to catch remaining {required_qty} {req_item} in the wild.')
-									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, reqs='int_rate_fix', amts='int_rate_var', debit_acct='Equipment', buffer=buffer, v=v) # TODO This is a bit hackey
+									equip_needed = 1
+									if v: print(f'{self.name} will attempt to catch remaining {equip_needed} {req_item} in the wild.')
+									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, equip_needed, reqs='int_rate_fix', amts='int_rate_var', debit_acct='Equipment', buffer=buffer, v=v) # TODO This is a bit hackey
 									equip_qty += req_max_qty_possible
 									if not req_incomplete:
 										if equip_qty < 2:
@@ -3669,14 +3702,14 @@ class Entity:
 									if 'animal' in item_freq and 'animal' in req_freq and incomplete:
 										continue
 									elif 'animal' in item_freq and 'animal' in req_freq:# and equip_qty - equip_qty_wip <= 3: # TODO Test if this is needed for large amounts
-										required_qty = max(math.floor((equip_qty - equip_qty_wip) / 2), 1)
-									if v: print(f'{self.name} will attempt to produce {required_qty} {req_item} itself.')
+										equip_needed = max(math.floor((equip_qty - equip_qty_wip) / 2), 1)
+									if v: print(f'{self.name} will attempt to produce {equip_needed} {req_item} itself.')
 									if vv: print('&&&&&1')
-									if vv: print(f'Produce req_item: {req_item} | qty: {required_qty} | buffer: {buffer} | v: {v}')
-									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, required_qty, debit_acct='Equipment', buffer=buffer, v=v)
-									if vv: print(f'Result for req_item: {req_item} | qty: {required_qty} | req_time_required: {req_time_required} | req_max_qty_possible: {req_max_qty_possible} | {req_incomplete} result:\n{result}')
+									if vv: print(f'Produce req_item: {req_item} | qty: {equip_needed} | buffer: {buffer} | v: {v}')
+									result, req_time_required, req_max_qty_possible, req_incomplete = self.produce(req_item, equip_needed, debit_acct='Equipment', buffer=buffer, v=v)
+									if vv: print(f'Result for req_item: {req_item} | qty: {equip_needed} | req_time_required: {req_time_required} | req_max_qty_possible: {req_max_qty_possible} | {req_incomplete} result:\n{result}')
 									if vv: print('&&&&&2')
-									if v: print(f'{self.name} attempted to produce {required_qty} {req_item} itself.')
+									if v: print(f'{self.name} attempted to produce {equip_needed} {req_item} itself.')
 							if not result or req_time_required:
 								if req_time_required:
 									if v: print(f'{self.name} cannot complete {item} now due to {req_item} requiring time to produce.')
