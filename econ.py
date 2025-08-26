@@ -3488,7 +3488,7 @@ class Entity:
 									required_qty = 0
 									if v: print(f'{self.name} has at least {min_qty_needed} building.')
 								else:	
-									required_qty = 1
+									required_qty = min_qty_needed
 							if v: print(f'required_qty after: {required_qty}')
 
 						if not man:
@@ -3539,14 +3539,14 @@ class Entity:
 				build_in_use = 0
 				if building != 0:
 					if capacity != 1:
-						qty_to_use = int(min(building, int(math.ceil((building * capacity) / (max_qty_possible * (1-modifier) * req_qty)))))
+						qty_to_use = int(min(building, int(math.ceil((building * capacity) / (max_qty_possible * math.ceil((1-modifier) * req_qty))))))
 					else:
-						qty_to_use = int(min(building, int(math.ceil((max_qty_possible * (1-modifier) * req_qty)))))
+						qty_to_use = int(min(building, int(math.ceil((max_qty_possible * math.ceil((1-modifier) * req_qty))))))
 					if capacity == 1:
 						in_use = True
 						build_in_use = qty_to_use
 					else:
-						build_in_use = int(math.floor((max_qty_possible * (1-modifier) * req_qty) / (building * capacity)))
+						build_in_use = int(math.floor((max_qty_possible * math.ceil((1-modifier) * req_qty)) / (building * capacity)))
 						if v: print('build_in_use:', build_in_use)
 						if build_in_use >= 1:
 							in_use = True
@@ -3663,14 +3663,14 @@ class Entity:
 							equip_cost = world.get_price(req_item)
 							item_cost = world.get_price(item)
 							if v: print(f'equip_cost: {equip_cost} | item_cost: {item_cost} | price: {price} | total_price: {equip_needed * price}')
-							thresh = item_cost * qty * MARKUP
+							thresh = item_cost * qty * MARKUP # This doesn't account for using the equipment for multiple productions
 							if v: print(f'thresh: {thresh} | qty: {qty} | MARKUP: {MARKUP} | equip_needed: {equip_needed} | min_qty_needed: {min_qty_needed}')
 							if (price * equip_needed) > thresh:
 								if equip_qty >= min_qty_needed:
 									equip_needed = 0
 									if v: print(f'{self.name} has at least {min_qty_needed} equipment.')
 								else:	
-									equip_needed = 1
+									equip_needed = min_qty_needed
 							if v: print(f'equip_needed after: {equip_needed}')
 
 						if not man:
@@ -3738,10 +3738,12 @@ class Entity:
 						self.ledger.set_entity(self.entity_id)
 				equip_qty = self.ledger.get_qty(items=req_item, accounts=['Equipment'])
 				try:
-					# Note: If capacity != 1 then req_qty should == 1
-					constraint_qty = math.floor((equip_qty * capacity) / (req_qty * (1-modifier)))
+					# Note: If capacity != 1 then req_qty should == 1 (not true anymore)
+					constraint_qty = math.floor((equip_qty * capacity) / math.ceil((1-modifier) * req_qty))
+					if v: print(f'Equipment constraint_qty: {constraint_qty} | max_qty_possible: {max_qty_possible}')
 					max_qty_possible = min(constraint_qty, max_qty_possible)
 				except ZeroDivisionError:
+					if v: print(f'ZeroDivisionError resulting in constraint_qty of inf.')
 					constraint_qty = 'inf'
 					max_qty_possible = min(max_qty_possible, qty)
 				if v: print(f'Equipment Max Qty Possible: {max_qty_possible} | Constraint Qty: {constraint_qty} | equip_qty: {equip_qty}')
@@ -3750,14 +3752,14 @@ class Entity:
 				qty_to_use = 0
 				equip_in_use = 0
 				if equip_qty != 0:
-					qty_to_use = int(min(equip_qty, math.ceil((qty * (1-modifier) * req_qty) / (equip_qty * capacity))))
-					# if ((equip_qty * capacity) <= (qty * (1-modifier) * req_qty)):
+					qty_to_use = int(min(equip_qty, math.ceil((qty * math.ceil((1-modifier) * req_qty)) / (equip_qty * capacity))))
+					# if ((equip_qty * capacity) <= (qty * math.ceil((1-modifier) * req_qty)):
 					# 	in_use = True
 					if capacity == 1:
 						in_use = True
 						equip_in_use = qty_to_use
 					else:
-						equip_in_use = int(math.floor((qty * (1-modifier) * req_qty) / (equip_qty * capacity)))
+						equip_in_use = int(math.floor((qty * math.ceil((1-modifier) * req_qty)) / (equip_qty * capacity)))
 						if equip_in_use >= 1:
 							in_use = True
 				if in_use or reqs == 'hold_req' or time_required: # TODO Confirm handled equipment in use during only one tick
