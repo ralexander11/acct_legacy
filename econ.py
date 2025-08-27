@@ -1654,6 +1654,7 @@ class World:
 		self.get_hours(v=True)
 		print(time_stamp() + 'Check Demand List:')
 		for entity in self.factory.get(users=False):
+			self.get_hours(v=True)
 			t4_1_start = time.perf_counter()
 			print(time_stamp() + 'Current Date 04.1 for {}: {}'.format(entity.name, self.now))
 			#print('\nDemand check for: {} | {}'.format(entity.name, entity.entity_id))
@@ -1677,14 +1678,14 @@ class World:
 				entity.address_needs(priority=True, method='consumption', v=args.verbose)
 				t4_2_end = time.perf_counter()
 				print(time_stamp() + '4.2: Demand list; address needs consumption 1 check took {:,.2f} sec for {}.\n'.format(t4_2_end - t4_2_start, entity.name))
-				self.get_hours(v=True)
+				# self.get_hours(v=True)
 				if self.end_turn(check_hrs=True, user_check=user_check): return
 				print(time_stamp() + 'Current Date 04.3 for {}: {}'.format(entity.name, self.now))
 				t4_3_start = time.perf_counter()
 				entity.address_needs(method='capital', v=args.verbose)
 				t4_3_end = time.perf_counter()
 				print(time_stamp() + '4.3: Demand list; address needs capital check took {:,.2f} sec for {}.\n'.format(t4_3_end - t4_3_start, entity.name))
-				self.get_hours(v=True)
+				# self.get_hours(v=True)
 				if self.end_turn(check_hrs=True, user_check=user_check): return
 				# print('{} {} need at: {}'.format(entity.name, need, entity.needs[need]['Current Need']))
 			print(time_stamp() + 'Current Date 04.4 for {}: {}'.format(entity.name, self.now))
@@ -1692,7 +1693,7 @@ class World:
 			entity.check_demand(multi=True, others=not isinstance(entity, Individual), needs_only=True, v=args.verbose)
 			t4_4_end = time.perf_counter()
 			print(time_stamp() + '4.4: Demand list; needs check took {:,.2f} min for {}.\n'.format(t4_4_end - t4_4_start, entity.name))
-			self.get_hours(v=True)
+			# self.get_hours(v=True)
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 			if isinstance(entity, Individual) and not entity.user:
 				print(time_stamp() + 'Current Date 04.5 for {}: {}'.format(entity.name, self.now))
@@ -1700,7 +1701,7 @@ class World:
 				entity.address_needs(obtain=False, priority=False, method='consumption', v=args.verbose)
 				t4_5_end = time.perf_counter()
 				print(time_stamp() + '4.5: Demand list; address needs consumption 2 check took {:,.2f} sec for {}.\n'.format(t4_5_end - t4_5_start, entity.name))
-				self.get_hours(v=True)
+				# self.get_hours(v=True)
 				if self.end_turn(check_hrs=True, user_check=user_check): return
 		
 		self.get_hours(v=True)
@@ -2370,7 +2371,8 @@ class Entity:
 					# 	counterparty.adj_price(item, qty, direction='up')
 					# 	return purchase_event, cost
 					# self.ledger.journal_entry(purchase_event)
-					counterparty.adj_price(item, qty, direction='up')
+					if counterparty != self:
+						counterparty.adj_price(item, qty, direction='up')
 					return purchase_event, cost
 				else:
 					if item_type is None:
@@ -7536,6 +7538,8 @@ class Entity:
 			print(f'Land Item:\n{land}')
 			qty = land['qty']
 			item = land['item_id']
+			if item == 'Grassland': # TODO Find way to avoid needing this
+				continue
 			self.sale(item, qty, v=v)
 
 	def depreciation_check(self, items=None): # TODO Add support for explicitly provided items
