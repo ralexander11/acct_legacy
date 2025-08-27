@@ -1161,6 +1161,8 @@ class World:
 		if eod:
 			gl = gl.loc[gl['description'] == 'End of day entry']
 			gl['dur'] = pd.to_datetime(gl['post_date']).diff(periods=1)
+			gl.loc[gl.index[0], 'dur'] = pd.Timedelta(0)
+			gl['dur'] = gl['dur'].astype(str)
 		gl = gl.iloc[::-1]
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
@@ -2548,10 +2550,15 @@ class Entity:
 					break
 				if purchase_qty > qty:
 					purchase_qty = qty
-				counterparty_id = global_inv.iloc[i].loc['entity_id']
-				#print('Counterparty ID: {}'.format(counterparty_id))
-				counterparty = self.factory.get_by_id(counterparty_id)
-				#print('Purchase Counterparty: {}'.format(counterparty.name))
+				print(f'global_inv:\n{global_inv}')
+				if self.entity_id in global_inv['entity_id'].values:
+					counterparty = self
+					print(f'{self.name} will transact with themselves ({counterparty.name}) first.')
+				else:
+					counterparty_id = global_inv.iloc[i].loc['entity_id']
+					# print('Counterparty ID: {}'.format(counterparty_id))
+					counterparty = self.factory.get_by_id(counterparty_id)
+					# print('Purchase Counterparty: {}'.format(counterparty.name))
 				if counterparty.entity_id == self.entity_id:
 					if v: print('{} attempting to transact with themselves for {} {}.'.format(self.name, purchase_qty, item))
 					if item_type == 'Land':
