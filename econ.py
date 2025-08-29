@@ -174,7 +174,7 @@ class World:
 		self.ledger = ledger
 		global args
 		if args is None:
-			args = argparse.Namespace(database=None, command=None, delay=0, reset=False, random=True, seed=None, items=None, time=None, capital=1000000, governments=1, players=0, population=1, max_pop=None, users=0, win=False, pin=False, early=False, jones=False)
+			args = argparse.Namespace(database=None, command=None, delay=0, reset=False, random=True, seed=None, items=None, time=None, capital=1000000, governments=1, players=0, population=1, max_pop=None, users=0, win=False, pin=False, early=False, jones=False, inf_time=False, buffer_qty=0)
 		# World._instance = self
 		# self.accts = EntityFactory.get_accts()
 		# self.ledger = EntityFactory.get_ledger()  # Access shared Ledger
@@ -1728,7 +1728,7 @@ class World:
 				t4_7_start = time.perf_counter()
 				# if self.end_turn(check_hrs=True, user_check=user_check): return
 				hours = self.get_hours(total=True)
-				if hours < 1:
+				if hours < 1:# or args.inf_time:
 					if v: print(f'Total entity hours: {hours}')
 					break
 				tmp_demand = world.demand
@@ -2386,7 +2386,8 @@ class Entity:
 					# 	counterparty.adj_price(item, qty, direction='up')
 					# 	return purchase_event, cost
 					# self.ledger.journal_entry(purchase_event)
-					counterparty.adj_price(item, qty, direction='up')
+					if counterparty != self:
+						counterparty.adj_price(item, qty, direction='up')
 					return purchase_event, cost
 			else:
 				if v: print('{} does not have enough {} on hand to sell {} units of {}. Qty on hand: {}'.format(self.name, item, qty, item, qty_avail))
@@ -3261,12 +3262,6 @@ class Entity:
 				time_check = True
 				if vv: print('Time Required: {}'.format(time_required))
 				modifier, items_info = self.check_productivity(req_item)
-				# Switch to turn time off
-				if args.inf_time:
-					time_required = False
-					time_check = False
-					modifier = 1
-					if vv: print('(inf) Time Required: {}'.format(time_required))
 				if vv: print('Modifier: {}'.format(modifier))
 				self.ledger.reset()
 				self.ledger.set_entity(self.entity_id)
@@ -3289,6 +3284,12 @@ class Entity:
 						self.gl_tmp = self.ledger.gl.loc[self.ledger.gl['entity_id'] == self.entity_id]
 				else:
 					modifier = 0
+				# Switch to turn time off
+				if args.inf_time:
+					time_required = False
+					time_check = False
+					modifier = 1
+					if vv: print('(inf) Time Required: {}'.format(time_required))
 				if not self.gl_tmp.empty:
 					# if vv: print('Tmp GL land: \n{}'.format(self.gl_tmp.tail()))
 					self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
@@ -3493,9 +3494,9 @@ class Entity:
 							thresh = item_cost * qty * MARKUP
 							if v: print(f'thresh: {thresh} | qty: {qty} | MARKUP: {MARKUP} | required_qty: {required_qty}')
 							if (price * required_qty) > thresh:
-								if equip_qty >= min_qty_needed:
+								if building >= min_qty_needed:
 									required_qty = 0
-									if v: print(f'{self.name} has at least {min_qty_needed} building.')
+									if v: print(f'{self.name} has at least {min_qty_needed} building ({building}).')
 								else:	
 									required_qty = min_qty_needed
 							if v: print(f'required_qty after: {required_qty}')
@@ -3677,7 +3678,7 @@ class Entity:
 							if (price * equip_needed) > thresh:
 								if equip_qty >= min_qty_needed:
 									equip_needed = 0
-									if v: print(f'{self.name} has at least {min_qty_needed} equipment.')
+									if v: print(f'{self.name} has at least {min_qty_needed} equipment ({equip_qty}).')
 								else:	
 									equip_needed = min_qty_needed
 							if v: print(f'equip_needed after: {equip_needed}')
@@ -4710,7 +4711,7 @@ class Entity:
 	def produce(self, item, qty, debit_acct=None, credit_acct=None, desc=None , price=None, reqs='requirements', amts='amount', man=False, wip=False, buffer=False, vv=False, v=True):
 		# TODO Replace man with self.user
 		if v: print()
-		if v: print(f'***** Produce {qty} {item} ****')
+		if v: print(f'***** Produce {qty} {item} by {self.name} ****')
 		item_type = world.get_item_type(item)
 		if item_type == 'Land': # TODO This is a temp hackey fix
 			produce_event = self.claim_land(item, qty, buffer=buffer)
@@ -6136,7 +6137,7 @@ class Entity:
 											if v: print('World Self Demand Land:\n{}'.format(world.demand))
 									else:
 										if v: print(f'{self.name} attempted to claim {qty} {item} for itself from the demand table.')
-							world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+							world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
 							world.set_table(world.demand, 'demand')
 							if to_drop:
 								if v: print('World Self Demand Land:\n{}'.format(world.demand))
@@ -6167,7 +6168,7 @@ class Entity:
 									if avail_land == 0:
 										to_drop.append(idx)
 										if v: print(f'No {item} land available from Environment to claim. Will drop row [{idx}] from the demand table.')
-						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+						world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
 						world.set_table(world.demand, 'demand')
 						if to_drop:
 							if v: print('World Demand:\n{}'.format(world.demand))
@@ -6182,7 +6183,7 @@ class Entity:
 							to_drop.append(index)
 						else:
 							world.demand.at[index, 'qty'] = qty - result[0][8] # If not all the Land demanded was purchased
-						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+						world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
 						world.set_table(world.demand, 'demand')
 						if v: print('World Corp Demand Land:\n{}'.format(world.demand))
 					else:
@@ -6199,7 +6200,7 @@ class Entity:
 					if pur_result and item_type != 'Land':
 						if v: print(f'Demand Purchase before: {item} | Drop: {index}\n', world.demand)
 						to_drop.append(index)
-						world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+						world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
 						world.set_table(world.demand, 'demand')
 						if v: print(f'Demand Purchase after: {item}\n', world.demand)
 				continue
@@ -6275,7 +6276,7 @@ class Entity:
 			# 		return
 			# 	else:
 			# 		try:
-			# 			world.demand = world.demand.drop(to_drop).reset_index(drop=True) # TODO This was causing items to be removed twice in error
+			# 			world.demand = world.demand.drop(to_drop)#.reset_index(drop=True) # TODO This was causing items to be removed twice in error
 			# 			world.set_table(world.demand, 'demand')
 			# 		except KeyError as e:
 			# 			#print('Error: {}'.format(repr(e)))
@@ -9269,7 +9270,11 @@ class Individual(Entity):
 		# else:
 		# 	self.prices = pd.DataFrame(columns=['entity_id','item_id','price']).set_index('item_id')
 		self.parents = parents
-		self.hours = hours
+		if args.inf_time:
+			self.hours = float('inf')
+			print(f'Labour hours inf when making {self.name}: {self.hours}')
+		else:
+			self.hours = hours
 		print('Create Individual: {} | User: {} | entity_id: {}'.format(self.name, self.user, self.entity_id))
 		print('Citizen of Government: {}'.format(self.government))
 		print('Parents: {}'.format(self.parents))
@@ -10651,6 +10656,7 @@ def parse_args(conn=None, command=None, external=False):
 		command = args.command
 	USE_PIN = args.pin # TODO Fix this?
 
+	global MAX_HOURS
 	if args.inf_time:
 		MAX_HOURS = float('inf')
 		print('Labour hours inf: ', MAX_HOURS)
