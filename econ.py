@@ -6039,19 +6039,21 @@ class Entity:
 				if corp_shares != 0:
 					return
 		
+		start_idx = world.demand.index.max() + 1 if not world.demand.empty else 0
 		if qty != 0 and not self.check_constraint(item):
 			if cost:
 				if priority:
 					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, index=[0])
-					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
+					world.demand = pd.concat([new_demand, world.demand], ignore_index=False)
 				else:
 					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, ignore_index=True)
-					world.demand = pd.concat([world.demand, pd.DataFrame({'date':[world.now], 'entity_id':[self.entity_id], 'item_id':[item], 'qty':[qty], 'reason':['cost']})], ignore_index=True)
+					new_demand =  pd.DataFrame({'date':[world.now], 'entity_id':[self.entity_id], 'item_id':[item], 'qty':[qty], 'reason':['cost']}, index=[start_idx])
+					world.demand = pd.concat([new_demand, world.demand], ignore_index=False)
 				world.set_table(world.demand, 'demand')
 			elif reason_need:
 				if priority:
 					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, index=[0])
-					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
+					world.demand = pd.concat([new_demand, world.demand], ignore_index=False)
 				else:
 					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, ignore_index=True)
 					# world.demand = pd.concat([world.demand, pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['need']})])
@@ -6060,10 +6062,11 @@ class Entity:
 			else:
 				if priority:
 					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, index=[0])
-					world.demand = pd.concat([new_demand, world.demand], ignore_index=True)
+					world.demand = pd.concat([new_demand, world.demand], ignore_index=False)
 				else:
 					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, ignore_index=True)
-					world.demand = pd.concat([world.demand, pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['existance']})], ignore_index=True)
+					new_demand = pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['existance']}, index=[start_idx])
+					world.demand = pd.concat([world.demand, new_demand], ignore_index=False)
 				world.set_table(world.demand, 'demand')
 			if qty == 1:
 				if v: print('{} added to demand list for {} unit by {}.'.format(item, qty, self.name))
@@ -6086,6 +6089,8 @@ class Entity:
 				item_types = [x.strip() for x in item_types.split(',')]
 		# for item in self.produces:
 		checked = []
+		world.demand = world.demand.reset_index(drop=True)
+		if v: print(f'Demand at start of loop:\n', world.demand)
 		for index, demand_item in world.demand.iterrows():#world.demand.copy().iterrows(): # TODO This used to be able to drop rows while looping
 			# vv = False
 			item = demand_item['item_id']
