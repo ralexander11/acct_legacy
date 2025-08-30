@@ -1403,6 +1403,7 @@ class Ledger:
 		if gl.empty:
 			print('The GL is empty.')
 			return
+		gl['parties'] = gl['entity_id'].astype(str) + '|' + gl['cp_id'].astype(str)
 		gl['accts'] = gl['debit_acct'] + '|' + gl['credit_acct']
 		gl['debit_acct_type'] = gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
 		gl['credit_acct_type'] = gl.apply(lambda x: self.get_acct_elem(x['credit_acct']), axis=1)
@@ -2432,7 +2433,7 @@ def main(conn=None, command=None, external=False):
 			item = input('Which item or ticker (case sensitive)? ')#.lower()
 			acct = input('Which account? ')#.title()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				ledger.get_util(entity_id, item, acct)
+				ledger.get_util(entity_id, item, acct, v=True)
 			if args.command is not None: exit()
 		elif command.lower() == 'demand': # This only works for the econ sim
 			demand = accts.print_table('demand', v=False)

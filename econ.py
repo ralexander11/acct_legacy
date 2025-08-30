@@ -1095,6 +1095,7 @@ class World:
 			hist_hours['total_Clothing'] = self.hist_hours.groupby('date')['Clothing'].transform('sum')
 			hist_hours['total_Shelter'] = self.hist_hours.groupby('date')['Shelter'].transform('sum')
 			hist_hours['total_Fun'] = self.hist_hours.groupby('date')['Fun'].transform('sum')
+			hist_hours['total_needs'] = hist_hours['total_Thirst'] + hist_hours['total_Hunger'] + hist_hours['total_Clothing'] + hist_hours['total_Shelter'] + hist_hours['total_Fun']
 			hist_hours = hist_hours.drop(['hours', 'Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun'], axis=1)
 		except KeyError as e:
 			print(f'Util key error: {e}')
