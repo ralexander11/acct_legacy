@@ -1058,7 +1058,7 @@ class World:
 		# print(self.accts.get_items())
 		return self.items
 
-	def util(self, gl=None, eod=True , save=False, vv=False, v=True):
+	def util(self, gl=None, eod=True, big_util=False, save=False, vv=False, v=True):
 		# Function used to investigate the GL
 		# save = True
 		if v: print()
@@ -1077,7 +1077,10 @@ class World:
 					print('Not a valid entry. Must be "Y" or "N".')
 					continue
 		if gl is None:
-			gl = self.ledger.gl.copy(deep=True)
+			if big_util:
+				gl = self.ledger.get_util(entity_id=None, items=None, accounts=None, save=False, v=False)
+			else:
+				gl = self.ledger.gl.copy(deep=True)
 		hist_hours = self.hist_hours.copy(deep=True)
 		# hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
 		hist_hours['date'] = hist_hours['date'].astype(str)
