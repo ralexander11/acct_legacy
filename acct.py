@@ -2444,6 +2444,20 @@ def main(conn=None, command=None, external=False):
 			print(demand)
 			print(f'Total demand: {total_demand}')
 			if args.command is not None: exit()
+		elif command.lower() == 'demanddiff': # This only works for the econ sim
+			demand = accts.print_table('hist_demand', v=False)
+			demand['qty'] = demand['qty'].astype(float)
+			demand['qty'] = demand['qty'].astype(int)
+			demand = demand.groupby(['date_saved', 'item_id']).sum()['qty'].reset_index()
+			pd.options.display.float_format = '{:,.2f}'.format
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print(demand)
+			print('=====================================')
+			demand['delta_qty'] = demand.groupby('item_id')['qty'].diff()
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print(demand)
+			pd.options.display.float_format = '${:,.2f}'.format
+			if args.command is not None: exit()
 		elif command.lower() == 'eutil': # This only works for the econ sim
 			eutil = accts.print_table('util', v=False)
 			eutil = eutil.head(1)

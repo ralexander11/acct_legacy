@@ -1100,7 +1100,7 @@ class World:
 			hist_hours['total_Fun'] = self.hist_hours.groupby('date')['Fun'].transform('sum')
 			hist_hours['total_needs'] = hist_hours['total_Thirst'] + hist_hours['total_Hunger'] + hist_hours['total_Clothing'] + hist_hours['total_Shelter'] + hist_hours['total_Fun']
 			hist_hours = hist_hours.drop(['hours', 'Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun'], axis=1)
-		except KeyError as e:
+		except (KeyError, TypeError) as e: # TODO Remove TypeError, it was needed for a legacy table
 			print(f'Util key error: {e}')
 		hist_hours['max_hours'] = self.hist_hours['population'] * 12
 		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['hours_remain']
