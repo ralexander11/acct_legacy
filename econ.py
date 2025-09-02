@@ -1370,6 +1370,7 @@ class World:
 		return price
 
 	def reduce_prices(self, v=False):
+		# TODO Reduce labour by a smaller amount
 		# world.prices['price'] = world.prices['price'] * (1 - REDUCE_PRICE)#).clip(lower=0.01)
 		world.prices['price'] = world.prices['price'].where(world.prices['price'] == 0, (world.prices['price'] * (1 - REDUCE_PRICE)).clip(lower=0.01)).round(2)
 		if v: print(world.prices)
@@ -2135,11 +2136,13 @@ class Entity:
 			if direction == 'up':
 				rate = 1.1 #1.01
 			elif direction == 'down':
-				rate = 0.9 #0.99
+				rate = 0.9 #0.98
 			elif direction == 'up_low':
 				rate = 1.02 #1.002
 			elif direction == 'up_very_low':
 				rate = 1.0002 # 1.02 #1.002
+			elif direction == 'down_very_low':
+				rate = 0.9998 # 0.98 #0.998
 			elif direction == 'down_high':
 				rate = 0.8 #0.98
 			else:
@@ -5966,7 +5969,7 @@ class Entity:
 					return
 				if self.check_eligible(item):
 					break
-		# Only allow one technology on demand list at a time
+		# Only allow one technology on demand list at a time # TODO Do I still want this?
 		item_type = world.get_item_type(item)
 		if item_type == 'Technology':
 			for index, demand_item in world.demand.iterrows():
@@ -6003,6 +6006,14 @@ class Entity:
 			if qty_demand > 0 and qty_demand < qty:
 				qty -= qty_demand
 				if v: print(f'New qty demanded: {qty}')
+		
+		# Check if entity could afford to buy the item at current prices. If not, don't demand it.
+		price = world.get_price(item)
+		total_cost = price * qty
+		cash = self.ledger.balance_sheet(['Cash'])
+		if total_cost > cash:
+			print(f'{self.name} wanted to demand {qty} {item}, but it costs {total_cost} and they only have {cash}.')
+			return
 
 		# if not world.demand.empty: # TODO Commodity replaces existing commodity if qty is bigger. # TODO Need to factor in qty.
 		# 	vv = True
@@ -7559,6 +7570,7 @@ class Entity:
 				continue
 			self.sale(item, qty, v=v)
 
+	# TODO Add items that can reduce depreciation rates
 	def depreciation_check(self, items=None): # TODO Add support for explicitly provided items
 		if items is None:
 			self.ledger.set_entity(self.entity_id)
