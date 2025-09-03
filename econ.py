@@ -2546,6 +2546,7 @@ class Entity:
 		else:
 			i = 0
 			result = []
+			incomplete = None
 			cost = False
 			purchased_qty = 0
 			cash_used = 0
@@ -2599,7 +2600,7 @@ class Entity:
 				purchased_qty += purchase_qty
 				qty -= purchase_qty
 				i += 1
-			if qty_wanted > purchased_qty and item_type != 'Land':
+			if qty_wanted > purchased_qty and item_type != 'Land' and not incomplete:
 				qty_wanted = max(qty_wanted - wip_global_qty, 0)
 				if qty_wanted > 0:
 					if cost:
@@ -4709,9 +4710,9 @@ class Entity:
 		self.gl_tmp = pd.DataFrame(columns=world.cols)
 		if show_results:
 			if incomplete:
-				print(f'\nResult of trying to produce {qty} {item} by {self.name}:\n{results}\n')#if v: 
+				print(f'\nResult of trying to {action} {qty} {item} by {self.name}:\n{results}\n')#if v: 
 			else:
-				print(f'\nResult of producing {qty} {item} by {self.name}:\n{results}\n')#if v: 
+				print(f'\nResult of {action}ing {qty} {item} by {self.name}:\n{results}\n')#if v: 
 		if v: print(f'!fulfill return due to finishing for item: {item}. | incomplete: {incomplete} | time_required: {time_required} | wip_choice: {wip_choice} | wip_complete: {wip_complete} | max_qty_possible: {max_qty_possible}')
 		return incomplete, event, time_required, max_qty_possible
 
