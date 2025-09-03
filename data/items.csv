@@ -113,7 +113,7 @@ Harvest,None,None,None,Service,Harvesting,1,None,None,None,None,None,None,None,N
 #Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,None,None,None,50,usage,None,None,None,50,None,None,None,Blacksmith
 #Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 #Metal Working,None,None,None,Technology,"Time, Forge","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, Blacksmith "
-Blacksmith Shop,None,None,continuous,Buildings,"Grassland, Wood, Rock","100, 100, 60",1,Grassland,100,None,None,None,None,None,None,None,500,ticks,None,None,None,1000,None,None,None,Construction Company
+Blacksmith Shop,None,None,continuous,Buildings,"Grassland, Wood, Rock","100, 100, 60",10,Grassland,100,None,None,None,None,None,None,None,500,ticks,None,None,None,1000,None,None,None,Construction Company
 Blacksmither,None,None,None,Labour,Strength,5,2000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Wire,None,None,None,Commodity,"Metal Working, Metal","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Blacksmith
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Lumbermill
