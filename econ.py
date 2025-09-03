@@ -9831,7 +9831,7 @@ class Individual(Entity):
 		price_rate = items_info['price'] / items_info['need_satisfy_rate']
 		items_info = items_info.assign(price_rate=price_rate.values)
 		items_info = items_info.sort_values(by='price_rate', ascending=True)
-		# print('Items Info: \n{}'.format(items_info))
+		if v: print('Items Info: \n{}'.format(items_info))
 		# items_info = items_info.sort_values(by='need_satisfy_rate', ascending=False) # Old method of sorting
 		items_info.reset_index(inplace=True)
 		# If first item is not available, try the next one

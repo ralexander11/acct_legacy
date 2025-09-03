@@ -2458,6 +2458,20 @@ def main(conn=None, command=None, external=False):
 				print(demand)
 			pd.options.display.float_format = '${:,.2f}'.format
 			if args.command is not None: exit()
+		elif command.lower() == 'invdiff': # This only works for the econ sim
+			inv_hist = accts.print_table('hist_inv', v=False)
+			inv_hist['qty'] = inv_hist['qty'].astype(float)
+			inv_hist['qty'] = inv_hist['qty'].astype(int)
+			inv_hist = inv_hist.loc[~inv_hist['account'].isin(['Land'])]
+			pd.options.display.float_format = '{:,.2f}'.format
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print(inv_hist)
+			print('=====================================')
+			inv_hist['delta_qty'] = inv_hist.groupby(['item_id', 'account'])['qty'].diff()
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print(inv_hist)
+			pd.options.display.float_format = '${:,.2f}'.format
+			if args.command is not None: exit()
 		elif command.lower() == 'eutil': # This only works for the econ sim
 			eutil = accts.print_table('util', v=False)
 			eutil = eutil.head(1)
