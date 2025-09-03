@@ -9822,7 +9822,7 @@ class Individual(Entity):
 			min_price = world.prices.loc[world.prices.index == item].min()['price']
 			if pd.isna(min_price):
 				raw_mats = self.get_raw(item, base=True)
-				min_price = raw_mats.iloc[-1]['qty'] * INIT_PRICE
+				min_price = raw_mats.iloc[-1]['qty'] * INIT_PRICE # TODO Need to fix this to not use INIT_PRICE
 				# min_price = INIT_PRICE # TODO Old method
 			if v: print(f'Address {need} with {item} for min price of: {min_price}')
 			item_prices.append(min_price)

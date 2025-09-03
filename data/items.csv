@@ -49,7 +49,7 @@ Basket,None,None,start,Equipment,Basket Weaving,18,12,None,None,None,None,None,N
 Water Skin,None,None,start,Equipment,"Tanner, Wild Leather","6, 1",10,None,None,None,None,None,None,None,Water Forage,0.5,"50, 1000","usage, ticks",None,None,None,100,None,None,None,Individual
 Strength,None,None,None,Education,"Study, Rock","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Hunter,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Wild Meat,None,None,None,Commodity,"Grassland, Hunter","15, 12",None,None,None,None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,None,Individual
+Wild Meat,None,None,None,Commodity,"Grassland, Hunter","15, 12",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Individual
 Wild Leather,None,None,None,Commodity,"Grassland, Hunter","5, 12",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Individual
 Ranged Weapon,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Bow And Arrow,None,None,continuous,Ranged Weapon,"Wood, Wild Leather","2, 1",1,None,None,None,None,None,None,None,Hunter,0.25,"100, 1000","usage, equipped",None,100,None,10,None,None,None,Individual
@@ -58,8 +58,8 @@ Harvesting,None,None,None,Labour,None,None,None,None,None,None,None,None,None,No
 Spinning,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Basic Food,None,None,None,Commodity,"Arable Land, Cultivator, Collected Water","5, 2, 1",None,None,None,None,None,None,Hunger,1,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
-Food,None,None,None,Commodity,"Arable Land, Cultivator, Water","1, 4, 1",None,None,None,None,None,None,Hunger,2,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+Basic Food,None,None,None,Commodity,"Arable Land, Cultivator, Collected Water","5, 2, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+Food,None,None,None,Commodity,"Arable Land, Cultivator, Water","1, 4, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
 Rancher,None,None,None,Labour,Cultivator,5,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 #Cow,"Grassland, Rancher","100, 40",animal,Equipment,"Grassland, Cow, Rancher","10, 2, 1",10,Grassland,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
 #Milk,None,None,None,Commodity,"Cow, Rancher","1, 1",None,None,None,None,None,None,"Thirst, Hunger","2, 3",None,None,None,None,None,None,None,None,None,None,None,Ranch
@@ -129,7 +129,7 @@ Scale Mail,None,None,continuous,Armour,"Metal, Leather, Blacksmither","40, 2, 30
 Plate Armour,None,None,continuous,Armour,"Metal, Leather, Blacksmither","80, 2, 40",1,None,None,None,None,None,None,None,None,None,100,equipped,None,None,None,10000,None,None,None,Blacksmith
 Electricity,None,None,None,Technology,"Time, Metal Working","100, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, Blacksmith"
 Robot Plow,None,None,start,Equipment,"Electricity, Blacksmith Shop, Blacksmither, Rock, Wood","1, 1, 12, 20, 40",12,None,None,None,None,None,None,None,Cultivator,1,20,usage,None,None,None,10000,None,None,None,Blacksmith
-Super Food,None,None,None,Commodity,"Super Tech, Arable Land, Cultivator, Water","1, 400, 0.1, 1",None,None,None,None,None,None,Hunger,10,None,None,21,spoilage,None,None,None,1,None,None,None,Individual
+Super Food,None,None,None,Commodity,"Super Tech, Arable Land, Cultivator, Water","1, 1, 0.1, 1",None,None,None,None,None,None,Hunger,10,None,None,21,spoilage,None,None,None,1,None,None,None,Individual
 Super Tech,None,None,None,Technology,"Time, Metal Working","100, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 #Engineer,None,None,None,Labour,"Electronics Class, Blacksmither","16, 1",1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Engineer,None,None,None,Labour,Electronics Class,16,1000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
