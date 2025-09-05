@@ -1081,6 +1081,8 @@ class World:
 				gl = self.ledger.get_util(entity_id=None, items=None, accounts=None, save=False, v=False)
 			else:
 				gl = self.ledger.gl.copy(deep=True)
+		needs_cols = ['Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun']
+		self.hist_hours[needs_cols] = self.hist_hours[needs_cols].apply(pd.to_numeric, errors='coerce')
 		hist_hours = self.hist_hours.copy(deep=True)
 		# hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
 		hist_hours['date'] = hist_hours['date'].astype(str)
@@ -1094,14 +1096,13 @@ class World:
 		hist_hours['hours_remain'] = self.hist_hours.groupby('date')['hours'].transform('sum')
 		try:
 			# TODO Make dynamic to the list of needs
-			needs_cols = ['Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun']
-			hist_hours[needs_cols] = hist_hours[needs_cols].apply(pd.to_numeric, errors='coerce') # TODO do this to self.hist_hours earlier
 			hist_hours['total_Thirst'] = self.hist_hours.groupby('date')['Thirst'].transform('sum')
 			hist_hours['total_Hunger'] = self.hist_hours.groupby('date')['Hunger'].transform('sum')
 			hist_hours['total_Clothing'] = self.hist_hours.groupby('date')['Clothing'].transform('sum')
 			hist_hours['total_Shelter'] = self.hist_hours.groupby('date')['Shelter'].transform('sum')
 			hist_hours['total_Fun'] = self.hist_hours.groupby('date')['Fun'].transform('sum')
-			needs_cols = ['total_Thirst', 'total_Hunger', 'total_Clothing', 'total_Shelter', 'total_Fun']
+			# needs_cols = ['total_Thirst', 'total_Hunger', 'total_Clothing', 'total_Shelter', 'total_Fun']
+			needs_cols = list(map(lambda need: 'total_' + need, needs_cols))
 			hist_hours[needs_cols] = hist_hours[needs_cols].apply(pd.to_numeric, errors='coerce')
 			# hist_hours[needs_cols] = hist_hours[needs_cols].round(0).astype(int) # Causes error
 			hist_hours['total_needs'] = hist_hours[needs_cols].sum(axis=1)
