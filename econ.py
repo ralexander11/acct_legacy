@@ -1093,14 +1093,21 @@ class World:
 		# hist_hours = hist_hours.drop(to_drop)
 		hist_hours['hours_remain'] = self.hist_hours.groupby('date')['hours'].transform('sum')
 		try:
+			# TODO Make dynamic to the list of needs
+			needs_cols = ['Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun']
+			hist_hours[needs_cols] = hist_hours[needs_cols].apply(pd.to_numeric, errors='coerce') # TODO do this to self.hist_hours earlier
 			hist_hours['total_Thirst'] = self.hist_hours.groupby('date')['Thirst'].transform('sum')
 			hist_hours['total_Hunger'] = self.hist_hours.groupby('date')['Hunger'].transform('sum')
 			hist_hours['total_Clothing'] = self.hist_hours.groupby('date')['Clothing'].transform('sum')
 			hist_hours['total_Shelter'] = self.hist_hours.groupby('date')['Shelter'].transform('sum')
 			hist_hours['total_Fun'] = self.hist_hours.groupby('date')['Fun'].transform('sum')
-			hist_hours['total_needs'] = hist_hours['total_Thirst'] + hist_hours['total_Hunger'] + hist_hours['total_Clothing'] + hist_hours['total_Shelter'] + hist_hours['total_Fun']
+			needs_cols = ['total_Thirst', 'total_Hunger', 'total_Clothing', 'total_Shelter', 'total_Fun']
+			hist_hours[needs_cols] = hist_hours[needs_cols].apply(pd.to_numeric, errors='coerce')
+			# hist_hours[needs_cols] = hist_hours[needs_cols].round(0).astype(int) # Causes error
+			hist_hours['total_needs'] = hist_hours[needs_cols].sum(axis=1)
+			# hist_hours['total_needs'] = hist_hours['total_Thirst'] + hist_hours['total_Hunger'] + hist_hours['total_Clothing'] + hist_hours['total_Shelter'] + hist_hours['total_Fun']
 			hist_hours = hist_hours.drop(['hours', 'Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun'], axis=1)
-		except (KeyError, TypeError) as e: # TODO Remove TypeError, it was needed for a legacy table
+		except KeyError as e:
 			print(f'Util key error: {e}')
 		hist_hours['max_hours'] = self.hist_hours['population'] * 12
 		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['hours_remain']
@@ -1115,6 +1122,7 @@ class World:
 		# hist_demand = hist_demand.drop_duplicates(subset='date')
 		# if vv: print('\nhist_demand old:\n', hist_demand)
 
+		self.hist_demand['qty'] = pd.to_numeric(self.hist_demand['qty'], errors='coerce')
 		hist_demand = self.hist_demand.groupby(['date_saved'])['qty'].sum().reset_index()
 		hist_demand = hist_demand.rename(columns={'date_saved': 'date', 'qty': 'demand_qty'})
 		hist_demand['date'] = hist_demand['date'].astype(str)
@@ -2800,6 +2808,7 @@ class Entity:
 		self.ledger.reset()
 		if v: print('final release event: {}'.format(release_event))
 		if v: print(f'final hold_event_ids for {self.name}:', self.hold_event_ids)
+		# print(f'Number of release events for {self.name}: {len(release_event)}')
 		return release_event
 
 	def consume(self, item, qty, need=None, buffer=False, v=False):
