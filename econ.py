@@ -2273,12 +2273,15 @@ class Entity:
 			cost_entries = self.ledger.gl.loc[(self.ledger.gl['item_id'] == item) & (self.ledger.gl['credit_acct'] == 'Cost Pool')]
 			if not cost_entries.empty:
 				cost_entries.sort_values(by=['date'], ascending=False, inplace=True)
-				#print('Cost Entries: \n{}'.format(cost_entries))
+				print('Cost Entries: \n{}'.format(cost_entries))
 				cost = cost_entries.iloc[0]['price']
+				print('cost type:')
+				print(type(cost))
+				# cost = pd.to_numeric(cost_entries.iloc[0]['price'], errors="coerce")
 			qty_held = self.ledger.get_qty(items=item, accounts=['Inventory'])
-			if v: print('Qty held by {} when setting price for {}: {}'.format(self.name, item, qty_held))
+			if v: print('Qty held by {} when setting price for {}: {} | Qty: {}'.format(self.name, item, qty_held, qty))
 			self.ledger.reset()
-			if v: print('{}\'s current price for {}: {}'.format(self.name, item, price))
+			if v: print('{}\'s current price for {}: {} | Cost: {}'.format(self.name, item, price, cost))
 			if price < cost and qty_held <= qty:
 				mask = (world.prices['entity_id'] == self.entity_id) & (world.prices.index == item)
 				if at_cost:
@@ -3692,11 +3695,17 @@ class Entity:
 							if v: print(f'equip_needed after: {equip_needed}')
 
 						if not man:
-							# Attempt to purchase before producing self if makes sense
+							# Attempt to purchase equipment before producing itself, if makes sense
 							result = self.purchase(req_item, equip_needed, buffer=buffer, v=v)#, acct_buy='Equipment')#, wip_acct='WIP Equipment')
 							# if vv: print('Equip Purchase Result:', result)
 							req_time_required = False
-							if not result:
+							purchased_qty = 0
+							if result:
+								purchased_qty = result[-1][8]
+								print('Equipment purchased_qty:', purchased_qty)
+							# if not result:
+							if purchased_qty < equip_needed:
+								equip_needed -= purchased_qty
 								# TODO Needs if isinstance(item_freq, str):
 								if 'animal' in item_freq and 'animal' in req_freq and equip_qty < 2 and not man:
 									equip_needed = 1
