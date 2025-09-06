@@ -1196,9 +1196,9 @@ class World:
 		gl['amount'] = gl['amount'].round(2)
 		if eod:
 			gl = gl.loc[gl['description'] == 'End of day entry']
-			gl['dur'] = pd.to_datetime(gl['post_date']).diff(periods=1)
-			gl.loc[gl.index[0], 'dur'] = pd.Timedelta(0)
-			gl['dur'] = gl['dur'].astype(str)
+		gl['dur'] = pd.to_datetime(gl['post_date']).diff(periods=1)
+		gl.loc[gl.index[0], 'dur'] = pd.Timedelta(0)
+		gl['dur'] = gl['dur'].astype(str)
 		gl = gl.iloc[::-1]
 		self.set_table(gl, 'util')
 		if v: print('\nutil gl:')
@@ -6052,14 +6052,17 @@ class Entity:
 					break
 		item_type = world.get_item_type(item)
 
-		# Only allow one technology on demand list at a time # TODO Do I still want this?
-		# if item_type == 'Technology':
-		# 	for index, demand_item in world.demand.iterrows():
-		# 		check_tech = demand_item['item_id']
-		# 		check_item_type = world.get_item_type(check_tech)
-		# 		if check_item_type == 'Technology':
-		# 			#print('Cannot add {} technology to demand list because {} technology is already on it.'.format(item, check_tech))
-		# 			return
+		# Only allow one technology of the same type on demand list at a time
+		if item_type == 'Technology':
+			if item in world.demand['item_id'].values:
+				# print(f'Cannot add {item} technology to demand list because it is already there.')
+				return
+			# for index, demand_item in world.demand.iterrows(): # This is no longer needed
+			# 	check_tech = demand_item['item_id']
+			# 	check_item_type = world.get_item_type(check_tech)
+			# 	if check_item_type == 'Technology':
+			# 		#print('Cannot add {} technology to demand list because {} technology is already on it.'.format(item, check_tech))
+			# 		return
 
 		if not self.check_eligible(item):
 			if v: print('{} does not have tech for {} so it cannot be added to the demand list.'.format(self.name, item))
