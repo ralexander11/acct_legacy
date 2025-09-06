@@ -6050,8 +6050,9 @@ class Entity:
 					return
 				if self.check_eligible(item):
 					break
+		item_type = world.get_item_type(item)
+
 		# Only allow one technology on demand list at a time # TODO Do I still want this?
-		# item_type = world.get_item_type(item)
 		# if item_type == 'Technology':
 		# 	for index, demand_item in world.demand.iterrows():
 		# 		check_tech = demand_item['item_id']
