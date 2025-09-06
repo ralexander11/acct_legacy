@@ -87,6 +87,7 @@ Small Tent,None,None,start,Equipment,"Vice Grips, Cloth, Wood","4, 2, 20",1,None
 #Leather Clothing,None,None,continuous,Clothing,"Leather, Tanner","20, 10",1,None,None,None,None,None,Clothing,1,None,None,100,equipped,None,None,None,40,None,None,None,Individual
 Forge,None,None,continuous,Equipment,"Bellows, Wood, Rock, Clay","1, 5, 30, 15",100,None,None,None,None,None,None,None,Kiln,0.25,50,ticks,None,None,None,400,None,None,None,Blacksmith
 Metal Working,None,None,None,Technology,"Time, Table","62, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+#Metal Working,None,None,None,Technology,"Time","62",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Metal,None,None,None,Commodity,"Metal Working, Forge, Ore","1, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,None,Smelter
 Anvil,None,None,continuous,Equipment,"Grassland, Metal","1, 50",1,Grassland,2,None,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,None,Blacksmith
 Loom,None,None,start,Equipment,"Metal, Wood, Cloth","5, 50, 10",10,None,None,Cotton Gin,1,None,None,None,Weaving,0.5,"100, 1000","usage, ticks",None,None,None,100,None,None,None,Carpenter

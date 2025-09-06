@@ -440,9 +440,28 @@ class World:
 				print('Delays:\n{}\n'.format(self.delay))
 			try: # TODO Remove error checking because of legacy db files
 				self.hist_prices = self.get_table('hist_prices')
+				self.hist_hours[['price']] = self.hist_hours[['price']].apply(pd.to_numeric, errors='coerce')
+				# print('load hist_prices:\n', self.hist_prices.head())
+			except Exception as e:
+				print('Loading Error: {}'.format(repr(e)))
+			try:
 				self.hist_demand = self.get_table('hist_demand')
+				self.hist_demand[['qty']] = self.hist_demand[['qty']].apply(pd.to_numeric, errors='coerce')
+				# print('load hist_demand:\n', self.hist_demand.head())
+			except Exception as e:
+				print('Loading Error: {}'.format(repr(e)))
+			try:
 				self.hist_hours = self.get_table('hist_hours')
+				needs_cols = ['hours', 'population'] + [*self.global_needs]
+				# print('needs_cols:', needs_cols)
+				self.hist_hours[needs_cols] = self.hist_hours[needs_cols].apply(pd.to_numeric, errors='coerce')
+				# print('load hist_hours:\n', self.hist_hours.head())
+			except Exception as e:
+				print('Loading Error: {}'.format(repr(e)))
+			try:
 				self.hist_inv = self.get_table('hist_inv')
+				self.hist_inv[['qty']] = self.hist_inv[['qty']].apply(pd.to_numeric, errors='coerce')
+				# print('load hist_inv:\n', self.hist_inv.head())
 			except Exception as e:
 				print('Loading Error: {}'.format(repr(e)))
 			# print('load hist_prices:\n', self.hist_prices)
@@ -1081,7 +1100,10 @@ class World:
 				gl = self.ledger.get_util(entity_id=None, items=None, accounts=None, save=False, v=False)
 			else:
 				gl = self.ledger.gl.copy(deep=True)
-		needs_cols = ['Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun']
+
+		# needs_cols = ['Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun']
+		needs_cols = [*self.global_needs]
+		# print('util needs:', needs_cols)
 		self.hist_hours[needs_cols] = self.hist_hours[needs_cols].apply(pd.to_numeric, errors='coerce')
 		hist_hours = self.hist_hours.copy(deep=True)
 		# hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
@@ -1110,7 +1132,7 @@ class World:
 			hist_hours = hist_hours.drop(['hours', 'Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun'], axis=1)
 		except KeyError as e:
 			print(f'Util key error: {e}')
-		hist_hours['max_hours'] = self.hist_hours['population'] * 12
+		hist_hours['max_hours'] = self.hist_hours['population'] * MAX_HOURS
 		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['hours_remain']
 		hist_hours = hist_hours.drop_duplicates(subset='date')
 		if vv: print('\nhist_hours:\n', hist_hours)
@@ -1162,6 +1184,7 @@ class World:
 		inv_totals.columns.name = None
 		if vv: print(f'\ninv_totals:\n{inv_totals}\n')
 
+		gl['tech'] = self.tech['days_left'].sum()
 		gl = pd.merge(gl, hist_hours, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, hist_demand, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
@@ -1857,7 +1880,7 @@ class World:
 		t8_start = time.perf_counter()
 		for typ in self.factory.registry.keys():
 			for entity in self.factory.get(typ):
-				entity.release_check()#v=True)
+				entity.release_check(v=True)
 		print()
 		world.unused_land(all_land=True)
 		print()
@@ -5202,7 +5225,40 @@ class Entity:
 				world.produce_queue.loc[index, 'last'] -= 1
 		world.set_table(world.produce_queue, 'produce_queue')
 
-	def get_raw(self, item, qty=1, raw=None, orig_item=None, base=False, v=False):
+	def get_raw_price(self, item, qty=1, ignore_equip=True, v=False):
+		raw = self.get_raw(item, qty, ignore_equip=ignore_equip)
+		raw = raw.iloc[:-1]
+		if raw.empty:
+			return 0
+		# if v: print('raw:\n', raw)
+		for idx, item_row in raw.iterrows():
+			# print('raw price item:')
+			# print(item)
+			req_item = item_row['item_id']
+			# print('req_item:', req_item)
+			raw.loc[idx, 'price'] = world.get_price(req_item)
+			raw.loc[idx, 'item_type'] = world.get_item_type(req_item)
+		raw['cost'] = raw['qty'] * raw['price']
+		raw.loc[raw['item_type'] == 'Land', 'cost'] = 0
+		if not ignore_equip: # TODO This is messy
+			raw_tmp = raw.copy()
+			raw_tmp = raw_tmp[raw_tmp['item_type'] == 'Equipment']
+		raw = raw[raw['item_type'] != 'Equipment']
+		price = raw['cost'].sum()
+		raw.loc['Total', 'item_id'] = raw['item_id'].count()
+		raw.loc['Total', 'qty'] = raw['qty'].sum()
+		raw.loc['Total', 'price'] = ''
+		raw.loc['Total', 'item_type'] = ''
+		raw.loc['Total', 'cost'] = price
+		if ignore_equip:
+			price = price * qty
+		else:
+			price += raw_tmp['cost'].sum()
+		if v: print(f'raw {item}:\n {raw}')
+		if v: print(f'\nRaw price of {qty} {item}: ${price:.2f}')
+		return price
+
+	def get_raw(self, item, qty=1, raw=None, orig_item=None, base=False, ignore_equip=False, v=False):
 		# TODO Have a version where full cost of capital items for 1 unit and another version with no cost of capital items due to economies of scale
 		if raw is None:
 			raw = collections.defaultdict(int)
@@ -5226,10 +5282,12 @@ class Entity:
 		if v: print(f'Requirements Details for {qty} {item}: \n{requirements_details}')
 		for requirement in requirements_details:
 			# TODO Make option for this to catch when items have no requirements only
-			if requirement[1] in ['Land', 'Commodity', 'Labour', 'Job', 'Education', 'Technology', 'Time'] and not base:
+			if requirement[1] in ['Land', 'Commodity', 'Labour', 'Job', 'Education', 'Technology', 'Time'] and not base or (ignore_equip and requirement[1] in ['Components', 'Service', 'Subscription']) or (not ignore_equip and requirement[1] in ['Equipment', 'Buildings']): # TODO Is this the best way to do this?
 				# print(f'inner: {item} {requirement}')
 				if requirement[1] in ['Technology', 'Education']:
 					raw[requirement[0]] = requirement[2]
+				elif requirement[1] in ['Equipment', 'Buildings']:
+					raw[requirement[0]] = requirement[2] # TODO This needs to factor in capacity
 				else:
 					raw[requirement[0]] += (requirement[2] * qty)
 			elif 'animal' in str(item_info['freq'] or ''):
@@ -5237,13 +5295,16 @@ class Entity:
 			else:
 				if requirement[1] in ['Education']:
 					qty = 1
-				self.get_raw(requirement[0], requirement[2] * qty, raw, item, base=base, v=v)
+				elif ignore_equip and requirement[1] in ['Equipment', 'Buildings']:
+					continue
+				self.get_raw(requirement[0], requirement[2] * qty, raw, item, base=base, ignore_equip=ignore_equip, v=v)
 		if item != orig_item:
 			return raw
 		raw = pd.DataFrame(raw.items(), index=None, columns=['item_id', 'qty'])
 		# total = raw['qty'].sum()
 		# raw = raw.append({'item_id':'Total', 'qty':total}, ignore_index=True)
-		raw.loc['Total'] = raw.sum()
+		raw.loc['Total', 'qty'] = raw['qty'].sum()
+		raw.loc['Total', 'item_id'] = raw['item_id'].count()
 		if base:
 			if v: print(f'\nTotal base resources needed to produce: {qty} {item}')
 		else:
@@ -5990,14 +6051,15 @@ class Entity:
 				if self.check_eligible(item):
 					break
 		# Only allow one technology on demand list at a time # TODO Do I still want this?
-		item_type = world.get_item_type(item)
-		if item_type == 'Technology':
-			for index, demand_item in world.demand.iterrows():
-				check_tech = demand_item['item_id']
-				check_item_type = world.get_item_type(check_tech)
-				if check_item_type == 'Technology':
-					#print('Cannot add {} technology to demand list because {} technology is already on it.'.format(item, check_tech))
-					return
+		# item_type = world.get_item_type(item)
+		# if item_type == 'Technology':
+		# 	for index, demand_item in world.demand.iterrows():
+		# 		check_tech = demand_item['item_id']
+		# 		check_item_type = world.get_item_type(check_tech)
+		# 		if check_item_type == 'Technology':
+		# 			#print('Cannot add {} technology to demand list because {} technology is already on it.'.format(item, check_tech))
+		# 			return
+
 		if not self.check_eligible(item):
 			if v: print('{} does not have tech for {} so it cannot be added to the demand list.'.format(self.name, item))
 			return
@@ -8323,7 +8385,7 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = input('Enter quantity of {} item to produce[1]: '.format(item))
+					qty = input('Enter quantity of {} item to produce [1]: '.format(item))
 					if qty == '':
 						qty = 1
 						# return
@@ -8378,7 +8440,7 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = input('Enter quantity of {} item to produce[1]: '.format(item))
+					qty = input('Enter quantity of {} item to produce [1]: '.format(item))
 					if qty == '':
 						qty = 1
 						# return
@@ -8447,7 +8509,7 @@ class Entity:
 			qty = 0
 			while True:
 				try:
-					qty = input('Enter quantity of {} item[1]: '.format(item.title()))
+					qty = input('Enter quantity of {} item [1]: '.format(item.title()))
 					if qty == '':
 						qty = 1
 						# return
@@ -8460,6 +8522,35 @@ class Entity:
 						continue
 					break
 			self.get_raw(item.title(), qty, base=base, v=True)
+		elif command.lower() == 'rawprice' or command.lower() == 'erawprice' or command.lower() == 'rawpricee' or command.lower() == 'rawpriceequip':
+			ignore_equip = True
+			if command.lower() == 'erawprice' or command.lower() == 'rawpricee' or command.lower() == 'rawpriceequip':
+				ignore_equip = False
+			while True:
+				item = input('Enter item to raw estimated price: ')
+				if item == '':
+					return
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			qty = 0
+			while True:
+				try:
+					qty = input('Enter quantity of {} item [1]: '.format(item.title()))
+					if qty == '':
+						qty = 1
+						# return
+					qty = int(qty)
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if qty <= 0:
+						continue
+					break
+			self.get_raw_price(item.title(), qty, ignore_equip=ignore_equip, v=True)
 		elif command.lower() == 'address':
 			print('Will attempt to address needs with items on hand.')
 			# priority_needs = {}
@@ -9102,6 +9193,8 @@ class Entity:
 				'curitemcat': 'List all items available of a specified category.',
 				'raw': 'Total raw resources needed to produce an item.',
 				'rawbase': 'Total base raw resources needed to produce an item.',
+				'rawprice': 'Estimated raw price of an item excluding equipment.',
+				'erawprice': 'Estimated raw price of an item including equipment.',
 				'productivity': 'List all requirements that can be made more efficient.',
 				'hours': 'See hours available for each entity.',
 				'own': 'See items owned for selected entity.',
@@ -9840,9 +9933,13 @@ class Individual(Entity):
 		for item, _ in items_info.iterrows():
 			min_price = world.prices.loc[world.prices.index == item].min()['price']
 			if pd.isna(min_price):
-				raw_mats = self.get_raw(item, base=True)
-				min_price = raw_mats.iloc[-1]['qty'] * INIT_PRICE # TODO Need to fix this to not use INIT_PRICE
-				# min_price = INIT_PRICE # TODO Old method
+				if self.needs[need]['Current Need'] >= self.needs[need]['Max Need'] / 2:
+					min_price = self.get_raw_price(item)
+				else:
+					min_price = self.get_raw_price(item, ignore_equip=False)
+				# raw_mats = self.get_raw(item, base=True) # Old method
+				# min_price = raw_mats.iloc[-1]['qty'] * INIT_PRICE # TODO Need to fix this to not use INIT_PRICE # Old method
+				# min_price = INIT_PRICE # TODO Old old method
 			if v: print(f'Address {need} with {item} for min price of: {min_price}')
 			item_prices.append(min_price)
 		item_prices = pd.Series(item_prices)
