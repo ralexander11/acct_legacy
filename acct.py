@@ -1343,7 +1343,7 @@ class Ledger:
 			self.refresh_ledger()
 		return inventory
 
-	def get_util(self, entity_id=None, items=None, accounts=None, gl=None, ex_rvsl=True, mob=True, save=None, v=True):
+	def get_util(self, entity_id=None, items=None, accounts=None, desc=None, gl=None, ex_rvsl=True, mob=True, save=None, v=True):
 		if save is None:
 			while True:
 				save = input('Save? [Y/n]: ')
@@ -1399,6 +1399,9 @@ class Ledger:
 			if gl.empty:
 				print('The GL is empty with the account filters.')
 				return
+		if desc is not None:
+			if v: print('desc contains:', desc)
+			gl= gl[gl['description'].str.contains(desc)]
 
 		if gl.empty:
 			print('The GL is empty.')
@@ -1425,7 +1428,7 @@ class Ledger:
 		gl['run_amount'] = gl['delta_amount'].cumsum()
 
 		if v:
-			print(f'GL for {entity_id} entities, for item {items} for accounts {accounts}:') #TODO Improve description logic
+			print(f'GL for {entity_id} entities, for item {items}, for accounts {accounts}, with desc containing "{desc}", returned {gl.shape[0]} rows:') #TODO Improve description logic
 			if mob:
 				try:
 					import rich
@@ -1434,6 +1437,7 @@ class Ledger:
 					pass
 			else:
 				print(gl)
+			print(f'GL for {entity_id} entities, for item {items}, for accounts {accounts}, with desc containing "{desc}", returned {gl.shape[0]} rows:')
 		if save:
 			# TODO Improve save name logic
 			outfile = 'util_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
@@ -2432,8 +2436,9 @@ def main(conn=None, command=None, external=False):
 			entity_id = input('Which entitie(s)? ')
 			item = input('Which item or ticker (case sensitive)? ')#.lower()
 			acct = input('Which account? ')#.title()
+			desc = input('Description contains? ')
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				ledger.get_util(entity_id, item, acct, v=True)
+				ledger.get_util(entity_id, item, acct, desc, v=True)
 			if args.command is not None: exit()
 		elif command.lower() == 'demand': # This only works for the econ sim
 			demand = accts.print_table('demand', v=False)
