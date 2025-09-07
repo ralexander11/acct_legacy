@@ -1184,7 +1184,9 @@ class World:
 		inv_totals.columns.name = None
 		if vv: print(f'\ninv_totals:\n{inv_totals}\n')
 
-		gl['tech'] = self.tech['days_left'].sum()
+		tech = self.tech.copy()
+		tech['days_left'] = tech['days_left'].apply(pd.to_numeric, downcast='integer', errors='coerce')
+		gl['tech'] = tech['days_left'].sum()
 		gl = pd.merge(gl, hist_hours, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, hist_demand, on=['date'], how='left').fillna(0)
 		gl = pd.merge(gl, item_demand, on=['date', 'item_id'], how='left').fillna(0)
