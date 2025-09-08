@@ -5260,7 +5260,7 @@ class Entity:
 		if v: print(f'\nRaw price of {qty} {item}: ${price:.2f}')
 		return price
 
-	def get_raw(self, item, qty=1, raw=None, orig_item=None, base=False, ignore_equip=False, v=False):
+	def get_raw(self, item, qty=1, raw=None, orig_item=None, base=False, ignore_equip=False, all=False, v=False):
 		# TODO Have a version where full cost of capital items for 1 unit and another version with no cost of capital items due to economies of scale
 		if raw is None:
 			raw = collections.defaultdict(int)
@@ -5284,15 +5284,17 @@ class Entity:
 		if v: print(f'Requirements Details for {qty} {item}: \n{requirements_details}')
 		for requirement in requirements_details:
 			# TODO Make option for this to catch when items have no requirements only
-			if requirement[1] in ['Land', 'Commodity', 'Labour', 'Job', 'Education', 'Technology', 'Time'] and not base or (ignore_equip and requirement[1] in ['Components', 'Service', 'Subscription']) or (not ignore_equip and requirement[1] in ['Equipment', 'Buildings']): # TODO Is this the best way to do this?
+			if requirement[1] in ['Land', 'Commodity', 'Labour', 'Job', 'Education', 'Technology', 'Time'] and not base or (ignore_equip and requirement[1] in ['Components', 'Service', 'Subscription']) or (not ignore_equip and requirement[1] in ['Equipment', 'Buildings']) or all: # TODO Is this the best way to do this?
 				# print(f'inner: {item} {requirement}')
 				if requirement[1] in ['Technology', 'Education']:
 					raw[requirement[0]] = requirement[2]
 				elif requirement[1] in ['Equipment', 'Buildings']:
+					if ignore_equip:
+						continue
 					raw[requirement[0]] = requirement[2] # TODO This needs to factor in capacity
 				else:
 					raw[requirement[0]] += (requirement[2] * qty)
-			elif 'animal' in str(item_info['freq'] or ''):
+			elif 'animal' in str(item_info['freq'] or ''): # TODO This may no longer work with all option param
 				raw[requirement[0]] += (requirement[2] * qty)
 			else:
 				if requirement[1] in ['Education']:
@@ -6397,7 +6399,7 @@ class Entity:
 		if self.produces is None:
 			return
 		items_list = world.items[world.items['producer'] != None]
-		#print('Items List: \n{}'.format(items_list))
+		# print('Items List: \n{}'.format(items_list))
 		for item in self.produces:
 			if not self.check_eligible(item): # TODO Maybe cache this
 				continue
@@ -6407,22 +6409,22 @@ class Entity:
 			self.ledger.reset()
 			if past_qty_check.empty:
 				continue
-			#print('Produces Item: {}'.format(item))
+			# print('Produces Item: {}'.format(item))
 			# print(f'{item} satisfies:', world.items.loc[item, 'satisfies'])
 			if world.items.loc[item, 'satisfies'] is not None:
 				priority = True
 			requirements = world.items.loc[item, 'requirements']
 			if requirements is None:
-				if v: print('{} has no requirements.'.format(item))
+				# if v: print('{} has no requirements.'.format(item))
 				continue
 			if isinstance(requirements, str):
 				requirements = [x.strip() for x in requirements.split(',')]
 			requirements = list(filter(None, requirements))
-			#print('Requirements: \n{}'.format(requirements))
+			# print('Requirements: \n{}'.format(requirements))
 			for requirement in requirements:
-				#print('Requirement: {}'.format(requirement))
+				# print('Requirement: {}'.format(requirement))
 				possible_items = items_list.loc[items_list['productivity'].str.contains(requirement, na=False)]
-				#print('Possible Items: \n{}'.format(possible_items))
+				# print('Possible Items: \n{}'.format(possible_items))
 				productivity_items = pd.DataFrame(columns=['item_id','efficiency'])
 				for index, prod_item in possible_items.iterrows():
 					productivities = [x.strip() for x in prod_item['productivity'].split(',')]
@@ -6435,7 +6437,7 @@ class Entity:
 					# productivity_items = productivity_items.append({'item_id': prod_item.name, 'efficiency': efficiency}, ignore_index=True)
 					productivity_items = pd.concat([productivity_items, pd.DataFrame({'item_id': [prod_item.name], 'efficiency': [efficiency]})], ignore_index=True)
 				productivity_items = productivity_items.sort_values(by='efficiency', ascending=True)
-				#print('Productivity Items: \n{}'.format(productivity_items))
+				# print('Productivity Items: \n{}'.format(productivity_items))
 				if not productivity_items.empty:
 					for index, prod_item in productivity_items.iterrows():
 						if self.check_eligible(prod_item['item_id']):
@@ -6443,7 +6445,8 @@ class Entity:
 							self.ledger.set_entity(self.entity_id)
 							current_qty = self.ledger.get_qty(prod_item['item_id'], [item_type, 'WIP ' + item_type])#, v=True)
 							self.ledger.reset()
-							#print('Current Qty of {}: {}'.format(item['item_id'], current_qty))
+							# if v: print('Current Qty of {}: {}'.format(item['item_id'], current_qty))
+							# TODO If individual and it makes labour more efficient, check if has done that labour
 							if current_qty == 0:
 								result = self.purchase(prod_item['item_id'], qty=1, priority=priority, v=v)#, acct_buy=item_type) # TODO Handle more than 1 qty?
 								if result:
