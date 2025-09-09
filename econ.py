@@ -2192,7 +2192,7 @@ class Entity:
 		price = world.get_price(item, self.entity_id)
 		orig_price = price
 		item_type = world.get_item_type(item)
-		if item_type in ['Technology','Education'] or isinstance(self, Environment):
+		if item_type in ['Technology', 'Education'] or isinstance(self, Environment):
 			if price != 0:
 				world.prices.at[item, 'price'] = 0
 				print('{} sets price for {} from {} to {}.'.format(self.name, item, price, 0))
@@ -2863,6 +2863,7 @@ class Entity:
 				return consume_event
 			self.ledger.journal_entry(consume_event)
 			self.adj_needs(item, qty) # TODO Add error checking
+			self.adj_price(item, qty, direction='up_low')
 			return consume_event
 		else:
 			if v: print('{} does not have enough {} on hand to consume {} units of {}.'.format(self.name, item, qty, item))
@@ -6197,6 +6198,7 @@ class Entity:
 		world.demand = world.demand.reset_index(drop=True)
 		if v: print(f'Demand at start of loop:\n', world.demand)
 		for index, demand_item in world.demand.iterrows():#world.demand.copy().iterrows(): # TODO This used to be able to drop rows while looping
+			# TODO index here causes issues with dropping wrong rows or editing rows beyond the limit of the table
 			# vv = False
 			item = demand_item['item_id']
 			if item == 'Table':
