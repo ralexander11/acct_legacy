@@ -5228,7 +5228,7 @@ class Entity:
 		world.set_table(world.produce_queue, 'produce_queue')
 
 	def get_raw_price(self, item, qty=1, ignore_equip=True, v=False):
-		raw = self.get_raw(item, qty, ignore_equip=ignore_equip)
+		raw = self.get_raw(item, qty, ignore_equip=ignore_equip, all=False)
 		raw = raw.iloc[:-1]
 		if raw.empty:
 			return 0
@@ -5238,7 +5238,7 @@ class Entity:
 			# print(item)
 			req_item = item_row['item_id']
 			# print('req_item:', req_item)
-			raw.loc[idx, 'price'] = world.get_price(req_item)
+			raw.loc[idx, 'price'] = world.get_price(req_item) # TODO If price is INIT_PRICE replace item with it's recipe items
 			raw.loc[idx, 'item_type'] = world.get_item_type(req_item)
 		raw['cost'] = raw['qty'] * raw['price']
 		raw.loc[raw['item_type'] == 'Land', 'cost'] = 0
