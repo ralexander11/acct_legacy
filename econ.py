@@ -471,22 +471,25 @@ class World:
 			print('\nRoll back to last full day.')
 			try:
 				last_eod_index = self.ledger.gl.loc[self.ledger.gl['credit_acct'] == 'End of Day'].iloc[-1].name
+				print('last_eod_index:', last_eod_index)
 			except IndexError:
 				print('Less than one day completed in prior run.')
 				last_eod_index = 0
 			try:
 				last_eot_index = self.ledger.gl.loc[self.ledger.gl['credit_acct'] == 'End of Turn'].iloc[-1].name
+				print('last_eot_index:', last_eot_index)
 			except IndexError:
 				last_eot_index = 0
 			try:
 				last_save_index = self.ledger.gl.loc[self.ledger.gl['credit_acct'] == 'Save'].iloc[-1].name
+				print('last_save_index:', last_save_index)
 			except IndexError:
 				last_save_index = 0
 			if last_eot_index > last_eod_index:
 				self.active_day = True
 			else:
 				self.active_day = False
-			if last_save_index > last_eot_index:
+			if last_save_index > last_eot_index and last_save_index > last_eod_index:
 				entity_id = self.ledger.gl.loc[self.ledger.gl['credit_acct'] == 'Save'].iloc[-1][1]
 				entity = self.factory.get_by_id(entity_id)
 				entity.saved = True
@@ -2532,7 +2535,11 @@ class Entity:
 			return result
 		self.ledger.reset()
 		# TODO Consider if want to purchase none inventory assets by replacing Inventory below with acct_buy
-		global_inv = self.ledger.get_qty(item, ['Inventory'], by_entity=True)#, v=True)
+		tmpv = False
+		if item == 'Wetlands':
+			tmpv = True
+		global_inv = self.ledger.get_qty(item, ['Inventory'], by_entity=True, v=tmpv)
+		if v: print('Global Purchase Base Inventory for {}: \n{}'.format(item, global_inv))
 		prices_tmp = world.prices.reset_index()
 		if vv: print('prices_tmp:', prices_tmp)
 		prices_tmp.rename(columns={'index': 'item_id'}, inplace=True)
@@ -2587,6 +2594,14 @@ class Entity:
 			cost = False
 			purchased_qty = 0
 			cash_used = 0
+			if self.entity_id in global_inv['entity_id'].values:
+				print(f'global_inv before:\n{global_inv}')
+				top_rows = global_inv[global_inv['entity_id'] == self.entity_id]
+				remaining_rows = global_inv[global_inv['entity_id'] != self.entity_id]
+				global_inv = pd.concat([top_rows, remaining_rows]).reset_index(drop=True)
+				print(f'{self.name} will transact with themselves first.')
+				print(f'global_inv after:\n{global_inv}')
+				# exit()
 			while qty > 0:
 				#print('Purchase Qty Loop: {} | {}'.format(qty, i))
 				try:
@@ -2597,16 +2612,15 @@ class Entity:
 				if purchase_qty > qty:
 					purchase_qty = qty
 				print(f'global_inv:\n{global_inv}')
-				if self.entity_id in global_inv['entity_id'].values:
-					counterparty = self
-					print(f'{self.name} will transact with themselves ({counterparty.name}) first.')
-				else:
-					counterparty_id = global_inv.iloc[i].loc['entity_id']
-					# print('Counterparty ID: {}'.format(counterparty_id))
-					counterparty = self.factory.get_by_id(counterparty_id)
-					# print('Purchase Counterparty: {}'.format(counterparty.name))
+				# if self.entity_id in global_inv['entity_id'].values:
+					# counterparty = self
+				# else:
+				counterparty_id = global_inv.iloc[i].loc['entity_id']
+				# print('Counterparty ID: {}'.format(counterparty_id))
+				counterparty = self.factory.get_by_id(counterparty_id)
+				# print('Purchase Counterparty: {}'.format(counterparty.name))
 				if counterparty.entity_id == self.entity_id:
-					if v: print('{} attempting to transact with themselves for {} {}.'.format(self.name, purchase_qty, item))
+					if v: print('{} attempting to transact with themselves for {} {} out of {}.'.format(self.name, purchase_qty, item, qty))
 					if item_type == 'Land':
 						if v: print(f'Land acct_buy before: {acct_buy}')
 						acct_buy = 'Land'
@@ -2662,7 +2676,10 @@ class Entity:
 			return
 		# Put item up for sale
 		self.ledger.set_entity(self.entity_id)
-		qty_on_hand = self.ledger.get_qty(items=item, accounts=[item_type])
+		tmpv = False
+		if item == 'Wetlands':
+			tmpv = True
+		qty_on_hand = self.ledger.get_qty(items=item, accounts=[item_type], v=tmpv)
 		self.ledger.reset()
 		if v: print('{} has {} {} on hand.'.format(self.name, qty, item))
 		if qty_on_hand >= qty:
