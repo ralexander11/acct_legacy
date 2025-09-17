@@ -2535,10 +2535,7 @@ class Entity:
 			return result
 		self.ledger.reset()
 		# TODO Consider if want to purchase none inventory assets by replacing Inventory below with acct_buy
-		tmpv = False
-		if item == 'Wetlands':
-			tmpv = True
-		global_inv = self.ledger.get_qty(item, ['Inventory'], by_entity=True, v=tmpv)
+		global_inv = self.ledger.get_qty(item, ['Inventory'], by_entity=True)
 		if v: print('Global Purchase Base Inventory for {}: \n{}'.format(item, global_inv))
 		prices_tmp = world.prices.reset_index()
 		if vv: print('prices_tmp:', prices_tmp)
@@ -2601,7 +2598,6 @@ class Entity:
 				global_inv = pd.concat([top_rows, remaining_rows]).reset_index(drop=True)
 				print(f'{self.name} will transact with themselves first.')
 				print(f'global_inv after:\n{global_inv}')
-				# exit()
 			while qty > 0:
 				#print('Purchase Qty Loop: {} | {}'.format(qty, i))
 				try:
@@ -2676,10 +2672,7 @@ class Entity:
 			return
 		# Put item up for sale
 		self.ledger.set_entity(self.entity_id)
-		tmpv = False
-		if item == 'Wetlands':
-			tmpv = True
-		qty_on_hand = self.ledger.get_qty(items=item, accounts=[item_type], v=tmpv)
+		qty_on_hand = self.ledger.get_qty(items=item, accounts=[item_type])
 		self.ledger.reset()
 		if v: print('{} has {} {} on hand.'.format(self.name, qty, item))
 		if qty_on_hand >= qty:
