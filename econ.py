@@ -45,7 +45,7 @@ WORK_DAY = 8
 PAY_PERIODS = 2
 GESTATION = 3 # 7
 MAX_CORPS = 2
-INIT_PRICE = 10.0
+INIT_PRICE = 10.0 # Add argparse
 INIT_CAPITAL = 25000 # Not used
 EXPLORE_TIME = 1
 INC_BUFFER = 3
@@ -10848,6 +10848,9 @@ def parse_args(conn=None, command=None, external=False):
 	if (args.delay is not None) and (args.delay != 0):
 		print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))	
 	if args.random:
+		if args.seed == '':
+			args.seed = None
+			print(time_stamp() + 'Randomness turned on with no seed set: {}.'.format(args.seed))
 		if args.seed:
 			print(time_stamp() + 'Randomness turned on with a seed of {}.'.format(args.seed))
 			random.seed(args.seed)

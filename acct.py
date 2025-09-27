@@ -2459,6 +2459,7 @@ def main(conn=None, command=None, external=False):
 				print(demand)
 			print('=====================================')
 			demand['delta_qty'] = demand.groupby('item_id')['qty'].diff()
+			demand = demand[demand['delta_qty'] != 0]
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				print(demand)
 			pd.options.display.float_format = '${:,.2f}'.format
@@ -2473,6 +2474,7 @@ def main(conn=None, command=None, external=False):
 				print(inv_hist)
 			print('=====================================')
 			inv_hist['delta_qty'] = inv_hist.groupby(['item_id', 'account'])['qty'].diff()
+			inv_hist = inv_hist[inv_hist['delta_qty'] != 0]
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				print(inv_hist)
 			pd.options.display.float_format = '${:,.2f}'.format
