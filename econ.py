@@ -1936,9 +1936,9 @@ class World:
 			# TODO Add (args.random or args.births) switch
 			individuals = world.gov.get(Individual, users=False)
 			for individual in individuals:
-				birth_roll = random.randint(1, 20)
+				birth_roll = random.randint(1, 20) #200
 				print('Birth Roll for {}: {}'.format(individual.name, birth_roll))
-				if birth_roll == 20:
+				if birth_roll == 20: #200
 					individual.birth()
 
 		# if args.random:
@@ -4815,6 +4815,7 @@ class Entity:
 		# 	print('{} cannot hold {} {} it produced.'.format(self.name, qty, item))
 		# 	return [], hold_time_required, hold_max_qty_possible, hold_incomplete
 		# produce_event += in_use_event
+
 		if item_type == 'Subscription':
 			if v: print('Cannot produce a Subscription; will try and order it.')
 			outcome = self.order_subscription(item, v=v)
@@ -4834,6 +4835,15 @@ class Entity:
 			produce_event += outcome
 			# return [], time_required, max_qty_possible, incomplete
 
+		# if item == 'Water Skin':
+		# print(time_stamp() + f'Run sale_equip_check for {item}:')
+		for_sale = False
+		if item_type == 'Equipment' or item_type == 'Buildings':
+			excess_equip = self.sale_equip_check(item)
+			if excess_equip and not pd.isna(excess_equip) and excess_equip >= 0:
+				for_sale = True
+				# print(f'{item} for_sale is: {for_sale}')
+
 		#print('Item Type: {}'.format(item_type))
 		if debit_acct is None:
 			if item_type == 'Technology':
@@ -4841,12 +4851,12 @@ class Entity:
 			elif item_type == 'Education':
 				debit_acct = 'Education'
 			elif item_type == 'Equipment':
-				if isinstance(self, Individual) or man: # TODO Check this
+				if (isinstance(self, Individual) or man) and not for_sale: # TODO Check this
 					debit_acct = 'Equipment'
 				else:
 					debit_acct = 'Inventory'
 			elif item_type == 'Buildings':
-				if isinstance(self, Individual) or man:
+				if (isinstance(self, Individual) or man) and not for_sale:
 					debit_acct = 'Buildings'
 				else:
 					debit_acct = 'Inventory'
@@ -4863,12 +4873,12 @@ class Entity:
 				elif item_type == 'Education':
 					debit_acct='Studying Education'
 				elif item_type == 'Equipment':
-					if isinstance(self, Individual) or man:
+					if (isinstance(self, Individual) or man) and not for_sale:
 						debit_acct = 'WIP Equipment'
 					else:
 						debit_acct = 'WIP Inventory'
 				elif item_type == 'Buildings':
-					if isinstance(self, Individual) or man:
+					if (isinstance(self, Individual) or man) and not for_sale:
 						debit_acct = 'Building Under Construction'
 					else:
 						debit_acct = 'WIP Inventory'
@@ -5637,6 +5647,30 @@ class Entity:
 							self.set_price(wip_lot['item_id'], wip_lot['qty'], v=v)
 					result += wip_event
 			return result
+
+	def sale_equip_check(self, item, v=False):
+		# self.ledger.refresh_ledger() # TODO Is this needed?
+		if v: print('Running sale_equip_check for:', item)
+		self.ledger.set_entity(self.entity_id)
+		current_qty = self.ledger.get_qty(items=item, accounts=['Equipment', 'Buildings'], v=v)
+		self.ledger.reset()
+		if v: print('sale_equip_check current_qty:', current_qty)
+		if current_qty == 0:
+			print('current_qty is 0, will return early.')
+			return
+		rvsl_txns = self.ledger.gl[self.ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		if v: print('rvsl_txns for sale_equip_check:\n', rvsl_txns)
+		use_item_txns = self.ledger.gl[(self.ledger.gl['debit_acct'].isin(['Depr. Expense'])) & (self.ledger.gl['credit_acct'].isin(['Accum. Depr.'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (self.ledger.gl['item_id'].isin([item])) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]
+		if v: print('use_item_txns for sale_equip_check:\n', use_item_txns)
+		use_item_txns = use_item_txns[use_item_txns['description'].str.contains('usage')]
+		if v: print('usage use_item_txns for sale_equip_check:\n', use_item_txns)
+		max_qty = use_item_txns.groupby('event_id').size().max()
+		if v: print('max_qty used:', max_qty)
+		if v: print('max_qty used type:', type(max_qty))
+		if current_qty >= max_qty:
+			excess_qty = current_qty - max_qty
+			if v: print('excess_qty:', excess_qty)
+			return excess_qty
 
 	def release_check(self, v=False):
 		self.hold_event_ids = list(collections.OrderedDict.fromkeys(filter(None, self.hold_event_ids))) # Remove any dupes
@@ -10783,7 +10817,7 @@ def parse_args(conn=None, command=None, external=False):
 	parser.add_argument('-d', '--delay', type=int, default=0, help='Add a delay for a chance to take over the econ sim.')
 	parser.add_argument('-r', '--reset', action='store_true', help='Reset the sim!')
 	parser.add_argument('-rand', '--random', action='store_false', help='Remove randomness from the sim.') # TODO Is this still needed?
-	parser.add_argument('-s', '--seed', type=str, help='Set the seed for the randomness in the sim.')
+	parser.add_argument('-s', '--seed', type=str, default='11', help='Set the seed for the randomness in the sim.')
 	parser.add_argument('-i', '--items', type=str, help='The name of the items csv config file.')
 	parser.add_argument('-t', '--time', type=int, help='The number of days the sim will run for.')
 	parser.add_argument('-cap', '--capital', type=float, help='Amount of capital each player to start with.')
@@ -10794,7 +10828,7 @@ def parse_args(conn=None, command=None, external=False):
 	parser.add_argument('-u', '--users', type=int, nargs='?', const=-1, help='Play the sim as an individual!')
 	parser.add_argument('-win', '--win', action='store_true', help='Set win conditions for the sim.')
 	parser.add_argument('-pin', '--pin', action='store_true', help='Enable pin for turn protection.')
-	parser.add_argument('-early', '--early', action='store_true', help='Automatically end the turn when no hours left when not in user mode.')
+	parser.add_argument('-early', '--early', action='store_false', help='Automatically end the turn when no hours left when not in user mode.')
 	parser.add_argument('-j', '--jones', action='store_true', help='Enable game mode like Jones in the Fast Lane.')
 	parser.add_argument('-inf', '--inf_time', action='store_true', help='Toggles infinite time for labour and turns off waiting requirements.')
 	parser.add_argument('-b', '--buffer_qty', type=int, default=0, help='Set the default amount of inventory buffer corps try to hold.')
@@ -10863,7 +10897,7 @@ def parse_args(conn=None, command=None, external=False):
 		global END_DATE
 		END_DATE = (datetime.datetime(1986,10,1).date() + datetime.timedelta(days=args.time)).strftime('%Y-%m-%d')
 	if args.early:
-		print(time_stamp() + 'Econ Sim will end turns early if no hours available')
+		print(time_stamp() + 'Econ Sim will end turns early if no hours available.')
 	if END_DATE is None:
 		print(time_stamp() + 'Econ Sim has no end date and will end if everyone dies.')
 	else:
@@ -10917,9 +10951,11 @@ if __name__ == '__main__':
 
 # source ./venv/bin/activate
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-06-20.db -s 11 -p 4 -mp 10 --early -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-06-20.log 2>&1 &
+# Old # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-06-20.db -s 11 -p 4 -mp 10 --early -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-06-20.log 2>&1 & # Old
 
-# nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -s 11 -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-09-09.db -p 4 -mp 10 -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-09-09.log 2>&1 &
+
+# nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
 # (python econ.py -db econ_2024-12-07.db -s 11 -p 4 -r -t 4 >> logs/econ_2024-12-07.log && say done) || say error
 # python econ.py -db econ_2024-12-07.db -s 11 -p 4 -mp 5 -r -t 1 >> logs/econ_2024-12-07.log
