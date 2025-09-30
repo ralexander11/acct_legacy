@@ -1399,7 +1399,7 @@ class Ledger:
 			if gl.empty:
 				print('The GL is empty with the account filters.')
 				return
-		if desc is not None:
+		if desc is not None and desc != '':
 			if v: print('desc contains:', desc)
 			gl= gl[gl['description'].str.contains(desc)]
 
