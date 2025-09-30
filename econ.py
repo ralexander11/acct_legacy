@@ -51,6 +51,7 @@ EXPLORE_TIME = 1
 INC_BUFFER = 3
 MARKUP = 0.1
 REDUCE_PRICE = 0.01 # 0.1
+BIRTH_CHANCE = 200
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -1936,9 +1937,9 @@ class World:
 			# TODO Add (args.random or args.births) switch
 			individuals = world.gov.get(Individual, users=False)
 			for individual in individuals:
-				birth_roll = random.randint(1, 20) #200
+				birth_roll = random.randint(1, BIRTH_CHANCE) #200) #20
 				print('Birth Roll for {}: {}'.format(individual.name, birth_roll))
-				if birth_roll == 20: #200
+				if birth_roll == BIRTH_CHANCE: #200: #20
 					individual.birth()
 
 		# if args.random:
@@ -5656,7 +5657,7 @@ class Entity:
 		self.ledger.reset()
 		if v: print('sale_equip_check current_qty:', current_qty)
 		if current_qty == 0:
-			print('current_qty is 0, will return early.')
+			if v: print(f'{self.name} current_qty is 0 for {item}, will return early.')
 			return
 		rvsl_txns = self.ledger.gl[self.ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
 		if v: print('rvsl_txns for sale_equip_check:\n', rvsl_txns)
@@ -5669,7 +5670,7 @@ class Entity:
 		if v: print('max_qty used type:', type(max_qty))
 		if current_qty >= max_qty:
 			excess_qty = current_qty - max_qty
-			if v: print('excess_qty:', excess_qty)
+			print(f'{self.name} sale_equip_check for {item} excess_qty: {excess_qty} | current_qty: {current_qty} | {max_qty}')
 			return excess_qty
 
 	def release_check(self, v=False):
@@ -6469,6 +6470,7 @@ class Entity:
 			# print('Requirements: \n{}'.format(requirements))
 			for requirement in requirements:
 				# print('Requirement: {}'.format(requirement))
+				# TODO Consider a check if requirement is labour and entity is individual, only demand optional item if have done that labour in the past.
 				possible_items = items_list.loc[items_list['productivity'].str.contains(requirement, na=False)]
 				# print('Possible Items: \n{}'.format(possible_items))
 				productivity_items = pd.DataFrame(columns=['item_id','efficiency'])
