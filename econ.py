@@ -175,7 +175,7 @@ class World:
 		self.ledger = ledger
 		global args
 		if args is None:
-			args = argparse.Namespace(database=None, command=None, delay=0, reset=False, random=True, seed=None, items=None, time=None, capital=1000000, governments=1, players=0, population=1, max_pop=None, users=0, win=False, pin=False, early=False, jones=False, inf_time=False, buffer_qty=0)
+			args = argparse.Namespace(database=None, command=None, delay=0, reset=False, random=True, seed=None, items=None, time=None, capital=1_000_000, governments=1, players=0, population=1, max_pop=None, users=0, win=False, pin=False, early=False, jones=False, inf_time=False, buffer_qty=0)
 		# World._instance = self
 		# self.accts = EntityFactory.get_accts()
 		# self.ledger = EntityFactory.get_ledger()  # Access shared Ledger
@@ -1451,7 +1451,7 @@ class World:
 				for gov in self.factory.get(Government):
 					self.gov = gov
 					if args.jones:
-						self.gov.bank.print_money(1000000)
+						self.gov.bank.print_money(1_000_000)
 					else:
 						self.gov.bank.print_money(args.capital)
 					for individual in self.gov.get(Individual):
@@ -6503,7 +6503,7 @@ class Entity:
 	# Max land to claim should be a function of the sim population
 	# If Wood takes some labour and land, the max hours for labour available should be the max land to claim
 	def max_land(self, item, v=True):
-		return 10000000000 # TODO What is this here for? Testing maybe?
+		return 10_000_000_000 # TODO What is this here for? Testing maybe?
 		item_info = world.items.loc[item]
 		print(f'item_info:\n{item_info}')
 		if item_info is None:
@@ -9607,9 +9607,9 @@ class Individual(Entity):
 			if population >= args.max_pop:
 				print(f'{self.name} cannot give birth because the population is at {population} and the max population is {args.max_pop}.')
 				return
-		if amount_1 is None and amount_2 is None:
-			amount_1 = INIT_CAPITAL / 2
-			amount_2 = INIT_CAPITAL / 2
+		# if amount_1 is None and amount_2 is None:
+		# 	amount_1 = INIT_CAPITAL / 2
+		# 	amount_2 = INIT_CAPITAL / 2
 		entities = self.accts.get_entities()
 		if counterparty is None:
 			individuals = self.factory.get(Individual, users=False)
@@ -9630,7 +9630,8 @@ class Individual(Entity):
 		cash1 = self.ledger.balance_sheet(['Cash'])
 		self.ledger.reset()
 		if amount_1 is None:
-			amount_1 = 0
+			amount_1 = round(max(cash1 * 0.05, 100), 2)
+			# amount_1 = 0
 		if cash1 >= amount_1:
 			gift_entry1 = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Gift cash to child', '', '', '', 'Gift Expense', 'Cash', amount_1 ] # TODO Get proper cp_id
 		else:
@@ -9640,7 +9641,8 @@ class Individual(Entity):
 		cash2 = self.ledger.balance_sheet(['Cash'])
 		self.ledger.reset()
 		if amount_2 is None:
-			amount_2 = 0
+			amount_2 = round(max(cash2 * 0.05, 100), 2)
+			# amount_2 = 0
 		if cash2 >= amount_2:
 			gift_entry2 = [ self.ledger.get_event(), counterparty.entity_id, '', world.now, '', 'Gift cash to child', '', '', '', 'Gift Expense', 'Cash', amount_2 ] # TODO Get proper cp_id
 		else:
@@ -9675,7 +9677,7 @@ class Individual(Entity):
 			individual.pin = pin
 		world.set_table(world.prices, 'prices')
 
-		gift_event += individual.capitalize(amount=amount_1 + amount_2, buffer=True)
+		gift_event += individual.capitalize(amount=round(amount_1 + amount_2, 2), buffer=True)
 		individual.hours = 0
 		print('\nPerson-' + str(last_entity_id + 1) + ' is born!')
 		self.ledger.journal_entry(gift_event)
@@ -10234,7 +10236,7 @@ class Organization(Entity):
 		super().__init__(name)
 
 class Corporation(Organization):
-	def __init__(self, name, items, government, founder, auth_shares=1000000, entity_id=None):# Corporation(Organization)
+	def __init__(self, name, items, government, founder, auth_shares=1_000_000, entity_id=None):# Corporation(Organization)
 		super().__init__(name) # TODO Is this needed?
 		entity_data = [ (name, 'CAD', 'IFRS', 0.0, 1, 100, 0.5, 'iex', self.__class__.__name__, government, founder, None, None, None, None, None, None, None, None, auth_shares, None, items, None) ] # Note: The 2nd to 5th values are for another program
 		# if not os.path.exists('db/' + args.database) or args.reset:
@@ -10880,7 +10882,9 @@ def parse_args(conn=None, command=None, external=False):
 		if args.jones:
 			args.capital = 300 * args.population
 		else:
-			args.capital = 1000000
+			args.capital = 1_000_000
+	if args.capital:
+		INIT_CAPITAL = args.capital * 0.025
 	if (args.delay is not None) and (args.delay != 0):
 		print(time_stamp() + 'With update delay of {:,.2f} minutes.'.format(args.delay / 60))	
 	if args.random:
