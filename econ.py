@@ -304,6 +304,12 @@ class World:
 			self.hist_hours = self.hist_hours.rename(columns={'index': 'entity_id'})
 			# print('\nHist Hours: \n{}'.format(self.hist_hours))
 			self.set_table(self.hist_hours, 'hist_hours')
+			self.hist_cash = pd.DataFrame()
+			self.hist_cash.index.name = 'date'
+			self.set_table(self.hist_cash, 'hist_cash')
+			self.hist_nav = pd.DataFrame()
+			self.hist_nav.index.name = 'date'
+			self.set_table(self.hist_nav, 'hist_nav')
 			# Set the default starting gov
 			self.gov = self.factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
@@ -441,16 +447,16 @@ class World:
 				print('Delays:\n{}\n'.format(self.delay))
 			try: # TODO Remove error checking because of legacy db files
 				self.hist_prices = self.get_table('hist_prices')
-				self.hist_hours[['price']] = self.hist_hours[['price']].apply(pd.to_numeric, errors='coerce')
+				self.hist_prices[['price']] = self.hist_prices[['price']].apply(pd.to_numeric, errors='coerce')
 				# print('load hist_prices:\n', self.hist_prices.head())
 			except Exception as e:
-				print('Loading Error: {}'.format(repr(e)))
+				print('Loading Error1: {}'.format(repr(e)))
 			try:
 				self.hist_demand = self.get_table('hist_demand')
 				self.hist_demand[['qty']] = self.hist_demand[['qty']].apply(pd.to_numeric, errors='coerce')
 				# print('load hist_demand:\n', self.hist_demand.head())
 			except Exception as e:
-				print('Loading Error: {}'.format(repr(e)))
+				print('Loading Error2: {}'.format(repr(e)))
 			try:
 				self.hist_hours = self.get_table('hist_hours')
 				needs_cols = ['hours', 'population'] + [*self.global_needs]
@@ -458,13 +464,24 @@ class World:
 				self.hist_hours[needs_cols] = self.hist_hours[needs_cols].apply(pd.to_numeric, errors='coerce')
 				# print('load hist_hours:\n', self.hist_hours.head())
 			except Exception as e:
-				print('Loading Error: {}'.format(repr(e)))
+				print('Loading Error3: {}'.format(repr(e)))
 			try:
 				self.hist_inv = self.get_table('hist_inv')
 				self.hist_inv[['qty']] = self.hist_inv[['qty']].apply(pd.to_numeric, errors='coerce')
 				# print('load hist_inv:\n', self.hist_inv.head())
 			except Exception as e:
-				print('Loading Error: {}'.format(repr(e)))
+				print('Loading Error4: {}'.format(repr(e)))
+			try:
+				self.hist_cash = self.get_table('hist_cash')
+				# print('load hist_cash:\n', self.hist_cash, sep='')#.head())
+				# print(self.hist_cash.index)
+			except Exception as e:
+				print('Loading Error5: {}'.format(repr(e)))
+			try:
+				self.hist_nav = self.get_table('hist_nav')
+				# print('load hist_nav:\n', self.hist_nav, sep='')#.head())
+			except Exception as e:
+				print('Loading Error6: {}'.format(repr(e)))
 			# print('load hist_prices:\n', self.hist_prices)
 			self.gov = self.factory.get(Government)[0]
 			print('Start Government: {}'.format(self.gov))
@@ -1896,12 +1913,14 @@ class World:
 					entity.negative_bal()
 				self.ledger.set_entity(entity.entity_id)
 				entity.cash = self.ledger.balance_sheet(['Cash'])
+				self.hist_cash.loc[self.now, entity.name] = entity.cash
 				print('{} Cash: {}'.format(entity.name, round(entity.cash, 2)))
 				self.ledger.reset()
 			print()
 			for entity in self.factory.get(typ):
 				self.ledger.set_entity(entity.entity_id)
 				entity.nav = self.ledger.balance_sheet()
+				self.hist_nav.loc[self.now, entity.name] = entity.nav
 				print('{} NAV: {}'.format(entity.name, round(entity.nav, 2)))
 				self.ledger.reset()
 
@@ -1919,6 +1938,10 @@ class World:
 				# else:
 				# 	lst = self.factory.get(typ)
 				# 	lst.append(lst.pop(0))
+		self.set_table(self.hist_cash, 'hist_cash')
+		self.set_table(self.hist_nav, 'hist_nav')
+		# print(self.hist_cash)
+		# print(self.hist_nav)
 
 		t8_end = time.perf_counter()
 		print(time_stamp() + '8: Cash check took {:,.2f} min.'.format((t8_end - t8_start) / 60))
