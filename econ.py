@@ -1579,11 +1579,16 @@ class World:
 				entity.pay_wages()
 				t3_6_end = time.perf_counter()
 				print(time_stamp() + '3.6: Wag check took {:,.2f} sec for {}.'.format((t3_6_end - t3_6_start), entity.name, entity.entity_id))
+				# if isinstance(entity, Corporation):
+				# 	t3_7a_start = time.perf_counter()
+				# 	entity.dividend()
+				# 	t3_7a_end = time.perf_counter()
+				# 	print(time_stamp() + '3.7a: Div check took {:,.2f} sec for {}.'.format((t3_7a_end - t3_7a_start), entity.name, entity.entity_id))
 				# if not entity.user:
-				# 	t3_7_start = time.perf_counter()
+				# 	t3_7b_start = time.perf_counter()
 				# 	entity.wip_check()
-				# 	t3_7_end = time.perf_counter()
-				# 	print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7_end - t3_7_start), entity.name, entity.entity_id))
+				# 	t3_7b_end = time.perf_counter()
+				# 	print(time_stamp() + '3.7: WIP check took {:,.2f} sec for {}.'.format((t3_7b_end - t3_7b_start), entity.name, entity.entity_id))
 				if isinstance(entity, Corporation):
 					t3_7_start = time.perf_counter()
 					if args.jones or args.buffer_qty: # TODO Handle this better
@@ -7913,6 +7918,7 @@ class Entity:
 		# item_type = world.get_item_type(item)
 		self.ledger.set_entity(self.entity_id)
 		asset_bal = self.ledger.balance_sheet(accounts=['Buildings','Equipment','Buildings In Use', 'Equipment In Use', 'Equipped'], item=item)# TODO Maybe support other accounts
+		asset_bal = round(asset_bal, 2)
 		if v: print(f'Account bal for {item}: {asset_bal}')
 		if asset_bal == 0:
 			return
@@ -7964,6 +7970,7 @@ class Entity:
 			if v: print('derecognition_event 2:', derecognition_event)
 			if accum_reduction > asset_bal:
 				overage = accum_reduction - asset_bal
+				# overage = round(overage, 2) # Will this keep small balances forever
 				overage_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Derecognition of ' + item + ' (Overage)', item, overage / qty, qty, 'Accum. Depr.', 'Depr. Expense', overage ]
 				derecognition_event += [derecognition_entry, overage_entry]
 			else:
@@ -10331,7 +10338,7 @@ class Corporation(Organization):
 		invested = [corp for corp in corps if corp.is_owner(self)] # TODO Try to make this a generator
 		return invested
 
-	def declare_div(self, div_rate): # TODO Move this to corporation subclass
+	def declare_div(self, div_rate=None, amount=None): # TODO Move this to corporation subclass
 		item = self.name
 		shareholders = self.ledger.get_qty(items=item, accounts='Investments', by_entity=True)
 		if shareholders.empty:
@@ -10341,6 +10348,8 @@ class Corporation(Organization):
 		cash = self.ledger.balance_sheet(['Cash'])
 		self.ledger.reset()
 		#print('{} cash: {}'.format(self.name, cash))
+		if div_rate is None:
+			div_rate = round(amount / total_shares, 2)
 		if cash < total_shares * div_rate:
 			print('{} does not have enough cash to pay dividend at a rate of {}. Cash: {}'.format(self.name, div_rate, cash))
 			return
@@ -10356,15 +10365,31 @@ class Corporation(Organization):
 		div_event += [div_exp_entry]
 		self.ledger.journal_entry(div_event)
 
-	def dividend(self, div_rate=1):
+	def dividend(self, div_rate=1, v=True):
 		self.ledger.set_entity(self.entity_id)
-		cash = self.ledger.balance_sheet(['Cash'])
-		# print('{} cash: {}'.format(self.name, cash))
-		funding = self.ledger.balance_sheet(accounts=['Shares'], item=self.name)
+		cash = self.ledger.balance_sheet(['Cash']) # TODO Should I have a min cash? Maybe of like 100?
+		if v: print('{} cash: {}'.format(self.name, cash))
+		# funding = self.ledger.balance_sheet(accounts=['Shares'], item=self.name) # Old method
+
+		# TODO Filter GL for entity and cash in credit, take avg of 3 prior weeks
+		rvsl_txns = self.ledger.gl[self.ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+		# Get list of Cash exp txns for self
+		cutoff = pd.Timestamp(world.now - datetime.timedelta(days=21))
+		if v: print('Date 21 days before div:', cutoff)
+		cash_exp_txns = self.ledger.gl[(self.ledger.gl['credit_acct'].isin(['Cash'])) & (~self.ledger.gl['debit_acct'].isin(['Dividend Expense'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (pd.to_datetime(self.ledger.gl['date']) >= cutoff) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]#346,124.19
+		operating_reserve = cash_exp_txns['amount'].sum()
+		if v: print('div operating_reserve:', operating_reserve)
+		if operating_reserve > cash:
+			return
+		excess = round(cash - operating_reserve, 2)
+		excess = round(excess / 2, 2) # TODO Make 2 a global constant
+		if v: print('div excess cash:', excess)
+
 		# print('{} funding: {}'.format(self.name, funding))
 		self.ledger.reset()
-		if cash >= funding * 2: # TODO Make 2 a global constant
-			self.declare_div(div_rate=div_rate)
+		# if cash >= funding * 2: # TODO Make 2 a global constant # Old method
+		if cash >= excess: # TODO Make 2 a global constant
+			self.declare_div(amount=excess)#div_rate=div_rate)
 
 	def raise_capital(self, qty=None, price=None, investors=None):
 		if price is None:

@@ -2130,6 +2130,8 @@ class Ledger:
 
 	def bs_hist(self, dates=None, entities=None, v=True): # TODO Optimize this so it does not recalculate each time
 	# nohup python -u acct.py -db test01.db -c hist >> logs/hist_test01.log 2>&1
+		if entities is None:
+			entities = input('Which entity or press enter for all entities? ')
 		if entities == '':
 			entities = None
 		if entities is None:
@@ -2155,6 +2157,8 @@ class Ledger:
 				else:
 					dates = [dates]
 		if v: print('Number of dates: {}'.format(len(dates)))
+		# print(entities)
+		# print(dates)
 		cur = self.conn.cursor()
 		create_bs_hist_query = '''
 			CREATE TABLE IF NOT EXISTS hist_bs (
@@ -2182,16 +2186,19 @@ class Ledger:
 				self.balance_sheet()
 				self.bs.set_index('line_item', inplace=True)
 				col0 = str(entity)
-				col1 = self.bs.loc['Total Assets:'][0]
-				col2 = self.bs.loc['Total Liabilities:'][0]
-				col3 = self.bs.loc['Total Equity:'][0]
-				col4 = self.bs.loc['Total Revenues:'][0]
-				col5 = self.bs.loc['Total Expenses:'][0]
-				col6 = self.bs.loc['Net Income:'][0]
-				col7 = self.bs.loc['Equity+NI+Liab.:'][0]
-				col8 = self.bs.loc['Balance Check:'][0]
-				col9 = self.bs.loc['Net Asset Value:'][0]
-				data = (date,col0,col1,col2,col3,col4,col5,col6,col7,col8,col9)
+				col1 = self.bs.loc['Total Assets:'].iloc[0]
+				col2 = self.bs.loc['Total Liabilities:'].iloc[0]
+				col3 = self.bs.loc['Total Equity:'].iloc[0]
+				col4 = self.bs.loc['Total Revenues:'].iloc[0]
+				col5 = self.bs.loc['Total Expenses:'].iloc[0]
+				col6 = self.bs.loc['Net Income:'].iloc[0]
+				col7 = self.bs.loc['Equity+NI+Liab.:'].iloc[0]
+				col8 = self.bs.loc['Balance Check:'].iloc[0]
+				col9 = self.bs.loc['Net Asset Value:'].iloc[0]
+				if isinstance(col1, np.float64):
+					data = (date,col0,col1,col2,col3,col4,col5,col6,col7,col8,col9)
+				else:
+					data = (date,col0,float(col1),float(col2),float(col3),float(col4),float(col5),float(col6),float(col7),float(col8),float(col9))
 				logging.info(data)
 				cur.execute('INSERT INTO hist_bs VALUES (?,?,?,?,?,?,?,?,?,?,?)', data)
 		self.conn.commit()
@@ -2208,10 +2215,11 @@ class Ledger:
 	def print_hist(self, dates=None, save=True, v=True):
 		db_name = self.bs_hist(dates=dates)[1]
 		if dates is None:
-			dates = ['']
+			dates = [''] # TODO Is this needed?
 		if isinstance(dates, str):
 			dates = [x.strip() for x in dates.split(',')]
-		path = 'data/bs_hist_' + db_name[:-3] + '_' + str(dates[-1]) + '.csv'
+		quirk = '_' if dates else ''
+		path = 'data/bs_hist_' + db_name[:-3] + quirk + str(dates[-1]) + '.csv'
 		if save:
 			self.hist_bs.to_csv(path, index=True)
 		if v:
@@ -2411,7 +2419,8 @@ def main(conn=None, command=None, external=False):
 			ledger.reset()
 			if args.command is not None: exit()
 		elif command.lower() == 'hist':
-			dates = ['2019-05-27']
+			dates = None
+			# dates = ['2019-05-27']
 			ledger.print_hist(dates=dates, v=False)
 			if args.command is not None: exit()
 		elif command.lower() == 'latestdate':
@@ -2479,6 +2488,10 @@ def main(conn=None, command=None, external=False):
 				print(inv_hist)
 			pd.options.display.float_format = '${:,.2f}'.format
 			if args.command is not None: exit()
+		# elif command.lower() == 'navhist':
+		# 	start_date = ledger.oldest_date(v=False)
+		# 	end_date = ledger.latest_date(v=False)
+		# 	navhist = pd.DataFrame({'date': pd.date_range(start=start_date, end=end_date)})
 		elif command.lower() == 'eutil': # This only works for the econ sim
 			eutil = accts.print_table('util', v=False)
 			eutil = eutil.head(1)
