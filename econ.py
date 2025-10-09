@@ -7914,7 +7914,8 @@ class Entity:
 							else:
 								spoil_entry = [[ inv_lot['event_id'], inv_lot['entity_id'], inv_lot['cp_id'], world.now, inv_lot['loc'], inv_lot['item_id'] + ' spoilage', inv_lot['item_id'], inv_lot['price'], inv_lot['qty'] or '', 'Spoilage Expense', 'Inventory', inv_lot['amount'] ]]
 							self.ledger.journal_entry(spoil_entry)
-							self.adj_price(item, qty, direction='down_high')
+							if item in self.produces:
+								self.adj_price(item, qty, direction='down_high')
 
 	def impairment(self, item, amount):
 		# TODO Maybe make amount default to None and have optional impact or reduction parameter
