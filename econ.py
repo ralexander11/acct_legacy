@@ -1398,7 +1398,7 @@ class World:
 			if cur_price != INIT_PRICE or item_type == 'Labour':# or item_type == 'Land': # TODO Maybe check if Labour has requirements
 				new_price = pd.DataFrame({'entity_id': [entity_id], 'item_id': [item],'price': [cur_price]}).set_index('item_id')
 				self.prices = pd.concat([self.prices, new_price])
-				print(f'cur_price of {item} by {entity_id}: {cur_price}')#if v: 
+				print(f'new cur_price of {item} by {entity_id}: {cur_price}')#if v: 
 
 			# print('After appending: \n{}'.format(new_price))
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -1424,13 +1424,28 @@ class World:
 		# if v: print(f'Price for {item}: {price}')
 		return price
 
-	def reduce_prices(self, v=False):
-		# TODO Reduce labour by a smaller amount
-		# world.prices['price'] = world.prices['price'] * (1 - REDUCE_PRICE)#).clip(lower=0.01)
-		world.prices['price'] = world.prices['price'].where(world.prices['price'] == 0, (world.prices['price'] * (1 - REDUCE_PRICE)).clip(lower=0.01)).round(2)
-		if v: print(world.prices)
-		print('All prices reduced by {0:.0%}.'.format(REDUCE_PRICE))
-		return world.prices
+	def reduce_prices(self, v=False):		
+		# Get item types for all items in prices index to see which are Labour
+		item_types = self.prices.index.to_series().apply(world.get_item_type)
+		if v: print(item_types)
+
+		# Mask for rows that are NOT Labour
+		non_labour_mask = item_types != 'Labour'
+		if v: print(non_labour_mask)
+
+		# Apply reduction only to non-labour rows
+		self.prices.loc[non_labour_mask, 'price'] = (
+			self.prices.loc[non_labour_mask, 'price']
+			.where(self.prices.loc[non_labour_mask, 'price'] == 0,
+				(self.prices.loc[non_labour_mask, 'price'] * (1 - REDUCE_PRICE)).clip(lower=0.01))
+			.round(2)
+		)
+		
+		# world.prices['price'] = world.prices['price'] * (1 - REDUCE_PRICE)#).clip(lower=0.01) # Old01
+		# self.prices['price'] = self.prices['price'].where(self.prices['price'] == 0, (self.prices['price'] * (1 - REDUCE_PRICE)).clip(lower=0.01)).round(2) # Old02
+		if v: print(self.prices)
+		print('All non-Labour prices reduced by {0:.0%}.'.format(REDUCE_PRICE))
+		return self.prices
 
 	def create_needs(self):
 		global_needs = []
@@ -1964,9 +1979,10 @@ class World:
 		if args.random and not (args.users >= 1 or args.players >= 1): # TODO Maybe add population target
 			# TODO Add (args.random or args.births) switch
 			individuals = world.gov.get(Individual, users=False)
+			print('Birth on roll of:', BIRTH_CHANCE)
 			for individual in individuals:
 				birth_roll = random.randint(1, BIRTH_CHANCE) #200) #20
-				print('Birth Roll for {}: {}'.format(individual.name, birth_roll))
+				print(f'{individual.name} birth roll: {birth_roll}')
 				if birth_roll == BIRTH_CHANCE: #200: #20
 					individual.birth()
 
@@ -2902,7 +2918,8 @@ class Entity:
 				return consume_event
 			self.ledger.journal_entry(consume_event)
 			self.adj_needs(item, qty) # TODO Add error checking
-			self.adj_price(item, qty, direction='up_low')
+			if item in self.produces:
+				self.adj_price(item, qty, direction='up_low')
 			return consume_event
 		else:
 			if v: print('{} does not have enough {} on hand to consume {} units of {}.'.format(self.name, item, qty, item))
@@ -6832,7 +6849,7 @@ class Entity:
 			desc_exp = job + ' wages to be paid'
 			desc_rev = job + ' wages to be received'
 		else:
-			desc_exp = job + ' wages paid'
+			desc_exp = job + ' wages paid' # TODO This can cause negative cash
 			desc_rev = job + ' wages received'
 		if counterparty is None:
 			if v: print('No workers available to do {} job for {} hours.'.format(job, labour_hours))
@@ -6865,7 +6882,7 @@ class Entity:
 					credit_acct = 'Wages Payable'
 				else:
 					debit_acct = 'Cash'
-					credit_acct = 'Cash'
+					credit_acct = 'Cash' # TODO This can cause negative cash
 				amount = round(wage * hours_worked, 2)
 				wages_exp_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', desc_exp, job, wage, hours_worked, 'Wages Expense', credit_acct, amount ]
 				wages_rev_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_rev, job, wage, hours_worked, debit_acct, 'Wages Income', amount ]
@@ -10029,7 +10046,7 @@ class Individual(Entity):
 				# raw_mats = self.get_raw(item, base=True) # Old method
 				# min_price = raw_mats.iloc[-1]['qty'] * INIT_PRICE # TODO Need to fix this to not use INIT_PRICE # Old method
 				# min_price = INIT_PRICE # TODO Old old method
-			if v: print(f'Address {need} with {item} for min price of: {min_price}')
+			if v: print(f'Address {need} for {self.name} with {item} for min price of: {min_price}')
 			item_prices.append(min_price)
 		item_prices = pd.Series(item_prices)
 		items_info = items_info.assign(price=item_prices.values)
