@@ -21,7 +21,7 @@ pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
 class Accounts:
-	def __init__(self, conn=None, standard_accts=None, entities_table_name=None, items_table_name=None):
+	def __init__(self, conn=None, standard_accts=None, entities_table_name=None, items_table_name=None):# Accounts
 		if conn is None:
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
@@ -662,7 +662,7 @@ class Accounts:
 
 
 class Ledger:
-	def __init__(self, accts, ledger_name=None, entity=None, date=None, start_date=None, txn=None, start_txn=None):
+	def __init__(self, accts, ledger_name=None, entity=None, date=None, start_date=None, txn=None, start_txn=None):# Ledger
 		self.conn = accts.conn
 		self.coa = accts.coa
 		if ledger_name is None:
