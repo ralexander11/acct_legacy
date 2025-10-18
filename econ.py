@@ -2243,7 +2243,7 @@ class Entity:
 		if item_type in ['Technology', 'Education'] or isinstance(self, Environment):
 			if price != 0:
 				world.prices.at[item, 'price'] = 0
-				print('{} sets price for {} from {} to {}.'.format(self.name, item, price, 0))
+				print('{} sets (zero) price for {} from {} to {}.'.format(self.name, item, price, 0))
 			return
 		# print('{} price before adjustment: {}'.format(item, price))
 		#qty = int(math.ceil(qty / 10)) # To reduce the number of times the loop runs
@@ -2292,7 +2292,7 @@ class Entity:
 						# world.prices.at[item, 'price'] = 0
 						price = 0
 						world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = price
-						#print('{} sets price for {} from {} to {}.'.format(self.name, item, price, 0))
+						#print('{} sets (zero) price for {} from {} to {}.'.format(self.name, item, price, 0))
 					world.set_table(world.prices, 'prices')
 					return
 				cost = 0
@@ -2322,7 +2322,7 @@ class Entity:
 							print('{} sets new price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 						else:
 							world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = cost * (1 + markup)
-							print('{} sets price for {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
+							print('{} sets price for (produced) {} from {} to {}.'.format(self.name, item, price, cost * (1 + markup)))
 		else:
 			if price is not None:
 				orig_price = world.get_price(item, self.entity_id)
@@ -2347,7 +2347,7 @@ class Entity:
 					# world.prices.at[item, 'price'] = 0
 					price = 0
 					world.prices.loc[(world.prices['entity_id'] == self.entity_id) & (world.prices.index == item), 'price'] = price
-					#print('{} sets price for {} from {} to {}.'.format(self.name, item, price, 0))
+					#print('{} sets (zero) price for {} from {} to {}.'.format(self.name, item, price, 0))
 				world.set_table(world.prices, 'prices')
 				return
 			cost = 0
