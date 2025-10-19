@@ -47,6 +47,7 @@ GESTATION = 3 # 7
 MAX_CORPS = 2
 INIT_PRICE = 10.0 # Add argparse
 INIT_CAPITAL = 25000 # Not used
+RRR = 0.1 # Reserve Requirement Ratio
 EXPLORE_TIME = 1
 INC_BUFFER = 3
 MARKUP = 0.1
@@ -70,8 +71,9 @@ def delete_db(db_name=None):
 		print(time_stamp() + 'The database file does not exist to be reset at: {}.'.format(db_path + db_name))
 
 econ_accts = [
-	('Cash','Asset'),
 	('Info','Admin'),
+	('Cash','Asset'),
+	('Capital Reserves', 'Asset'),
 	('Natural Wealth','Equity'),
 	('Nation Wealth','Equity'),
 	('Investments','Asset'),
@@ -2214,6 +2216,7 @@ class Entity:
 		# TODO Move government here for inheritance and overwrite in subclasses as needed, such as Government
 
 	def adj_price(self, item, qty=1, rate=None, direction=None):
+		# TODO Qty currently does nothing
 		if rate is None:
 			if direction == 'up':
 				rate = 1.1 #1.01
@@ -6895,13 +6898,13 @@ class Entity:
 				return
 			if buffer:
 				if v: print('{} hired {} as a {} for {} hours.'.format(self.name, counterparty.name, job, hours_worked))
-				# if job != 'Study' and job != 'Research':
-					# counterparty.adj_price(job, labour_hours, direction='up_low')
+				if job != 'Study' and job != 'Research':
+					counterparty.adj_price(job, qty=labour_hours, direction='up_very_low') # TODO How to handle if the buffer isn't successful? And qty currently does nothing
 				return accru_wages_event
 			self.ledger.journal_entry(accru_wages_event)
 			counterparty.set_hours(hours_worked)
-			# if job != 'Study' and job != 'Research':
-			# 	counterparty.adj_price(job, labour_hours, direction='up_low')
+			if job != 'Study' and job != 'Research':
+				counterparty.adj_price(job, qty=labour_hours, direction='up_very_low') # This could cause prices to rise dramatically# And qty currently does nothing
 		else:
 			if incomplete:
 				if v: print('{} cannot fulfill requirements for {} job.'.format(self.name, job))
@@ -7518,9 +7521,10 @@ class Entity:
 		self.ledger.reset()
 		if cash >= amount:
 			# TODO Possibly reverse accounts if all money is deposited with the bank at initiation and loans are given
+			bank_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Cash deposit', '', '', '', 'Cash', 'Deposits', amount * (1-RRR) ]
+			reserve_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Cash deposit', '', '', '', 'Capital Reserves', 'Deposits', amount * RRR ] # Keep a portion of cash separate for capital reserve requirements
 			deposit_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Deposit cash', '', '', '', 'Cash', 'Cash', amount ] # This entry isn't needed but could be implied
-			bank_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Cash deposit', '', '', '', 'Cash', 'Deposits', amount ]
-			deposit_event = [deposit_entry, bank_entry]
+			deposit_event = [bank_entry, reserve_entry, deposit_entry]
 			self.ledger.journal_entry(deposit_event)
 			return deposit_event
 		else:
