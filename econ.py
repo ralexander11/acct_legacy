@@ -2224,8 +2224,8 @@ class Entity:
 				rate = 0.9 #0.98
 			elif direction == 'up_low':
 				rate = 1.02 #1.002
-			elif direction == 'up_very_low':
-				rate = 1.0002 # 1.02 #1.002
+			elif direction == 'up_very_low': # TODO Need a way for labour to reduce prices sometimes
+				rate = 1.001 #1.0002 # 1.02 #1.002
 			elif direction == 'down_very_low':
 				rate = 0.9998 # 0.98 #0.998
 			elif direction == 'down_high':
@@ -6288,7 +6288,7 @@ class Entity:
 				item_types = [x.strip() for x in item_types.split(',')]
 		# for item in self.produces:
 		checked = []
-		world.demand = world.demand.reset_index(drop=True)
+		# world.demand = world.demand.reset_index(drop=True) # This can cause #KeyError: '[1] not found in axis'
 		if v: print(f'Demand at start of loop:\n', world.demand)
 		for index, demand_item in world.demand.iterrows():#world.demand.copy().iterrows(): # TODO This used to be able to drop rows while looping
 			# TODO index here causes issues with dropping wrong rows or editing rows beyond the limit of the table
@@ -6892,19 +6892,20 @@ class Entity:
 				accru_wages_event += [wages_exp_entry, wages_rev_entry]
 			else:
 				if not incomplete: # TODO This is not needed
-					if v: print('{} does not have enough time left to do {} job for {} hours. Hours: {}'.format(counterparty.name, job, labour_hours, counterparty.hours))
+					if v: print('{} does not have enough time left to do {} job for {} hours. Hours: {}'.format(counterparty.name, job, hours_worked, counterparty.hours))
 				else: # TODO This is not needed
 					if v: print('{} cannot fulfill the requirements to allow {} to work.'.format(self.name, job))
 				return
 			if buffer:
 				if v: print('{} hired {} as a {} for {} hours.'.format(self.name, counterparty.name, job, hours_worked))
 				if job != 'Study' and job != 'Research':
-					counterparty.adj_price(job, qty=labour_hours, direction='up_very_low') # TODO How to handle if the buffer isn't successful? And qty currently does nothing
+					counterparty.adj_price(job, qty=hours_worked, direction='up_very_low') # TODO How to handle if the buffer isn't successful? And qty currently does nothing
 				return accru_wages_event
 			self.ledger.journal_entry(accru_wages_event)
 			counterparty.set_hours(hours_worked)
 			if job != 'Study' and job != 'Research':
-				counterparty.adj_price(job, qty=labour_hours, direction='up_very_low') # This could cause prices to rise dramatically# And qty currently does nothing
+				# TODO Make a new function to check each day if labour was done and if so increase the price a bit
+				counterparty.adj_price(job, qty=hours_worked, direction='up_very_low') # This could cause prices to rise dramatically# And qty currently does nothing
 		else:
 			if incomplete:
 				if v: print('{} cannot fulfill requirements for {} job.'.format(self.name, job))
@@ -10636,6 +10637,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 		if amount is None:
 			amount = INIT_CAPITAL
 		# TODO Should I make the price 1 and the qty the amount of cash for all cash entries? Could this have unintended consequences for other functions when querying quantanties?
+		# TODO Maybe should move the money to its government first, then the government can distribute it to its citizens
 		capital_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Create capital', '', '', '', 'Cash', 'Nation Wealth', amount ]
 		capital_event = [capital_entry]
 		self.ledger.journal_entry(capital_event)
