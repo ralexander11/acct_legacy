@@ -5126,7 +5126,8 @@ class Entity:
 		if not current_demand.empty:
 			qty_distribute -= qty
 			to_drop = current_demand.index.tolist()
-			world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+			# world.demand = world.demand.drop(to_drop).reset_index(drop=True)
+			world.demand.loc[to_drop, 'active'] = False
 			world.set_table(world.demand, 'demand')
 			if v: print('{} exists on the demand table exactly for {} will drop index items {}.'.format(item, self.name, to_drop))
 			with pd.option_context('display.max_rows', None):
@@ -5154,7 +5155,8 @@ class Entity:
 						world.demand.at[index, 'qty'] -= qty_distribute
 						qty_distribute -= qty_distribute
 		if to_drop:
-			world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+			# world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+			world.demand.loc[to_drop, 'active'] = False
 			world.set_table(world.demand, 'demand')
 			if v: print('{} exists on the demand table will drop index items {}.'.format(item, to_drop))
 			with pd.option_context('display.max_rows', None):
@@ -6242,29 +6244,29 @@ class Entity:
 		if qty != 0 and not self.check_constraint(item):
 			if cost:
 				if priority:
-					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, index=[0])
+					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost', 'active': True}, index=[0])
 					world.demand = pd.concat([new_demand, world.demand], ignore_index=False)
 				else:
 					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'cost'}, ignore_index=True)
-					new_demand =  pd.DataFrame({'date':[world.now], 'entity_id':[self.entity_id], 'item_id':[item], 'qty':[qty], 'reason':['cost']}, index=[start_idx])
+					new_demand =  pd.DataFrame({'date':[world.now], 'entity_id':[self.entity_id], 'item_id':[item], 'qty':[qty], 'reason':['cost'], 'active': [True]}, index=[start_idx])
 					world.demand = pd.concat([new_demand, world.demand], ignore_index=False)
 				world.set_table(world.demand, 'demand')
 			elif reason_need:
 				if priority:
-					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, index=[0])
+					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need', 'active': True}, index=[0])
 					world.demand = pd.concat([new_demand, world.demand], ignore_index=False)
 				else:
 					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}, ignore_index=True)
 					# world.demand = pd.concat([world.demand, pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['need']})])
-					world.demand.loc[len(world.demand)] = {'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need'}
+					world.demand.loc[len(world.demand)] = {'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'need', 'active': True}
 				world.set_table(world.demand, 'demand')
 			else:
 				if priority:
-					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, index=[0])
+					new_demand = pd.DataFrame({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance', 'active': True}, index=[0])
 					world.demand = pd.concat([new_demand, world.demand], ignore_index=False)
 				else:
 					# world.demand = world.demand.append({'date': world.now, 'entity_id': self.entity_id, 'item_id': item, 'qty': qty, 'reason': 'existance'}, ignore_index=True)
-					new_demand = pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['existance']}, index=[start_idx])
+					new_demand = pd.DataFrame({'date': [world.now], 'entity_id': [self.entity_id], 'item_id': [item], 'qty': [qty], 'reason': ['existance'], 'active': [True]}, index=[start_idx])
 					world.demand = pd.concat([world.demand, new_demand], ignore_index=False)
 				world.set_table(world.demand, 'demand')
 			if qty == 1:
@@ -6287,18 +6289,41 @@ class Entity:
 			if isinstance(item_types, str):
 				item_types = [x.strip() for x in item_types.split(',')]
 		# for item in self.produces:
+		if 'active' not in world.demand.columns:
+			world.demand['active'] = True
+		if 'demand_id' not in world.demand.columns:
+			world.demand = world.demand.reset_index(drop=True)
+			world.demand['demand_id'] = range(len(world.demand))
+		ids = world.demand.loc[world.demand['active'], 'demand_id'].tolist()
+		if vv: print('ids:\n', ids)
 		checked = []
 		# world.demand = world.demand.reset_index(drop=True) # This can cause #KeyError: '[1] not found in axis'
 		if v: print(f'Demand at start of loop:\n', world.demand)
-		for index, demand_item in world.demand.iterrows():#world.demand.copy().iterrows(): # TODO This used to be able to drop rows while looping
+		# for index, demand_item in world.demand.iterrows():#world.demand.copy().iterrows(): # TODO This used to be able to drop rows while looping
+		for did in ids:
+			if vv: print('did:', did)
+			index = did # Temp fix for old code references
+			# skip if already deactivated
+			row_mask = world.demand['demand_id'] == did
+			if vv: print('row_mask:\n', row_mask)
+			if not row_mask.any():
+				# row was removed in a permanent cleanup earlier
+				continue
+			if vv: print('2nd check:')
+			if vv: print(world.demand.loc[row_mask, 'active'].iat[0])
+			if not world.demand.loc[row_mask, 'active'].iat[0]:
+				continue
+			demand_item = world.demand.loc[row_mask].iloc[0]
+			if vv: print('demand_item:\n', demand_item)
+
 			# TODO index here causes issues with dropping wrong rows or editing rows beyond the limit of the table
 			# vv = False
 			item = demand_item['item_id']
-			if item == 'Table':
-				if v: print(f'Demand Purchase before init: {item} | Drop: {index}\n', world.demand)
+			# if item == 'Table':
+			# 	if v: print(f'Demand Purchase before init: {item} | Drop: {index}\n', world.demand)
 			# 	v = True
 			# 	vv = True
-			if vv: print(f'Demand Index 1: {index} | Item: {item} | multi: {multi} | others: {others} | needs_only: {needs_only}')
+			# if vv: print(f'Demand Index 1: {index} | Item: {item} | multi: {multi} | others: {others} | needs_only: {needs_only}')
 			if item in checked:
 				if vv: print(f'Already checked item {item}.')
 				continue
@@ -6342,7 +6367,8 @@ class Entity:
 											if v: print('World Self Demand Land:\n{}'.format(world.demand))
 									else:
 										if v: print(f'{self.name} attempted to claim {qty} {item} for itself from the demand table.')
-							world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+							# world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+							world.demand.loc[to_drop, 'active'] = False
 							world.set_table(world.demand, 'demand')
 							if to_drop:
 								if v: print('World Self Demand Land:\n{}'.format(world.demand))
@@ -6373,7 +6399,8 @@ class Entity:
 									if avail_land == 0:
 										to_drop.append(idx)
 										if v: print(f'No {item} land available from Environment to claim. Will drop row [{idx}] from the demand table.')
-						world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+						# world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+						world.demand.loc[to_drop, 'active'] = False
 						world.set_table(world.demand, 'demand')
 						if to_drop:
 							if v: print('World Demand:\n{}'.format(world.demand))
@@ -6388,7 +6415,8 @@ class Entity:
 							to_drop.append(index)
 						else:
 							world.demand.at[index, 'qty'] = qty - result[0][8] # If not all the Land demanded was purchased
-						world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+						# world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+						world.demand.loc[to_drop, 'active'] = False
 						world.set_table(world.demand, 'demand')
 						if v: print('World Corp Demand Land:\n{}'.format(world.demand))
 					else:
@@ -6405,7 +6433,8 @@ class Entity:
 					if pur_result and item_type != 'Land':
 						if v: print(f'Demand Purchase before: {item} | Drop: {index}\n', world.demand)
 						to_drop.append(index)
-						world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+						# world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
+						world.demand.loc[to_drop, 'active'] = False
 						world.set_table(world.demand, 'demand')
 						if v: print(f'Demand Purchase after: {item}\n', world.demand)
 				continue
@@ -6489,6 +6518,11 @@ class Entity:
 			# 		print('{} removed from demand list for {} units by {}.\n'.format(item, qty, self.name)) # TODO Fix this when only possible qty is produced
 			# 		with pd.option_context('display.max_rows', None):
 			# 			print('World Demand: {} \n{}'.format(world.now, world.demand))
+
+		# cleanup: drop inactive rows and reset index once
+		world.demand = world.demand[world.demand['active']].reset_index(drop=True)
+		# optionally rebuild demand_id if you like:
+		world.demand['demand_id'] = range(len(world.demand))
 
 	def check_optional(self, priority=False, v=True):
 		if self.produces is None:
