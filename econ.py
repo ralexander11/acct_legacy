@@ -2170,6 +2170,7 @@ class World:
 			tmp_demand = self.demand.copy(deep=True)
 			tmp_demand['date_saved'] = self.now
 			self.hist_demand = pd.concat([self.hist_demand, tmp_demand])
+			self.hist_demand = self.hist_demand[['date_saved','date','entity_id','item_id','qty','reason']]
 			self.set_table(self.hist_demand, 'hist_demand')
 			# if v: print('\nHist Demand: \n{}'.format(self.hist_demand))
 			# Track historical hours and needs
