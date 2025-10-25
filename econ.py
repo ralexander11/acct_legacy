@@ -6108,11 +6108,12 @@ class Entity:
 			#qty = qty * world.population
 			return qty
 
-	def check_constraint(self, item, constraint='labour'):
+	def check_constraint(self, item, constraint='labour', v=True):
+		if v: print(f'Check constraint for {item} by {constraint}:\n{world.demand}')
 		demand_constrained = world.demand.loc[(world.demand['item_id'] == item) & (world.demand['reason'] == constraint)]
-		#print('Demand Constrained: \n{}'.format(demand_constrained))
+		if v: print(f'Demand Constrained:\n{demand_constrained}')
 		if not demand_constrained.empty:
-			print('{} cannot add {} to demand list as it is constrained by {}.'.format(self.name, item, constraint))
+			print(f'{self.name} cannot add {item} to demand list as it is constrained by {constraint}.')
 			return True
 
 	def item_demanded(self, item=None, qty=None, need=None, reason_need=False, cost=False, priority=False, vv=False, v=True):
@@ -6279,6 +6280,8 @@ class Entity:
 			return item, qty
 
 	def check_demand(self, multi=True, others=True, needs_only=False, item_types=None, vv=False, v=True):
+		if world.demand.empty:
+			return
 		if self.produces is None:
 			return
 		if needs_only:
@@ -6294,6 +6297,7 @@ class Entity:
 		if 'demand_id' not in world.demand.columns:
 			world.demand = world.demand.reset_index(drop=True)
 			world.demand['demand_id'] = range(len(world.demand))
+		world.demand['active'] = world.demand['active'].astype(bool)
 		ids = world.demand.loc[world.demand['active'], 'demand_id'].tolist()
 		if vv: print('ids:\n', ids)
 		checked = []
@@ -6489,14 +6493,14 @@ class Entity:
 				if vv: print('to_drop:', to_drop)
 				index = to_drop[-1]
 			try: # TODO Not needed any more
-				if not outcome and world.demand.loc[index, 'reason'] == 'Labour':
+				if not outcome and pd.Series(world.demand.loc[index, 'reason'] == 'Labour').any():
 					if v: print('Retrying demand check of {} for qty of 1 (instead of {}) due to labour constraint. ({}) {}'.format(item, qty, to_drop[0], world.demand.loc[index, 'reason']))
 					qty = 1
 					outcome, time_required, max_qty_possible, incomplete = self.produce(item, qty, v=v)
 			except KeyError as e:
 				if v: print('Error: Retrying demand check of {} for qty of 1 (instead of {}) due to labour constraint. {}'.format(item, qty, repr(e)))
-				print('Error: index {} | outcome: {} | to_drop: {} World Demand:\n{}'.format(index, outcome, to_drop, world.demand))
-			if vv: print('Second Demand Check Outcome: {} \n{}'.format(time_required, outcome))
+				print(f'Error: index {index} | outcome: {outcome} | to_drop: {to_drop} World Demand:\n{world.demand}')
+			if vv: print(f'Second Demand Check Outcome: {time_required}\n{outcome}')
 			# if outcome:
 			# 	qty = max_qty_possible
 			# 	# if item_type == 'Education':
@@ -6520,9 +6524,12 @@ class Entity:
 			# 			print('World Demand: {} \n{}'.format(world.now, world.demand))
 
 		# cleanup: drop inactive rows and reset index once
+		world.demand['active'] = world.demand['active'].astype(bool).reset_index(drop=True)
 		world.demand = world.demand[world.demand['active']].reset_index(drop=True)
 		# optionally rebuild demand_id if you like:
 		world.demand['demand_id'] = range(len(world.demand))
+		print('Demand check end:')
+		print(world.demand)
 
 	def check_optional(self, priority=False, v=True):
 		if self.produces is None:
