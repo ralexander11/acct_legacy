@@ -6934,7 +6934,7 @@ class Entity:
 				accru_wages_event += [wages_exp_entry, wages_rev_entry]
 			else:
 				if not incomplete: # TODO This is not needed
-					if v: print('{} does not have enough time left to do {} job for {} hours. Hours: {}'.format(counterparty.name, job, hours_worked, counterparty.hours))
+					if v: print('{} does not have enough time left to do {} job for {} hours. Hours: {}'.format(counterparty.name, job, labour_hours, counterparty.hours))
 				else: # TODO This is not needed
 					if v: print('{} cannot fulfill the requirements to allow {} to work.'.format(self.name, job))
 				return
