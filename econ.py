@@ -6524,10 +6524,9 @@ class Entity:
 			# 		with pd.option_context('display.max_rows', None):
 			# 			print('World Demand: {} \n{}'.format(world.now, world.demand))
 
-		# cleanup: drop inactive rows and reset index once
-		world.demand['active'] = world.demand['active'].astype(bool).reset_index(drop=True)
-		world.demand = world.demand[world.demand['active']].reset_index(drop=True)
-		# optionally rebuild demand_id if you like:
+		# world.demand['active'] = world.demand['active'].astype(bool).reset_index(drop=True)
+		# world.demand = world.demand[world.demand['active']].reset_index(drop=True)
+		world.demand = world.demand.loc[world.demand['active'].fillna(False).astype(bool).to_numpy()].reset_index(drop=True)
 		world.demand['demand_id'] = range(len(world.demand))
 		print('Demand check end:')
 		print(world.demand)
