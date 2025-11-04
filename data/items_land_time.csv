@@ -16,26 +16,26 @@ Government,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Governmental,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Non-Profit,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Environment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Land,1,0,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Grassland,1,20000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Dirt,1,5000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Arable Land,1,10000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Forest,1.25,10000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Rocky Land,1.25,4000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Hills,1.25,6000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Land,10,0,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Grassland,10,20000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Dirt,10,5000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Arable Land,10,10000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Forest,12.5,10000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Rocky Land,12.5,4000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Hills,12.5,6000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Mountain,None,2000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Wetlands,2.5,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Jungle,2.5,500,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Sand,2.5,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Desert,2.5,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Tundra,2.5,500,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Wetlands,25,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Jungle,25,500,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Sand,25,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Desert,25,1000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Tundra,25,500,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Ocean,None,50000,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Path,0.5,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Road,0.25,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Sidewalk,0.25,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Floor,0.25,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Rug,0.25,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Cave Floor,1.25,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Path,5,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Road,2.5,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Sidewalk,2.5,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Floor,2.5,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Rug,2.5,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+Cave Floor,12.5,100,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Lumberjack,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,12,None
 Miner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Tanner,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -58,10 +58,10 @@ Harvesting,None,None,None,Labour,None,None,None,None,None,None,None,None,None,No
 Spinning,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-#Basic Food,None,None,None,Commodity,"Arable Land, Cultivator, Collected Water","5, 2, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
-#Food,None,None,None,Commodity,"Arable Land, Cultivator, Water","1, 4, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
-Basic Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Collected Water","12, 5, 2, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
-Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water","8, 1, 4, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+Basic Food,None,None,None,Commodity,"Arable Land, Cultivator, Collected Water","5, 2, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+Food,None,None,None,Commodity,"Arable Land, Cultivator, Water","1, 4, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+#Basic Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Collected Water","12, 5, 2, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+#Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water","8, 1, 4, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
 Rancher,None,None,None,Labour,Cultivator,5,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 #Cow,"Grassland, Rancher","100, 40",animal,Equipment,"Grassland, Cow, Rancher","10, 2, 1",10,Grassland,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
 #Milk,None,None,None,Commodity,"Cow, Rancher","1, 1",None,None,None,None,None,None,"Thirst, Hunger","2, 3",None,None,None,None,None,None,None,None,None,None,None,Ranch
@@ -77,8 +77,8 @@ Clay,None,None,None,Commodity,"Wetlands, Miner","1, 0.1",None,None,None,None,Non
 Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,None,None,None,"Quarry, Mine"
 Ore,None,None,None,Commodity,"Mountain, Miner","1, 0.2",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,None,Mine
 Bellows,None,None,None,Components,"Wild Leather, Wood","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,None,"Blacksmith, Carpenter"
-#Cotton,None,None,None,Commodity,"Arable Land, Cultivator","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Farm
-Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","4, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Farm
+Cotton,None,None,None,Commodity,"Arable Land, Cultivator","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Farm
+#Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","4, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Farm
 Yarn,None,None,None,Commodity,"Cotton, Spinning","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Textile Mill
 Cloth,None,None,None,Commodity,"Yarn, Weaving","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Textile Mill
 Cotton Gin,None,None,start,Equipment,"Metal, Wood","2, 30",10,None,None,None,None,None,None,None,None,None,"100, 1000","usage, ticks",None,None,None,100,None,None,None,Carpenter

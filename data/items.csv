@@ -60,6 +60,8 @@ Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,
 Growing,None,None,None,Time,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Basic Food,None,None,None,Commodity,"Arable Land, Cultivator, Collected Water","5, 2, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
 Food,None,None,None,Commodity,"Arable Land, Cultivator, Water","1, 4, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+#Basic Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Collected Water","12, 5, 2, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+#Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water","8, 1, 4, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
 Rancher,None,None,None,Labour,Cultivator,5,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 #Cow,"Grassland, Rancher","100, 40",animal,Equipment,"Grassland, Cow, Rancher","10, 2, 1",10,Grassland,10,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Ranch
 #Milk,None,None,None,Commodity,"Cow, Rancher","1, 1",None,None,None,None,None,None,"Thirst, Hunger","2, 3",None,None,None,None,None,None,None,None,None,None,None,Ranch
@@ -68,6 +70,7 @@ Beef Cow,"Grassland, Rancher","100, 1",animal,Commodity,"Grassland, Beef Cow, Ra
 #Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,None,Ranch
 Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,None,Ranch
 #Fancy Food,None,None,None,Commodity,"Arable Land, Cultivator, Water, Harvest, Manager","400, 0.1, 1, 0.05, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+#Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
 #Drift Wood,None,None,None,Commodity,"Forest, Forage","1, 0.1",None,None,None,None,None,Wood,None,None,None,None,None,None,None,1,None,10,None,None,None,Individual
 Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,None,Lumbermill
 Clay,None,None,None,Commodity,"Wetlands, Miner","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,None,None,None,"Quarry, Mine"
@@ -75,6 +78,7 @@ Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 0.1",None,None,None,None,N
 Ore,None,None,None,Commodity,"Mountain, Miner","1, 0.2",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,None,Mine
 Bellows,None,None,None,Components,"Wild Leather, Wood","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,None,"Blacksmith, Carpenter"
 Cotton,None,None,None,Commodity,"Arable Land, Cultivator","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Farm
+#Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","4, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Farm
 Yarn,None,None,None,Commodity,"Cotton, Spinning","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Textile Mill
 Cloth,None,None,None,Commodity,"Yarn, Weaving","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Textile Mill
 Cotton Gin,None,None,start,Equipment,"Metal, Wood","2, 30",10,None,None,None,None,None,None,None,None,None,"100, 1000","usage, ticks",None,None,None,100,None,None,None,Carpenter
@@ -119,7 +123,7 @@ Blacksmither,None,None,None,Labour,Strength,5,2000,None,None,None,None,None,None
 Wire,None,None,None,Commodity,"Metal Working, Metal","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Blacksmith
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Lumbermill
 #Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",50,ticks,None,None,None,100,None,None,None,Blacksmith
-Hydroponics,None,None,continuous,Equipment,"Engineer, Wood, Metal","6, 100, 40",200,Grassland,10,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",50,ticks,None,None,None,100,None,None,None,Blacksmith
+#Hydroponics,None,None,continuous,Equipment,"Engineer, Wood, Metal","6, 100, 40",200,Grassland,10,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",50,ticks,None,None,None,100,None,None,None,Blacksmith
 Math,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Melee Weapon,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Sword,None,None,continuous,Melee Weapon,Metal,10,1,None,None,None,None,None,None,None,None,None,"100, 1000","usage, equipped",None,100,None,10,None,None,None,Blacksmith

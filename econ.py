@@ -295,13 +295,15 @@ class World:
 			self.hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
 			self.hist_hours = self.hist_hours[['entity_id','hours']].set_index(['entity_id'])
 			self.hist_hours['date'] = 'start' #self.now
-			self.hist_hours = self.hist_hours[['date','hours']]
+			# self.hist_hours = self.hist_hours[['date','hours']]
 			self.hist_hours['population'] = len(self.factory.registry[Individual])
 			for need in self.global_needs:
 				self.hist_hours[need] = None
 			for individual in self.factory.get(Individual):
+				self.hist_hours.at[individual.entity_id, 'hours'] = individual.hours
 				for need in individual.needs:
 					self.hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
+			self.hist_hours = self.hist_hours[['date', 'population', 'hours'] + list(self.global_needs.keys())]
 			self.hist_hours = self.hist_hours.reset_index()
 			self.hist_hours = self.hist_hours.rename(columns={'index': 'entity_id'})
 			# print('\nHist Hours: \n{}'.format(self.hist_hours))
@@ -2179,19 +2181,21 @@ class World:
 			tmp_hist_hours = self.entities.loc[self.entities['entity_type'] == 'Individual'].reset_index()
 			tmp_hist_hours = tmp_hist_hours[['entity_id','hours']].set_index(['entity_id']) # TODO Does this need to be set as the index?
 			tmp_hist_hours['date'] = self.now
-			tmp_hist_hours = tmp_hist_hours[['date','hours']]
+			# tmp_hist_hours = tmp_hist_hours[['date','hours']]
 			tmp_hist_hours['population'] = len(self.factory.registry[Individual])
 			for need in self.global_needs:
 				tmp_hist_hours[need] = None
 			for individual in self.factory.get(Individual):
+				tmp_hist_hours.at[individual.entity_id, 'hours'] = individual.hours
 				for need in individual.needs:
 					tmp_hist_hours.at[individual.entity_id, need] = individual.needs[need].get('Current Need')
+			tmp_hist_hours = tmp_hist_hours[['date', 'population', 'hours'] + list(self.global_needs.keys())]
 			tmp_hist_hours = tmp_hist_hours.reset_index()
 			tmp_hist_hours = tmp_hist_hours.rename(columns={'index': 'entity_id'})
 			self.hist_hours = pd.concat([self.hist_hours, tmp_hist_hours])
 			self.set_table(self.hist_hours, 'hist_hours')
 			self.util(save=False)
-			# if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
+			#if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
 		else:
 			# Save prior days tables: entities, prices, demand, delay, produce_queue
 			self.entities = self.accts.get_entities().reset_index()
