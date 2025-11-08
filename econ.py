@@ -6306,6 +6306,7 @@ class Entity:
 		ids = world.demand.loc[world.demand['active'], 'demand_id'].tolist()
 		if vv: print('ids:\n', ids)
 		checked = []
+		to_drop = []
 		# world.demand = world.demand.reset_index(drop=True) # This can cause #KeyError: '[1] not found in axis'
 		if v: print(f'Demand at start of loop:\n', world.demand)
 		# for index, demand_item in world.demand.iterrows():#world.demand.copy().iterrows(): # TODO This used to be able to drop rows while looping
