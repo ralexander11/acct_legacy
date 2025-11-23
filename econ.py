@@ -7124,9 +7124,11 @@ class Entity:
 			return None, []
 		# Remove owner from available workers
 		if self in workers_avail_exp and len(workers_avail_exp) > 1:
-			workers_avail_exp.remove(self)
+			# workers_avail_exp.remove(self)
+			workers_avail_exp = collections.OrderedDict((k, v) for k, v in workers_avail_exp.items() if v != self)
 		if self in workers_avail_price and len(workers_avail_price) > 1:
-			workers_avail_price.remove(self)
+			# workers_avail_price.remove(self)
+			workers_avail_price = collections.OrderedDict((k, v) for k, v in workers_avail_price.items() if v != self)
 		# Choose the worker with the most experience
 		worker_choosen_exp = max(workers_avail_exp, key=lambda k:workers_avail_exp[k])
 		# Choose the worker for the lowest price
