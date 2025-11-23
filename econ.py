@@ -6658,7 +6658,7 @@ class Entity:
 		if explore_time is None or pd.isnull(explore_time):
 			explore_time = EXPLORE_TIME
 		explore_time = int(explore_time)
-		explore_time = explore_time * 0.1 # Reduce land claim time requirements
+		# explore_time = explore_time * 0.1 # Reduce land claim time requirements
 		time_needed = round(qty * explore_time, 3)
 		if isinstance(self, (Corporation)):
 			largest_shareholder_id = self.list_shareholders(largest=True)
@@ -7122,6 +7122,11 @@ class Entity:
 				return worker_choosen
 		if not workers_avail_price:
 			return None, []
+		# Remove owner from available workers
+		if self in workers_avail_exp and len(workers_avail_exp) > 1:
+			workers_avail_exp.remove(self)
+		if self in workers_avail_price and len(workers_avail_price) > 1:
+			workers_avail_price.remove(self)
 		# Choose the worker with the most experience
 		worker_choosen_exp = max(workers_avail_exp, key=lambda k:workers_avail_exp[k])
 		# Choose the worker for the lowest price
