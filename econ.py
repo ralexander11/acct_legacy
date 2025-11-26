@@ -5140,6 +5140,8 @@ class Entity:
 		to_drop = []
 		# if orig_qty != qty and qty != 0:
 		# 	print('World Demand: \n{}'.format(world.demand))
+		if vv: print('Demand check before distribute:')
+		if vv: print(world.demand)
 		for index, demand_item in world.demand.iterrows():
 			if qty_distribute == 0:
 				break
@@ -5150,15 +5152,20 @@ class Entity:
 						qty_distribute -= demand_item['qty']
 					else:
 						world.demand.at[index, 'qty'] -= qty_distribute
-						qty_distribute -= qty_distribute
+						# qty_distribute -= qty_distribute
+						qty_distribute = 0
 			else:
 				if demand_item['item_id'] == item:
 					if qty_distribute >= demand_item['qty']:
 						to_drop.append(index)
 						qty_distribute -= demand_item['qty']
+						# print('to_drop:', to_drop)
 					else:
 						world.demand.at[index, 'qty'] -= qty_distribute
-						qty_distribute -= qty_distribute
+						# qty_distribute -= qty_distribute
+						qty_distribute = 0
+					if vv: print('qty_distribute after:', qty_distribute)
+					if vv: print(world.demand)
 		if to_drop:
 			# world.demand = world.demand.drop(to_drop)#.reset_index(drop=True)
 			world.demand.loc[to_drop, 'active'] = False
@@ -5216,6 +5223,7 @@ class Entity:
 				self.set_price(item, qty, at_cost=True, v=v)
 		# if man: # TODO Make this the case for not man also
 		if v: print(f'***** Produce end {qty} {item} | time_required: {time_required} ****')
+		print(world.demand)
 		if v: print()
 		return produce_event, time_required, max_qty_possible, incomplete
 		# return qty, time_required # TODO Return the qty instead of True, or can use max_qty_possible for qty if complete
@@ -6281,7 +6289,8 @@ class Entity:
 			else:
 				if v: print('{} added to demand list for {} units by {}.'.format(item, qty, self.name))
 				if v: print(world.demand)
-			#print('Demand after addition: \n{}'.format(world.demand))
+			world.demand = world.demand.reset_index(drop=True)
+			if v: print('Demand after addition: \n{}'.format(world.demand))
 			return item, qty
 
 	def check_demand(self, multi=True, others=True, needs_only=False, item_types=None, vv=False, v=True):
