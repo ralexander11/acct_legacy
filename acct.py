@@ -531,14 +531,20 @@ class Accounts:
 	def load_csv(self, infile=None):
 		if infile is None:
 			infile = input('Enter a filename: ')
+		if '.csv' not in infile:
+			infile = infile + '.csv'
+		if 'data/' not in infile: # TODO Make this able to handle other locations
+			infile = 'data/' + infile
+		print(f'Loading csv data from: {infile}')
 		try:
 			with open(infile, 'r') as f:
 				load_csv = pd.read_csv(f, keep_default_na=False, comment='#')
 			lol = load_csv.values.tolist()
 		except Exception as e:
 			print('Error: {}'.format(e))
-		#print(load_csv)
-		#print('-' * DISPLAY_WIDTH)
+		# print(load_csv)
+		# print(lol)
+		# print('-' * DISPLAY_WIDTH)
 		return lol
 
 	def load_accts(self, infile=None):
@@ -546,15 +552,22 @@ class Accounts:
 
 	def load_entities(self, infile=None):
 		if infile is None:
+			infile = input('Enter a filename for the entities csv data [entities.csv]: ')
+		elif infile == '':
 			infile = 'data/entities.csv'
 		self.add_entity(self.load_csv(infile))
 		self.entities = pd.read_sql_query('SELECT * FROM ' + self.entities_table_name + ';', self.conn, index_col='entity_id')
 		return self.entities
 
-	def load_items(self, infile=None):
-		if infile is None:
-			infile = 'data/items.csv'
-		self.add_item(self.load_csv(infile))
+	def load_items(self, infile=None, items=None):
+		if items is None:
+			if infile is None:
+				infile = input('Enter a filename for the items csv data [items.csv]: ')
+			elif infile == '':
+				infile = 'data/items.csv'
+			self.add_item(self.load_csv(infile))
+		else:
+			self.add_item(items)
 		self.items = pd.read_sql_query('SELECT * FROM ' + self.items_table_name + ';', self.conn, index_col='item_id')
 		return self.items
 

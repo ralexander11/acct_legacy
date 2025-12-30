@@ -195,7 +195,34 @@ class World:
 					items_file = 'data/items.csv'
 			else:
 				items_file = 'data/' + args.items
-			self.items = self.accts.load_items(items_file) # TODO Change config file to JSON and load into a graph structure
+			try:
+				self.items = self.accts.load_items(items_file) # TODO Change config file to JSON and load into a graph structure
+			except UnboundLocalError:
+				print(f'Error loading items from file: "{args.items}". Using default base items.')
+				items_base = [
+					# ['item_id','int_rate_fix','int_rate_var','freq','child_of','requirements','amount','capacity','hold_req','hold_amount','usage_req','use_amount','fulfill','satisfies','satisfy_rate','productivity','efficiency','lifespan','metric','dmg_types','dmg','res_types','res','byproduct','byproduct_amt','start_price','producer'],
+					['Time','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Labour','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Study','None','None','None','Labour','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					#['Exploration','None','None','None','Labour','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Job','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Equipment','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Buildings','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					#['Animal','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Subscription','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Service','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Commodity','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Components','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Education','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Technology','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Government','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Governmental','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Non-Profit','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Environment','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+				] # TODO Handle this better, maybe by building the columns and filling with 'None' dynamically
+				print(items_base)
+				self.items = self.accts.load_items(items=items_base)
+
 			self.items = self.items.reset_index() # TODO Avoid this?
 			self.items['fulfill'] = self.items.apply(lambda x: x['item_id'] if x['fulfill'] is None else x['fulfill'], axis=1)
 			self.items = self.items.set_index('item_id') # TODO Avoid this?
@@ -7625,7 +7652,7 @@ class Entity:
 		return False
 
 	def loan(self, amount=1000, counterparty=None, item=None, roundup=True, auto=False):
-		if args.jones and auto:
+		if (args.jones and auto) or amount == 0:
 			return
 		# TODO Maybe remove default amount
 		if roundup:
@@ -9429,7 +9456,7 @@ class Entity:
 				'addplayer': 'Add a new human player under the selected government.',
 				'addai': 'Add a new AI player under the selected government.',
 				'superselect': 'Select any entity, including computer users.',
-				'edititem': 'Edit the items date from within the sim.',
+				'edititem': 'Edit the items data from within the sim.',
 				'acctmore': 'View more commands for the accounting system.',
 				'setwin': 'Set the win conditions.',
 				'win': 'See the win conditions.',
@@ -10698,6 +10725,8 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 	def print_money(self, amount=None):
 		if amount is None:
 			amount = INIT_CAPITAL
+		if amounts == 0:
+			return
 		# TODO Should I make the price 1 and the qty the amount of cash for all cash entries? Could this have unintended consequences for other functions when querying quantanties?
 		# TODO Maybe should move the money to its government first, then the government can distribute it to its citizens
 		capital_entry = [ self.ledger.get_event(), self.entity_id, '', world.now, '', 'Create capital', '', '', '', 'Cash', 'Nation Wealth', amount ]
@@ -11111,5 +11140,6 @@ if __name__ == '__main__':
 # Such as having a Stone Forge and an Electric Forge
 # Or Drift Wood and Lumber both fulfilling Wood
 
+# systemctl --user restart gunicorn
 # scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp econ.py robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct

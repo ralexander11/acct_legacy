@@ -6,6 +6,7 @@ Study,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,No
 Job,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Buildings,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+#Animal,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Subscription,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Service,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Commodity,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
@@ -70,7 +71,7 @@ Beef Cow,"Grassland, Rancher","100, 1",animal,Commodity,"Grassland, Beef Cow, Ra
 #Beef,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,Hunger,10,None,None,None,None,None,None,None,None,Leather,10,None,Ranch
 Leather,None,None,None,Commodity,"Beef Cow, Rancher","0.1, 6",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,Beef,1,None,Ranch
 #Fancy Food,None,None,None,Commodity,"Arable Land, Cultivator, Water, Harvest, Manager","400, 0.1, 1, 0.05, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
-#Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
+##Fancy Food,None,None,None,Commodity,"Growing, Arable Land, Cultivator, Water, Harvest, Manager","8, 400, 0.1, 1, 0.05, 1",None,None,None,None,None,None,Hunger,4,None,None,8,spoilage,None,None,None,1,None,None,None,Farm
 #Drift Wood,None,None,None,Commodity,"Forest, Forage","1, 0.1",None,None,None,None,None,Wood,None,None,None,None,None,None,None,1,None,10,None,None,None,Individual
 Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,Wood Chips,10,None,Lumbermill
 Clay,None,None,None,Commodity,"Wetlands, Miner","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,None,None,None,"Quarry, Mine"
@@ -92,6 +93,7 @@ Small Tent,None,None,start,Equipment,"Vice Grips, Cloth, Wood","4, 2, 20",1,None
 Forge,None,None,continuous,Equipment,"Bellows, Wood, Rock, Clay","1, 5, 30, 15",100,None,None,None,None,None,None,None,Kiln,0.25,50,ticks,None,None,None,400,None,None,None,Blacksmith
 Metal Working,None,None,None,Technology,"Time, Table","62, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 #Metal Working,None,None,None,Technology,"Time","62",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
+##Metal Working,None,None,None,Technology,"Time, Forge","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, Blacksmith "
 Metal,None,None,None,Commodity,"Metal Working, Forge, Ore","1, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,100,None,None,None,Smelter
 Anvil,None,None,continuous,Equipment,"Grassland, Metal","1, 50",1,Grassland,2,None,None,None,None,None,None,None,"50, 1000","usage, ticks",None,None,None,1000,None,None,None,Blacksmith
 Loom,None,None,start,Equipment,"Metal, Wood, Cloth","5, 50, 10",10,None,None,Cotton Gin,1,None,None,None,Weaving,0.5,"100, 1000","usage, ticks",None,None,None,100,None,None,None,Carpenter
@@ -117,13 +119,12 @@ Harvest,None,None,None,Service,Harvesting,1,None,None,None,None,None,None,None,N
 #Manager,None,None,None,Job,Reading,1,2000,None,None,Paper,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 #Sprinkler,None,None,continuous,Equipment,Rock,5,1,None,None,None,None,None,None,None,None,None,50,usage,None,None,None,50,None,None,None,Blacksmith
 #Reading,None,None,None,Education,"Study, Paper","16, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
-#Metal Working,None,None,None,Technology,"Time, Forge","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,"Individual, Blacksmith "
 Blacksmith Shop,None,None,continuous,Buildings,"Grassland, Wood, Rock","100, 100, 60",10,Grassland,100,None,None,None,None,None,None,None,500,ticks,None,None,None,1000,None,None,None,Construction Company
 Blacksmither,None,None,None,Labour,Strength,5,2000,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Wire,None,None,None,Commodity,"Metal Working, Metal","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Blacksmith
 Wood Chips,None,None,None,Commodity,Wood,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Lumbermill
 #Hydroponics,None,None,continuous,Equipment,"Wood, Rock, Wire","100, 40, 20",200,None,None,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",50,ticks,None,None,None,100,None,None,None,Blacksmith
-#Hydroponics,None,None,continuous,Equipment,"Engineer, Wood, Metal","6, 100, 40",200,Grassland,10,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",50,ticks,None,None,None,100,None,None,None,Blacksmith
+##Hydroponics,None,None,continuous,Equipment,"Engineer, Wood, Metal","6, 100, 40",200,Grassland,10,None,None,None,None,None,"Growing, Arable land","0.25, 0.75",50,ticks,None,None,None,100,None,None,None,Blacksmith
 Math,None,None,None,Education,Study,1,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,Individual
 Melee Weapon,None,None,continuous,Equipment,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Sword,None,None,continuous,Melee Weapon,Metal,10,1,None,None,None,None,None,None,None,None,None,"100, 1000","usage, equipped",None,100,None,10,None,None,None,Blacksmith
