@@ -135,7 +135,9 @@ econ_accts = [
 	('Dividend Receivable','Asset'),
 	('Dividend Income','Revenue'),
 	('Dividend Payable','Liability'),
-	('Dividend Expense','Expense'),
+	('Dividend Expense','Expense'), # TODO Remove once retained earnings is implemented
+	('Retained Earnings','Equity'),
+	('Dividends','Retained Earnings'),
 	('Commission Expense','Expense'),
 	('Investment Gain','Revenue'),
 	('Investment Loss','Expense'),
@@ -202,6 +204,7 @@ class World:
 				items_base = [
 					# ['item_id','int_rate_fix','int_rate_var','freq','child_of','requirements','amount','capacity','hold_req','hold_amount','usage_req','use_amount','fulfill','satisfies','satisfy_rate','productivity','efficiency','lifespan','metric','dmg_types','dmg','res_types','res','byproduct','byproduct_amt','start_price','producer'],
 					['Time','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
+					['Land',1,0,'None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
 					['Labour','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
 					['Study','None','None','None','Labour','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
 					#['Exploration','None','None','None','Labour','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None','None'],
@@ -968,6 +971,8 @@ class World:
 					print(cmd_table)
 			elif command.lower() == 'done':
 				break
+			# elif command == '':
+			# 	pass
 			else:
 				print(f'"{command}" is not a valid command. Type "done" to finish or "help" for more options.')
 		win_conditions = { # TODO Don't duplicate this
@@ -2816,6 +2821,9 @@ class Entity:
 			else:
 				print('{} does not have enough {} to gift {} units to {}.'.format(self.name, item, qty, counterparty.name))
 
+	# TODO Make func for leasing
+	# TODO Make func for bartering
+
 	def release(self, item=None, qty=1, event_id=None, reqs='hold_req', amts='hold_amount', v=False):
 		if v: print('{} release for {} x {}.'.format(self.name, item, qty))
 		# TODO Should this release the item being passed in no matter what?
@@ -3479,15 +3487,20 @@ class Entity:
 					self.ledger.gl = self.gl_tmp.loc[self.gl_tmp['entity_id'] == self.entity_id]
 				land = self.ledger.get_qty(items=req_item, accounts=['Land']) # TODO Should I factor in Land In Use also?
 				qty_needed = req_qty * (1-modifier) * qty
-				max_land = self.max_land(item, v=v)
+				max_land = self.max_land(item)
+				unused_land = world.unused_land(item=req_item, entity_id=1, v=v)
+				print('unused_land total:', unused_land)
+				if unused_land <= 12: # This is for the items_basic econ, to test a land owner owning all the land.
+					print(f'Qty of {req_item} changed from {qty_needed} to qty of unused land of {unused_land}.')
+					qty_needed = unused_land
 				if v: print(f'{self.name} requires {qty_needed} {req_item} to {action} {qty} {item} and has: {land} | max_land: {max_land}')
 				price = world.get_price(req_item, world.env.entity_id)
-				if land < qty_needed and land < max_land:
-					needed_qty = (req_qty * (1-modifier) * qty) - land
-					if v: print('{} requires {} more {} to produce {}.'.format(self.name, needed_qty, req_item, item))
+				if land < qty_needed and land <= max_land:
+					qty_remain = qty_needed - land
+					if v: print('{} requires {} more {} to produce {}.'.format(self.name, qty_remain, req_item, item))
 					# Attempt to purchase land
 					if not man:
-						result = self.purchase(req_item, needed_qty, buffer=buffer, v=v)
+						result = self.purchase(req_item, qty_remain, buffer=buffer, v=v)
 						if result:
 							price = price # TODO Handle price when purchasing land better
 						if not result:
@@ -3498,7 +3511,7 @@ class Entity:
 							# print('Land Available: {}'.format(land_avail))
 							self.ledger.reset()
 							self.ledger.set_entity(self.entity_id)
-							qty_claim = int(min(needed_qty, land_avail))
+							qty_claim = int(min(qty_remain, land_avail))
 							result = self.claim_land(req_item, qty_claim, price=price, buffer=buffer)
 							# print('Land Claim Result: \n{}'.format(result))
 							if not result:
@@ -6630,12 +6643,13 @@ class Entity:
 								if result:
 									break
 
-	# Max land to claim should be a function of the sim population
+	# TODO Max land to claim should be a function of the sim population
 	# If Wood takes some labour and land, the max hours for labour available should be the max land to claim
+	# TODO Maybe need a min_land function also
 	def max_land(self, item, v=True):
 		return 10_000_000_000 # TODO What is this here for? Testing maybe?
 		item_info = world.items.loc[item]
-		print(f'item_info:\n{item_info}')
+		if v: print(f'item_info:\n{item_info}')
 		if item_info is None:
 			return
 		requirements = [x.strip() for x in item_info['requirements'].split(',')]
@@ -9382,6 +9396,14 @@ class Entity:
 					break
 			args.delay = delay
 			print(f'Loop delay changed from {orig_delay} to {args.delay}')
+		elif command.lower() == 'exportitems':
+			outfile = 'items_' + datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S') + '.csv'
+			save_location = 'data/'
+			try:
+				world.items.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
+				print('File saved as ' + save_location + outfile)
+			except Exception as e:
+				print('Error: {}'.format(e))
 		elif command.lower() == 'help':
 			command_help = {
 				'select': 'Choose a different entity (Individual or Corporation).',
@@ -9457,6 +9479,7 @@ class Entity:
 				'addai': 'Add a new AI player under the selected government.',
 				'superselect': 'Select any entity, including computer users.',
 				'edititem': 'Edit the items data from within the sim.',
+				'exportitems': 'Export the items data to a csv file.',
 				'acctmore': 'View more commands for the accounting system.',
 				'setwin': 'Set the win conditions.',
 				'win': 'See the win conditions.',
@@ -9498,14 +9521,27 @@ class Entity:
 		else:
 			acct.main(conn=self.ledger.conn, command=command, external=True)
 			if command == 'additem' or command == 'removeitem':
+				old_items = world.items.copy()
 				world.items = self.accts.get_items()
 				global_needs_tmp = world.global_needs
-				print('global_needs_tmp:', global_needs_tmp)
+				# print('global_needs_tmp:', global_needs_tmp)
 				world.global_needs = world.create_needs()
-				print('world.global_needs:', world.global_needs)
+				# print('world.global_needs:', world.global_needs)
 				if world.global_needs is not global_needs_tmp:
+					print('New need created or removed.')
 					for individual in self.factory.get(Individual):
 						individual.setup_needs()
+						for need in individual.needs:
+							individual.add_need(need)
+				# Check if new item is Land and add to env
+				new_items = world.items.loc[~world.items.index.isin(old_items.index)]
+				# print('New items:\n', new_items)
+				for new_item in new_items.index:
+					new_item_type = world.get_item_type(new_item)
+					if new_item_type == 'Land':
+						land_qty = world.items.at[new_item, 'int_rate_var']
+						world.env.create_land(new_item, land_qty)
+							
 				if args.jones:
 					# TODO Maybe turn this into a function
 					# Get list of businesses from items data
@@ -9652,22 +9688,36 @@ class Individual(Entity):
 			self.lose_time = True
 		return self.hours
 
-	def setup_needs(self, entity_data=None):
-		# self.needs = collections.defaultdict(dict)
-		self.needs = collections.OrderedDict()
+	def setup_needs(self, entity_data=None, v=False):
+		try:
+			if v: print(f'Existing needs for {self.name}:\n{self.needs}')
+			# needs_names = list(world.global_needs.keys())
+			need_names = list(needs.keys())
+			max_needs = [need_data['Max Need'] for need_data in needs.values()]
+			decay_rate = [need_data['Decay Rate'] for need_data in needs.values()]
+			threshold = [need_data['Threshold'] for need_data in needs.values()]
+			current_need = [need_data['Current Need'] for need_data in needs.values()]
+		except:
+			# self.needs = collections.defaultdict(dict)
+			self.needs = collections.OrderedDict()
+			needs_names = []
+			needs_max = []
+			decay_rate = []
+			threshold = []
+			current_need = []
 		if entity_data:
-			needs_names = [x.strip() for x in entity_data[0][12].split(',')]
-			needs_max = [x.strip() for x in str(entity_data[0][13]).split(',')]
-			decay_rate = [x.strip() for x in str(entity_data[0][14]).split(',')]
-			threshold = [x.strip() for x in str(entity_data[0][15]).split(',')]
-			current_need = [x.strip() for x in str(entity_data[0][16]).split(',')]
+			needs_names = needs_names + [x.strip() for x in entity_data[0][12].split(',')]
+			needs_max = needs_max + [x.strip() for x in str(entity_data[0][13]).split(',')]
+			decay_rate = decay_rate + [x.strip() for x in str(entity_data[0][14]).split(',')]
+			threshold = threshold + [x.strip() for x in str(entity_data[0][15]).split(',')]
+			current_need = current_need + [x.strip() for x in str(entity_data[0][16]).split(',')]
 		else:
-			needs_names = list(world.global_needs.keys())
-			needs_max = [100] * len(needs_names)
-			decay_rate = [1] * len(needs_names)
-			threshold = [100] * len(needs_names)
-			current_need = [100] * len(needs_names)
-		print('needs_names:', needs_names)
+			needs_names = needs_names + list(world.global_needs.keys())
+			needs_max = needs_max + ([100] * len(needs_names))
+			decay_rate = decay_rate + ([1] * len(needs_names))
+			threshold = threshold + ([100] * len(needs_names))
+			current_need = current_need + ([100] * len(needs_names))
+		if v: print('needs_names:', needs_names)
 		if not needs_names or needs_names[0] == '':
 			return
 		for need in needs_names:
@@ -9677,7 +9727,7 @@ class Individual(Entity):
 				self.needs[need]['Decay Rate'] = int(decay_rate[i])
 				self.needs[need]['Threshold'] = int(threshold[i])
 				self.needs[need]['Current Need'] = int(float(current_need[i]))
-		# print(self.needs)
+		if v: print(self.needs)
 		return self.needs
 
 	def set_need(self, need, need_delta, forced=False, attacked=False, seppuku=False, v=False):
@@ -9688,17 +9738,17 @@ class Individual(Entity):
 		self.needs[need]['Current Need'] += need_delta
 		if self.needs[need]['Current Need'] < 0:
 			self.needs[need]['Current Need'] = 0
-		current_need_all = world.entities.loc[world.entities['entity_id'] == self.entity_id, 'current_need'].values[0]
-		# if v: print('Current Need Start: {}'.format(current_need_all))
+		current_need_all = world.entities.loc[world.entities['entity_id'] == self.entity_id, 'current_need'].values[0] # TODO Issue is here is it gets data from the db and not the object
+		if v: print('Current Need Start: {}'.format(current_need_all))
 		current_need_all = [x.strip() for x in str(current_need_all).split(',')]
-		# if v: print('Current Needs: {}'.format(current_need_all))
+		if v: print('Current Needs: {}'.format(current_need_all))
 		for i, need_spot in enumerate(self.needs):
-			# if v: print('Need Spot: {} | {}'.format(i, need_spot))
+			if v: print('Need Spot: {} | {}'.format(i, need_spot))
 			if need == need_spot:
 				break
 		current_need_all[i] = self.needs[need]['Current Need']
 		current_need_all = ', '.join(str(x) for x in current_need_all)
-		# if v: print('Current Need All After: {}'.format(current_need_all))
+		if v: print('Current Need All After: {}'.format(current_need_all))
 		cur = self.ledger.conn.cursor()
 		set_need_query = '''
 			UPDATE entities
@@ -9709,6 +9759,7 @@ class Individual(Entity):
 		cur.execute(set_need_query, values)
 		self.ledger.conn.commit()
 		cur.close()
+		print('Entities db table updated.')
 		if self.needs[need]['Current Need'] <= 0:
 			self.reset_hours()
 			self.inheritance(bequeath=not seppuku)
@@ -9724,6 +9775,51 @@ class Individual(Entity):
 			self.dead = True
 		world.entities = self.accts.get_entities().reset_index()
 		return self.needs[need]['Current Need']
+
+	def add_need(self, need):
+		print(f'Add new need: {need}')
+		cur = self.ledger.conn.cursor()
+		add_need_query = '''
+			UPDATE entities
+			SET
+				needs =
+					CASE
+						WHEN needs IS NULL OR needs = ''
+						THEN ?
+						ELSE needs || ', ' || ?
+					END,
+				need_max =
+					CASE
+						WHEN need_max IS NULL OR need_max = ''
+						THEN ?
+						ELSE need_max || ', ' || ?
+					END,
+				decay_rate =
+					CASE
+						WHEN decay_rate IS NULL OR decay_rate = ''
+						THEN ?
+						ELSE decay_rate || ', ' || ?
+					END,
+				need_threshold =
+					CASE
+						WHEN need_threshold IS NULL OR need_threshold = ''
+						THEN ?
+						ELSE need_threshold || ', ' || ?
+					END,
+				current_need =
+					CASE
+						WHEN current_need IS NULL OR current_need = ''
+						THEN ?
+						ELSE current_need || ', ' || ?
+					END
+			WHERE entity_id = ?;
+		'''
+		values = (need, need, 100, 100, 1, 1, 100, 100, 100, 100, self.entity_id)
+		cur.execute(add_need_query, values)
+		self.ledger.conn.commit()
+		cur.close()
+		print(f'Entities db table updated with new need: {need}')
+		return need
 
 	def birth_check(self):
 		if self.pregnant:
@@ -10366,12 +10462,15 @@ class Environment(Entity):
 		return 'Env: {} | {}'.format(self.name, self.entity_id)
 
 	def create_land(self, item, qty, date=None):
+		if qty == 0:
+			return
 		if date is None:
 			date = world.now
 		price = 0 #world.get_price(item, self.entity_id)
 		land_entry = [ self.ledger.get_event(), self.entity_id, '', date, '', item + ' created', item, price, qty, 'Land', 'Natural Wealth', price * qty ]
 		land_event = [land_entry]
 		self.ledger.journal_entry(land_event)
+		return land_event
 
 class Organization(Entity):
 	def __init__(self, name):# Organization(Entity)
@@ -10472,8 +10571,8 @@ class Corporation(Organization):
 			# TODO Add div accrual entries and payments
 			div_rev_entry = [ self.ledger.get_event(), counterparty_id, self.entity_id, world.now, '', 'Dividend received for ' + item, item, div_rate, shares, 'Cash', 'Dividend Income', shares * div_rate ]
 			div_event += [div_rev_entry]
-		# TODO This should book against Retained Earnings
-		div_exp_entry = [ self.ledger.get_event(), self.entity_id, counterparty_id, world.now, '', 'Dividend payment for ' + item, item, div_rate, total_shares, 'Dividend Expense', 'Cash', total_shares * div_rate ]
+		# The Dividends account is a child of the Retained Earnings account
+		div_exp_entry = [ self.ledger.get_event(), self.entity_id, counterparty_id, world.now, '', 'Dividend payment for ' + item, item, div_rate, total_shares, 'Dividends', 'Cash', total_shares * div_rate ]
 		div_event += [div_exp_entry]
 		self.ledger.journal_entry(div_event)
 
@@ -10488,7 +10587,7 @@ class Corporation(Organization):
 		# Get list of Cash exp txns for self
 		cutoff = pd.Timestamp(world.now - datetime.timedelta(days=21))
 		if v: print('Date 21 days before div:', cutoff)
-		cash_exp_txns = self.ledger.gl[(self.ledger.gl['credit_acct'].isin(['Cash'])) & (~self.ledger.gl['debit_acct'].isin(['Dividend Expense'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (pd.to_datetime(self.ledger.gl['date']) >= cutoff) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]#346,124.19
+		cash_exp_txns = self.ledger.gl[(self.ledger.gl['credit_acct'].isin(['Cash'])) & (~self.ledger.gl['debit_acct'].isin(['Dividends'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (pd.to_datetime(self.ledger.gl['date']) >= cutoff) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]#346,124.19
 		operating_reserve = cash_exp_txns['amount'].sum()
 		if v: print('div operating_reserve:', operating_reserve)
 		if operating_reserve > cash:
@@ -10725,7 +10824,7 @@ class Bank(Organization):#Governmental): # TODO Subclassing Governmental creates
 	def print_money(self, amount=None):
 		if amount is None:
 			amount = INIT_CAPITAL
-		if amounts == 0:
+		if amount == 0:
 			return
 		# TODO Should I make the price 1 and the qty the amount of cash for all cash entries? Could this have unintended consequences for other functions when querying quantanties?
 		# TODO Maybe should move the money to its government first, then the government can distribute it to its citizens

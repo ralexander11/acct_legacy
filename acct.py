@@ -462,6 +462,9 @@ class Accounts:
 			int_rate_var = ''#input('Enter the variable interest rate or leave blank: ')
 			freq = ''#int(input('Enter the frequency of interest payments: '))
 			child_of = input('Enter the category the item belongs to: ')
+			if child_of == 'Land':
+				int_rate_fix = input('Enter the time needed to claim this Land item: ')
+				int_rate_var = input('Enter the quantity of this Land item to add to the world: ')
 			# if child_of not in self.coa.index: # TODO Ensure item always points to an existing item
 			# 	print('\n' + child_of + ' is not a valid account.')
 			# 	return
@@ -2659,6 +2662,8 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'exit' or args.command is not None:
 			exit()
+		# elif command == '':
+		# 	pass
 		else:
 			# print('Not a valid command. Type "exit" to close or "help" for more info.')
 			print('"{}" is not a valid command. Type "exit" to close or "help" for more options.'.format(command))
