@@ -1134,10 +1134,11 @@ class World:
 		# print(self.accts.get_items())
 		return self.items
 
-	def util(self, gl=None, eod=True, big_util=False, save=False, vv=False, v=True):
+	def util(self, gl=None, eod=True, big_util=False, reverse=True, save=False, vv=False, v=True):
 		# Function used to investigate the GL
 		# save = True
 		if v: print()
+		name = 'util'
 		if save is None:
 			while True:
 				save = input('Save? [Y/n]: ')
@@ -1152,6 +1153,12 @@ class World:
 				else:
 					print('Not a valid entry. Must be "Y" or "N".')
 					continue
+		if big_util and not eod:
+			name = 'big_util'
+		elif big_util and eod:
+			name = 'big_util_eod'
+		elif not big_util and not eod:
+			name = 'util_full'
 		if gl is None:
 			if big_util:
 				gl = self.ledger.get_util(entity_id=None, items=None, accounts=None, save=False, v=False)
@@ -1176,17 +1183,32 @@ class World:
 		try:
 			# TODO Make dynamic to the list of needs
 			hist_hours['total_Thirst'] = self.hist_hours.groupby('date')['Thirst'].transform('sum')
+		except KeyError as e:
+			print(f'Util key error: {e}')
+		try:
 			hist_hours['total_Hunger'] = self.hist_hours.groupby('date')['Hunger'].transform('sum')
+		except KeyError as e:
+			print(f'Util key error: {e}')
+		try:
 			hist_hours['total_Clothing'] = self.hist_hours.groupby('date')['Clothing'].transform('sum')
+		except KeyError as e:
+			print(f'Util key error: {e}')
+		try:
 			hist_hours['total_Shelter'] = self.hist_hours.groupby('date')['Shelter'].transform('sum')
+		except KeyError as e:
+			print(f'Util key error: {e}')
+		try:
 			hist_hours['total_Fun'] = self.hist_hours.groupby('date')['Fun'].transform('sum')
+		except KeyError as e:
+			print(f'Util key error: {e}')
+		try:
 			# needs_cols = ['total_Thirst', 'total_Hunger', 'total_Clothing', 'total_Shelter', 'total_Fun']
 			needs_cols = list(map(lambda need: 'total_' + need, needs_cols))
 			hist_hours[needs_cols] = hist_hours[needs_cols].apply(pd.to_numeric, errors='coerce')
 			# hist_hours[needs_cols] = hist_hours[needs_cols].round(0).astype(int) # Causes error
 			hist_hours['total_needs'] = hist_hours[needs_cols].sum(axis=1)
 			# hist_hours['total_needs'] = hist_hours['total_Thirst'] + hist_hours['total_Hunger'] + hist_hours['total_Clothing'] + hist_hours['total_Shelter'] + hist_hours['total_Fun']
-			hist_hours = hist_hours.drop(['hours', 'Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun'], axis=1)
+			hist_hours = hist_hours.drop(['hours', 'Thirst', 'Hunger', 'Clothing', 'Shelter', 'Fun'], axis=1, errors='ignore')
 		except KeyError as e:
 			print(f'Util key error: {e}')
 		hist_hours['max_hours'] = self.hist_hours['population'] * MAX_HOURS
@@ -1258,9 +1280,10 @@ class World:
 		gl['dur'] = pd.to_datetime(gl['post_date']).diff(periods=1)
 		gl.loc[gl.index[0], 'dur'] = pd.Timedelta(0)
 		gl['dur'] = gl['dur'].astype(str)
-		gl = gl.iloc[::-1]
-		self.set_table(gl, 'util')
-		if v: print('\nutil gl:')
+		if reverse:
+			gl = gl.iloc[::-1]
+		self.set_table(gl, name)
+		if v: print(f'\n{name} gl:')
 		if v: print(gl.head(1))
 		# eod_gl = gl.loc[gl['description'] == 'End of day entry']
 		# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
@@ -9404,6 +9427,8 @@ class Entity:
 				print('File saved as ' + save_location + outfile)
 			except Exception as e:
 				print('Error: {}'.format(e))
+		elif command.lower() == 'util':
+			world.util(eod=False, big_util=True, reverse=False, save=None)
 		elif command.lower() == 'help':
 			command_help = {
 				'select': 'Choose a different entity (Individual or Corporation).',
@@ -9480,6 +9505,7 @@ class Entity:
 				'superselect': 'Select any entity, including computer users.',
 				'edititem': 'Edit the items data from within the sim.',
 				'exportitems': 'Export the items data to a csv file.',
+				'util': 'Run the util analysis for the entire GL.',
 				'acctmore': 'View more commands for the accounting system.',
 				'setwin': 'Set the win conditions.',
 				'win': 'See the win conditions.',

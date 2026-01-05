@@ -2513,6 +2513,11 @@ def main(conn=None, command=None, external=False):
 			eutil = eutil.head(1)
 			print(eutil)
 			if args.command is not None: exit()
+		elif command.lower() == 'ebigutil': # This only works for the econ sim
+			ebigutil = accts.print_table('big_util', v=False)
+			ebigutil = ebigutil.head(1)
+			print(ebigutil)
+			if args.command is not None: exit()
 		elif command.lower() == 'entities':
 			accts.print_entities()
 			if args.command is not None: exit()
