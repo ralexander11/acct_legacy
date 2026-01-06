@@ -20,6 +20,12 @@ pd.set_option('display.max_colwidth', 30)
 pd.options.display.float_format = '${:,.2f}'.format
 logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%b-%d %I:%M:%S %p', level=logging.WARNING) #filename='logs/output.log'
 
+acct_cols = {
+	'accounts': 'text PRIMARTY KEY',
+	'child_of': 'text NOT NULL',
+	'acct_role': 'text', # TODO Make this NOT NULL eventually
+}
+
 class Accounts:
 	def __init__(self, conn=None, standard_accts=None, entities_table_name=None, items_table_name=None):# Accounts
 		if conn is None:
@@ -48,6 +54,7 @@ class Accounts:
 				conn = sqlite3.connect(conn)
 				self.website = False
 				logging.debug('Website: {}'.format(self.website))
+			self.convert_table(conn, 'accounts', acct_cols)
 		# else:
 		# 	print('Conn path: {}'.format(conn))
 		# 	try:
@@ -116,37 +123,69 @@ class Accounts:
 			shutil.copyfile(db_name, dest_file)
 		print(f'Database copied from {db_name} to {dest_file}.')
 
+	def convert_table(self, conn, table_name, schema, v=True):
+		cur = conn.execute(f'PRAGMA table_info({table_name})')
+		# row format: (cid, name, type, notnull, dflt_value, pk)
+		existing_cols = {row[1] for row in cur.fetchall()}
+		if v: print(f'Existing columns of table {table_name}: {existing_cols}')
+		if not existing_cols:
+			return
+		for column, col_type in schema.items():
+			if column not in existing_cols:
+				sql = f'ALTER TABLE {table_name} ADD COLUMN {column} {col_type}'
+				conn.execute(sql)
+				print(f'Added column: {column}')
+		conn.commit()
+
+# create_accts_query = f'''
+# 			CREATE TABLE IF NOT EXISTS accounts (
+# 				-- acct_code text,
+# 				accounts text PRIMARTY KEY,
+# 				child_of text NOT NULL,
+# 				acct_role text
+# 					-- CHECK (status IN (
+# 					-- 	'Fixed Expenses', 'Variable Expenses'
+# 					-- ))
+# 				-- acct_desc text
+# 			);
+# 			'''
+
 	def create_accts(self, standard_accts=None):
 		if standard_accts is None:
 			standard_accts = []
-		create_accts_query = '''
+		cols_sql = ',\n    '.join(f'{column} {col_type}' for column, col_type in acct_cols.items())
+		create_accts_query = f'''
 			CREATE TABLE IF NOT EXISTS accounts (
-				accounts text,
-				child_of text
+				-- acct_code text,
+				{cols_sql}
+					-- CHECK (status IN (
+					-- 	'Fixed Expenses', 'Variable Expenses'
+					-- ))
+				-- acct_desc text
 			);
 			'''
 		base_accts = [
-			('Account','None'),
-			('Admin','Account'),
-			('Asset','Account'),
-			('Liability','Account'),
-			('Equity','Account'),
-			('Revenue','Equity'),
-			('Expense','Equity'),
-			('Transfer','Equity')
+			('Account','None',''),
+			('Admin','Account',''),
+			('Asset','Account',''),
+			('Liability','Account',''),
+			('Equity','Account',''),
+			('Revenue','Equity',''),
+			('Expense','Equity',''),
+			('Transfer','Equity',''),
 		]
 
 		personal = [
-			('Cash','Asset'),
-			('Chequing','Asset'),
-			('Savings','Asset'),
-			('Investments','Asset'),
-			('Visa','Liability'),
-			('Student Credit','Liability'),
-			('Credit Line','Liability'),
-			('Uncategorized','Admin'),
-			('Info','Admin'),
-			('Royal Credit Line','Liability')
+			('Cash','Asset','Cash & Cash Equivalents'),
+			('Chequing','Asset','Cash & Cash Equivalents'),
+			('Savings','Asset','Cash & Cash Equivalents'),
+			('Investments','Asset','Investments'),
+			('Visa','Liability','Accounts Payable'),
+			('Student Credit','Liability','Short Term Debt'),
+			('Credit Line','Liability','Long Term Debt'),
+			('Royal Credit Line','Liability','Long Term Debt'),
+			('Uncategorized','Admin',''),
+			('Info','Admin',''),
 		]
 
 		base_accts = base_accts + standard_accts + personal
@@ -380,24 +419,26 @@ class Accounts:
 		if acct_data is None:
 			account = input('Enter the account name: ')
 			child_of = input('Enter the parent account: ')
-			# order = 
-			# non_cash = 
-			# cash_cat = 
+			acct_role = input('Enter the account role: ')
+			# acct_code = 
+			# acct_desc = 
 			if child_of not in self.coa.index:
 				print('\n' + child_of + ' is not a valid account.')
 				return
-			details = (account, child_of)
-			cur.execute('INSERT INTO accounts VALUES (?,?)', details)
+			details = (account, child_of, acct_role)
+			cur.execute('INSERT INTO accounts VALUES (?,?,?)', details)
 		else:
 			for acct in acct_data: # TODO Maybe turn this into a list comprehension
-				if len(acct) == 2:
-					pass # Convert to new style
+				if len(acct) < len(acct_cols):
+					# Convert to new format
+					acct = acct + ('',) * max(0, len(acct_cols) - len(acct))
 
 				account = str(acct[0])
 				child_of = str(acct[1])
+				acct_role = str(acct[2])
 				if v: print(acct)
-				details = (account,child_of)
-				cur.execute('INSERT INTO accounts VALUES (?,?)', details)
+				details = (account, child_of, acct_role)
+				cur.execute('INSERT INTO accounts VALUES (?,?,?)', details)
 		self.conn.commit()
 		cur.close()
 		self.refresh_accts()
