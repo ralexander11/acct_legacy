@@ -1251,6 +1251,15 @@ class Ledger:
 		print('-' * DISPLAY_WIDTH)
 		return self.bs
 
+	def sum_role(self, role):
+		# Get list of accounts for role
+		accts = self.coa[self.coa['acct_role'] == role].index.tolist()
+		print('Accounts for role {}: {}'.format(role, accts))
+		# Get balance for those accounts
+		amount = self.balance_sheet(accts)
+		print('Amount for role {}: {:,.2f}'.format(role, amount))
+		return amount
+
 	def get_qty_txns(self, item=None, acct=None):
 		# TODO Maybe make acct accept a list of accounts
 		rvsl_txns = self.gl[self.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
@@ -2488,6 +2497,10 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'latestitem':
 			ledger.latest_item()
+			if args.command is not None: exit()
+		elif command.lower() == 'role':
+			role = input('Which role? ')
+			ledger.sum_role(role)
 			if args.command is not None: exit()
 		elif command.lower() == 'dur':
 			ledger.duration()
