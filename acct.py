@@ -1251,13 +1251,13 @@ class Ledger:
 		print('-' * DISPLAY_WIDTH)
 		return self.bs
 
-	def sum_role(self, role):
+	def sum_role(self, role, v=False):
 		# Get list of accounts for role
 		accts = self.coa[self.coa['acct_role'] == role].index.tolist()
-		print('Accounts for role {}: {}'.format(role, accts))
+		if v: print('Accounts for role {}: {}'.format(role, accts))
 		# Get balance for those accounts
 		amount = self.balance_sheet(accts)
-		print('Amount for role {}: {:,.2f}'.format(role, amount))
+		if v: print('Amount for role {}: {:,.2f}'.format(role, amount))
 		return amount
 
 	def get_qty_txns(self, item=None, acct=None):
@@ -2500,7 +2500,7 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'role':
 			role = input('Which role? ')
-			ledger.sum_role(role)
+			ledger.sum_role(role, v=True)
 			if args.command is not None: exit()
 		elif command.lower() == 'dur':
 			ledger.duration()

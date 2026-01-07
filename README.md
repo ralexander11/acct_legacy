@@ -15,7 +15,7 @@ The third is an economic simulator in the econ.py file. This is sort of like a e
 This is a simple general purpose accounting system that can interface with other python applications.
 
 An example of the web based display interfaces (WIP):
-http://becauseinterfaces.com/
+https://becauseinterfaces.com/
 
 ## Econ Sim Instructions
 To get started with the econ sim, run the following command:  
