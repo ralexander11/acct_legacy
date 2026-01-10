@@ -1134,7 +1134,7 @@ class World:
 		# print(self.accts.get_items())
 		return self.items
 
-	def util(self, gl=None, eod=True, big_util=False, reverse=True, save=False, vv=False, v=True):
+	def util(self, gl=None, eod=True, big_util=False, reverse=True, entity_id=None, items=None, accounts=None, desc=None, save=False, vv=False, v=True):
 		# Function used to investigate the GL
 		# save = True
 		if v: print()
@@ -1161,7 +1161,7 @@ class World:
 			name = 'util_full'
 		if gl is None:
 			if big_util:
-				gl = self.ledger.get_util(entity_id=None, items=None, accounts=None, save=False, v=False)
+				gl = self.ledger.get_util(entity_id=entity_id, items=items, accounts=accounts, desc=desc, save=False, v=False)
 			else:
 				gl = self.ledger.gl.copy(deep=True)
 
@@ -2847,7 +2847,7 @@ class Entity:
 	# TODO Make func for leasing
 	# TODO Make func for bartering
 
-	def release(self, item=None, qty=1, event_id=None, reqs='hold_req', amts='hold_amount', v=False):
+	def release(self, item=None, qty=1, event_id=None, reqs='hold_req', amts='hold_amount', v=False): # TODO This needs a refactor
 		if v: print('{} release for {} x {}.'.format(self.name, item, qty))
 		# TODO Should this release the item being passed in no matter what?
 		release_event = []
@@ -2859,14 +2859,14 @@ class Entity:
 				print(f'{item} has no requirements for {reqs} to release.')
 				requirements = []
 				req_types = []
-				# return release_event
+				return release_event # TODO Not sure if this will cause issues for depreciation
 			else:
 				requirements = [x.strip() for x in item_info[reqs].split(',')]
 				req_types = [world.get_item_type(x) for x in requirements] # TODO This check might not be needed anymore
 			if v: print('Release Requirement types for {}: {}'.format(item, req_types))
 			if not any(x in req_types for x in ['Land', 'Buildings', 'Equipment']):
 				if v: print('No Land, Buildings, or Equipment required for {}.'.format(item))
-				# return release_event
+				return release_event # TODO Not sure if this will cause issues for depreciation
 
 			# freq = item_info['freq']
 			# if freq is None:
@@ -2925,7 +2925,7 @@ class Entity:
 				for _, release_txn in release_txns.iterrows():
 					if release_txn.index in matches:
 						continue
-					if in_use_txn['qty'] == release_txn['qty'] and in_use_txn['item_id'] == release_txn['item_id']:
+					if in_use_txn['qty'] == release_txn['qty'] and in_use_txn['item_id'] == release_txn['item_id']: # TODO This can cause false matches
 						matches.append(release_txn.index)
 						match = True
 						break
@@ -9428,7 +9428,12 @@ class Entity:
 			except Exception as e:
 				print('Error: {}'.format(e))
 		elif command.lower() == 'util':
-			world.util(eod=False, big_util=True, reverse=False, save=None)
+			entity_id = input('Which entitie(s)? ')
+			item = input('Which item or ticker (case sensitive)? ')#.lower()
+			acct = input('Which account? ')#.title()
+			desc = input('Description contains? ')
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				world.util(eod=False, big_util=True, reverse=False, entity_id=entity_id, items=item, accounts=acct, desc=desc, save=None)
 		elif command.lower() == 'help':
 			command_help = {
 				'select': 'Choose a different entity (Individual or Corporation).',

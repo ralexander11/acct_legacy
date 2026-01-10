@@ -2336,6 +2336,7 @@ class Ledger:
 		return hist_inv
 
 
+
 def create_accounts(conn=None, standard_accts=None, entities_table_name=None, items_table_name=None):
 	print('Accounts object created.')
 	return Accounts(conn, standard_accts, entities_table_name, items_table_name)
@@ -2568,9 +2569,9 @@ def main(conn=None, command=None, external=False):
 			print(eutil)
 			if args.command is not None: exit()
 		elif command.lower() == 'ebigutil': # This only works for the econ sim
-			ebigutil = accts.print_table('big_util', v=False)
-			ebigutil = ebigutil.head(1)
-			print(ebigutil)
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				ebigutil = accts.print_table('big_util', v=False)
+				print(ebigutil)
 			if args.command is not None: exit()
 		elif command.lower() == 'entities':
 			accts.print_entities()
