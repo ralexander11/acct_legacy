@@ -2517,7 +2517,7 @@ class Entity:
 					cost_amt = self.ledger.hist_cost(qty, item, 'Inventory')#, v=True)
 					#print('Cost: {}'.format(cost_amt))
 					self.ledger.reset()
-					purchase_event += counterparty.release(item, qty=qty) # TODO Needs to be tested further
+					purchase_event += counterparty.release(item, qty=qty, v=True) # TODO Needs to be tested further
 					avg_price = round(cost_amt / qty, 2) # TODO Will this rounding cause issues?
 					cogs_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', desc_sell, item, avg_price, qty, 'Cost of Goods Sold', acct_sell, cost_amt ]
 					
