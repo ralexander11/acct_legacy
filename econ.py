@@ -699,9 +699,9 @@ class World:
 			if not isinstance(entity_id, int):
 				entity_id = entity_id.entity_id
 			self.ledger.set_entity(entity_id)
-			unused_land = self.ledger.get_qty(items=item, accounts=accounts)
+			unused_land = self.ledger.get_qty(items=item, accounts=accounts, v=v)
 		else:
-			unused_land = self.ledger.get_qty(items=item, accounts=accounts, by_entity=True)
+			unused_land = self.ledger.get_qty(items=item, accounts=accounts, by_entity=True, v=v)
 		if entity_id is not None:
 			if v: print('Unused land of the world: \n{}'.format(unused_land))
 		elif all_land:
@@ -3262,6 +3262,18 @@ class Entity:
 			unequip_event = [unequip_entry]
 			self.ledger.journal_entry(unequip_event)
 		return unequip_event
+	
+	def check_preservative(self, metric, item=None):
+		# TODO To be used like productivity items but for increasing depreciation lifespan
+		self.ledger.set_entity(self.entity_id)
+		equip_list = self.ledger.get_qty(accounts=['Equipment'])
+		self.ledger.reset()
+		if equip_list.empty:
+			return None, None
+		items_info = world.items[world.items['productivity'].str.contains(item, na=False)]
+		efficiencies = []
+		# TODO Implement this so it can take a metric and an item
+		return
 
 	def check_productivity(self, item, date=None, v=False):
 		if date is not None:
@@ -3269,10 +3281,9 @@ class Entity:
 		self.ledger.set_entity(self.entity_id)
 		equip_list = self.ledger.get_qty(accounts=['Equipment'])
 		self.ledger.reset()
-		if v: print('Equip List: \n{}'.format(equip_list))
+		if v: print('Equip List for {}:\n{}'.format(item, equip_list))
 		if equip_list.empty:
 			return None, None
-		if v: print('Productivity Item Check: {}'.format(item))
 		items_info = world.items[world.items['productivity'].str.contains(item, na=False)]
 		efficiencies = []
 		for _, item_row in items_info.iterrows():
@@ -3511,10 +3522,11 @@ class Entity:
 				land = self.ledger.get_qty(items=req_item, accounts=['Land']) # TODO Should I factor in Land In Use also?
 				qty_needed = req_qty * (1-modifier) * qty
 				max_land = self.max_land(item)
-				unused_land = world.unused_land(item=req_item, entity_id=1, v=v)
+				unused_land = world.unused_land(item=req_item, entity_id=1, v=True)#v
 				print('unused_land total:', unused_land)
-				if unused_land <= 12: # This is for the items_basic econ, to test a land owner owning all the land.
-					print(f'Qty of {req_item} changed from {qty_needed} to qty of unused land of {unused_land}.')
+				if unused_land <= MAX_HOURS and unused_land != 0: # This is for the items_basic.csv econ, to test a land owner owning all the land.
+					print(f'Qty of {req_item} changed from {qty_needed} qty needed to all unused land of: {unused_land}')
+					# if unused_land > qty_needed:
 					qty_needed = unused_land
 				if v: print(f'{self.name} requires {qty_needed} {req_item} to {action} {qty} {item} and has: {land} | max_land: {max_land}')
 				price = world.get_price(req_item, world.env.entity_id)
@@ -3589,9 +3601,10 @@ class Entity:
 					incomplete = True
 					land_incomplete = True
 				else:
+					print(f'land reqs: {reqs} | time_required: {time_required}')
 					if reqs != 'hold_req' and not time_required:
 						hold_event_ids += [entry[0] for entry in entries]
-						if vv: print('{} land hold_event_ids: {}'.format(self.name, hold_event_ids))
+						print('{} land hold_event_ids: {}'.format(self.name, hold_event_ids))#if vv: 
 				event += entries
 				if entries:
 					if not self.gl_tmp.empty:
@@ -4501,7 +4514,7 @@ class Entity:
 						# 	counterparty = self
 						# 	entries = self.accru_wages(job=req_item, counterparty=counterparty, labour_hours=required_hours, wage=0, buffer=True, v=v)
 						# else:
-						if v: print(f'{self.name} to {action} {qty} {item} requires {req_item} labour for {required_hours} hours.')
+						if v: print(f'{self.name} to {action} {qty} {item} requires {req_item} labour for {required_hours} hours. | wip_choice: {wip_choice}')
 						# TODO Maybe support WIP Services
 						# if (qty == 1 or orig_labour_required > MAX_HOURS) and reqs != 'hold_req' and item_type != 'Service':
 						# if qty == 1 and reqs != 'hold_req' and item_type != 'Service':
@@ -4531,11 +4544,13 @@ class Entity:
 										print('Not a valid entry. Must be "Y" or "N".')
 										continue
 							elif isinstance(self, Individual):
-								if required_hours > self.hours: # TODO Check against global hours
+								if v: print(f'{self.name} has {self.hours} hours with wip_choice: {wip_choice}')
+								if required_hours > self.hours: # TODO Check against global qualified hours
 									wip_choice = True
 							else: # TODO Test this
+								if v: print(f'{self.name} required_hours: {required_hours} | MAX_HOURS: {MAX_HOURS} | labour_done: {labour_done}')
 								if required_hours > MAX_HOURS or labour_done > 0:
-									wip_choice = True	
+									wip_choice = True
 						if wip_choice:
 							if man and isinstance(self, Individual):
 								if self.hours > 0:
@@ -4738,7 +4753,9 @@ class Entity:
 							else:
 								max_qty_possible = 0
 								constraint_qty = 0
-					if v: print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | WIP Complete: {} | Time Req: {} | Partial: {} | Labour Done: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, wip_complete, time_required, partial, labour_done, constraint_qty, incomplete))
+					if hours_remain == 0 and not incomplete:
+						wip_complete = True
+					if v: print('Labour Max Qty Possible for {}: {} | WIP Choice: {} | WIP Complete: {} | Time Req: {} | Partial: {} | Labour Done: {} | {} | orig_required_hours: {} | Constraint Qty: {} | Incomplete: {}'.format(item, max_qty_possible, wip_choice, wip_complete, time_required, partial, labour_done, hours_remain, orig_required_hours, constraint_qty, incomplete))
 					# results = results.append({'item_id':req_item, 'qty':req_qty * qty, 'modifier':modifier, 'qty_req':(req_qty * (1-modifier) * qty), 'qty_held':qty_held, 'incomplete':incomplete, 'max_qty':constraint_qty}, ignore_index=True)
 					results = pd.concat([results, pd.DataFrame({'item_type':[req_item_type], 'item_id':[req_item], 'qty':[req_qty * qty], 'modifier':[modifier], 'qty_req':[(req_qty * (1-modifier) * qty)], 'qty_held':[qty_held], 'success':[not lab_incomplete], 'max_qty':[constraint_qty]})], ignore_index=True)
 
@@ -4874,11 +4891,12 @@ class Entity:
 			world.delay = tmp_delay.copy(deep=True) # TODO This would not factor in any changes to world.delay from a lower stack frame but that might not matter
 			world.set_table(world.delay, 'delay')
 			# TODO Maybe avoid labour WIP by treating labour like a commodity and then "consuming" it when it is used in the WIP
-			if not wip_choice or man:
+			if not wip_choice or wip_complete or man:
 				self.hold_event_ids += hold_event_ids
 			if isinstance(self, Individual):
 				self.prod_hold += prod_hold
-			# print('{} Final self.hold_event_ids for {}: {} | {}'.format(self.name, item, self.hold_event_ids, hold_event_ids))
+			print('{} Final self.hold_event_ids for {}: {} | {} | {} | {}'.format(self.name, item, self.hold_event_ids, hold_event_ids, wip_choice, wip_complete))
+			print('{} Final self.prod_hold for {}: {} | {} | {} | {}'.format(self.name, item, self.prod_hold, prod_hold, wip_choice, wip_complete))
 		self.gl_tmp = pd.DataFrame(columns=world.cols)
 		if show_results:
 			if incomplete:
@@ -7916,7 +7934,7 @@ class Entity:
 				if metric != 'usage':
 					self.depreciation(item, lifespan, metric)
 
-	def depreciation(self, item, lifespan, metric, uses=1, man=False, buffer=False, v=False):
+	def depreciation(self, item, lifespan, metric, uses=1, man=False, buffer=False, v=True):
 		# TODO This whole thing needs to be rewritten
 
 		# TODO Refactor to separate useage vs ticks apart
@@ -7938,6 +7956,21 @@ class Entity:
 					return [], None
 			depreciation_event = []
 			if v: print('Asset Bal for {}: {}'.format(item, asset_bal))
+
+			modifier, items_info = self.check_productivity(metric, date=None, v=True) # For items that improve lifespan, like a fridge for food
+			print('modifier1:', modifier)
+			print('items_info1:\n', items_info)
+
+			print('unmodified_lifespan1:', lifespan)
+			if modifier is not None:
+				lifespan = lifespan * (1 + modifier)
+				print('modified_lifespan1:', lifespan)
+				mod_item = items_info['item_id'].iloc[0]
+				mod_entry = self.use_item(mod_item, buffer=True)
+				depreciation_event += [mod_entry]
+			else:
+				modifier = 0
+
 			dep_amount = (asset_bal / lifespan) * uses
 			if v: print('Depr. amount for {}: {}'.format(item, dep_amount))
 			accum_dep_bal = self.ledger.balance_sheet(accounts=['Accum. Depr.'], item=item) # Negative value
@@ -8018,6 +8051,22 @@ class Entity:
 				for txn_id, inv_lot in inv_txns.iterrows():
 					#print('TXN ID: {}'.format(txn_id))
 					#print('Inv Lot: \n{}'.format(inv_lot))
+					spoil_event = []
+
+					modifier, items_info = self.check_productivity(metric, date=None, v=True) # For items that improve lifespan, like a fridge for food
+					print('modifier2:', modifier)
+					print('items_info2:\n', items_info)
+					
+					print('unmodified_lifespan2:', lifespan)
+					if modifier is not None:
+						lifespan = lifespan * (1 + modifier)
+						print('modified_lifespan2:', lifespan)
+						mod_item = items_info['item_id'].iloc[0]
+						mod_entry = self.use_item(mod_item, buffer=True)
+						spoil_event += mod_entry
+					else:
+						modifier = 0
+
 					date_done = (datetime.datetime.strptime(inv_lot['date'], '%Y-%m-%d') + datetime.timedelta(days=int(lifespan))).date()
 					#print('Date Done: {}'.format(date_done))
 					# If the time elapsed has passed
@@ -8039,12 +8088,14 @@ class Entity:
 						if txn_id in txns.index:
 							txn_qty = txns[txns.index == txn_id]['qty'].iloc[0]
 							#print('Spoilage TXN QTY: {}'.format(txn_qty))
-							# Book thes spoilage entry
+							# Book the spoilage entry
 							if qty < txn_qty:
-								spoil_entry = [[ inv_lot['event_id'], inv_lot['entity_id'], inv_lot['cp_id'], world.now, inv_lot['loc'], inv_lot['item_id'] + ' spoilage', inv_lot['item_id'], inv_lot['price'], qty or '', 'Spoilage Expense', 'Inventory', inv_lot['price'] * qty ]]
+								spoil_entry = [ inv_lot['event_id'], inv_lot['entity_id'], inv_lot['cp_id'], world.now, inv_lot['loc'], inv_lot['item_id'] + ' spoilage', inv_lot['item_id'], inv_lot['price'], qty or '', 'Spoilage Expense', 'Inventory', inv_lot['price'] * qty ]
+								spoil_event += [spoil_entry]
 							else:
-								spoil_entry = [[ inv_lot['event_id'], inv_lot['entity_id'], inv_lot['cp_id'], world.now, inv_lot['loc'], inv_lot['item_id'] + ' spoilage', inv_lot['item_id'], inv_lot['price'], inv_lot['qty'] or '', 'Spoilage Expense', 'Inventory', inv_lot['amount'] ]]
-							self.ledger.journal_entry(spoil_entry)
+								spoil_entry = [ inv_lot['event_id'], inv_lot['entity_id'], inv_lot['cp_id'], world.now, inv_lot['loc'], inv_lot['item_id'] + ' spoilage', inv_lot['item_id'], inv_lot['price'], inv_lot['qty'] or '', 'Spoilage Expense', 'Inventory', inv_lot['amount'] ]
+								spoil_event += [spoil_entry]
+							self.ledger.journal_entry(spoil_event)
 							if item in self.produces:
 								self.adj_price(item, qty, direction='down_high')
 
@@ -8208,6 +8259,42 @@ class Entity:
 				world.selection = self.factory.get_by_id(selection)
 				break
 			return world.selection
+		elif command.lower() == 'spawn':
+			while True:
+				item = input('Enter equipment item to spawn: ')
+				if item == '':
+					return
+				if world.valid_item(item, 'Equipment'):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			self.spawn_equip(item.title())
+		elif command.lower() == 'spawnitem':
+			while True:
+				item = input('Enter item to spawn: ')
+				if item == '':
+					return
+				if world.valid_item(item):
+					break
+				else:
+					print('Not a valid entry.')
+					continue
+			qty = 0
+			while True:
+				try:
+					qty = input('Enter quantity of {} item to spawn: '.format(item.title()))
+					if qty == '':
+						return
+					qty = int(qty)
+				except ValueError:
+					print('Not a valid entry. Must be a positive whole number.')
+					continue
+				else:
+					if qty <= 0:
+						continue
+					break
+			self.spawn_item(item.title(), qty)
 		elif command.lower() == 'win':
 			print(f'Win Conditions:\n{world.win_conditions}\n')
 		# elif command.lower() == 'checkwin':
@@ -9195,7 +9282,7 @@ class Entity:
 				wages = world.prices[world.prices.index.isin(labour_items)]
 				# wages = world.prices.loc[world.prices.index.intersection(labour_items), :]
 				print('\nWages as of {}: \n{}\n'.format(world.now, wages))
-		elif command.lower() == 'delay' or command.lower() == 'd':
+		elif command.lower() == 'delay':# or command.lower() == 'd':
 			print('Delayed items as of {}: \n{}'.format(world.now, world.delay))
 		elif command.lower() == 'auto':
 			print('World Auto Produce as of {}: \n{}'.format(world.now, world.produce_queue))
@@ -9508,6 +9595,8 @@ class Entity:
 				'addplayer': 'Add a new human player under the selected government.',
 				'addai': 'Add a new AI player under the selected government.',
 				'superselect': 'Select any entity, including computer users.',
+				'spawn': 'Spawn in a piece of equipment for free.',
+				'spawnitem': 'Spawn in an item for free.',
 				'edititem': 'Edit the items data from within the sim.',
 				'exportitems': 'Export the items data to a csv file.',
 				'util': 'Run the util analysis for the entire GL.',
@@ -9526,7 +9615,7 @@ class Entity:
 			print('Auto Done set to:', self.auto_done)
 		elif command.lower() == 'save':
 			world.checkpoint_entry(eod=False, save=True)
-		elif command.lower() == 'skip' or command.lower() == 'done':
+		elif command.lower() == 'skip' or command.lower() == 'done' or command.lower() == 'd':
 			if self.auto_address:
 				self.address_needs(obtain=False, v=False)
 			if isinstance(self, Individual):
@@ -9550,7 +9639,10 @@ class Entity:
 		# else:
 		# 	print('"{}" is not a valid command. Type "exit" to close or "help" for more options.'.format(command))
 		else:
-			acct.main(conn=self.ledger.conn, command=command, external=True)
+			try:
+				acct.main(conn=self.ledger.conn, command=command, external=True)
+			except UnboundLocalError as e:
+				print(e)
 			if command == 'additem' or command == 'removeitem':
 				old_items = world.items.copy()
 				world.items = self.accts.get_items()
@@ -11261,6 +11353,9 @@ if __name__ == '__main__':
 
 # (python econ.py -s 11 -p 4 -r -t 4 && say done) || say error
 # python econ.py -u
+# python econ.py -db mem -r; echo -e '\a'
+# python econ.py -i items_basic.csv -p 2 -mp 5 -r >> logs/econ_depr01.log; echo -e '\a'
+
 
 # TODO
 # Add a new column to items called fulfill

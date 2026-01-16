@@ -196,7 +196,7 @@ class Accounts:
 		cur = conn.execute(f'PRAGMA table_info({table_name})')
 		# row format: (cid, name, type, notnull, dflt_value, pk)
 		existing_cols = {row[1] for row in cur.fetchall()}
-		if v: print(f'Existing columns of table {table_name}: {existing_cols}')
+		# if v: print(f'Existing columns of table {table_name}: {existing_cols}')
 		if not existing_cols:
 			return
 		for column, col_type in schema.items():
@@ -494,9 +494,9 @@ class Accounts:
 				account = str(acct[0])
 				child_of = str(acct[1])
 				acct_role = str(acct[2])
-				if acct_role not in roles_data:
-					print(f'\n{acct_role} is not a valid account role for account {account}.')
-					return
+				# if acct_role not in roles_data:
+				# 	print(f'\n{acct_role} is not a valid account role for account {account}.')
+				# 	return
 				if v: print(acct)
 				details = (account, child_of, acct_role)
 				cur.execute('INSERT INTO accounts VALUES (?,?,?)', details)
@@ -2396,26 +2396,20 @@ class Ledger:
 			print('{} data saved to: {}'.format('inv_hist', save_location + outfile))
 		return hist_inv
 
-	def ratio_analysis(self, v=True):
+	def ratio_analysis(self, entity=None, date=None, v=False):
+		if date is None or date == '':
+			date = self.latest_date(v=False)
+		self.set_date(date)
+		if entity is not None and date is not '':
+			self.set_entity(entity)
 		roles = pd.DataFrame(roles_data)
-		print('Roles:')
-		print(roles)
-		# ratios = pd.DataFrame(columns=['role', 'value'])
+		# print('Roles:', roles)
 		ratios = []
 		for _, role in roles.iterrows():
-			print(type(role))
-			# print('role:\n', role)
-			print('role_name:\n', role[0])
+			# print('role_name:\n', role[0])
 			value = self.sum_role(role[0], v=v)
 			ratios.append(pd.DataFrame({'role': [role[0]], 'value': [value]}))
-		
-		print('Ratios DF after loop:')
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print(ratios)
 		ratios = pd.concat(ratios, ignore_index=True)
-		print('Ratios DF mid1:')
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print(ratios)
 
 		# Get line items as vars
 		cash = ratios[ratios['role'] == 'Cash & Cash Equivalents']['value'].values[0]
@@ -2459,32 +2453,26 @@ class Ledger:
 		ratios.append(pd.DataFrame({'role': ['Operating Income'], 'value': [op_inc]}))
 		net_income = total_revenue - total_expense
 		ratios.append(pd.DataFrame({'role': ['Net Income'], 'value': [net_income]}))
-		print('Ratios DF mid2:')
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print(ratios)
+
 		# Calculate additional avg totals
 		## Get prior annual date for averages
+		from dateutil.relativedelta import relativedelta
 		first_date = self.oldest_date(v=False)
 		first_date = datetime.datetime.strptime(first_date, '%Y-%m-%d')
-		past_date = max(first_date, datetime.datetime.strptime(self.latest_date(v=False), '%Y-%m-%d') - datetime.timedelta(days=365))
-		print('Past Date type:', type(past_date))
-		print('Past Date:', past_date)
+		past_date = datetime.datetime.strptime(date, '%Y-%m-%d') - relativedelta(years=1)
+		past_date = max(first_date, past_date)
 		past_date = past_date.strftime('%Y-%m-%d')
-		print('Past Date type str:', type(past_date))
-		print('Past Date str:', past_date)
 		self.set_date(past_date)
 
 		priors = []
 		# current_roles = roles[roles['current']] # TODO Maybe don't need rev and exp?
 		# print(current_roles)
 		for _, role in roles.iterrows():
-			print(type(role))
-			# print('role:\n', role)
-			print('prior_role_name:\n', role[0])
+			# print('prior_role_name:\n', role[0])
 			prior_value = self.sum_role(role[0], v=v)
 			priors.append(pd.DataFrame({'role': ['Prior ' + role[0]], 'value': [prior_value]}))
 		priors = pd.concat(priors, ignore_index=True)
-		print('Priors:\n', priors)
+		# print('Priors:\n', priors)
 		# Avg Working Cap
 		prior_current_assets = priors.loc[0:6,'value'].sum()
 		prior_current_liab = priors.loc[16:22,'value'].sum()
@@ -2537,105 +2525,107 @@ class Ledger:
 		avg_total_equity = (prior_total_equity + total_equity) / 2
 		ratios.append(pd.DataFrame({'role': ['Avg Total Equity'], 'value': [avg_total_equity]}))
 		self.reset()
+		self.set_date(date)
+		if entity is not None:
+			self.set_entity(entity)
 
 		ratios = [pd.concat(ratios, ignore_index=True)]
-		print('Ratios DF mid3:')
-		with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-			print(ratios)
-		# TODO Calculate ratios
-		# Activity Ratios
-		try:
-			inv_turnover = cogs / avg_inventory # COGS / Avg Inv
-			ratios.append(pd.DataFrame({'role': ['Inventory Turnover'], 'value': [inv_turnover]}))
-		except KeyError:
-			# inv_turnover = 0 # TODO Should I do this?
-			print('No COGS for Inventory Turnover calculation.')
-		try:
-			doh = 365 / inv_turnover # 365 / Inv Turnover
-			ratios.append(pd.DataFrame({'role': ['Days of Inventory on Hand (DOH)'], 'value': [doh]}))
-		except UnboundLocalError:
-			# doh = 0
-			print('No Inventory Turnover for DoH calculation.')
-		try:
-			rec_turnover = total_revenue / avg_AR # Rev / Avg Receivables
-			ratios.append(pd.DataFrame({'role': ['Receivables Turnover'], 'value': [rec_turnover]}))
-		except KeyError:
-			# rec_turnover = 0
-			print('No COGS for Receivables Turnover calculation.')
-		try:
-			dso = 365 / rec_turnover # 365 / Rec Turnover
-			ratios.append(pd.DataFrame({'role': ['Days of Sales Outstanding (DSO)'], 'value': [dso]}))
-		except UnboundLocalError:
-			# dso = 0
-			print('No Receivables Turnover for DSO calculation.')
-		try:
-			pay_turnover = cogs / avg_AP # Purchases / Avg Payable # TODO Confirm should this be COGS?
-			ratios.append(pd.DataFrame({'role': ['Payables Turnover'], 'value': [pay_turnover]}))
-		except KeyError:
-			# pay_turnover = 0
-			print('No Purchases for Payables Turnover calculation.')
-		try:
-			dop = 365 / pay_turnover # 365 / Pay Turnover
-			ratios.append(pd.DataFrame({'role': ['Number of Days of Payables (DoP)'], 'value': [dop]}))
-		except UnboundLocalError:
-			# dop = 0
-			print('No Payables Turnover for DoP calculation.')
-		try:
-			wc_turnover = total_revenue / avg_working_cap # Rev / Avg Working Capital
-			ratios.append(pd.DataFrame({'role': ['Working Capital Turnover'], 'value': [wc_turnover]}))
-			fa_turnover = total_revenue / avg_fixed_assets # Rev / Avg Fix Asset
-			ratios.append(pd.DataFrame({'role': ['Fixed Asset Turnover'], 'value': [fa_turnover]}))
-			asset_turnover = total_revenue / avg_total_assets # Rev / Avg Total Assets
-			ratios.append(pd.DataFrame({'role': ['Total Asset Turnover'], 'value': [asset_turnover]}))
-		except KeyError: # TODO Is this needed?
-			# wc_turnover = 0
-			# fa_turnover = 0
-			# asset_turnover = 0
-			print('No Total Revenue for Working Capital, Fixed Asset, or Total Asset Turnover calculations.')
 
-		# Liquidity Ratios
-		current_ratio = current_assets / current_liab # Cur Assets / Cur Liabilities
-		ratios.append(pd.DataFrame({'role': ['Current Ratio'], 'value': [current_ratio]}))
-		quick_ratio = (current_assets - inventory) / current_liab # Cur Assets less Inv / Cur Liab
-		ratios.append(pd.DataFrame({'role': ['Quick Ratio'], 'value': [quick_ratio]}))
-		cash_ratio = cash / current_liab # Cash / Cur Liab
-		ratios.append(pd.DataFrame({'role': ['Cash Ratio'], 'value': [cash_ratio]}))
-		# 'Defensive Interval Ratio' # Not implemented yet
-		ccc = doh + dso - dop # DOH + DSO - No Days of Pay
-		ratios.append(pd.DataFrame({'role': ['Cash Conversion Cycle'], 'value': [ccc]}))
+		# Calculate financial ratios
+		with np.errstate(invalid='ignore', divide='ignore'):
+			# Activity Ratios
+			try:
+				inv_turnover = cogs / avg_inventory # COGS / Avg Inv
+				ratios.append(pd.DataFrame({'role': ['Inventory Turnover'], 'value': [inv_turnover]}))
+			except KeyError:
+				# inv_turnover = 0 # TODO Should I do this?
+				print('No COGS for Inventory Turnover calculation.')
+			try:
+				doh = 365 / inv_turnover # 365 / Inv Turnover
+				ratios.append(pd.DataFrame({'role': ['Days of Inventory on Hand (DOH)'], 'value': [doh]}))
+			except UnboundLocalError:
+				# doh = 0
+				print('No Inventory Turnover for DoH calculation.')
+			try:
+				rec_turnover = total_revenue / avg_AR # Rev / Avg Receivables
+				ratios.append(pd.DataFrame({'role': ['Receivables Turnover'], 'value': [rec_turnover]}))
+			except KeyError:
+				# rec_turnover = 0
+				print('No COGS for Receivables Turnover calculation.')
+			try:
+				dso = 365 / rec_turnover # 365 / Rec Turnover
+				ratios.append(pd.DataFrame({'role': ['Days of Sales Outstanding (DSO)'], 'value': [dso]}))
+			except UnboundLocalError:
+				# dso = 0
+				print('No Receivables Turnover for DSO calculation.')
+			try:
+				pay_turnover = cogs / avg_AP # Purchases / Avg Payable # TODO Confirm should this be COGS?
+				ratios.append(pd.DataFrame({'role': ['Payables Turnover'], 'value': [pay_turnover]}))
+			except KeyError:
+				# pay_turnover = 0
+				print('No Purchases for Payables Turnover calculation.')
+			try:
+				dop = 365 / pay_turnover # 365 / Pay Turnover
+				ratios.append(pd.DataFrame({'role': ['Number of Days of Payables (DoP)'], 'value': [dop]}))
+			except UnboundLocalError:
+				# dop = 0
+				print('No Payables Turnover for DoP calculation.')
+			try:
+				wc_turnover = total_revenue / avg_working_cap # Rev / Avg Working Capital
+				ratios.append(pd.DataFrame({'role': ['Working Capital Turnover'], 'value': [wc_turnover]}))
+				fa_turnover = total_revenue / avg_fixed_assets # Rev / Avg Fix Asset
+				ratios.append(pd.DataFrame({'role': ['Fixed Asset Turnover'], 'value': [fa_turnover]}))
+				asset_turnover = total_revenue / avg_total_assets # Rev / Avg Total Assets
+				ratios.append(pd.DataFrame({'role': ['Total Asset Turnover'], 'value': [asset_turnover]}))
+			except KeyError: # TODO Is this needed?
+				# wc_turnover = 0
+				# fa_turnover = 0
+				# asset_turnover = 0
+				print('No Total Revenue for Working Capital, Fixed Asset, or Total Asset Turnover calculations.')
 
-		# Solvency Ratios
-		debt_to_assets = total_liab / total_assets # Debt / Assets
-		ratios.append(pd.DataFrame({'role': ['Debt-to-assets ratio'], 'value': [debt_to_assets]}))
-		debt_to_capital = total_liab / (total_liab + total_equity) # Debt / Debt + Shareholder's Eq
-		ratios.append(pd.DataFrame({'role': ['Debt-to-capital ratio'], 'value': [debt_to_capital]}))
-		debt_to_equity = total_liab / total_equity # Debt / Shareholder's Eq
-		ratios.append(pd.DataFrame({'role': ['Debt-to-equity ratio'], 'value': [debt_to_equity]}))
-		fin_leverage_ratio = avg_total_assets / avg_total_equity # Avg Assets / Avg Equity
-		ratios.append(pd.DataFrame({'role': ['Financial leverage ratio'], 'value': [fin_leverage_ratio]}))
-		# 'Interest coverage' # EBIT / Interest Payments
-		# 'Fixed charge coverage' # Not implemented yet
+			# Liquidity Ratios
+			current_ratio = current_assets / current_liab # Cur Assets / Cur Liabilities
+			ratios.append(pd.DataFrame({'role': ['Current Ratio'], 'value': [current_ratio]}))
+			quick_ratio = (current_assets - inventory) / current_liab # Cur Assets less Inv / Cur Liab
+			ratios.append(pd.DataFrame({'role': ['Quick Ratio'], 'value': [quick_ratio]}))
+			cash_ratio = cash / current_liab # Cash / Cur Liab
+			ratios.append(pd.DataFrame({'role': ['Cash Ratio'], 'value': [cash_ratio]}))
+			# 'Defensive Interval Ratio' # Not implemented yet
+			ccc = doh + dso - dop # DOH + DSO - No Days of Pay
+			ratios.append(pd.DataFrame({'role': ['Cash Conversion Cycle'], 'value': [ccc]}))
 
-		# Profitability Ratios
-		gross_profit_margin = gross_margin - total_revenue # Gross Profit / Rev
-		ratios.append(pd.DataFrame({'role': ['Gross profit margin'], 'value': [gross_profit_margin]}))
-		operating_profit_margin = (net_income + int_exp + tax_exp) / total_revenue # Op Inc / Rev
-		ratios.append(pd.DataFrame({'role': ['Operating profit margin'], 'value': [gross_profit_margin]}))
-		pretax_margin = (net_income + tax_exp) / total_revenue # EBT / Rev
-		ratios.append(pd.DataFrame({'role': ['Pretax margin'], 'value': [pretax_margin]}))
-		net_profit_margin = net_income / total_revenue # Net Inc / Rev
-		ratios.append(pd.DataFrame({'role': ['Net profit margin'], 'value': [net_profit_margin]}))
-		operating_return_on_assets = (net_income + int_exp + tax_exp) / avg_total_assets # Op Inc / Avg Assets
-		ratios.append(pd.DataFrame({'role': ['Operating Return on Assets'], 'value': [operating_return_on_assets]}))
-		return_on_assets = net_income / avg_total_assets # Net Inc / Avg Assets
-		ratios.append(pd.DataFrame({'role': ['Return on Assets'], 'value': [return_on_assets]}))
-		return_on_total_capital = (net_income + int_exp + tax_exp) / (total_liab + total_equity) # EBIT / Debt + Equity
-		ratios.append(pd.DataFrame({'role': ['Return on total capital'], 'value': [return_on_total_capital]}))
-		return_on_equity = net_income / avg_total_equity # Net Inc / Avg Equity
-		ratios.append(pd.DataFrame({'role': ['Return on equity'], 'value': [return_on_equity]}))
+			# Solvency Ratios
+			debt_to_assets = total_liab / total_assets # Debt / Assets
+			ratios.append(pd.DataFrame({'role': ['Debt-to-assets ratio'], 'value': [debt_to_assets]}))
+			debt_to_capital = total_liab / (total_liab + total_equity) # Debt / Debt + Shareholder's Eq
+			ratios.append(pd.DataFrame({'role': ['Debt-to-capital ratio'], 'value': [debt_to_capital]}))
+			debt_to_equity = total_liab / total_equity # Debt / Shareholder's Eq
+			ratios.append(pd.DataFrame({'role': ['Debt-to-equity ratio'], 'value': [debt_to_equity]}))
+			fin_leverage_ratio = avg_total_assets / avg_total_equity # Avg Assets / Avg Equity
+			ratios.append(pd.DataFrame({'role': ['Financial leverage ratio'], 'value': [fin_leverage_ratio]}))
+			# 'Interest coverage' # EBIT / Interest Payments
+			# 'Fixed charge coverage' # Not implemented yet
 
-		dupont_analysis = net_profit_margin * asset_turnover * fin_leverage_ratio # Net profit margin * Total Asset Turnover * Financial leverage ratio
-		ratios.append(pd.DataFrame({'role': ['DuPont Analysis'], 'value': [dupont_analysis]}))
+			# Profitability Ratios
+			gross_profit_margin = gross_margin - total_revenue # Gross Profit / Rev
+			ratios.append(pd.DataFrame({'role': ['Gross profit margin'], 'value': [gross_profit_margin]}))
+			operating_profit_margin = (net_income + int_exp + tax_exp) / total_revenue # Op Inc / Rev
+			ratios.append(pd.DataFrame({'role': ['Operating profit margin'], 'value': [gross_profit_margin]}))
+			pretax_margin = (net_income + tax_exp) / total_revenue # EBT / Rev
+			ratios.append(pd.DataFrame({'role': ['Pretax margin'], 'value': [pretax_margin]}))
+			net_profit_margin = net_income / total_revenue # Net Inc / Rev
+			ratios.append(pd.DataFrame({'role': ['Net profit margin'], 'value': [net_profit_margin]}))
+			operating_return_on_assets = (net_income + int_exp + tax_exp) / avg_total_assets # Op Inc / Avg Assets
+			ratios.append(pd.DataFrame({'role': ['Operating Return on Assets'], 'value': [operating_return_on_assets]}))
+			return_on_assets = net_income / avg_total_assets # Net Inc / Avg Assets
+			ratios.append(pd.DataFrame({'role': ['Return on Assets'], 'value': [return_on_assets]}))
+			return_on_total_capital = (net_income + int_exp + tax_exp) / (total_liab + total_equity) # EBIT / Debt + Equity
+			ratios.append(pd.DataFrame({'role': ['Return on total capital'], 'value': [return_on_total_capital]}))
+			return_on_equity = net_income / avg_total_equity # Net Inc / Avg Equity
+			ratios.append(pd.DataFrame({'role': ['Return on equity'], 'value': [return_on_equity]}))
+
+			dupont_analysis = net_profit_margin * asset_turnover * fin_leverage_ratio # Net profit margin * Total Asset Turnover * Financial leverage ratio
+			ratios.append(pd.DataFrame({'role': ['DuPont Analysis'], 'value': [dupont_analysis]}))
 
 		ratios = pd.concat(ratios, ignore_index=True)
 		return ratios
@@ -2878,7 +2868,9 @@ def main(conn=None, command=None, external=False):
 				print(ebigutil)
 			if args.command is not None: exit()
 		elif command.lower() == 'ratio' or command.lower() == 'ratios':
-			ratios = ledger.ratio_analysis(v=True)
+			entity_id = input('Which entitie(s)? ')
+			date = input('Which date? ')
+			ratios = ledger.ratio_analysis(entity_id, date, v=False)
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 				print(ratios)
 			if args.command is not None: exit()
