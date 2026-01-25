@@ -179,7 +179,7 @@ class World:
 		self.ledger = ledger
 		global args
 		if args is None:
-			args = argparse.Namespace(database=None, command=None, delay=0, reset=False, random=True, seed=None, items=None, time=None, capital=1_000_000, governments=1, players=0, population=1, max_pop=None, users=0, win=False, pin=False, early=False, jones=False, inf_time=False, buffer_qty=0)
+			args = argparse.Namespace(database=None, command=None, delay=0, reset=False, random=True, seed=None, items=None, time=None, capital=1_000_000, governments=1, players=0, population=1, max_pop=None, users=0, win=False, pin=False, early=False, jones=False, inf_time=False, buffer_qty=0, verbose=False)
 		# World._instance = self
 		# self.accts = EntityFactory.get_accts()
 		# self.ledger = EntityFactory.get_ledger()  # Access shared Ledger
@@ -1179,7 +1179,6 @@ class World:
 		# to_drop = hist_hours[date_mask].head(args.population).index
 		# print('to_drop:', to_drop)
 		# hist_hours = hist_hours.drop(to_drop)
-		hist_hours['hours_remain'] = self.hist_hours.groupby('date')['hours'].transform('sum')
 		try:
 			# TODO Make dynamic to the list of needs
 			hist_hours['total_Thirst'] = self.hist_hours.groupby('date')['Thirst'].transform('sum')
@@ -1212,6 +1211,7 @@ class World:
 		except KeyError as e:
 			print(f'Util key error: {e}')
 		hist_hours['max_hours'] = self.hist_hours['population'] * MAX_HOURS
+		hist_hours['hours_remain'] = self.hist_hours.groupby('date')['hours'].transform('sum')
 		hist_hours['hours_used'] = hist_hours['max_hours'] - hist_hours['hours_remain']
 		hist_hours = hist_hours.drop_duplicates(subset='date')
 		if vv: print('\nhist_hours:\n', hist_hours)
