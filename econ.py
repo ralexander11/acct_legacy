@@ -1173,6 +1173,7 @@ class World:
 		# hist_hours['date'] = pd.to_datetime(hist_hours['date']).dt.strftime('%Y-%m-%d')
 		hist_hours['date'] = hist_hours['date'].astype(str)
 		hist_hours.drop(['entity_id'], axis=1, inplace=True)
+		print('hist_hours:\n', hist_hours)
 		# date_mask = hist_hours['date'] == '1986-10-01'
 		# print(hist_hours['date'] == '1986-10-01')
 		# print('date_mask:\n', date_mask)
@@ -3187,7 +3188,7 @@ class Entity:
 				if entries:
 					use_event += entries
 					if orig_uses != uses:
-						print('{} could not use {} {} as requested; was used {} times.'.format(self.name, item, orig_uses, uses))
+						print(f'{self.name} could not use {item} {orig_uses} as requested; was used {uses} times.')
 				else:
 					print('{} could not use {} {} as requested.'.format(self.name, item, uses))
 					incomplete = True
@@ -7955,11 +7956,10 @@ class Entity:
 				if days % 7 != 0:
 					return [], None
 			depreciation_event = []
-			if v: print('Asset Bal for {}: {}'.format(item, asset_bal))
 
-			modifier, items_info = self.check_productivity(metric, date=None, v=True) # For items that improve lifespan, like a fridge for food
+			modifier, items_info = self.check_productivity(metric, date=None, v=False) # For items that improve lifespan, like a fridge for food
 			print('modifier1:', modifier)
-			print('items_info1:\n', items_info)
+			# print('items_info1:\n', items_info)
 
 			print('unmodified_lifespan1:', lifespan)
 			if modifier is not None:
@@ -7971,23 +7971,24 @@ class Entity:
 			else:
 				modifier = 0
 
-			dep_amount = (asset_bal / lifespan) * uses
+			if v: print('Asset balance for {}: {}'.format(item, asset_bal))
+			dep_amount = (asset_bal / lifespan) * uses # TODO This is not straight line
 			if v: print('Depr. amount for {}: {}'.format(item, dep_amount))
 			accum_dep_bal = self.ledger.balance_sheet(accounts=['Accum. Depr.'], item=item) # Negative value
 			self.ledger.reset()
-			if v: print('Accumulated Depreciation for {}: {}'.format(item, accum_dep_bal))
-			if v: print('New Depr. bal for{}: {}'.format(item,abs(accum_dep_bal) + dep_amount))
+			if v: print('Accumulated depreciation for {}: {}'.format(item, accum_dep_bal))
+			if v: print('New accumulated depreciation for {}: {}'.format(item, accum_dep_bal - dep_amount))
 			remaining_amount = asset_bal + accum_dep_bal
-			if v: print('Remaining Amount for {}: {}'.format(item, remaining_amount))
+			if v: print('Remaining amount for {}: {}'.format(item, remaining_amount))
 			orig_uses = uses
 			if dep_amount >= remaining_amount:
 				dep_amount = max(dep_amount, remaining_amount)
 
-				uses = math.floor(remaining_amount / (asset_bal / lifespan))
+				uses = max(math.floor(remaining_amount / (asset_bal / lifespan)), 0)
 				# self.derecognize(item, 1, metric) # TODO Handle more than 1 qty
 				# dep_amount = (asset_bal / lifespan) * uses
 				new_qty = int(math.ceil((orig_uses - uses) / lifespan))
-				if v: print(f'Derecognize new dep_amount: {dep_amount} | new uses: {uses} | orig_uses: {orig_uses} | new_qty: {new_qty}')
+				if v: print(f'Derecognize from new depreciation amount: {dep_amount} | new uses: {uses} | orig_uses: {orig_uses} | new_qty: {new_qty}')
 				if new_qty == 1:
 					print('The {} breaks for the {}. Another {} is required to use.'.format(item, self.name, new_qty))
 				else:
@@ -8053,9 +8054,9 @@ class Entity:
 					#print('Inv Lot: \n{}'.format(inv_lot))
 					spoil_event = []
 
-					modifier, items_info = self.check_productivity(metric, date=None, v=True) # For items that improve lifespan, like a fridge for food
+					modifier, items_info = self.check_productivity(metric, date=None, v=False) # For items that improve lifespan, like a fridge for food
 					print('modifier2:', modifier)
-					print('items_info2:\n', items_info)
+					# print('items_info2:\n', items_info)
 					
 					print('unmodified_lifespan2:', lifespan)
 					if modifier is not None:
@@ -11349,13 +11350,15 @@ if __name__ == '__main__':
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
 # (python econ.py -db econ_2024-12-07.db -s 11 -p 4 -r -t 4 >> logs/econ_2024-12-07.log && say done) || say error
-# python econ.py -db econ_2024-12-07.db -s 11 -p 4 -mp 5 -r -t 1 >> logs/econ_2024-12-07.log
+# python econ.py -db econ_2024-12-07.db -s 11 -p 4 -mp 5 -r -t 1 >> logs/econ_2024-12-07.log; echo -e '\a'
 
 # (python econ.py -s 11 -p 4 -r -t 4 && say done) || say error
 # python econ.py -u
 # python econ.py -db mem -r; echo -e '\a'
+# python econ.py -db econ_2026-01-25.db -i items.csv -p 4 -mp 10 -r >> logs/econ_2026-01-25.log; echo -e '\a'
 # python econ.py -i items_basic.csv -p 2 -mp 5 -r >> logs/econ_depr01.log; echo -e '\a'
 
+# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-01-25.log ~/dev/acct_legacy/logs/econ_2026-01-25.log
 
 # TODO
 # Add a new column to items called fulfill
