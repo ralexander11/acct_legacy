@@ -77,6 +77,7 @@ Wood,None,None,None,Commodity,"Forest, Lumberjack","1, 0.1",None,None,None,None,
 Clay,None,None,None,Commodity,"Wetlands, Miner","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,5,None,None,None,"Quarry, Mine"
 Rock,None,None,None,Commodity,"Rocky Land, Miner","1, 0.1",None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,10,None,None,None,"Quarry, Mine"
 Ore,None,None,None,Commodity,"Mountain, Miner","1, 0.2",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,20,None,None,None,Mine
+Grease,None,None,start,Equipment,Miner,1,12,None,None,None,None,None,None,None,usage,0.5,1000,ticks,None,None,None,100,None,None,None,Individual
 Bellows,None,None,None,Components,"Wild Leather, Wood","2, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,10,None,None,None,"Blacksmith, Carpenter"
 Cotton,None,None,None,Commodity,"Arable Land, Cultivator","1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Farm
 #Cotton,None,None,None,Commodity,"Growing, Arable Land, Cultivator","4, 1, 1",None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,1,None,None,None,Farm

@@ -1921,6 +1921,7 @@ class World:
 		for entity in self.factory.get(users=False):#(Corporation):
 			print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
 			entity.check_optional(v=args.verbose)
+			entity.check_preserv(v=args.verbose)
 			entity.check_inv()
 			if self.end_turn(check_hrs=True, user_check=user_check): return
 			# entity.tech_motivation()
@@ -6626,6 +6627,32 @@ class Entity:
 		world.demand['demand_id'] = range(len(world.demand))
 		print('Demand check end:')
 		print(world.demand)
+
+	def check_preserv(self, priority=False, v=False): # TODO Make better name
+		if isinstance(self, (Environment)):
+			return
+		self.ledger.set_entity(self.entity_id)
+		inv = self.ledger.get_qty()
+		self.ledger.reset()
+		if v: print('inv:\n', inv)
+		items = inv['item_id'].tolist()
+		if v: print('items:\n', items)
+		dep_types = world.items[world.items.index.isin(items)]['metric']
+		dep_types = dep_types.dropna().str.split(',').explode().str.strip().unique().tolist()
+		if v: print('dep_types:\n', dep_types) # TODO Could have the func end here and return this?
+		for dep_type in dep_types:
+			preservers = world.items[world.items['productivity'].str.contains(dep_type, na=False)]
+			if v: print(f'Preservers for dep_type {dep_type}:\n', preservers.index.tolist())
+			if preservers.empty:
+				continue
+			for index, preserver in preservers.iterrows():
+				if v: print('preserver:', preserver.name)
+				if not self.check_eligible(preserver.name):
+					continue
+				print('inv_check:', inv['item_id'].values)
+				if preserver.name not in inv['item_id'].values:
+					result = self.purchase(preserver.name, qty=1, priority=priority, v=v)
+					if v: print('result:\n', result)
 
 	def check_optional(self, priority=False, v=True):
 		if self.produces is None:
