@@ -2076,6 +2076,8 @@ class World:
 			print()
 			print('Global Experience:\n{}'.format(self.exp))
 			print()
+			print('Technology:\n{}'.format(self.tech))
+			print()
 			print('Delays end:\n{}'.format(self.delay))
 			# print()
 			# print(f'Prices end:\n{prices_report}')
@@ -9912,8 +9914,9 @@ class Individual(Entity):
 		cur.close()
 		print('Entities db table updated.')
 		if self.needs[need]['Current Need'] <= 0:
-			self.reset_hours()
+			# self.reset_hours()
 			self.inheritance(bequeath=not seppuku)
+			self.set_hours(MAX_HOURS)
 			self.factory.destroy(self)
 			if forced:
 				print('{} died due to natural causes.'.format(self.name))
@@ -10120,6 +10123,26 @@ class Individual(Entity):
 				cp_job, event_id = self.get_counterparty(hire_txns, rvsl_txns, item, 'Worker Info')
 				for _ in range(worker_state): # TODO This for loop shouldn't be necessary
 					self.fire_worker(item, cp_job, quit=True)
+
+		# Drop any current ressearch
+		self.ledger.set_entity(self.entity_id)
+		current_research = self.ledger.get_qty(accounts=['Researching Technology'])
+		self.ledger.reset()
+		print('current_research:\n', current_research)
+		for index, research in current_research.iterrows():
+			research_item = research['item_id']
+			research_state = research['qty']
+			print(f'Dropping research for item: {research_item} | {research_state}')
+			if research_state >= 1:
+				print(f'{self.name} dropping their research on {research_item}:\n{world.delay}\n{world.tech}')
+				world.delay = world.delay.loc[world.delay['item_id'] != research_item].reset_index(drop=True)
+				world.set_table(world.delay, 'delay')
+				world.tech = world.tech.loc[world.tech['entity_id'] != self.entity_id].reset_index(drop=True)
+				if self.user:
+					world.tech = world.tech.loc[world.tech['technology'] != research_item].reset_index(drop=True)
+				# world.tech.at[research_item, 'status'] = 'dead'
+				world.set_table(world.tech, 'tech')
+				print(f'{self.name} dropped their research on {research_item}:\n{world.delay}\n{world.tech}')
 
 		# Cancel any current subscriptions
 		self.ledger.set_entity(self.entity_id)
@@ -11385,7 +11408,8 @@ if __name__ == '__main__':
 # python econ.py -db econ_2026-01-25.db -i items.csv -p 4 -mp 10 -r >> logs/econ_2026-01-25.log; echo -e '\a'
 # python econ.py -i items_basic.csv -p 2 -mp 5 -r >> logs/econ_depr01.log; echo -e '\a'
 
-# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-01-25.log ~/dev/acct_legacy/logs/econ_2026-01-25.log
+# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-01-26.log ~/dev/acct_legacy/logs/
+# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/db/econ_2026-01-26.db ~/dev/acct_legacy/db/
 
 # TODO
 # Add a new column to items called fulfill
