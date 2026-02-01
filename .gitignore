@@ -99,3 +99,4 @@ logs/
 stmt_scrub.py
 ~*.xlsx
 .ipynb_checkpoints/
+service_account.json
