@@ -7996,7 +7996,8 @@ class Entity:
 				print('modified_lifespan1:', lifespan)
 				mod_item = items_info['item_id'].iloc[0]
 				mod_entry = self.use_item(mod_item, buffer=True)
-				depreciation_event += [mod_entry]
+				if isinstance(mod_entry, list):
+					depreciation_event += [mod_entry]
 			else:
 				modifier = 0
 
@@ -8093,7 +8094,8 @@ class Entity:
 						print('modified_lifespan2:', lifespan)
 						mod_item = items_info['item_id'].iloc[0]
 						mod_entry = self.use_item(mod_item, buffer=True)
-						spoil_event += mod_entry
+						if isinstance(mod_entry, list):
+							spoil_event += mod_entry
 					else:
 						modifier = 0
 
@@ -10566,6 +10568,7 @@ class Individual(Entity):
 					if entries is True:
 						entries = []
 					event += entries
+					print(f'Entries from using {item_choosen}:\n{event}')
 					self.ledger.journal_entry(event)
 					return event
 				break
