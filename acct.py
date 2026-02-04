@@ -637,14 +637,14 @@ class Accounts:
 	def load_from_web(self, sheet=None, key=None, tab=None, data_type=None):
 		import pygsheets
 
-		if sheet is None:
-			sheet = input('Enter the sheet name: ')
-			if sheet == '':
-				sheet = 'Res GL'
-		if key is None and sheet is None:
+		if key is None:
 			key = input('Enter the key ID: ')
 			if key == '':
 				key = None
+		if sheet is None and key is None:
+			sheet = input('Enter the sheet name: ')
+			if sheet == '':
+				sheet = 'Res GL'
 		if tab is None:
 			tab = input('Enter the tab name: ')
 			if tab == '':
@@ -1766,7 +1766,7 @@ class Ledger:
 				try:
 					datetime.datetime.strptime(date, '%Y-%m-%d')
 				except ValueError:
-					raise ValueError('Incorrect data format, should be YYYY-MM-DD.')
+					raise ValueError('Incorrect date format, should be YYYY-MM-DD.')
 
 				if qty == '': # TODO No qty and price default needed now
 					qty = np.nan
@@ -1801,12 +1801,44 @@ class Ledger:
 			cur.close()
 		self.refresh_ledger()
 
-	def load_gl(self, infile=None, flag=None):
-		if infile is None:
+	def load_gl_from_web(self, sheet=None, key=None, tab=None):
+		import pygsheets
+
+		if key is None:
+			key = input('Enter the key ID: ')
+			if key == '':
+				key = None
+		if sheet is None and key is None:
+			sheet = input('Enter the sheet name: ')
+			if sheet == '':
+				sheet = 'Res GL'
+		if tab is None:
+			tab = input('Enter the tab name: ')
+			if tab == '':
+				tab = 'Sheet1'
+				# tab = 'CoA'
+
+		print(f'Loading general ledger data from sheet: {sheet} | key: {key} | tab: {tab}')
+		gc = pygsheets.authorize(service_file='service_account.json')
+		if key is not None:
+			sh = gc.open_by_key(key)
+		elif sheet is not None:
+			sh = gc.open(sheet)
+		else:
+			print('Error: Must provide either sheet name or key ID.')
+			return
+
+		df = sh.worksheet_by_title(tab).get_as_df()
+		print(f'Loaded from {sheet} on tab {tab}:\n{df}')
+		self.load_gl(data=df)
+		return df
+
+	def load_gl(self, infile=None, flag=None, data=None):
+		if infile is None and data is None:
 			infile = input('Enter a filename: ')
 			#infile = 'data/rbc_sample_2019-01-27.csv' # For testing
 			#infile = 'data/legacy_ledger_2019-01-25.csv' # For testing
-		if flag is None:
+		if flag is None and data is None:
 			flag = input('Enter a flag (rbc, legacy, or none): ')
 			#flag = 'rbc' # For testing
 			#flag = 'legacy' # For testing
@@ -1817,8 +1849,12 @@ class Ledger:
 				else:
 					load_gl = pd.read_csv(f, keep_default_na=False)
 		except Exception as e:
-			print('Error: {} | {}'.format(e, repr(e)))
-			load_gl = pd.DataFrame()
+			if isinstance(data, pd.DataFrame):
+				print(f'Load data directly from df:')
+				load_gl = pd.DataFrame(data)
+			else:
+				print('Error: {} | {}'.format(e, repr(e)))
+				load_gl = pd.DataFrame()
 		print(load_gl)
 		print('-' * DISPLAY_WIDTH)
 		if flag == 'rbc':
@@ -2938,6 +2974,9 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'loadweb':
 			accts.load_from_web()
+			if args.command is not None: exit()
+		elif command.lower() == 'loadwebgl':
+			ledger.load_gl_from_web()
 			if args.command is not None: exit()
 		elif command.lower() == 'loadentities':
 			accts.load_entities()
