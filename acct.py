@@ -7,6 +7,7 @@ import logging
 import warnings
 import time
 import sys
+import yaml
 # try:
 # 	from rich import print
 # except ImportError:
@@ -462,7 +463,7 @@ class Accounts:
 		self.refresh_accts()
 
 	def add_acct(self, acct_data=None, v=False):
-		if acct_data:
+		if acct_data is not None:
 			if isinstance(acct_data, pd.DataFrame):
 				acct_data = acct_data.values.tolist()
 			elif isinstance(acct_data, pd.Series):
@@ -633,6 +634,46 @@ class Accounts:
 		cur.close()
 		return tables
 
+	def load_from_web(self, sheet=None, key=None, tab=None, data_type=None):
+		import pygsheets
+
+		if sheet is None:
+			sheet = input('Enter the sheet name: ')
+			if sheet == '':
+				sheet = 'Res GL'
+		if key is None and sheet is None:
+			key = input('Enter the key ID: ')
+			if key == '':
+				key = None
+		if tab is None:
+			tab = input('Enter the tab name: ')
+			if tab == '':
+				tab = 'Sheet1'
+		if data_type is None:
+			data_type = input('Enter the data type [accounts, gl, items, entities]: ')
+			if data_type == '':
+				data_type = 'accounts'
+
+		print(f'Loading {data_type} data from sheet: {sheet} | key: {key} | tab: {tab}')
+		gc = pygsheets.authorize(service_file='service_account.json')
+		if key is not None:
+			sh = gc.open_by_key(key)
+		elif sheet is not None:
+			sh = gc.open(sheet)
+		else:
+			print('Error: Must provide either sheet name or key ID.')
+			return
+
+		df = sh.worksheet_by_title(tab).get_as_df()
+		print(f'Loaded from {sheet} on tab {tab}:\n{df}')
+		if data_type == 'accounts':
+			self.add_acct(df)
+		elif data_type == 'entities':
+			self.add_entity(df)
+		elif data_type == 'items':
+			self.add_item(df)
+		return df
+
 	def load_csv(self, infile=None):
 		if infile is None:
 			infile = input('Enter a filename: ')
@@ -640,6 +681,9 @@ class Accounts:
 			infile = infile + '.csv'
 		if 'data/' not in infile: # TODO Make this able to handle other locations
 			infile = 'data/' + infile
+		if isinstance(infile, pd.DataFrame):
+			lol = infile.values.tolist()
+			return lol
 		print(f'Loading csv data from: {infile}')
 		try:
 			with open(infile, 'r') as f:
@@ -2892,6 +2936,9 @@ def main(conn=None, command=None, external=False):
 		elif command.lower() == 'removeitem':
 			accts.remove_item()
 			if args.command is not None: exit()
+		elif command.lower() == 'loadweb':
+			accts.load_from_web()
+			if args.command is not None: exit()
 		elif command.lower() == 'loadentities':
 			accts.load_entities()
 			if args.command is not None: exit()
@@ -3007,6 +3054,7 @@ def main(conn=None, command=None, external=False):
 				'addentity': '',
 				'additem': '',
 				'removeitem': '',
+				'loadweb': '',
 				'loadentities': '',
 				'loaditems': '',
 				'exporttable': '',
