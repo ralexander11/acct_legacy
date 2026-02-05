@@ -2510,7 +2510,7 @@ class Ledger:
 		for _, role in roles.iterrows():
 			# print(f'role_name {_}:\n', role[0])
 			flip = 1
-			if _ > 16 and _ < 26 or _ > 36:
+			if _ > 15 and _ < 26 or _ > 36:
 				flip = -1
 			value = self.sum_role(role[0], v=v)
 			value *= flip
@@ -2529,7 +2529,8 @@ class Ledger:
 		tax_exp = ratios[ratios['role'] == 'Tax Expenses']['value'].values[0] + ratios[ratios['role'] == 'Deferred Tax Expense']['value'].values[0]
 		ratios = [ratios]
 
-		# Calc element totals		
+		# Calc element totals
+		ratios.append(pd.DataFrame({'role': ['Totals'], 'value': ['']}))
 		current_assets = ratios[0].loc[0:6,'value'].sum()
 		ratios.append(pd.DataFrame({'role': ['Current Assets'], 'value': [current_assets]}))
 		fixed_assets = ratios[0].loc[7:15,'value'].sum()
@@ -2561,6 +2562,7 @@ class Ledger:
 		ratios.append(pd.DataFrame({'role': ['Net Income'], 'value': [net_income]}))
 
 		# Calculate additional avg totals
+		ratios.append(pd.DataFrame({'role': ['Average Totals'], 'value': ['']}))
 		## Get prior annual date for averages
 		from dateutil.relativedelta import relativedelta
 		first_date = self.oldest_date(v=False)
@@ -2576,7 +2578,7 @@ class Ledger:
 		for _, role in roles.iterrows():
 			# print('prior_role_name:\n', role[0])
 			flip = 1
-			if _ > 16 and _ < 26 or _ > 36:
+			if _ > 15 and _ < 26 or _ > 36:
 				flip = -1
 			prior_value = self.sum_role(role[0], v=v)
 			prior_value *= flip
@@ -2642,6 +2644,7 @@ class Ledger:
 		ratios = [pd.concat(ratios, ignore_index=True)]
 
 		# Calculate financial ratios
+		ratios.append(pd.DataFrame({'role': ['Financial Ratios'], 'value': ['']}))
 		with np.errstate(invalid='ignore', divide='ignore'):
 			# Activity Ratios
 			try:
@@ -2694,6 +2697,7 @@ class Ledger:
 				print('No Total Revenue for Working Capital, Fixed Asset, or Total Asset Turnover calculations.')
 
 			# Liquidity Ratios
+			ratios.append(pd.DataFrame({'role': ['Liquidity Ratios'], 'value': ['']}))
 			current_ratio = current_assets / current_liab # Cur Assets / Cur Liabilities
 			ratios.append(pd.DataFrame({'role': ['Current Ratio'], 'value': [current_ratio]}))
 			quick_ratio = (current_assets - inventory) / current_liab # Cur Assets less Inv / Cur Liab
@@ -2705,6 +2709,7 @@ class Ledger:
 			ratios.append(pd.DataFrame({'role': ['Cash Conversion Cycle'], 'value': [ccc]}))
 
 			# Solvency Ratios
+			ratios.append(pd.DataFrame({'role': ['Solvency Ratios'], 'value': ['']}))
 			debt_to_assets = total_liab / total_assets # Debt / Assets
 			ratios.append(pd.DataFrame({'role': ['Debt-to-assets ratio'], 'value': [debt_to_assets]}))
 			debt_to_capital = total_liab / (total_liab + total_equity) # Debt / Debt + Shareholder's Eq
@@ -2717,6 +2722,7 @@ class Ledger:
 			# 'Fixed charge coverage' # Not implemented yet
 
 			# Profitability Ratios
+			ratios.append(pd.DataFrame({'role': ['Profitability Ratios'], 'value': ['']}))
 			gross_profit_margin = gross_margin / total_revenue # Gross Profit / Rev
 			ratios.append(pd.DataFrame({'role': ['Gross profit margin'], 'value': [gross_profit_margin]}))
 			operating_profit_margin = (net_income + int_exp + tax_exp) / total_revenue # Op Inc / Rev
