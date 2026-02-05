@@ -230,6 +230,7 @@ class Accounts:
 			('Revenue','Equity',''),
 			('Expense','Equity',''),
 			('Transfer','Equity',''),
+			# ('','Transfer',''),
 		]
 
 		personal = [
@@ -650,7 +651,7 @@ class Accounts:
 			if tab == '':
 				tab = 'Sheet1'
 		if data_type is None:
-			data_type = input('Enter the data type [accounts, gl, items, entities]: ')
+			data_type = input('Enter the data type [accounts, items, entities]: ')
 			if data_type == '':
 				data_type = 'accounts'
 
@@ -1073,6 +1074,28 @@ class Ledger:
 		# Rev    - Credit bal - Pos : Dr. = neg & Cr. = pos
 		# Exp    - Debit  bal - Pos : Dr. = pos & Cr. = neg
 
+
+		# TODO try using below optimization logic
+		# # 1. Group everything at once (much faster than a loop)
+		# debit_sums = self.gl.groupby('debit_acct')['amount'].sum()
+		# credit_sums = self.gl.groupby('credit_acct')['amount'].sum()
+
+		# # 2. Reindex to match your 'assets' list (this handles missing accounts automatically)
+		# # This replaces the try...except logic: missing accounts become 0.0
+		# debits = debit_sums.reindex(assets, fill_value=0)
+		# credits = credit_sums.reindex(assets, fill_value=0)
+
+		# # 3. Vectorized calculation
+		# balances = debits - credits
+		# asset_bal = balances.sum()
+
+		# # 4. Prepare the final DataFrame efficiently
+		# if all_accts:
+		#     new_data = pd.DataFrame({'line_item': assets, 'balance': balances.values})
+		#     self.bs = pd.concat([self.bs, new_data], ignore_index=True)
+
+
+
 	def balance_sheet(self, accounts=None, item=None, gl=None, v=False): # TODO Needs to be optimized with:
 		# t1_start = time.perf_counter()
 		#self.gl['debit_acct_type'] = self.gl.apply(lambda x: self.get_acct_elem(x['debit_acct']), axis=1)
@@ -1361,7 +1384,7 @@ class Ledger:
 		accts = self.coa[self.coa['acct_role'] == role].index.tolist()
 		if v: print('Accounts for role {}: {}'.format(role, accts))
 		# Get balance for those accounts
-		amount = self.balance_sheet(accts)
+		amount = self.balance_sheet(accts, v=v)
 		if v: print('Amount for role {}: {:,.2f}'.format(role, amount))
 		return amount
 
@@ -1815,8 +1838,7 @@ class Ledger:
 		if tab is None:
 			tab = input('Enter the tab name: ')
 			if tab == '':
-				tab = 'Sheet1'
-				# tab = 'CoA'
+				tab = 'Sheet1gl'
 
 		print(f'Loading general ledger data from sheet: {sheet} | key: {key} | tab: {tab}')
 		gc = pygsheets.authorize(service_file='service_account.json')
@@ -2476,7 +2498,7 @@ class Ledger:
 			print('{} data saved to: {}'.format('inv_hist', save_location + outfile))
 		return hist_inv
 
-	def ratio_analysis(self, entity=None, date=None, v=False):
+	def ratio_analysis(self, entity=None, date=None, save=True, v=False):
 		if date is None or date == '':
 			date = self.latest_date(v=False)
 		self.set_date(date)
@@ -2486,8 +2508,12 @@ class Ledger:
 		# print('Roles:', roles)
 		ratios = []
 		for _, role in roles.iterrows():
-			# print('role_name:\n', role[0])
+			# print(f'role_name {_}:\n', role[0])
+			flip = 1
+			if _ > 16 and _ < 26 or _ > 36:
+				flip = -1
 			value = self.sum_role(role[0], v=v)
+			value *= flip
 			ratios.append(pd.DataFrame({'role': [role[0]], 'value': [value]}))
 		ratios = pd.concat(ratios, ignore_index=True)
 
@@ -2549,7 +2575,11 @@ class Ledger:
 		# print(current_roles)
 		for _, role in roles.iterrows():
 			# print('prior_role_name:\n', role[0])
+			flip = 1
+			if _ > 16 and _ < 26 or _ > 36:
+				flip = -1
 			prior_value = self.sum_role(role[0], v=v)
+			prior_value *= flip
 			priors.append(pd.DataFrame({'role': ['Prior ' + role[0]], 'value': [prior_value]}))
 		priors = pd.concat(priors, ignore_index=True)
 		# print('Priors:\n', priors)
@@ -2580,7 +2610,7 @@ class Ledger:
 			print('No AR for prior date:', past_date)
 		# Avg Pay
 		try:
-			prior_AP = self.sum_role('Accounts Payable', v=v)
+			prior_AP = self.sum_role('Accounts Payable', v=v) * -1
 			avg_AP = (prior_AP + ap) / 2
 			ratios.append(pd.DataFrame({'role': ['Avg Accounts Payable'], 'value': [avg_AP]}))
 		except KeyError:
@@ -2687,7 +2717,7 @@ class Ledger:
 			# 'Fixed charge coverage' # Not implemented yet
 
 			# Profitability Ratios
-			gross_profit_margin = gross_margin - total_revenue # Gross Profit / Rev
+			gross_profit_margin = gross_margin / total_revenue # Gross Profit / Rev
 			ratios.append(pd.DataFrame({'role': ['Gross profit margin'], 'value': [gross_profit_margin]}))
 			operating_profit_margin = (net_income + int_exp + tax_exp) / total_revenue # Op Inc / Rev
 			ratios.append(pd.DataFrame({'role': ['Operating profit margin'], 'value': [gross_profit_margin]}))
@@ -2708,6 +2738,11 @@ class Ledger:
 			ratios.append(pd.DataFrame({'role': ['DuPont Analysis'], 'value': [dupont_analysis]}))
 
 		ratios = pd.concat(ratios, ignore_index=True)
+		if save:
+			save_location = 'data/'
+			outfile = 'ratios' + datetime.datetime.today().strftime('_%Y-%m-%d_%H-%M-%S') + '.csv'
+			ratios.to_csv(save_location + outfile, date_format='%Y-%m-%d', index=True)
+			print('Ratio analysis saved to: {}'.format(save_location + outfile))
 		return ratios
 
 
@@ -2949,6 +2984,8 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'ratio' or command.lower() == 'ratios':
 			entity_id = input('Which entitie(s)? ')
+			if entity_id == '':
+				entity_id = '1'
 			date = input('Which date? ')
 			ratios = ledger.ratio_analysis(entity_id, date, v=False)
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
