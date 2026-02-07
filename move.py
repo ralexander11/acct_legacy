@@ -1417,7 +1417,9 @@ class CivRPG(App):
     #             ]
 
     def __init__(self, map_name, start_loc, view_size=None, num_players=1, filename=None):
+        print(f'CivRPG init start. num_players: {num_players}')
         super().__init__()
+        print('CivRPG super init done.')
         self.turn = 1
         self.stdout_redirector = None
         self.stdin_redirector = None
