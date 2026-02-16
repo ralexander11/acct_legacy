@@ -11411,8 +11411,8 @@ if __name__ == '__main__':
 # python econ.py -db econ_2026-01-25.db -i items.csv -p 4 -mp 10 -r >> logs/econ_2026-01-25.log; echo -e '\a'
 # python econ.py -i items_basic.csv -p 2 -mp 5 -r >> logs/econ_depr01.log; echo -e '\a'
 
-# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-02-01.log ~/dev/acct_legacy/logs/
-# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/db/econ_2026-02-01.db ~/dev/acct_legacy/db/
+# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-02-10.log ~/dev/acct_legacy/logs/
+# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/db/econ_2026-02-10.db ~/dev/acct_legacy/db/
 
 # TODO
 # Add a new column to items called fulfill
