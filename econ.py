@@ -1918,17 +1918,22 @@ class World:
 
 		print(time_stamp() + 'Current Date 05: {}'.format(self.now))
 		t5_start = time.perf_counter()
+		print('Check putting items up for sale:')
+		for entity in self.factory.get(users=False):
+			print('Sale check for: {} | {}'.format(entity.name, entity.entity_id))
+			entity.sale_check()
+
 		print('Check Optional Items:')
 		for entity in self.factory.get(users=False):#(Corporation):
 			print('\nOptional check for: {} | {}'.format(entity.name, entity.entity_id))
 			entity.check_optional(v=args.verbose)
 			entity.check_preserv(v=args.verbose)
 			entity.check_inv()
-			if self.end_turn(check_hrs=True, user_check=user_check): return
 			# entity.tech_motivation()
 			if isinstance(entity, Corporation):
 				# entity.list_shareholders(largest=True)
 				entity.dividend()
+			if self.end_turn(check_hrs=True, user_check=user_check): return
 		t5_end = time.perf_counter()
 		print(time_stamp() + '5: Optional check took {:,.2f} min.\n'.format((t5_end - t5_start) / 60))
 		print()
@@ -2788,7 +2793,7 @@ class Entity:
 		qty_on_hand = self.ledger.get_qty(items=item, accounts=[item_type])
 		self.ledger.reset()
 		if v: print('{} has {} {} on hand.'.format(self.name, qty, item))
-		if qty_on_hand >= qty:
+		if qty_on_hand >= qty: # TODO Maybe if not enough on hand, take the min of on_hand and qty
 			self.ledger.set_entity(self.entity_id)
 			if v: print('{} getting historical cost of {} {}.'.format(self.name, qty, item))
 			cost_amt = self.ledger.hist_cost(qty, item, item_type)#, v=True)
@@ -2800,14 +2805,41 @@ class Entity:
 		else:
 			if v: print('{} does not have {} {} to put up for sale. Qty on hand: {}'.format(self.name, qty, item, qty_on_hand))
 
-	def check_sale(self, thresh=1, v=True):
+	def check_sale(self, thresh=1, v=True): # TODO This functionality exists already haha
 		self.ledger.set_entity(self.entity_id)
-		items_on_hand = self.ledger.get_qty(accounts=['Equipment'])
+		items_on_hand = self.ledger.get_qty(accounts=['Equipment', 'Buildings'])
 		self.ledger.reset()
 		if v: print('items_on_hand:', items_on_hand)
 		for _, item in items_on_hand.iterrows():
 			if item['qty'] > tresh:
-				self.sale(self, item['item_id'], item['qty'] - tresh)
+				self.sale(item['item_id'], item['qty'] - tresh)
+
+	def sale_check(self, item=None, v=True): # TODO This functionality exists already haha
+		# self.ledger.refresh_ledger() # TODO Is this needed?
+		if v: print('Running sale_equip_check for:', item)
+		self.ledger.set_entity(self.entity_id)
+		items_on_hand = self.ledger.get_qty(items=item, accounts=['Land', 'Equipment', 'Buildings'])#, v=v)
+		self.ledger.reset()
+		for _, item_data in items_on_hand.iterrows():
+			item = item_data['item_id']
+			current_qty = item_data['qty']
+			if v: print('sale_check current_qty:', current_qty)
+			if current_qty == 0:
+				if v: print(f'{self.name} current_qty is 0 for {item}, will return early.')
+				return
+			rvsl_txns = self.ledger.gl[self.ledger.gl['description'].str.contains('RVSL')]['event_id'] # Get list of reversals
+			if v: print('rvsl_txns for sale_check:\n', rvsl_txns)
+			use_item_txns = self.ledger.gl[(self.ledger.gl['debit_acct'].isin(['Depr. Expense'])) & (self.ledger.gl['credit_acct'].isin(['Accum. Depr.'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (self.ledger.gl['item_id'].isin([item])) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]
+			if v: print('use_item_txns for sale_check:\n', use_item_txns)
+			use_item_txns = use_item_txns[use_item_txns['description'].str.contains('usage')]
+			if v: print('usage use_item_txns for sale_check:\n', use_item_txns)
+			max_qty = use_item_txns.groupby('event_id').size().max()
+			if v: print('max_qty used:', max_qty)
+			if v: print('max_qty used type:', type(max_qty))
+			if current_qty >= max_qty:
+				excess_qty = current_qty - max_qty
+				print(f'{self.name} sale_check for {item} excess_qty: {excess_qty} | current_qty: {current_qty} | max_qty: {max_qty}')
+				self.sale(item, excess_qty)
 
 	def gift(self, item, qty, counterparty, account=None):
 		gift_event = []
@@ -3527,7 +3559,7 @@ class Entity:
 				land = self.ledger.get_qty(items=req_item, accounts=['Land']) # TODO Should I factor in Land In Use also?
 				qty_needed = req_qty * (1-modifier) * qty
 				max_land = self.max_land(item)
-				unused_land = world.unused_land(item=req_item, entity_id=1, v=True)#v
+				unused_land = world.unused_land(item=req_item, entity_id=1, v=v)
 				print('unused_land total:', unused_land)
 				orig_qty_needed = 0
 				if unused_land <= MAX_HOURS and unused_land != 0: # This is for the items_basic.csv econ, to test a land owner owning all the land.
@@ -5802,7 +5834,7 @@ class Entity:
 					result += wip_event
 			return result
 
-	def sale_equip_check(self, item, v=False):
+	def sale_equip_check(self, item, v=False): # TODO This functionality exists already haha
 		# self.ledger.refresh_ledger() # TODO Is this needed?
 		if v: print('Running sale_equip_check for:', item)
 		self.ledger.set_entity(self.entity_id)

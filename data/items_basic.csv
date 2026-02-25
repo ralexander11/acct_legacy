@@ -20,6 +20,6 @@ Environment,None,None,None,None,None,None,None,None,None,None,None,None,None,Non
 Land,1,0,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Grassland,1,10,None,Land,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
 Harvester,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Apple,None,None,None,Commodity,"Grassland, Harvester","5, 3",None,None,None,None,None,None,Hunger,1,None,None,2,spoilage,None,None,None,1,None,None,None,Individual
-Basket Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
-Basket,None,None,start,Equipment,Basket Weaving,18,12,None,None,None,None,None,None,None,"spoilage","0.5","50, 1000","usage, ticks",None,None,None,100,None,None,None,Individual
+Apple,None,None,None,Commodity,"Grassland, Harvester","5, 3",None,None,None,None,None,None,Hunger,1,None,None,2,spoilage,None,None,None,1,None,None,None,Orchard
+#Basket Weaving,None,None,None,Labour,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None
+#Basket,None,None,start,Equipment,Basket Weaving,18,12,None,None,None,None,None,None,None,"spoilage","0.5","50, 1000","usage, ticks",None,None,None,100,None,None,None,Individual
