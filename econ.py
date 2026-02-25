@@ -6015,11 +6015,12 @@ class Entity:
 			# qty = 5000 # TODO Fix temp defaults
 			demand_qty = world.demand.loc[world.demand['item_id'] == item]['qty'].sum()
 			raw_mats = self.get_raw(item, demand_qty)
+			print('raw_mats:', raw_mats.iloc[-1]['qty'])
 			try:
 				qty = raw_mats.iloc[-1]['qty'] * INIT_PRICE * INC_BUFFER
 			except AttributeError as e:
 				qty = None
-			print(f'{item} ({demand_qty}) incorp amount: {qty}')
+			print(f'{item} ({demand_qty}) incorp amount {qty}:')
 		if auth_qty is None:
 			auth_qty = 100000 # TODO Determine dynamically?
 		if qty is None:
@@ -6059,7 +6060,11 @@ class Entity:
 				#print('Cash: {}'.format(cash))
 				if price * founder_qty > founder_cash:
 					print('{} does not have enough cash to incorporate {}. Cash: {} | Required: {}'.format(founder.name, name, founder_cash, price * founder_qty))
-					return
+					if args.capital <= 1000: # This is for the items_basic.csv econ, to test a small initial capital.
+						price = founder_cash / founder_qty
+						print(f'Set price to {price} since initial capital is low. | {args.capital}')
+					else:
+						return
 		items_produced = world.items[world.items['producer'].str.contains(name, na=False)].reset_index()
 		items_produced = items_produced['item_id'].tolist()
 		items_produced = ', '.join(items_produced)
@@ -6088,6 +6093,8 @@ class Entity:
 
 	def corp_needed(self, item=None, qty=0, need=None, ticker=None, demand_index=None, v=False):
 		# Choose the best item
+		if args.items == 'items_basic.csv':
+			MAX_CORPS = 1
 		if item is None and need is not None:
 			items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
 			if items_info.empty:
@@ -10785,6 +10792,8 @@ class Corporation(Organization):
 		#print('{} cash: {}'.format(self.name, cash))
 		if div_rate is None:
 			div_rate = round(amount / total_shares, 2)
+			if div_rate == 0:
+				return
 		if cash < total_shares * div_rate:
 			print('{} does not have enough cash to pay dividend at a rate of {}. Cash: {}'.format(self.name, div_rate, cash))
 			return
@@ -10814,7 +10823,7 @@ class Corporation(Organization):
 		cash_exp_txns = self.ledger.gl[(self.ledger.gl['credit_acct'].isin(['Cash'])) & (~self.ledger.gl['debit_acct'].isin(['Dividends'])) & (self.ledger.gl['entity_id'] == self.entity_id) & (pd.to_datetime(self.ledger.gl['date']) >= cutoff) & (~self.ledger.gl['event_id'].isin(rvsl_txns))]#346,124.19
 		operating_reserve = cash_exp_txns['amount'].sum()
 		if v: print('div operating_reserve:', operating_reserve)
-		if operating_reserve > cash:
+		if operating_reserve > cash or operating_reserve == 0:
 			return
 		excess = round(cash - operating_reserve, 2)
 		excess = round(excess / 2, 2) # TODO Make 2 a global constant
