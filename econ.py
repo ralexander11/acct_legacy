@@ -1093,6 +1093,7 @@ class World:
 		# Confirm if want to end sim, ability to keep playing save
 		if population <= 0:
 			print('Econ Sim ended due to human extinction.')
+			self.util(eod=False, big_util=True, reverse=False, entity_id=None, items=None, accounts=None, desc=None, save=True)
 			self.end = True
 		return self.end
 
@@ -3528,9 +3529,11 @@ class Entity:
 				max_land = self.max_land(item)
 				unused_land = world.unused_land(item=req_item, entity_id=1, v=True)#v
 				print('unused_land total:', unused_land)
+				orig_qty_needed = 0
 				if unused_land <= MAX_HOURS and unused_land != 0: # This is for the items_basic.csv econ, to test a land owner owning all the land.
 					print(f'Qty of {req_item} changed from {qty_needed} qty needed to all unused land of: {unused_land}')
 					# if unused_land > qty_needed:
+					orig_qty_needed = qty_needed
 					qty_needed = unused_land
 				if v: print(f'{self.name} requires {qty_needed} {req_item} to {action} {qty} {item} and has: {land} | max_land: {max_land}')
 				price = world.get_price(req_item, world.env.entity_id)
@@ -3598,6 +3601,8 @@ class Entity:
 				# if (reqs == 'hold_req' or time_required):# and not incomplete: # TODO Test is "not incomplete" is still needed here
 				# TODO Handle land in use during one tick
 				# qty_needed = req_qty * (1-modifier) * qty
+				if orig_qty_needed:
+					qty_needed = orig_qty_needed
 				entries = self.in_use(req_item, qty_needed, price=price, buffer=True) # TODO Verify qty passed
 				# print('Land In Use Entries: \n{}'.format(entries))
 				if not entries:
@@ -6369,10 +6374,12 @@ class Entity:
 					world.demand = pd.concat([world.demand, new_demand], ignore_index=False)
 				world.set_table(world.demand, 'demand')
 			if qty == 1:
-				if v: print('{} added to demand list for {} unit by {}.'.format(item, qty, self.name))
+				post_date = datetime.datetime.utcnow()
+				if v: print('{} added to demand list for {} unit by {} at {}.'.format(item, qty, self.name, post_date))
 				if v: print(world.demand)
 			else:
-				if v: print('{} added to demand list for {} units by {}.'.format(item, qty, self.name))
+				post_date = datetime.datetime.utcnow()
+				if v: print('{} added to demand list for {} units by {} at {}.'.format(item, qty, self.name, post_date))
 				if v: print(world.demand)
 			world.demand = world.demand.reset_index(drop=True)
 			if v: print('Demand after addition: \n{}'.format(world.demand))
@@ -10456,6 +10463,8 @@ class Individual(Entity):
 
 			elif item_type == 'Buildings': # TODO Test this with examples
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
+				if need_needed <= 0:
+					break
 				self.ledger.set_entity(self.entity_id)
 				qty_held = self.ledger.get_qty(items=item_choosen, accounts=['Buildings'])
 				qty_in_use = self.ledger.get_qty(items=item_choosen, accounts=['Buildings In Use'])
@@ -10481,6 +10490,8 @@ class Individual(Entity):
 			elif item_type == 'Service':
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				#print('Need Needed: {}'.format(need_needed))
+				if need_needed <= 0:
+					break
 				qty_purchase = int(math.ceil(need_needed / satisfy_rate))
 				#print('QTY Needed: {}'.format(qty_needed))
 				if obtain:
@@ -10492,6 +10503,8 @@ class Individual(Entity):
 			elif (item_type == 'Commodity') or (item_type == 'Component'):
 				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
 				#print('Need Needed: {}'.format(need_needed))
+				if need_needed <= 0:
+					break
 				qty_needed = int(math.ceil(need_needed / satisfy_rate))
 				#print('QTY Needed: {}'.format(qty_needed))
 				self.ledger.set_entity(self.entity_id)
@@ -10532,11 +10545,13 @@ class Individual(Entity):
 
 			elif item_type == 'Equipment':
 				# TODO Decide how qty will work with time spent using item
+				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
+				if need_needed <= 0:
+					break
+				uses_needed = int(math.ceil(need_needed / satisfy_rate))
 				self.ledger.set_entity(self.entity_id)
 				qty_held = self.ledger.get_qty(items=item_choosen, accounts=['Equipment'])
 				self.ledger.reset()
-				need_needed = self.needs[need]['Max Need'] - self.needs[need]['Current Need']
-				uses_needed = int(math.ceil(need_needed / satisfy_rate))
 				if v: print(f'{self.name} has {qty_held} {item_choosen} to use {uses_needed} times to address {need_needed} {need} needed. Will obtain: {obtain}')
 				event = []
 				if qty_held == 0 and obtain:
@@ -11398,7 +11413,7 @@ if __name__ == '__main__':
 
 # Old # nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-06-20.db -s 11 -p 4 -mp 10 --early -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-06-20.log 2>&1 & # Old
 
-# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_2025-09-09.db -p 4 -mp 10 -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_2025-09-09.log 2>&1 &
+# nohup /home/robale5/venv/bin/python -u /home/robale5/becauseinterfaces.com/acct/econ.py -db econ_$(date +%F).db -p 4 -mp 10 -i items.csv >> /home/robale5/becauseinterfaces.com/acct/logs/econ_$(date +%F).log 2>&1 &
 
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
@@ -11408,7 +11423,7 @@ if __name__ == '__main__':
 # (python econ.py -s 11 -p 4 -r -t 4 && say done) || say error
 # python econ.py -u
 # python econ.py -db mem -r; echo -e '\a'
-# python econ.py -db econ_2026-01-25.db -i items.csv -p 4 -mp 10 -r >> logs/econ_2026-01-25.log; echo -e '\a'
+# python econ.py -db econ_$(date +%F).db -i items.csv -p 4 -mp 10 -r >> logs/econ_$(date +%F).log; echo -e '\a'
 # python econ.py -i items_basic.csv -p 2 -mp 5 -r >> logs/econ_depr01.log; echo -e '\a'
 
 # scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-02-10.log ~/dev/acct_legacy/logs/
