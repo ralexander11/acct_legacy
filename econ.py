@@ -689,7 +689,7 @@ class World:
 			env.create_land(land[0], land[1], date) # TODO Call from env instance
 		return env
 
-	def unused_land(self, item=None, entity_id=None, all_land=False, accounts=None, v=True):
+	def unused_land(self, item=None, entity_id=None, all_land=False, accounts=None, v=False):
 		if all_land:
 			accounts = ['Land','Land In Use']
 		else:
@@ -1992,7 +1992,7 @@ class World:
 			for entity in self.factory.get(typ):
 				entity.release_check(v=True)
 		print()
-		world.unused_land(all_land=True)
+		world.unused_land(all_land=True, v=True)
 		print()
 		for typ in self.factory.registry.keys():
 			for entity in self.factory.get(typ):
@@ -3559,7 +3559,7 @@ class Entity:
 				land = self.ledger.get_qty(items=req_item, accounts=['Land']) # TODO Should I factor in Land In Use also?
 				qty_needed = req_qty * (1-modifier) * qty
 				max_land = self.max_land(item)
-				unused_land = world.unused_land(item=req_item, entity_id=1, v=v)
+				unused_land = world.unused_land(item=req_item, entity_id=1)#, v=v)
 				print('unused_land total:', unused_land)
 				orig_qty_needed = 0
 				if unused_land <= MAX_HOURS and unused_land != 0: # This is for the items_basic.csv econ, to test a land owner owning all the land.
@@ -6909,7 +6909,7 @@ class Entity:
 				if v: print('{} cannot claim {} units of {} because there is only {} units available.'.format(self.name, qty, item, unused_land))
 			# unused_land = self.ledger.get_qty(items=item, accounts=['Land'], by_entity=True)
 			# print('Unused {} claimed by the following entities: \n{}'.format(item, unused_land))
-			unused_land = world.unused_land(item, accounts=['Land','Inventory'])
+			unused_land = world.unused_land(item, accounts=['Land','Inventory'], v=True)
 			entity.hours = orig_hours
 
 	def get_counterparty(self, txns, rvsl_txns, item, account, m=1, n=0, allowed=None, v=False): # TODO Remove parameters no longer needed
@@ -7290,12 +7290,19 @@ class Entity:
 		if not workers_avail_price:
 			return None, []
 		# Remove owner from available workers
-		if self in workers_avail_exp and len(workers_avail_exp) > 1:
-			# workers_avail_exp.remove(self)
-			workers_avail_exp = collections.OrderedDict((worker, v) for worker, v in workers_avail_exp.items() if worker != self)
-		if self in workers_avail_price and len(workers_avail_price) > 1:
-			# workers_avail_price.remove(self)
-			workers_avail_price = collections.OrderedDict((worker, v) for worker, v in workers_avail_price.items() if worker != self)
+		if isinstance(self, Corporation):
+			owner = self.list_shareholders(largest=True)
+			owner = self.factory.get_by_id(owner)
+			if owner in workers_avail_exp and len(workers_avail_exp) > 1:
+				# workers_avail_exp.remove(self)
+				del workers_avail_exp[owner]
+				# workers_avail_exp = collections.OrderedDict((worker, v) for worker, v in workers_avail_exp.items() if worker != self)
+			print('workers_avail_price before:', workers_avail_price)
+			if owner in workers_avail_price and len(workers_avail_price) > 1:
+				# workers_avail_price.remove(self)
+				del workers_avail_price[owner]
+				# workers_avail_price = collections.OrderedDict((worker, v) for worker, v in workers_avail_price.items() if worker != self)
+			print('workers_avail_price after:', workers_avail_price)
 		# Choose the worker with the most experience
 		worker_choosen_exp = max(workers_avail_exp, key=lambda k:workers_avail_exp[k])
 		# Choose the worker for the lowest price
@@ -9341,11 +9348,11 @@ class Entity:
 		elif command.lower() == 'hours' or command.lower() == 'h':
 			world.get_hours(v=True)
 		elif command.lower() == 'land':
-			world.unused_land()
+			world.unused_land(v=True)
 		elif command.lower() == 'map':
-			world.unused_land(all_land=True)
+			world.unused_land(all_land=True, v=True)
 		elif command.lower() == 'world':
-			world.unused_land(entity_id=world.env.entity_id)
+			world.unused_land(entity_id=world.env.entity_id, v=True)
 		elif command.lower() == 'demand':
 			print('World Demand as of {}: \n{}'.format(world.now, world.demand))
 		elif command.lower() == 'prices':
@@ -11467,7 +11474,7 @@ if __name__ == '__main__':
 # python econ.py -db econ_$(date +%F).db -i items.csv -p 4 -mp 10 -r >> logs/econ_$(date +%F).log; echo -e '\a'
 # python econ.py -i items_basic.csv -p 2 -mp 5 -r >> logs/econ_depr01.log; echo -e '\a'
 
-# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-02-10.log ~/dev/acct_legacy/logs/
+# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-02-25b.log ~/dev/acct_legacy/logs/
 # scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/db/econ_2026-02-10.db ~/dev/acct_legacy/db/
 
 # TODO
