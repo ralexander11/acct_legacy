@@ -651,6 +651,7 @@ class World:
 	def setup_prices(self, infile=None, v=True):
 		# TODO Maybe make self.prices a multindex with item_id and entity_id
 		self.prices = pd.DataFrame(columns=['entity_id','price'])
+		self.prices_buffer = pd.DataFrame(columns=['entity_id','price'])
 		if infile is not None:
 			self.prices = self.accts.load_csv(infile)
 			# TODO load prices from file
@@ -1485,9 +1486,23 @@ class World:
 		# if v: print(f'Price for {item}: {price}')
 		return price
 
+	def buffer_adj_prices(self, v=True):
+		if v: print('Prices Buffer:')
+		if v: print(self.prices_buffer)
+		if v: print('Prices:')
+		if v: print(self.prices)
+		self.prices = pd.concat([self.prices, self.prices_buffer])
+		if v: print('Prices Buffer after:')
+		if v: print(self.prices)
+		self.set_table(self.prices, 'prices')
+		self.prices_buffer = pd.DataFrame(columns=['entity_id','price'])
+		if v: print('Prices Buffer end:')
+		if v: print(self.prices_buffer)
+		return self.prices
+
 	def reduce_prices(self, v=False):		
 		# Get item types for all items in prices index to see which are Labour
-		item_types = self.prices.index.to_series().apply(world.get_item_type)
+		item_types = self.prices.index.to_series().apply(self.get_item_type)
 		if v: print(item_types)
 
 		# Mask for rows that are NOT Labour
@@ -1504,6 +1519,7 @@ class World:
 		
 		# world.prices['price'] = world.prices['price'] * (1 - REDUCE_PRICE)#).clip(lower=0.01) # Old01
 		# self.prices['price'] = self.prices['price'].where(self.prices['price'] == 0, (self.prices['price'] * (1 - REDUCE_PRICE)).clip(lower=0.01)).round(2) # Old02
+		self.set_table(self.prices, 'prices')
 		if v: print(self.prices)
 		print('All non-Labour prices reduced by {0:.0%}.'.format(REDUCE_PRICE))
 		return self.prices
@@ -1960,6 +1976,7 @@ class World:
 		# 	print('\nPrices check for: {}'.format(entity.name))
 			# entity.check_prices()
 		# for _ in range(world.population):
+		world.buffer_adj_prices()
 		world.reduce_prices()
 		t6_end = time.perf_counter()
 		print(time_stamp() + '6: Prices check took {:,.2f} sec.'.format(t6_end - t6_start))
@@ -2261,6 +2278,8 @@ class World:
 			self.set_table(self.hist_hours, 'hist_hours')
 			self.util(save=False)
 			#if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
+			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+				print('\nHist Prices: \n{}'.format(self.hist_prices))
 		else:
 			# Save prior days tables: entities, prices, demand, delay, produce_queue
 			self.entities = self.accts.get_entities().reset_index()
@@ -2285,8 +2304,9 @@ class Entity:
 		#print('Entity created: {}'.format(name))
 		# TODO Move government here for inheritance and overwrite in subclasses as needed, such as Government
 
-	def adj_price(self, item, qty=1, rate=None, direction=None):
+	def adj_price(self, item, qty=1, rate=None, direction=None, buffer=False):
 		# TODO Qty currently does nothing
+		# TODO If there is a buffer, need to save up all the adj and do them at the end if the buffer comes to pass. Should they all be done at the end of the day?
 		if rate is None:
 			if direction == 'up':
 				rate = 1.1 #1.01
@@ -2295,7 +2315,7 @@ class Entity:
 			elif direction == 'up_low':
 				rate = 1.02 #1.002
 			elif direction == 'up_very_low': # TODO Need a way for labour to reduce prices sometimes
-				rate = 1.001 #1.0002 # 1.02 #1.002
+				rate = 1.008 #1.0079741404289 #1.1^(1/12) #1.001 #1.0002 # 1.02 #1.002
 			elif direction == 'down_very_low':
 				rate = 0.9998 # 0.98 #0.998
 			elif direction == 'down_high':
@@ -2308,7 +2328,7 @@ class Entity:
 			if price is not None:
 				return price
 		if item == self.name:
-			print('{} cannot get a price for shares of {}.'.format(self.name, item))
+			print(f'{self.name} cannot get a price for shares of {item}.')
 			return 1 # TODO Fix how prices for corporate entities work. Could have a price column on the entities table
 		price = world.get_price(item, self.entity_id)
 		orig_price = price
@@ -2316,7 +2336,7 @@ class Entity:
 		if item_type in ['Technology', 'Education'] or isinstance(self, Environment):
 			if price != 0:
 				world.prices.at[item, 'price'] = 0
-				print('{} sets (zero) price for {} from {} to {}.'.format(self.name, item, price, 0))
+				print(f'{self.name} sets (zero) price for {item} from {price} to {0}.')
 			return
 		# print('{} price before adjustment: {}'.format(item, price))
 		#qty = int(math.ceil(qty / 10)) # To reduce the number of times the loop runs
@@ -2342,12 +2362,31 @@ class Entity:
 			entity_prices = pd.concat([entity_prices, new_row])
 
 		#print('Entity Prices Mid: \n{}'.format(entity_prices))
-		entity_prices.at[item, 'price'] = price
-		#print('Entity Prices After: \n{}'.format(entity_prices))
-		world.prices = world.prices.loc[world.prices['entity_id'] != self.entity_id]
-		world.prices = pd.concat([world.prices, entity_prices]) # TODO Handle this better
-		#world.prices.at[item, 'price'] = price # Old method
-		print('{} adjusts {} price by a rate of {} from ${} to ${}.'.format(self.name, item, rate, orig_price, price))
+		if buffer:
+			print(f'Buff prices before:\n{world.prices}')
+			print(f'Entity buffer prices before:\n{entity_prices}')
+			entity_prices.at[item, 'price'] = price
+			print(f'Entity buffer prices after:\n{entity_prices}')
+			# entity_prices = entity_prices.loc[[item]]#entity_prices['item_id'] == item]
+			# print(f'Entity Prices for item {item}:\n{entity_prices}')
+			world.prices_buffer = world.prices_buffer.loc[world.prices_buffer['entity_id'] != self.entity_id]
+			print(f'World prices buffer for item 1 {item}:\n{world.prices_buffer}')
+			world.prices_buffer = pd.concat([world.prices_buffer, entity_prices])
+			print(f'World prices buffer for item 2 {item}:\n{world.prices_buffer}')
+			print(f'{self.name} buffers adjusted {item} price by a rate of {rate} from ${orig_price:.2f} to ${price:.2f} on {world.now}.')
+			print(f'Buff Prices end:\n{world.prices}')
+		else:
+			print(f'Prices adj before:\n{world.prices}')
+			print('Entity prices before: \n{}'.format(entity_prices))
+			entity_prices.at[item, 'price'] = price
+			print('Entity prices after: \n{}'.format(entity_prices))
+			world.prices = world.prices.loc[world.prices['entity_id'] != self.entity_id]
+			print(f'World prices for item 1 {item}:\n{world.prices}')
+			world.prices = pd.concat([world.prices, entity_prices]) # TODO Handle this better
+			print(f'World prices for item 2 {item}:\n{world.prices}')
+			#world.prices.at[item, 'price'] = price # Old method
+			print(f'{self.name} adjusts {item} price by a rate of {rate} from ${orig_price:.2f} to ${price:.2f} on {world.now}.')
+			print(f'Prices adj end:\n{world.prices}')
 		world.set_table(world.prices, 'prices')
 		return price
 
@@ -2539,7 +2578,7 @@ class Entity:
 					# 	return purchase_event, cost
 					# self.ledger.journal_entry(purchase_event)
 					if counterparty != self:
-						counterparty.adj_price(item, qty, direction='up')
+						counterparty.adj_price(item, qty, direction='up', buffer=buffer)
 					return purchase_event, cost
 				else:
 					if item_type is None:
@@ -2552,7 +2591,7 @@ class Entity:
 					# 	return purchase_event, cost
 					# self.ledger.journal_entry(purchase_event)
 					if counterparty != self:
-						counterparty.adj_price(item, qty, direction='up')
+						counterparty.adj_price(item, qty, direction='up', buffer=buffer)
 					return purchase_event, cost
 			else:
 				if v: print('{} does not have enough {} on hand to sell {} units of {}. Qty on hand: {}'.format(self.name, item, qty, item, qty_avail))
@@ -3022,7 +3061,7 @@ class Entity:
 			self.ledger.journal_entry(consume_event)
 			self.adj_needs(item, qty) # TODO Add error checking
 			if item in self.produces:
-				self.adj_price(item, qty, direction='up_low')
+				self.adj_price(item, qty, direction='up_low', buffer=buffer)
 			return consume_event
 		else:
 			if v: print('{} does not have enough {} on hand to consume {} units of {}.'.format(self.name, item, qty, item))
@@ -6340,9 +6379,10 @@ class Entity:
 		price = world.get_price(item)
 		total_cost = price * qty
 		cash = self.ledger.balance_sheet(['Cash'])
-		if total_cost > cash:
+		if total_cost > cash:# and not cost:
 			print(f'{self.name} wanted to demand {qty} {item}, but it costs {total_cost} and they only have {cash}.')
-			return
+			cost = True
+			# return
 
 		# if not world.demand.empty: # TODO Commodity replaces existing commodity if qty is bigger. # TODO Need to factor in qty.
 		# 	vv = True
@@ -7112,13 +7152,13 @@ class Entity:
 			if buffer:
 				if v: print('{} hired {} as a {} for {} hours.'.format(self.name, counterparty.name, job, hours_worked))
 				if job != 'Study' and job != 'Research':
-					counterparty.adj_price(job, qty=hours_worked, direction='up_very_low') # TODO How to handle if the buffer isn't successful? And qty currently does nothing
+					counterparty.adj_price(job, qty=hours_worked, direction='up_very_low', buffer=buffer) # TODO How to handle if the buffer isn't successful? And qty currently does nothing
 				return accru_wages_event
 			self.ledger.journal_entry(accru_wages_event)
 			counterparty.set_hours(hours_worked)
 			if job != 'Study' and job != 'Research':
 				# TODO Make a new function to check each day if labour was done and if so increase the price a bit
-				counterparty.adj_price(job, qty=hours_worked, direction='up_very_low') # This could cause prices to rise dramatically# And qty currently does nothing
+				counterparty.adj_price(job, qty=hours_worked, direction='up_very_low', buffer=buffer) # This could cause prices to rise dramatically# And qty currently does nothing
 		else:
 			if incomplete:
 				if v: print('{} cannot fulfill requirements for {} job.'.format(self.name, job))
@@ -7383,13 +7423,13 @@ class Entity:
 			if hire_worker_event:
 				if v: print('{} hired {} as a fulltime {}.'.format(self.name, counterparty.name, job))
 				if first_pay:
-					self.adj_price(job, qty=1, direction='up')
+					self.adj_price(job, qty=1, direction='up', buffer=buffer)
 			else:
 				if v: print('{} could not hire {} as a fulltime {}.'.format(self.name, counterparty.name, job))
 			return hire_worker_event
 		self.ledger.journal_entry(hire_worker_event)
 		if first_pay:
-			self.adj_price(job, qty=1, direction='up')
+			self.adj_price(job, qty=1, direction='up', buffer=buffer)
 
 	def fire_worker(self, job, counterparty, price=0, qty=-1, quit=False, buffer=False):
 		ent_id = self.entity_id
@@ -7400,10 +7440,10 @@ class Entity:
 		quit_job_entry = [ self.ledger.get_event(), cp_id, ent_id, world.now, '', 'Quit job as ' + job, job, price, qty, 'Quit Job', 'Worker Info', 0 ]
 		fire_worker_event = [fire_worker_entry, quit_job_entry]
 		if buffer:
-			counterparty.adj_price(job, qty=1, direction='down')
+			counterparty.adj_price(job, qty=1, direction='down', buffer=buffer)
 			return fire_worker_event
 		self.ledger.journal_entry(fire_worker_event)
-		counterparty.adj_price(job, qty=1, direction='down')
+		counterparty.adj_price(job, qty=1, direction='down', buffer=buffer)
 
 	def check_salary(self, job=None, counterparty=None, check=False):
 		if job is not None:
@@ -7489,11 +7529,11 @@ class Entity:
 			# TODO Don't set hours if production is not possible
 			counterparty.set_hours(labour_hours)
 			if buffer:
-				counterparty.adj_price(job, labour_hours, direction='up_low')
+				counterparty.adj_price(job, labour_hours, direction='up_low', buffer=buffer)
 				return pay_salary_event
 			self.ledger.journal_entry(pay_salary_event)
 			print('{}\'s hours: {}'.format(counterparty.name, counterparty.hours))
-			counterparty.adj_price(job, labour_hours, direction='up_low')
+			counterparty.adj_price(job, labour_hours, direction='up_low', buffer=buffer)
 			return True
 		else:
 			if not incomplete:
@@ -7682,7 +7722,7 @@ class Entity:
 				charge_subscription_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Received payment for ' + item, item, price, qty, 'Cash', 'Subscription Revenue', price ]
 				pay_subscription_event += [pay_subscription_entry, charge_subscription_entry]
 				if buffer:
-					counterparty.adj_price(item, qty=1, direction='up_very_low')
+					counterparty.adj_price(item, qty=1, direction='up_very_low', buffer=buffer)
 					continue
 				self.ledger.journal_entry(pay_subscription_event)
 				counterparty.adj_price(item, qty=1, direction='up_very_low')
@@ -8182,7 +8222,7 @@ class Entity:
 								spoil_event += [spoil_entry]
 							self.ledger.journal_entry(spoil_event)
 							if item in self.produces:
-								self.adj_price(item, qty, direction='down_high')
+								self.adj_price(item, qty, direction='down_high', buffer=buffer)
 
 	def impairment(self, item, amount):
 		# TODO Maybe make amount default to None and have optional impact or reduction parameter
@@ -11472,7 +11512,7 @@ if __name__ == '__main__':
 # python econ.py -u
 # python econ.py -db mem -r; echo -e '\a'
 # python econ.py -db econ_$(date +%F).db -i items.csv -p 4 -mp 10 -r >> logs/econ_$(date +%F).log; echo -e '\a'
-# python econ.py -i items_basic.csv -p 2 -mp 5 -r >> logs/econ_depr01.log; echo -e '\a'
+# python econ.py -i items_basic.csv -p 2 -mp 2 -cap 1000 -r >> logs/econ_buff01.log; echo -e '\a'
 
 # scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-02-25b.log ~/dev/acct_legacy/logs/
 # scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/db/econ_2026-02-10.db ~/dev/acct_legacy/db/
