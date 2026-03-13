@@ -6,7 +6,7 @@ import datetime
 import logging
 import warnings
 import time
-import sys
+import sys, os
 import yaml
 # try:
 # 	from rich import print
@@ -99,6 +99,8 @@ roles_data = [ # TODO Non-cash data labels are not complete yet
 class Accounts:
 	def __init__(self, conn=None, standard_accts=None, entities_table_name=None, items_table_name=None):# Accounts
 		if conn is None:
+			db_dir = './db'
+			os.makedirs(db_dir, exist_ok=True)
 			try:
 				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
 				self.website = True

@@ -656,6 +656,7 @@ class World:
 			self.prices = self.accts.load_csv(infile)
 			# TODO load prices from file
 		self.prices.index.name = 'item_id'
+		self.prices_buffer.index.name = 'item_id'
 		if v: print('\nSetup Prices: \n{}'.format(self.prices))
 		return self.prices
 
@@ -1486,18 +1487,33 @@ class World:
 		# if v: print(f'Price for {item}: {price}')
 		return price
 
-	def buffer_adj_prices(self, v=True):
-		if v: print('Prices Buffer:')
-		if v: print(self.prices_buffer)
-		if v: print('Prices:')
-		if v: print(self.prices)
+	def buffer_adj_prices(self, v=False):
+		if v: print('Prices Buffer:\n', self.prices_buffer)
+		if v: print('Prices:\n', self.prices)
+
+		self.prices.reset_index(inplace=True)
+		self.prices.rename(columns={'index': 'item_id'}, inplace=True)
+		if v: print('Prices reset index:\n', self.prices)
+		self.prices.set_index(['item_id', 'entity_id'], inplace=True)
+		self.prices_buffer.reset_index(inplace=True)
+		self.prices_buffer.rename(columns={'index': 'item_id'}, inplace=True)
+		self.prices_buffer.set_index(['item_id', 'entity_id'], inplace=True)
+
+		if v: print('Before update:\n', self.prices)
+		self.prices.update(self.prices_buffer)
+		if v: print('After update:\n', self.prices)
+		if v: print('Before drop buffer:\n', self.prices_buffer)
+		self.prices_buffer = self.prices_buffer.drop(self.prices.index, axis=0, errors='ignore')
+		if v: print('After drop buffer:\n', self.prices_buffer)
+
 		self.prices = pd.concat([self.prices, self.prices_buffer])
-		if v: print('Prices Buffer after:')
-		if v: print(self.prices)
+		self.prices.reset_index(inplace=True)
+		self.prices.set_index(['item_id'], inplace=True)
+		if v: print('Prices after concat:\n', self.prices)
 		self.set_table(self.prices, 'prices')
 		self.prices_buffer = pd.DataFrame(columns=['entity_id','price'])
-		if v: print('Prices Buffer end:')
-		if v: print(self.prices_buffer)
+		self.prices_buffer.index.name = 'item_id'
+		if v: print('Prices Buffer end:\n', self.prices_buffer)
 		return self.prices
 
 	def reduce_prices(self, v=False):		
@@ -2363,30 +2379,28 @@ class Entity:
 
 		#print('Entity Prices Mid: \n{}'.format(entity_prices))
 		if buffer:
-			print(f'Buff prices before:\n{world.prices}')
-			print(f'Entity buffer prices before:\n{entity_prices}')
+			# print(f'Buff prices before:\n{world.prices}')
+			# print(f'Entity buffer prices before:\n{entity_prices}')
 			entity_prices.at[item, 'price'] = price
-			print(f'Entity buffer prices after:\n{entity_prices}')
-			# entity_prices = entity_prices.loc[[item]]#entity_prices['item_id'] == item]
-			# print(f'Entity Prices for item {item}:\n{entity_prices}')
+			# print(f'Entity buffer prices after:\n{entity_prices}')
 			world.prices_buffer = world.prices_buffer.loc[world.prices_buffer['entity_id'] != self.entity_id]
-			print(f'World prices buffer for item 1 {item}:\n{world.prices_buffer}')
+			# print(f'World prices buffer for item 1 {item}:\n{world.prices_buffer}')
 			world.prices_buffer = pd.concat([world.prices_buffer, entity_prices])
-			print(f'World prices buffer for item 2 {item}:\n{world.prices_buffer}')
+			# print(f'World prices buffer for item 2 {item}:\n{world.prices_buffer}')
 			print(f'{self.name} buffers adjusted {item} price by a rate of {rate} from ${orig_price:.2f} to ${price:.2f} on {world.now}.')
-			print(f'Buff Prices end:\n{world.prices}')
+			# print(f'Buff Prices end:\n{world.prices}')
 		else:
-			print(f'Prices adj before:\n{world.prices}')
-			print('Entity prices before: \n{}'.format(entity_prices))
+			# print(f'Prices adj before:\n{world.prices}')
+			# print('Entity prices before: \n{}'.format(entity_prices))
 			entity_prices.at[item, 'price'] = price
-			print('Entity prices after: \n{}'.format(entity_prices))
+			# print('Entity prices after: \n{}'.format(entity_prices))
 			world.prices = world.prices.loc[world.prices['entity_id'] != self.entity_id]
-			print(f'World prices for item 1 {item}:\n{world.prices}')
+			# print(f'World prices for item 1 {item}:\n{world.prices}')
 			world.prices = pd.concat([world.prices, entity_prices]) # TODO Handle this better
-			print(f'World prices for item 2 {item}:\n{world.prices}')
+			# print(f'World prices for item 2 {item}:\n{world.prices}')
 			#world.prices.at[item, 'price'] = price # Old method
 			print(f'{self.name} adjusts {item} price by a rate of {rate} from ${orig_price:.2f} to ${price:.2f} on {world.now}.')
-			print(f'Prices adj end:\n{world.prices}')
+			# print(f'Prices adj end:\n{world.prices}')
 		world.set_table(world.prices, 'prices')
 		return price
 
