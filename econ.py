@@ -1511,8 +1511,9 @@ class World:
 		self.prices.set_index(['item_id'], inplace=True)
 		if v: print('Prices after concat:\n', self.prices)
 		self.set_table(self.prices, 'prices')
-		self.prices_buffer = pd.DataFrame(columns=['entity_id','price'])
-		self.prices_buffer.index.name = 'item_id'
+		# self.prices_buffer = pd.DataFrame(columns=['entity_id','price'])
+		# self.prices_buffer.index.name = 'item_id'
+		self.prices_buffer = pd.DataFrame(columns=['entity_id','price']).rename_axis('item_id')
 		if v: print('Prices Buffer end:\n', self.prices_buffer)
 		return self.prices
 
@@ -4973,6 +4974,7 @@ class Entity:
 				print(f'Old refulfill path for {item} x {qty}: {max_qty_possible}')
 			if max_qty_possible != qty and not man and not check and not wip_choice and whole_qty <= max_qty_possible:
 				print(f'Mod old refulfill path for {item} x {qty}: {max_qty_possible}')
+			self.prices_buffer = pd.DataFrame(columns=['entity_id','price']).rename_axis('item_id')
 			if max_qty_possible != qty and not man and not check and (not wip_choice or req_max_result) and whole_qty <= max_qty_possible: # This could cause recursion issues
 				print(f'New refulfill path for {item} x {qty}: {max_qty_possible}')
 				event = []
@@ -10306,8 +10308,8 @@ class Individual(Entity):
 		self.ledger.reset()
 		inherit_event = []
 		for index, entry in consolidated_gl.iterrows():
-			# print('Index: \n{}'.format(index))
-			# print('Entry: \n{}'.format(entry))
+			print('Index: \n{}'.format(index))
+			print('Entry: \n{}'.format(entry))
 			bequeath_entry = [ self.ledger.get_event(), self.entity_id, counterparty.entity_id, world.now, '', 'Bequeath to ' + counterparty.name, index[0], entry[5], entry[6], index[2], index[1], entry[7] ]
 			inherit_entry = [ self.ledger.get_event(), counterparty.entity_id, self.entity_id, world.now, '', 'Inheritance from ' + self.name, index[0], entry[5], entry[6], index[1], index[2], entry[7] ]
 			inherit_event += [bequeath_entry, inherit_entry]
