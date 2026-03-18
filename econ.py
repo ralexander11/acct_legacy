@@ -1500,6 +1500,8 @@ class World:
 		self.prices_buffer.set_index(['item_id', 'entity_id'], inplace=True)
 
 		if v: print('Before update:\n', self.prices)
+		if not self.prices_buffer.empty:
+			print('Prices buffer to update:\n', self.prices_buffer)
 		self.prices.update(self.prices_buffer)
 		if v: print('After update:\n', self.prices)
 		if v: print('Before drop buffer:\n', self.prices_buffer)
