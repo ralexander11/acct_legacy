@@ -202,18 +202,21 @@ def time_stamp(offset=0):
 	return time_stamp
 
 class Map:
-    def __init__(self, game, map_name, start_loc, view_size, map_size=None):
-        self.game = game
+    def __init__(self, game, map_name, start_loc, view_size, map_size=None):# Map
+        # self.game = game
         self.map_name = map_name
         self.start_loc = start_loc
         self.view_size = view_size
         self.map_size = map_size
         if self.map_name is None:
-            world_map = self.gen_map(self.map_size)
-            # world_map = Reactive(self.gen_map(map_size))
+            self.map_grid = self.gen_map(self.map_size)
+            # map_grid = self.gen_map(self.map_size)
+            # map_grid = Reactive(self.gen_map(map_size))
         else:
-            world_map = self.map_gen_file(self.map_name)
-            # world_map = Reactive(self.map_gen_file())
+            self.map_grid = self.map_gen_file(self.map_name)
+            # map_grid = self.map_gen_file(self.map_name)
+            # map_grid = Reactive(self.map_gen_file())
+
         # if self.view_size[0] > self.map_size[0]:
         #     self.view_size = (self.map_size[0], self.view_size[1])
         #     print('view_size adj 1:', self.view_size)
@@ -227,7 +230,7 @@ class Map:
             self.start_loc = (self.map_size[0]//2, self.map_size[1]//2)
             # self.start_loc = (int(round(self.map_size[0]/2, 0)), int(round(self.map_size[1]/2, 0)))
         self.view_port(self.start_loc)
-        # print(f'world_map created:\n{self}')
+        # print(f'map_grid created:\n{self}')
 
     def gen_map(self, map_size, proc=False):
         if map_size is None:
@@ -238,11 +241,11 @@ class Map:
         elif len(self.map_size) == 1:
             self.map_size = (self.map_size[0], self.map_size[0])
         print('gen map_size:', self.map_size)
-        self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
-        # print('world_map gen:', self.world_map)
+        self.map_grid = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
+        # print('map_grid gen:', self.map_grid)
         self.get_terrain_data()
         self.load_players = []
-        for row in self.world_map:
+        for row in self.map_grid:
             for tile in row:
                 if proc:
                     terrain_select = random.choices(self.terrain_items['item_id'].tolist(), self.terrain_items['coverage'].tolist())[0] # TODO This no longer works
@@ -251,11 +254,11 @@ class Map:
                     terrain_select = 'Grassland'
                     tile.update({'terrain': Tile(terrain_select, self.terrain_items)})
 
-        # self.world_map = pd.DataFrame(self.world_map) # Replace pandas here
-        # self.world_map.applymap(lambda d: d.update({'terrain': Tile()})) # Replace pandas here
+        # self.map_grid = pd.DataFrame(self.map_grid) # Replace pandas here
+        # self.map_grid.applymap(lambda d: d.update({'terrain': Tile()})) # Replace pandas here
         self.save_meta()
-        # print('world_map gen final:', self.world_map)
-        return self.world_map
+        # print('map_grid gen final:', self.map_grid)
+        return self.map_grid
     
     def map_gen_file(self, infile='data/map.csv', v=False):
         if self.map_name is not None:
@@ -269,8 +272,8 @@ class Map:
             map_data = pd.read_csv(f, header=None)
         self.map_size = map_data.shape
         print('map_size:', self.map_size)
-        self.world_map = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
-        # print('world_map 1:', self.world_map)
+        self.map_grid = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
+        # print('map_grid 1:', self.map_grid)
 
         # Checks if map data is from a previous save
         print('First cell type:')
@@ -283,8 +286,8 @@ class Map:
             cell_check = map_data[0][0]
         if isinstance(cell_check, dict):
             print('Is dict')
-            self.world_map = self.load(map_data)
-            return self.world_map
+            self.map_grid = self.load(map_data)
+            return self.map_grid
 
         self.get_terrain_data()
         tiles = {k: v.split('[')[1].split(']')[1] for k, v in TILES.items()}
@@ -326,9 +329,9 @@ class Map:
                         other_data = json.loads(other_data, object_hook=None)
                         if v: print('other_data loaded:', other_data)
                         # TODO Finish this
-                self.world_map[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
+                self.map_grid[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
         self.save_meta(meta_data)
-        return self.world_map
+        return self.map_grid
 
     def export_map(self, filename=None, strip_rich=True, v=True):
         # Save a csv of just the icon char tiles of the map
@@ -341,7 +344,7 @@ class Map:
         if 'data/' not in filename:
             filename = 'data/' + filename
         print(time_stamp() + 'Export filename: ', filename)
-        if v: print('world_map:\n', self.world_map)
+        if v: print('map_grid:\n', self.map_grid)
         if v: print('display_map:\n', self.display_map)
         if strip_rich:
             plain_display_map = [[Text.from_markup(cell).plain for cell in row] for row in self.display_map]
@@ -362,7 +365,7 @@ class Map:
         if 'data/' not in filename:
             filename = 'data/' + filename
         print(time_stamp() + 'Save filename: ', filename)
-        if v: print('world_map:\n', self.world_map)
+        if v: print('map_grid:\n', self.map_grid)
         if v: print('display_map:\n', self.display_map)
         if strip_rich:
             plain_display_map = [[Text.from_markup(cell).plain for cell in row] for row in self.display_map]
@@ -371,7 +374,7 @@ class Map:
         if v: print('plain_display_map:\n', plain_display_map)
         df = pd.DataFrame(plain_display_map)
         if v: print(df)
-        for i, row in enumerate(self.world_map):
+        for i, row in enumerate(self.map_grid):
             for j, cell in enumerate(row):
                 if cell.get('meta'):
                     print(f'[{i}][{j}] Cell is meta.')
@@ -431,7 +434,7 @@ class Map:
                     #     agent_data = contents + agent_data
                     #     if v: print('player agent_data:', agent_data)
                     #     df[j][i] = agent_data
-            if v: print(self.world_map)
+            if v: print(self.map_grid)
             df.to_csv(filename, index=False, header=False)
         print(time_stamp() + 'Map saved to:', filename)
 
@@ -455,7 +458,7 @@ class Map:
                 tile = eval(tile)
                 # if v: print(f'{i} {row}: {j} {tile}')
                 terrain_name = tile['terrain']
-                self.world_map[i][j].update({'terrain': Tile(terrain_name, self.terrain_items)})
+                self.map_grid[i][j].update({'terrain': Tile(terrain_name, self.terrain_items)})
         print(time_stamp() + 'Loaded filename: ', filename)
         print(time_stamp() + 'Spawning players.')
         self.game.spawn_players()
@@ -485,7 +488,7 @@ class Map:
             print(f'row {i}')
             for j, tile in enumerate(row):
                 # print(f'tile [{i}][{j}]: {tile} | {repr(tile)} | {len(tile)}')
-                existing_tile = self.world_map[i][j]
+                existing_tile = self.map_grid[i][j]
                 if v: print(f'existing_tile at [{i}][{j}]: {existing_tile}')
 
                 if len(tile) == 1:
@@ -535,21 +538,21 @@ class Map:
                     print(f'[{i}], [{j}] | tile 3: {tile[:30]}')
                     print(f'[{i}], [{j}] | other_data: {other_data}')
                     print(f'Update for [{i}][{j}].')# 450, 245
-                    self.world_map[i][j].update(other_data)
+                    self.map_grid[i][j].update(other_data)
 
         # Refresh map
         # if v: print('save_data\n', save_data)
         return save_data
 
-    def save_meta(self, meta_data=None, v=False):
+    def save_meta(self, meta_data=None, turn=1, v=False):
         if meta_data is None:
-            meta_data = {'meta': {'save_date': dt.datetime.utcnow().strftime('%Y-%m-%d_%H:%M:%S'), 'players': 'single_player', 'game_mode': 'survival', 'turn': self.game.turn, 'cords': CORDS}}
+            meta_data = {'meta': {'save_date': dt.datetime.utcnow().strftime('%Y-%m-%d_%H:%M:%S'), 'players': 'single_player', 'game_mode': 'survival', 'turn': turn, 'cords': CORDS}}
         else:
             meta_data = eval(meta_data)
-        contents = self.world_map[0][0]
+        contents = self.map_grid[0][0]
         meta_data.update(contents)
-        self.world_map[0][0] = meta_data
-        if v: print(self.world_map[0][0])
+        self.map_grid[0][0] = meta_data
+        if v: print(self.map_grid[0][0])
         print('Meta data saved.')
         return meta_data
 
@@ -571,13 +574,13 @@ class Map:
         print('new_map_size:', new_map_size)
         map_size_diff = (int(x) - self.map_size[0], int(y) - self.map_size[1])
         print('map_size_diff:', map_size_diff)
-        # print(repr(self.world_map))
+        # print(repr(self.map_grid))
         for _ in range(map_size_diff[0]):
-            self.world_map.append([{'terrain': Tile('Grassland', self.terrain_items)} for _ in range(self.map_size[1])])
-        for row in self.world_map:
+            self.map_grid.append([{'terrain': Tile('Grassland', self.terrain_items)} for _ in range(self.map_size[1])])
+        for row in self.map_grid:
             for _ in range(map_size_diff[1]):
                 row.append({'terrain': Tile('Grassland', self.terrain_items)})
-        # print(repr(self.world_map))
+        # print(repr(self.map_grid))
         self.map_size = new_map_size
         self.update_display_map()
 
@@ -658,7 +661,7 @@ class Map:
     def update_display_map(self):
         # TODO should self.display_map be a numpy or df?
         self.display_map = [[None for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
-        for i, row in enumerate(self.world_map):
+        for i, row in enumerate(self.map_grid):
             for j, tile in enumerate(row):
                 terrain_tile = tile.get('terrain')
                 if terrain_tile.hidden:
@@ -719,7 +722,7 @@ class Map:
             return
         pos = (int(y), int(x))
         terrain = terrain.title()
-        tile = self.world_map[pos[0]][pos[1]]
+        tile = self.map_grid[pos[0]][pos[1]]
         tile.update({'terrain': Tile(terrain, self.terrain_items)})
         if terrain in TILES:
             icon = TILES[terrain]
@@ -766,10 +769,10 @@ class Map:
         if 'data/' not in filename:
             filename = 'data/' + filename
         print(time_stamp() + f'Saving game state to {filename}.')
-        save_map = pd.DataFrame(self.world_map)
+        save_map = pd.DataFrame(self.map_grid)
         print('save_map size:', save_map.size)
         # await asyncio.sleep(0.1)
-        for i, row in enumerate(self.world_map):
+        for i, row in enumerate(self.map_grid):
             if v: print(f'row i: {i}')
             for j, tile in enumerate(row):
                 if v: print(f'{j} tile: {tile}')
@@ -825,9 +828,9 @@ class Map:
                     load_tile[icon] = icon_tile_data
                     print(load_tile[icon])
                     exit()
-                self.world_map[i][j] = load_tile
+                self.map_grid[i][j] = load_tile
         print(time_stamp() + f'Game state loaded.')
-        return self.world_map
+        return self.map_grid
 
     def col(self, letters=None):
         # For max of 3 letters
@@ -858,19 +861,19 @@ class Map:
         return col_pos
 
     def __str__(self):
-        # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
+        # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.map_grid])
         # self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
         self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.view_port_map])
         return self.map_display
 
     def __repr__(self):
-        # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.world_map])
+        # self.map_display = '\n'.join(['\t'.join([str(tile) for tile in row]) for row in self.map_grid])
         # # self.map_display = '\n'.join([' '.join([str(tile) for tile in row]) for row in self.display_map])
         # return self.map_display
-        return self.world_map
+        return self.map_grid
 
 class Tile:
-    def __init__(self, terrain='Land', terrain_items=None, loc=None):
+    def __init__(self, terrain='Land', terrain_items=None, loc=None):# Tile
         self.terrain = terrain
         if terrain in TILES:
             self.icon = TILES[terrain]
@@ -904,7 +907,7 @@ class Tile:
         # return self.terrain
 
 class Player:
-    def __init__(self, player_name, world_map, icon='P', start=None, dictionary=None, v=False):
+    def __init__(self, player_name, world_map, icon='P', start=None, dictionary=None, v=False):# Player
         if dictionary is not None:
             self.world_map = world_map
             # self.player_name = player_name
@@ -925,19 +928,19 @@ class Player:
             self.moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
             self.boat = False
         print(f'{self} start pos: {self.pos}')
-        self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
-        self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
-        self.world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
+        self.current_tile = self.world_map.display_map[self.pos[0]][self.pos[1]]
+        self.current_terrain = self.world_map.map_grid[self.pos[0]][self.pos[1]]['terrain']
+        self.world_map.map_grid[self.pos[0]][self.pos[1]]['Agent'] = self
         self.world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
-        self.target_tile = world_map.display_map[self.pos[0]+1][self.pos[1]]
-        self.target_terrain = world_map.world_map[self.pos[0]+1][self.pos[1]]['terrain']
-        # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
+        self.target_tile = self.world_map.display_map[self.pos[0]+1][self.pos[1]]
+        self.target_terrain = self.world_map.map_grid[self.pos[0]+1][self.pos[1]]['terrain']
+        # self.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
 
     def reset_moves(self):
         # self.remain_move = 0
         self.remain_move = self.movement
-        # world_map.game.turn += 1
-        # print('Turn:', world_map.game.turn)
+        # self.world_map.game.turn += 1
+        # print('Turn:', self.world_map.game.turn)
         print(f'Moves reset to {self.movement} for {self}.')
 
     def zero_moves(self):
@@ -948,7 +951,7 @@ class Player:
         # print('key:', key)
         direction = {'w': 'Ʌ', 'a': '<', 's': 'V', 'd': '>'}
         self.icon = direction[key]
-        world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
+        self.world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
         target_offset = self.moves[key]
         # print('target_offset:', target_offset)
         # TODO This will give an error at the map edge
@@ -957,8 +960,8 @@ class Player:
                 self.target_tile = None#' '
                 self.target_terrain = None
             else:
-                self.target_tile = world_map.display_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]
-                self.target_terrain = world_map.world_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]['terrain']
+                self.target_tile = self.world_map.display_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]
+                self.target_terrain = self.world_map.map_grid[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]['terrain']
         except IndexError as e:
             self.target_tile = None#' '
             self.target_terrain = None
@@ -972,12 +975,12 @@ class Player:
             self.old_pos = self.pos
         else:
             print(f'{self} teleported.')
-        # self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
+        # self.current_terrain = self.world_map.map_grid[self.pos[0]][self.pos[1]]['terrain']
         print(f'{self.player_name} position: {self.pos} on {self.current_tile} | Moves: {self.remain_move} / {self.movement} | {self.current_terrain}')# | Test01\rTest02')
         # if self.get_command() is None: # TODO This isn't very clear
         #     return
         self.pos = (self.pos[0] + dy, self.pos[1] + dx)
-        if self.pos[0] < 0 or self.pos[0] >= world_map.map_size[0] or self.pos[1] < 0 or self.pos[1] >= world_map.map_size[1]+1:
+        if self.pos[0] < 0 or self.pos[0] >= self.world_map.map_size[0] or self.pos[1] < 0 or self.pos[1] >= self.world_map.map_size[1]+1:
             print('Out of bounds, try again.')
             self.pos = self.old_pos
             return
@@ -988,14 +991,14 @@ class Player:
             self.pos = self.old_pos
             return
         try:
-            world_map.world_map[self.pos[0]][self.pos[1]]['Agent'] = self
-            world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.current_tile
-            self.current_tile = world_map.display_map[self.pos[0]][self.pos[1]]
-            self.current_terrain = world_map.world_map[self.pos[0]][self.pos[1]]['terrain']
-            world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
-            del world_map.world_map[self.old_pos[0]][self.old_pos[1]]['Agent']
-            # world_map.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
-            # del world_map.world_map.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
+            self.world_map.map_grid[self.pos[0]][self.pos[1]]['Agent'] = self
+            self.world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.current_tile
+            self.current_tile = self.world_map.display_map[self.pos[0]][self.pos[1]]
+            self.current_terrain = self.world_map.map_grid[self.pos[0]][self.pos[1]]['terrain']
+            self.world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
+            del self.world_map.map_grid[self.old_pos[0]][self.old_pos[1]]['Agent']
+            # self.world_map.map_grid.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
+            # del self.world_map.map_grid.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
         except (IndexError, KeyError) as e: # TODO Is this check still needed?
             print('Out of map boundry, please try again.')
             self.pos = self.old_pos
@@ -1004,7 +1007,7 @@ class Player:
 
     def is_occupied(self, pos):
         try:
-            if 'Agent' in world_map.world_map[pos[0]][pos[1]]:
+            if 'Agent' in self.world_map.map_grid[pos[0]][pos[1]]:
                 print('Cannot move to the same space as another Player or NPC.')
                 return True
         except (IndexError, KeyError) as e:
@@ -1013,7 +1016,7 @@ class Player:
 
     def calc_move(self, pos, v=False):
         reset = False
-        target_terrain = world_map.world_map[pos[0]][pos[1]]['terrain']
+        target_terrain = self.world_map.map_grid[pos[0]][pos[1]]['terrain']
         if v: print('target_terrain:', target_terrain)
         if v: print('target_terrain type:', target_terrain)
         if v: print('target_terrain.move_cost:', target_terrain.move_cost)
@@ -1051,8 +1054,8 @@ class Player:
             if self.boat:
                 print('Set to Boat.', self.pos)
                 # Change tile to Boat using edit function
-                # world_map.display_map[self.pos[0]][self.pos[1]] = self.boat_tile#Tile('Boat', world_map.terrain_items)
-                world_map.edit_map_terrain('Boat', self.pos[0], self.pos[1])
+                # self.world_map.display_map[self.pos[0]][self.pos[1]] = self.boat_tile#Tile('Boat', self.world_map.terrain_items)
+                self.world_map.edit_map_terrain('Boat', self.pos[0], self.pos[1])
             self.boat = not self.boat
             # Change tile to Ocean using edit function
             if self.boat:
@@ -1064,26 +1067,27 @@ class Player:
                 # if self.target_terrain.terrain == 'Boat':
                 #     self.pos = self.target_terrain.loc
                 #     self.move(0, 0, teleport=True)
-                world_map.edit_map_terrain('Ocean', self.pos[0], self.pos[1])
+                self.world_map.edit_map_terrain('Ocean', self.pos[0], self.pos[1])
             if v: print('boat:', self.boat)
         if v: print('boat out:', self.boat)
 
     def get_command(self, command=None):
+        # TODO Move this to the CivRPG class.
         # print('\nEnter "exit" to exit.')#\033[F #\r
         if command is None:
             command = input('Use wasd to move: ')
-        # print('=' * ((world_map.map_view[1]*2)-1))
+        # print('=' * ((self.world_map.map_view[1]*2)-1))
         command = command.lower().split(' ')
         command += [None] * (4 - len(command))
         print(time_stamp() + 'Command is:', command)
         if command[0] == 'exit':
             quit()
         elif command[0] == 'map':
-            print(f'Display current world map raw:\n{world_map}')
+            print(f'Display current world map raw:\n{self.world_map}')
         #     # self.pos = self.old_pos
             return
         elif command[0] == 'terrain' or command[0] == 'items':
-            print('Display terrain item details:\n', world_map.terrain_items)
+            print('Display terrain item details:\n', self.world_map.terrain_items)
             # self.pos = self.old_pos
             return
         # elif command == 'r' or command == 'reset':
@@ -1095,45 +1099,45 @@ class Player:
             # self.pos = self.old_pos
             return
         elif command[0] == 'size': # Update input
-            world_map.set_map_size(command[1], command[2])
+            self.world_map.set_map_size(command[1], command[2])
             # self.pos = self.old_pos
             return
         elif command[0] == 'v' or command[0] == 'view' or command[0] == 'viewsize': # Update input
-            world_map.set_view_size(self.pos, command[1], command[2], True)
+            self.world_map.set_view_size(self.pos, command[1], command[2], True)
             # self.pos = self.old_pos
             return
         elif command[0] == 'edit': # Update input
-            world_map.edit_map_terrain(command[1], command[2], command[3])
+            self.world_map.edit_map_terrain(command[1], command[2], command[3])
             # self.pos = self.old_pos
             return
         elif command[0] == 'addcords':
-            world_map.add_cords(command[1], command[2])
+            self.world_map.add_cords(command[1], command[2])
             return
         elif command[0] == 'export' or command[0] == 'exportmap': # Update input
-            world_map.export_map(command[1])
+            self.world_map.export_map(command[1])
             # self.pos = self.old_pos
             return
         elif command[0] == 'save' or command[0] == 'savemap':
-            world_map.save_map(command[1])
+            self.world_map.save_map(command[1])
             return
         elif command[0] == 'combine':
-            world_map.combine_map(command[1])
+            self.world_map.combine_map(command[1])
             return
         elif command[0] == 'load' or command[0] == 'loadmap':
-            world_map.load_map(command[1])
+            self.world_map.load_map(command[1])
             return
         elif command[0] == 'spawn': # Old
-            world_map.game.spawn_players()
+            self.world_map.game.spawn_players()
             return
         elif command[0] == 'mapinitial':
-            print(world_map.world_map[0][0])
+            print(self.world_map[0][0])
             return
         elif command[0] == 'mapcell':
             # print('row:')
-            # print(world_map.col(command[1]))
+            # print(self.world_map.col(command[1]))
             # print('col:')
-            # print(world_map.col(command[2]))
-            cell = world_map.world_map[world_map.col(command[1])][world_map.col(command[2])]
+            # print(self.world_map.col(command[2]))
+            cell = self.world_map.map_grid[self.world_map.col(command[1])][self.world_map.col(command[2])]
             print('type:')
             print(type(cell))
             print('len:')
@@ -1152,9 +1156,9 @@ class Player:
             print(cell_str[-8:])
             print('ddd')
             return
-# "={""Agent"": {""player_name"": ""Player 1"", ""icon"": "">"", ""pos"": [450, 245], ""movement"": 5, ""remain_move"": 5, ""moves"": {""w"": [0, -1], ""a"": [-1, 0], ""s"": [0, 1], ""d"": [1, 0]}, ""boat"": false, ""current_tile"": ""[orange4]=[/orange4]"", ""current_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 245], ""move_cost"": 0.5, ""hidden"": false}, ""target_tile"": ""[orange4]=[/orange4]"", ""target_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 246], ""move_cost"": 0.5, ""hidden"": false}, ""old_pos"": [450, 244]}}"
+            # "={""Agent"": {""player_name"": ""Player 1"", ""icon"": "">"", ""pos"": [450, 245], ""movement"": 5, ""remain_move"": 5, ""moves"": {""w"": [0, -1], ""a"": [-1, 0], ""s"": [0, 1], ""d"": [1, 0]}, ""boat"": false, ""current_tile"": ""[orange4]=[/orange4]"", ""current_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 245], ""move_cost"": 0.5, ""hidden"": false}, ""target_tile"": ""[orange4]=[/orange4]"", ""target_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [450, 246], ""move_cost"": 0.5, ""hidden"": false}, ""old_pos"": [450, 244]}}"
 
-# "={""Agent"": {""player_name"": ""Player 1"", ""icon"": ""1"", ""pos"": [446, 229], ""movement"": 5, ""remain_move"": 5, ""moves"": {""w"": [0, -1], ""a"": [-1, 0], ""s"": [0, 1], ""d"": [1, 0]}, ""boat"": false, ""current_tile"": ""[orange4]=[/orange4]"", ""current_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [446, 229], ""move_cost"": 0.5, ""hidden"": false}, ""target_tile"": ""[green].[/green]"", ""target_terrain"": {""tile_name"": ""Grassland"", ""icon"": ""[green].[/green]"", ""loc"": [447, 229], ""move_cost"": 1.0, ""hidden"": false}}}"
+            # "={""Agent"": {""player_name"": ""Player 1"", ""icon"": ""1"", ""pos"": [446, 229], ""movement"": 5, ""remain_move"": 5, ""moves"": {""w"": [0, -1], ""a"": [-1, 0], ""s"": [0, 1], ""d"": [1, 0]}, ""boat"": false, ""current_tile"": ""[orange4]=[/orange4]"", ""current_terrain"": {""tile_name"": ""Path"", ""icon"": ""[orange4]=[/orange4]"", ""loc"": [446, 229], ""move_cost"": 0.5, ""hidden"": false}, ""target_tile"": ""[green].[/green]"", ""target_terrain"": {""tile_name"": ""Grassland"", ""icon"": ""[green].[/green]"", ""loc"": [447, 229], ""move_cost"": 1.0, ""hidden"": false}}}"
         elif command[0] == 'redirect':
             print(self.world_map.game.redirect)
             self.world_map.game.redirect = not self.world_map.game.redirect
@@ -1162,7 +1166,7 @@ class Player:
             return
         elif command[0] == 'col':
             try:
-                world_map.col(command[1])
+                self.world_map.col(command[1])
             except IndexError:
                 print('Enter the letters for the column with a space after "col".')
             # self.pos = self.old_pos
@@ -1192,7 +1196,7 @@ class Player:
             # except ValueError:
             #     pass
             # if isinstance(y, str):
-            #     y = world_map.col(y)
+            #     y = self.world_map.col(y)
             # x = input('Enter x coord: ')
             try:
                 x = command[2]
@@ -1205,13 +1209,13 @@ class Player:
             except ValueError:
                 pass
             if isinstance(x, str):
-                x = world_map.col(x)
+                x = self.world_map.col(x)
             try:
                 self.old_pos = self.pos
                 self.pos = (int(y)-1, int(x)-1)
                 self.move(0, 0, teleport=True)
-                world_map.game.update_viewport()
-                world_map.game.update_status()
+                self.world_map.game.update_viewport()
+                self.world_map.game.update_status()
             except ValueError:
                 print('Enter whole numbers only, try again.')
                 self.pos = self.old_pos
@@ -1220,17 +1224,17 @@ class Player:
             status = f'[green]{self.player_name} pos: [/green][cyan]{self.pos}[/cyan][green] moves: [/green][cyan]{self.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.movement}[/cyan][green] faces: [/green]{self.target_tile}[green] {self.target_terrain} on: [/green]{self.current_tile}[green] {self.current_terrain}[/green]'
             print(status)
             print('Player:', self.player_name)
-            print('Map Size:', world_map.map_size)
-            print('Map View:', world_map.view_size)
+            print('Map Size:', self.world_map.map_size)
+            print('Map View:', self.world_map.view_size)
             print('Player Pos:', self.pos)
             print('Player Terrain:', self.current_terrain)
             print('Player Target:', self.target_terrain)
             # print('Player Target Pos:', self.target_tile.loc)
         # elif command[0] == 'save':
         #     try:
-        #         world_map.save(command[1])
+        #         self.world_map.save(command[1])
         #     except IndexError:
-        #         world_map.save()
+        #         self.world_map.save()
         #     return
         elif command[0] == 'help' or command[0] == 'movehelp':
             commands = {
@@ -1282,7 +1286,7 @@ class Player:
 
 class StdoutRedirector:
     '''Redirects stdout to a RichLog widget.'''
-    def __init__(self, log_widget: RichLog, log_file=None):
+    def __init__(self, log_widget: RichLog, log_file=None):# StdoutRedirector
         self.log_widget = log_widget
         self.log_file = log_file
         self.is_widget_update = False # Flag to differentiate rendering updates
@@ -1316,7 +1320,7 @@ class StdoutRedirector:
 
 class StdinRedirector:
     '''Redirects stdin to an Input widget.'''
-    def __init__(self, input_widget: Input):
+    def __init__(self, input_widget: Input):# StdinRedirector
         self.input_widget = input_widget
         # self.input_buffer = ''
         self.input_buffer = []
@@ -1344,15 +1348,24 @@ class StdinRedirector:
         return line 
 
 class MapContainer(Container):
-    # def __init__(self, viewport):
+    # def __init__(self, viewport):# MapContainer(Container)
     #     super().__init__()
     #     self.viewport = Static(viewport)
+
+    def compose(self):
+        self.viewport = Static("")
+        yield self.viewport
+
     def on_size(self):
         return self.size
 
 class StatusBar(Container):#Static
-    pass
-    # def __init__(self, player):
+
+    def compose(self):
+        self.status = Static("")
+        yield self.status
+    # pass
+    # def __init__(self, player):# StatusBar(Container)
     #     super().__init__()
     #     self.player = player
     
@@ -1416,57 +1429,136 @@ class CivRPG(App):
     #             # Binding('ctrl+right', 'next_tab', 'Next tab', show=False),
     #             ]
 
-    def __init__(self, map_name, start_loc, view_size=None, num_players=1, filename=None):
+    def __init__(self, map_name, start_loc, view_size=None, num_players=1, filename=None):# CivRPG(App)
         print(f'CivRPG init start. num_players: {num_players}')
         super().__init__()
         print('CivRPG super init done.')
         self.turn = 1
         self.stdout_redirector = None
         self.stdin_redirector = None
-        if view_size is None:
-            console = Console()
-            print(f'Console Size:', console.size)
-            view_size = (console.size[1], (console.size[0]//2)-1)
-            print('init view size:', view_size)
-        global world_map
-        world_map = Map(self, map_name, start_loc, view_size)
+        self.map_name = map_name
+        self.start_loc = start_loc
+        self.view_size = view_size
+        self.num_players = num_players
+        # self.filename = filename # TODO Is this used still?
         self.players = []
-        if not world_map.load_players:
-            for player_num in range(num_players):
-                player_name = 'Player ' + str(player_num+1)
-                self.player = Player(player_name, world_map, str(player_num+1), start_loc)
-                self.players.append(self.player)
-        else:
-            for player_data in world_map.load_players:
-                # print('player_data:', player_data)
-                # print('player_data agent:', player_data['Agent'])
-                player_name = player_data['Agent']['player_name']
-                self.player = Player(player_name, world_map, dictionary=player_data['Agent'])
-                self.players.append(self.player)
-        print(f'Players:\n{self.players}')
         self.current_player_index = 0
-        self.player = self.players[self.current_player_index]
+
+        self.world_map = None
+        self.viewport = None
+        self.status_bar = None
+
+        # global world_map
+        # world_map = Map(self, map_name, start_loc, view_size)
+        # self.players = []
+        # if not world_map.load_players:
+        #     for player_num in range(num_players):
+        #         player_name = 'Player ' + str(player_num+1)
+        #         self.player = Player(player_name, world_map, str(player_num+1), start_loc)
+        #         self.players.append(self.player)
+        # else:
+        #     for player_data in world_map.load_players:
+        #         # print('player_data:', player_data)
+        #         # print('player_data agent:', player_data['Agent'])
+        #         player_name = player_data['Agent']['player_name']
+        #         self.player = Player(player_name, world_map, dictionary=player_data['Agent'])
+        #         self.players.append(self.player)
+        # print(f'Players:\n{self.players}')
+        # self.current_player_index = 0
+        # self.player = self.players[self.current_player_index]
+
         # self.viewport = reactive('')
         # self.viewport = Static(self.viewport)
-        self.viewport = Static('')
-        self.status_bar = Static('')
+
+        # self.viewport = Static('')
+        # self.status_bar = Static('')
+
         # if view_size is None:
         #     console = Console()
         #     print(f'Console Size:', console.size)
         #     world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1]) # TODO This will center on the last player to load
         # world_map.view_port(self.player.pos)
-        self.update_status()#False)
+
+        # self.update_status()#False)
+
         # self.current_key = None
         # self.pressed_keys = set()
         # self.timer = None
-        self.redirect = True
-        print(f'World Map:\n{world_map}')
+
+        # self.redirect = False#True#
+        # print(f'World Map:\n{world_map}')
+
+    def on_mount(self):#async 
+        # self.timer = self.set_interval(0.5, self.check_movement)
+        '''Redirect stdout and stdin'''
+        self.redirect = True#False#
+        if self.redirect:
+            # with open('move_log01.log', 'w', buffering=1) as log_file:
+            log_file = open('logs/move_log01.log', 'w', buffering=1)
+            log_widget = self.query_one('#log_widget')
+            self.stdout_redirector = StdoutRedirector(log_widget, log_file)
+            sys.stdout = self.stdout_redirector
+            # print('redirect out:', self.redirect)
+            # print('redirect log_file:', log_file)
+
+        self.redirect = False#True#
+        if self.redirect:
+            input_widget = self.query_one('#prompt')
+            self.stdin_redirector = StdinRedirector(input_widget)
+            sys.stdin = self.stdin_redirector
+            # print('redirect in:', self.redirect)
+            # Set up input widget to capture input
+            input_widget.action_submit = self.capture_input
+        # print('redirect end:', self.redirect)
+        # Example print to test stdout
+        print(time_stamp() + 'Use WASD to move on the map view. Or type a command below and press Enter.')
+        # TODO Need to support multiple units/players
+
+        if self.view_size is None:
+            console = Console()
+            print(f'Console Size:', console.size)
+            self.view_size = (console.size[1], (console.size[0]//2)-2)
+            print('init view size:', self.view_size)
+        
+        # Create widgets
+        self.map_container = self.query_one('#map_container', MapContainer)
+        self.status_widget = self.query_one('#status_bar', StatusBar)
+        self.viewport = self.map_container.viewport
+        self.status_bar = self.status_widget.status
+
+        # self.run_worker(self._build_world, exclusive=True)#await 
+        self._build_world()
+
+        self.update_status()
+        self.update_viewport()
+        # world_map.save_map()
+
+    def _build_world(self):
+        self.world_map = Map(self, self.map_name, self.start_loc, self.view_size)
+        if not self.world_map.load_players:
+            for player_num in range(self.num_players):
+                player_name = 'Player ' + str(player_num+1)
+                player = Player(player_name, self.world_map, str(player_num+1), self.start_loc)
+                self.players.append(player)
+        else:
+            for player_data in self.world_map.load_players:
+                # print('player_data:', player_data)
+                # print('player_data agent:', player_data['Agent'])
+                player_name = player_data['Agent']['player_name']
+                player = Player(player_name, self.world_map, dictionary=player_data['Agent'])
+                self.players.append(player)
+        print(f'Players:\n{self.players}')
+        self.player = self.players[self.current_player_index]
+        print(f'World Map built:\n{self.world_map}')
+        return self.world_map
 
     def compose(self):
         with TabbedContent():
             with TabPane('Map', id='map_tab'):
-                yield MapContainer(self.viewport, id='map_container')
-                yield StatusBar(self.status_bar)#, id='status_bar')
+                # yield MapContainer(self.viewport, id='map_container')
+                # yield StatusBar(self.status_bar)#, id='status_bar')
+                yield MapContainer(id='map_container')
+                yield StatusBar(id='status_bar')
             with TabPane('Log', id='log_tab'):
                 yield RichLog(wrap=False, id='log_widget')#highlight=True, markup=True, wrap=True, id='log_widget')
                 yield Input(placeholder='Enter command...', type='text', id='prompt')
@@ -1490,7 +1582,7 @@ class CivRPG(App):
     def update_viewport(self):#async
         # await asyncio.sleep(0)  # Yield control to ensure async behavior
         # self.stdout_redirector.set_widget_update(True) # Start widget update
-        visible_map = world_map.view_port(self.player.pos)
+        visible_map = self.world_map.view_port(self.player.pos)
         buffer = StringIO()
         # visible_map = buffer.write('\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map]))
         visible_map = buffer.write('\n'.join([' '.join(row) for row in visible_map]))
@@ -1513,32 +1605,6 @@ class CivRPG(App):
         # self.status_bar.update(self.player)
         # if check:
         #     self.stdout_redirector.set_widget_update(False) # End widget update
-
-    def on_mount(self):
-        # self.timer = self.set_interval(0.5, self.check_movement)
-        '''Redirect stdout and stdin'''
-        self.redirect = True
-        if self.redirect:
-            # with open('move_log01.log', 'w', buffering=1) as log_file:
-            log_file = open('logs/move_log01.log', 'w', buffering=1)
-            log_widget = self.query_one('#log_widget')
-            self.stdout_redirector = StdoutRedirector(log_widget, log_file)
-            sys.stdout = self.stdout_redirector
-            # print('redirect out:', self.redirect)
-            # print('redirect log_file:', log_file)
-
-            input_widget = self.query_one('#prompt')
-            self.stdin_redirector = StdinRedirector(input_widget)
-            sys.stdin = self.stdin_redirector
-            # print('redirect in:', self.redirect)
-            # Set up input widget to capture input
-            input_widget.action_submit = self.capture_input
-        # print('redirect end:', self.redirect)
-        # Example print to test stdout
-        print(time_stamp() + 'Use WASD to move on the map view. Or type a command below and press Enter.')
-        # TODO Need to support multiple units/players
-        self.update_viewport()
-        # world_map.save_map()
 
     def check_movement(self):
         '''Check if current player's movement is 0, then switch turns.'''
@@ -1577,7 +1643,7 @@ class CivRPG(App):
     #     self.update_status()
     #     self.text_log.write(event.key)
 
-##########################################################
+    ##########################################################
 
     # async def on_key(self, event):
     #     # Prevent input queuing by only processing the latest key
@@ -1651,13 +1717,15 @@ class CivRPG(App):
             unit.reset_moves()
         self.current_player_index = 0
         self.player = self.players[self.current_player_index]
-        self.update_viewport()
-        world_map.game.turn += 1
-        print('Turn:', world_map.game.turn)
+        self.update_viewport() # TODO Should this come after the turn increment?
+        # self.world_map.game.turn += 1
+        # print('Turn:', self.world_map.game.turn)
+        self.turn += 1
+        print('Turn:', self.turn)
 
     # self.player = Player(player_name, world_map, str(player_num+1), args.start)
     def spawn_players(self, v=True): # TODO Is this still needed?
-        for i, row in enumerate(world_map.world_map):
+        for i, row in enumerate(self.world_map):
             for j, cell in enumerate(row):
                 if cell.get('Agent'):
                     agent = cell.get('Agent')
@@ -1675,15 +1743,15 @@ class CivRPG(App):
                                 agent = self.players[i]
                                 print('agent type make:', type(agent))
                             print('agent type2:', type(agent))
-                    world_map.world_map[i][j]['Agent'] = agent
+                    self.world_map[i][j]['Agent'] = agent
                     print('world_map point:')
-                    print('test:', world_map.world_map[i][j])
+                    print('test:', self.world_map[i][j])
                     print('world_map point end.')
         self.update_viewport()
         self.update_status()
         print('End spawning players.')
 
-##########################
+    ##########################
 
     # async def on_key(self, event):
     #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}

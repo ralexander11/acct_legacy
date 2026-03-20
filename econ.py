@@ -169,7 +169,7 @@ econ_accts = [
 
 class World:
 	# _instance = None
-	def __init__(self, factory, accts=None, ledger=None, governments=1, population=2, new_db=True):#, args=None):# World
+	def __init__(self, factory, accts=None, ledger=None, governments=1, population=2, new_db=True, config=None):# World
 		# if World._instance is not None:
 		# 	raise Exception('Use World.get_model() instead of creating a new instance.')
 		# pygame.init()
@@ -179,7 +179,33 @@ class World:
 		self.ledger = ledger
 		global args
 		if args is None:
-			args = argparse.Namespace(database=None, command=None, delay=0, reset=False, random=True, seed=None, items=None, time=None, capital=1_000_000, governments=1, players=0, population=1, max_pop=None, users=0, win=False, pin=False, early=False, jones=False, inf_time=False, buffer_qty=0, verbose=False)
+			default_args = {
+				'database': None,
+				'command': None,
+				'delay': 0,
+				'reset': False,
+				'random': True,
+				'seed': None,
+				'items': None,
+				'time': None,
+				'capital': 1_000_000,
+				'governments': 1,
+				'players': 0,
+				'population': 1,
+				'max_pop': None,
+				'users': 0,
+				'win': False,
+				'pin': False,
+				'early': False,
+				'jones': False,
+				'inf_time': False,
+				'buffer_qty': 0,
+				'verbose': False,
+			}
+			if config is None:
+				config = {}
+			args = argparse.Namespace(**(default_args | config))
+			print('args:', args)
 		# World._instance = self
 		# self.accts = EntityFactory.get_accts()
 		# self.ledger = EntityFactory.get_ledger()  # Access shared Ledger
@@ -660,7 +686,7 @@ class World:
 		if v: print('\nSetup Prices: \n{}'.format(self.prices))
 		return self.prices
 
-	def create_world(self, lands=None, date=None):
+	def create_world(self, lands=None, date=None):# TODO create_world func is overloaded
 		print(time_stamp() + 'Creating world.')
 		# Create environment instance first
 		last_entity_id = self.accts.get_entities().reset_index()['entity_id'].max()
@@ -6152,6 +6178,8 @@ class Entity:
 		# Choose the best item
 		if args.items == 'items_basic.csv':
 			MAX_CORPS = 1
+		else: # Tmp for import
+			MAX_CORPS = 2 # Tmp for import
 		if item is None and need is not None:
 			items_info = world.items[world.items['satisfies'].str.contains(need, na=False)] # Supports if item satisfies multiple needs
 			if items_info.empty:
@@ -11342,7 +11370,7 @@ def create_entityfactory():
 	print('EntityFactory object created.')
 	return EntityFactory()
 
-def create_world(accts=None, ledger=None, factory=None, governments=1, population=2, new_db=True, database=None):#, args=None):
+def create_world(accts=None, ledger=None, factory=None, governments=1, population=2, new_db=True, database=None, config=None):# TODO create_world func is overloaded
 	if factory is None:
 		factory = create_entityfactory()
 	EntityFactory.init(database, econ_accts)
@@ -11351,7 +11379,7 @@ def create_world(accts=None, ledger=None, factory=None, governments=1, populatio
 	if ledger is None:
 		ledger = EntityFactory.get_ledger()
 	global world
-	world = World(factory, accts, ledger, governments, population, new_db)#, args)
+	world = World(factory, accts, ledger, governments, population, new_db, config)
 	return world
 
 def timed_input(prompt, timeout=10, v=False):
@@ -11491,7 +11519,7 @@ def main(conn=None, command=None, external=False):
 	# factory = create_entityfactory()
 	global world
 	EntityFactory.init(conn, econ_accts)  # Initialize Ledger
-	world = create_world(governments=args.governments, population=args.population, new_db=new_db, database=conn)#, args=args)
+	world = create_world(governments=args.governments, population=args.population, new_db=new_db, database=conn)#, config=args)
 	
 	# pr = cProfile.Profile()
 	# pr.enable()

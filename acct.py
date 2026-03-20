@@ -102,11 +102,11 @@ class Accounts:
 			db_dir = './db'
 			os.makedirs(db_dir, exist_ok=True)
 			try:
-				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db')
+				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/db/acct.db', check_same_thread=False)
 				self.website = True
 				logging.debug('Website: {}'.format(self.website))
 			except Exception as e:
-				conn = sqlite3.connect('db/acct.db')
+				conn = sqlite3.connect('db/acct.db', check_same_thread=False)# TODO Tmp check_same_thread for game
 				self.website = False
 				logging.debug('Website: {}'.format(self.website))
 			self.db = 'acct.db'
@@ -119,11 +119,11 @@ class Accounts:
 			if '/' not in conn and conn != ':memory:':
 				conn = 'db/' + conn
 			try:
-				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/' + conn)
+				conn = sqlite3.connect('/home/robale5/becauseinterfaces.com/acct/' + conn, check_same_thread=False)
 				self.website = True
 				logging.debug('Website: {}'.format(self.website))
 			except Exception as e:
-				conn = sqlite3.connect(conn)
+				conn = sqlite3.connect(conn, check_same_thread=False)
 				self.website = False
 				logging.debug('Website: {}'.format(self.website))
 			self.convert_table(conn, 'accounts', acct_cols)
