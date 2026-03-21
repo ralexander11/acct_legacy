@@ -10,6 +10,7 @@ import os, sys
 import json
 from io import StringIO
 import asyncio
+import re
 # import builtins
 
 from textual.app import App, ComposeResult
@@ -22,6 +23,7 @@ from rich.pretty import Pretty
 from rich.text import Text
 
 MAP_SIZE = 4 #64
+ANSI_ESCAPE = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 
 CORDS = {
         'Start': '338, 178',
@@ -970,13 +972,13 @@ class Player:
         # print('target_tile:', self.target_tile)
         # print('target_tile type:', type(self.target_tile))
 
-    def move(self, dy, dx, teleport=False):
+    def move(self, dy, dx, teleport=False, v=False):
         if not teleport:
             self.old_pos = self.pos
         else:
             print(f'{self} teleported.')
         # self.current_terrain = self.world_map.map_grid[self.pos[0]][self.pos[1]]['terrain']
-        print(f'{self.player_name} position: {self.pos} on {self.current_tile} | Moves: {self.remain_move} / {self.movement} | {self.current_terrain}')# | Test01\rTest02')
+        if v: print(f'{self.player_name} position: {self.pos} on {self.current_tile} | Moves: {self.remain_move} / {self.movement} | {self.current_terrain}')# | Test01\rTest02')
         # if self.get_command() is None: # TODO This isn't very clear
         #     return
         self.pos = (self.pos[0] + dy, self.pos[1] + dx)
@@ -1292,9 +1294,13 @@ class StdoutRedirector:
         self.is_widget_update = False # Flag to differentiate rendering updates
 
     def write(self, text):
-        if self.log_file is not None:
-            if 'Player ' not in text and 'position: (' not in text:
-                self.log_file.write(text)
+        if not text:
+            return
+
+        # if self.log_file is not None:
+        # if 'Player ' not in text and 'position: (' not in text:
+        clean_text = ANSI_ESCAPE.sub('', text)
+        self.log_file.write(clean_text)
 
             # sys.stdout = type('TeeLog', (), {
             #     'write': lambda self, data: (self.log_widget.write(text), logfile.write(text)),
@@ -1312,6 +1318,7 @@ class StdoutRedirector:
     def flush(self):
         # pass # No-op to satisfy the file-like interface
         # sys.stdout.flush() # This causes: RecursionError: maximum recursion depth exceeded
+        self.log_file.flush()
         self.log_widget.app.refresh()
 
     def set_widget_update(self, flag: bool):
@@ -1491,10 +1498,17 @@ class CivRPG(App):
     def on_mount(self):#async 
         # self.timer = self.set_interval(0.5, self.check_movement)
         '''Redirect stdout and stdin'''
+        print('on_mount started.')
         self.redirect = True#False#
         if self.redirect:
             # with open('move_log01.log', 'w', buffering=1) as log_file:
-            log_file = open('logs/move_log01.log', 'w', buffering=1)
+            # if args.log_name is None: # TODO Pass this value in
+            #     log_name = 'move_log01'
+            # else:
+            #     log_name = args.log_name
+            log_name = 'move_log01'
+            log_name = 'logs/' + log_name + '.log'
+            log_file = open(log_name, 'w', buffering=1)
             log_widget = self.query_one('#log_widget')
             self.stdout_redirector = StdoutRedirector(log_widget, log_file)
             sys.stdout = self.stdout_redirector
@@ -1532,12 +1546,16 @@ class CivRPG(App):
         self.update_status()
         self.update_viewport()
         # world_map.save_map()
+        print('on_mount done.')
 
     def _build_world(self):
+        print('build_world started.')
         self.world_map = Map(self, self.map_name, self.start_loc, self.view_size)
+        print('Map class done.')
         if not self.world_map.load_players:
             for player_num in range(self.num_players):
                 player_name = 'Player ' + str(player_num+1)
+                print('Creating:', player_name)
                 player = Player(player_name, self.world_map, str(player_num+1), self.start_loc)
                 self.players.append(player)
         else:
@@ -1545,6 +1563,7 @@ class CivRPG(App):
                 # print('player_data:', player_data)
                 # print('player_data agent:', player_data['Agent'])
                 player_name = player_data['Agent']['player_name']
+                print('Loading:', player_name)
                 player = Player(player_name, self.world_map, dictionary=player_data['Agent'])
                 self.players.append(player)
         print(f'Players:\n{self.players}')
@@ -1553,6 +1572,7 @@ class CivRPG(App):
         return self.world_map
 
     def compose(self):
+        print('compose started.')
         with TabbedContent():
             with TabPane('Map', id='map_tab'):
                 # yield MapContainer(self.viewport, id='map_container')
@@ -1562,6 +1582,7 @@ class CivRPG(App):
             with TabPane('Log', id='log_tab'):
                 yield RichLog(wrap=False, id='log_widget')#highlight=True, markup=True, wrap=True, id='log_widget')
                 yield Input(placeholder='Enter command...', type='text', id='prompt')
+        print('compose done.')
 
     # def on_ready(self):
     #     self.text_log = self.query_one('#log_widget')
@@ -1659,7 +1680,7 @@ class CivRPG(App):
             # print('focused_widget:', focused_widget)
             # self.text_log.write(print('focused_widget:', focused_widget))
             return
-        self.check_movement()
+        self.check_movement() # TODO Why do I have this here?
         if event.key in self.player.moves:
             # if event.key not in self.pressed_keys:
             #     self.pressed_keys.add(event.key)
@@ -1669,11 +1690,11 @@ class CivRPG(App):
             self.player.move(dy, dx)
             # asyncio.create_task(self.player.move(dy, dx))
             self.player.change_dir(event.key)
-            # self.check_movement()
-            if self.check_movement():
-                self.update_viewport()
-            else: # TODO Fix this
-                self.update_viewport()
+            self.check_movement()
+            # if self.check_movement(): # TODO Why check this?
+            self.update_viewport()
+            # else: # TODO Fix this
+            #     self.update_viewport()
                 # self.pressed_keys.remove(event.key)
         # elif event.key in ['up', 'lef', 'down', 'right']:
         elif event.key in ['i', 'j', 'k', 'l']:
@@ -1827,6 +1848,7 @@ def parse_args():
     parser.add_argument('-p', '--players', type=int, default=1, help='The number of players in the world.')
     parser.add_argument('-vs', '--view_size', type=str, help='The size of the view of the world. E.g. "21, 33"')
     parser.add_argument('-z', '--size', type=str, help='The map size as either a list of two numbers or one for square.')
+    parser.add_argument('-log', '--log', type=str, help='The name to use for the log file.')
     args = parser.parse_args()
 
     if args.seed:

@@ -10,12 +10,12 @@ import asyncio
 class CombinedGame(CivRPG):
     def __init__(self, map_name, start_loc, view_size=None, num_players=1):
         super().__init__(map_name, start_loc, view_size, num_players)
+        config = {'population': 1, 'users': 1, 'reset': True}
+        print('Config:', config)
         database = 'db/' + 'econ01.db'
         print('Game database:', database)
         econ.EntityFactory.init(database, econ.econ_accts)
         print('Creating econ world.')
-        config = {'users': 1}
-        print('Config:', config)
         self.world = econ.create_world(database=database, config=config)
         print('Game world:', self.world)
         self.econ_interval = 1.0  # Seconds between econ updates

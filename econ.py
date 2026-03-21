@@ -169,7 +169,7 @@ econ_accts = [
 
 class World:
 	# _instance = None
-	def __init__(self, factory, accts=None, ledger=None, governments=1, population=2, new_db=True, config=None):# World
+	def __init__(self, factory, accts=None, ledger=None, governments=None, population=None, new_db=True, config=None):# World
 		# if World._instance is not None:
 		# 	raise Exception('Use World.get_model() instead of creating a new instance.')
 		# pygame.init()
@@ -191,7 +191,7 @@ class World:
 				'capital': 1_000_000,
 				'governments': 1,
 				'players': 0,
-				'population': 1,
+				'population': 2,
 				'max_pop': None,
 				'users': 0,
 				'win': False,
@@ -271,8 +271,14 @@ class World:
 			self.set_table(self.delay, 'delay')
 			self.tech = pd.DataFrame(columns=['technology', 'date', 'entity_id','time_req','days_left', 'done_date','status'])
 			self.set_table(self.tech, 'tech')
-			self.governments = governments
-			self.population = population
+			if governments is not None:
+				self.governments = governments
+			else:
+				self.governments = args.governments
+			if population is not None:
+				self.population = population
+			else:
+				self.population = args.population
 			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
 			# 	print('Items Config: \n{}'.format(self.items))
 			if args.win:
@@ -5002,7 +5008,9 @@ class Entity:
 				print(f'Old refulfill path for {item} x {qty}: {max_qty_possible}')
 			if max_qty_possible != qty and not man and not check and not wip_choice and whole_qty <= max_qty_possible:
 				print(f'Mod old refulfill path for {item} x {qty}: {max_qty_possible}')
-			self.prices_buffer = pd.DataFrame(columns=['entity_id','price']).rename_axis('item_id')
+			print('Prices buffer before clear due to fulfill:', world.prices_buffer)
+			world.prices_buffer = pd.DataFrame(columns=['entity_id','price']).rename_axis('item_id')
+			print('Prices buffer after clear due to fulfill:', world.prices_buffer)
 			if max_qty_possible != qty and not man and not check and (not wip_choice or req_max_result) and whole_qty <= max_qty_possible: # This could cause recursion issues
 				print(f'New refulfill path for {item} x {qty}: {max_qty_possible}')
 				event = []
@@ -11370,7 +11378,7 @@ def create_entityfactory():
 	print('EntityFactory object created.')
 	return EntityFactory()
 
-def create_world(accts=None, ledger=None, factory=None, governments=1, population=2, new_db=True, database=None, config=None):# TODO create_world func is overloaded
+def create_world(accts=None, ledger=None, factory=None, governments=None, population=None, new_db=True, database=None, config=None):# TODO create_world func is overloaded
 	if factory is None:
 		factory = create_entityfactory()
 	EntityFactory.init(database, econ_accts)
@@ -11401,7 +11409,7 @@ def timed_input(prompt, timeout=10, v=False):
 		if v: print(f'\nReceived user input. Will ask for a player ID to toggle.')# {user_input[0]}')# |  {type(user_input[0])}')
 		return user_input[0]
 
-def parse_args(conn=None, command=None, external=False):
+def parse_args(conn=None, command=None, external=False):# TODO Maybe add config=None param to this
 	global args
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-db', '--database', type=str, help='The name of the database file.')
@@ -11552,15 +11560,15 @@ if __name__ == '__main__':
 # nohup /home/pi/dev/venv/bin/python3.6 -u /home/pi/dev/acct/econ.py -db econ01.db -p 4 >> /home/pi/dev/acct/logs/econ01.log 2>&1 &
 
 # (python econ.py -db econ_2024-12-07.db -s 11 -p 4 -r -t 4 >> logs/econ_2024-12-07.log && say done) || say error
-# python econ.py -db econ_2024-12-07.db -s 11 -p 4 -mp 5 -r -t 1 >> logs/econ_2024-12-07.log; echo -e '\a'
+# python econ.py -db econ_2026-03-20.db -p 4 -mp 10 -r -t 1 >> logs/econ_2026-03-20.log; echo -e '\a'
 
 # (python econ.py -s 11 -p 4 -r -t 4 && say done) || say error
 # python econ.py -u
-# python econ.py -db mem -r; echo -e '\a'
+# python econ.py -db mem -r -t 1; echo -e '\a'
 # python econ.py -db econ_$(date +%F).db -i items.csv -p 4 -mp 10 -r >> logs/econ_$(date +%F).log; echo -e '\a'
 # python econ.py -i items_basic.csv -p 2 -mp 2 -cap 1000 -r >> logs/econ_buff01.log; echo -e '\a'
 
-# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-02-25b.log ~/dev/acct_legacy/logs/
+# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-03-20.log ~/dev/acct_legacy/logs/
 # scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/db/econ_2026-02-10.db ~/dev/acct_legacy/db/
 
 # TODO
