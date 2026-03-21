@@ -2329,8 +2329,8 @@ class World:
 			self.set_table(self.hist_hours, 'hist_hours')
 			self.util(save=False)
 			#if v: print('\nHist Hours: \n{}'.format(self.hist_hours))
-			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				print('\nHist Prices: \n{}'.format(self.hist_prices))
+			# with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+			# 	print('\nHist Prices: \n{}'.format(self.hist_prices))
 		else:
 			# Save prior days tables: entities, prices, demand, delay, produce_queue
 			self.entities = self.accts.get_entities().reset_index()
@@ -5008,9 +5008,11 @@ class Entity:
 				print(f'Old refulfill path for {item} x {qty}: {max_qty_possible}')
 			if max_qty_possible != qty and not man and not check and not wip_choice and whole_qty <= max_qty_possible:
 				print(f'Mod old refulfill path for {item} x {qty}: {max_qty_possible}')
-			print('Prices buffer before clear due to fulfill:', world.prices_buffer)
-			world.prices_buffer = pd.DataFrame(columns=['entity_id','price']).rename_axis('item_id')
-			print('Prices buffer after clear due to fulfill:', world.prices_buffer)
+			print('Prices buffer before clear due to fulfill:\n', world.prices_buffer)
+			print('Result before Prices buffer:\n', results)
+			# world.prices_buffer = pd.DataFrame(columns=['entity_id','price']).rename_axis('item_id')
+			world.prices_buffer = world.prices_buffer[~world.prices_buffer.index.isin(results['item_id'])]
+			print('Prices buffer after clear due to fulfill:\n', world.prices_buffer)
 			if max_qty_possible != qty and not man and not check and (not wip_choice or req_max_result) and whole_qty <= max_qty_possible: # This could cause recursion issues
 				print(f'New refulfill path for {item} x {qty}: {max_qty_possible}')
 				event = []
