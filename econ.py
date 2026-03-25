@@ -159,7 +159,8 @@ econ_accts = [
 	('Loan','Liability'),
 	('Loans Receivable','Asset'),
 	('Bad Debts Expense','Expense'),
-	('Write-off','Revenue'), # Other Income account
+	('Write-off','Revenue'), # Other Income account for bankruptcy
+	('Loss on Disposal of Asset', 'Expense'), # Other Income account for trashing an asset
 	('Gift','Revenue'),
 	('Gift Expense','Expense'),
 	('End of Day','Info'),
@@ -1371,7 +1372,7 @@ class World:
 			items_typ = self.items.reset_index()
 			items_typ['item_type'] = items_typ.apply(lambda x: x['item_id'] if x['child_of'] is None else self.get_item_type(x['item_id']), axis=1)
 			items_typ = items_typ.loc[items_typ['item_type'].isin(typ)]
-			# print(f'Items Typ: {item} | {typ}')# \n{item_typ}')
+			# print(f'Items Typ: {item} | {typ}')# \n{items_typ}')#
 			if item in items_typ['item_id'].values:
 				return True
 			else:
@@ -8066,6 +8067,21 @@ class Entity:
 		self.ledger.journal_entry(bankruptcy_event)
 		return bankruptcy_event
 
+	def trash(self, asset, qty=1):
+		# Trashing assets at a Loss incase you don't want it anymore due to upkeep
+		trash_event = []
+		item_type = world.get_item_type(asset)
+		print(f'{self.name} looking to trash {asset} {item_type}.')
+		if item_type not in ['Equipment', 'Buildings', 'Land', 'Commodity', 'Components']:
+			return
+		self.ledger.set_entity(self.entity_id)
+		amount = self.ledger.balance_sheet(accounts=item_type, item=asset) # TODO Factor in qty and depreciation
+		trash_asset_entry = [ self.ledger.get_event(), self.entity_id, self.entity_id, world.now, '', 'Trash asset', asset, amount / qty, qty, 'Loss on Disposal of Asset', item_type, amount ]
+		trash_event += [trash_asset_entry]
+		self.ledger.reset()
+		self.ledger.journal_entry(trash_event)
+		return trash_event
+
 	def sale_land_check(self, items=None, v=True):
 		if not isinstance(self, Individual):
 			return
@@ -9416,6 +9432,17 @@ class Entity:
 					continue
 			if confirm:
 				self.bankruptcy()
+		elif command.lower() == 'trash':
+			while True:
+				item = input('Enter item asset to trash: ')
+				if item == '':
+					return
+				if world.valid_item(item, typ='Equipment'):
+					break
+				else:
+					print('Not a valid entry. It must be an Asset type.')
+					continue
+			self.trash(item.title())
 		elif command.lower() == 'owned':
 			start_time = timeit.default_timer()
 			self.ledger.set_entity(self.entity_id)
@@ -9765,6 +9792,7 @@ class Entity:
 				'loan': 'Borrow cash from the bank.',
 				'repay': 'Repay cash borrowed from the bank.',
 				'bankruptcy': 'Declare bankruptcy with the bank.',
+				'trash': 'Trash an asset at a loss if you don\'t want to keep it anymore.',
 				'adjrate': 'Adjust central bank interest rate.',
 				'setprice': 'Set the price of items.',
 				'emance': 'Emancipation from parents to be treated like a founder.',
@@ -11568,7 +11596,7 @@ if __name__ == '__main__':
 # python econ.py -u
 # python econ.py -db mem -r -t 1; echo -e '\a'
 # python econ.py -db econ_$(date +%F).db -i items.csv -p 4 -mp 10 -r >> logs/econ_$(date +%F).log; echo -e '\a'
-# python econ.py -i items_basic.csv -p 2 -mp 2 -cap 1000 -r >> logs/econ_buff01.log; echo -e '\a'
+# python econ.py -i items_basic.csv -p 2 -mp 2 -cap 1000 -r >> logs/econ_basic01.log; echo -e '\a'
 
 # scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-03-20.log ~/dev/acct_legacy/logs/
 # scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/db/econ_2026-02-10.db ~/dev/acct_legacy/db/
