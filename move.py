@@ -1542,9 +1542,12 @@ class CivRPG(App):
 
         # self.run_worker(self._build_world, exclusive=True)#await 
         self._build_world()
+        
 
         self.update_status()
         self.update_viewport()
+        self.set_focus(self.map_container)
+        print('Focus set.')
         # world_map.save_map()
         print('on_mount done.')
 
