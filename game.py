@@ -9,7 +9,8 @@ import asyncio
 
 class CombinedGame(CivRPG):
     def __init__(self, map_name, start_loc, view_size=None, num_players=1):
-        super().__init__(map_name, start_loc, view_size, num_players)
+        self.econ_running = False
+        econ_entities = None
         config = {'population': 1, 'users': 1, 'reset': True}
         print('Config:', config)
         database = 'db/' + 'econ01.db'
@@ -18,6 +19,9 @@ class CombinedGame(CivRPG):
         print('Creating econ world.')
         self.world = econ.create_world(database=database, config=config)
         print('Game world:', self.world)
+        econ_entities = self.world.factory.get(econ.Individual, computers=False)
+        print('econ_entities:', econ_entities)
+        super().__init__(map_name, start_loc, view_size, num_players, entities=econ_entities)
         self.econ_interval = 1.0  # Seconds between econ updates
         print('econ_interval:', self.econ_interval)
 
@@ -27,13 +31,31 @@ class CombinedGame(CivRPG):
         self.set_interval(self.econ_interval, self.update_economy)
         print('Interval set.')
 
-    async def update_economy(self):
-        print('Update econ tick.')
-        # self.world.update_econ()
-        await asyncio.to_thread(self.world.update_econ)
-        print('Done update econ tick.')
-        if self.world.end:
-            self.exit()
+    # async def update_economy(self):
+    #     print('Update econ tick.')
+    #     # self.world.update_econ()
+    #     await asyncio.to_thread(self.world.update_econ)
+    #     print('Done update econ tick.')
+    #     if self.world.end:
+    #         self.exit()
+    
+    def update_economy(self):
+        if self.econ_running:
+            return
+
+        self.econ_running = True
+
+        async def run():
+            print('Update econ tick.')
+            await asyncio.to_thread(self.world.update_econ)
+            print('Done update econ tick.')
+
+            self.econ_running = False
+
+            if self.world.end:
+                self.exit()
+
+        asyncio.create_task(run())
 
 if __name__ == '__main__':
     print('Create app.')
@@ -41,13 +63,3 @@ if __name__ == '__main__':
     print('Run CivRPG app.')
     app.run()
     print('Finish CivRPG app.')
-
-    # database = 'db/' + 'econ01.db'
-    # econ.EntityFactory.init(database, econ.econ_accts)
-    # world = econ.create_world(database=database)
-    # print('world:', world)
-
-    # while True:
-    #     world.update_econ()
-    #     if world.end:
-    #         break

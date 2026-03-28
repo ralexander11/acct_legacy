@@ -14,8 +14,8 @@ import re
 # import builtins
 
 from textual.app import App, ComposeResult
-from textual.widgets import Static, TabbedContent, TabPane, RichLog, Input
-from textual.containers import Container
+from textual.widgets import Static, TabbedContent, TabPane, RichLog, Input, Button
+from textual.containers import Container, Horizontal
 from textual.reactive import reactive
 from textual.timer import Timer
 from rich.console import Console
@@ -909,13 +909,18 @@ class Tile:
         # return self.terrain
 
 class Player:
-    def __init__(self, player_name, world_map, icon='P', start=None, dictionary=None, v=False):# Player
+    def __init__(self, player_name, world_map, icon='P', start=None, econ_entity=None, combat_entity=None, dictionary=None, v=False):# Player
         if dictionary is not None:
             self.world_map = world_map
             # self.player_name = player_name
             self.__dict__.update(dictionary)
         else:
             self.player_name = player_name
+
+            # External systems
+            self.econ = econ_entity# or NullEcon()
+            self.combat = combat_entity# or NullCombat() # TODO For future combat.py
+
             self.world_map = world_map
             self.icon = icon#'[blink]' + icon + '[/blink]'
             if v: print(f'{self} icon: {self.icon}')
@@ -938,6 +943,26 @@ class Player:
         self.target_terrain = self.world_map.map_grid[self.pos[0]+1][self.pos[1]]['terrain']
         # self.world_map.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
 
+    # ----------------------------
+    # OPTIONAL: future getattr/setattr delegation
+    # ----------------------------
+    # def __getattr__(self, name):
+    #     if hasattr(self.econ, name):
+    #         return getattr(self.econ, name)
+    #     if hasattr(self.combat, name):
+    #         return getattr(self.combat, name)
+    #     raise AttributeError(f"{self.__class__.__name__} has no attribute '{name}'")
+    
+    # def __setattr__(self, name, value):
+    #     if name in ('econ', 'combat', 'name'):# TODO Update this
+    #         super().__setattr__(name, value)
+    #     elif hasattr(self.econ, name):
+    #         setattr(self.econ, name, value)
+    #     elif hasattr(self.combat, name):
+    #         setattr(self.combat, name, value)
+    #     else:
+    #         super().__setattr__(name, value)
+
     def reset_moves(self):
         # self.remain_move = 0
         self.remain_move = self.movement
@@ -947,7 +972,7 @@ class Player:
 
     def zero_moves(self):
         self.remain_move = 0
-        print(f'Moves set to {self.remain_move} for {self}.')
+        # print(f'Moves set to {self.remain_move} for {self}.')
 
     def change_dir(self, key):
         # print('key:', key)
@@ -1036,10 +1061,24 @@ class Player:
             # else:
                 print(f'Cannot cross {target_terrain} ({target_terrain.icon}) tile at {pos}.')
                 return
+
+        hours_needed = move_cost / self.movement
+        if self.econ and hasattr(self.econ, 'hours'):
+            if self.econ.hours < hours_needed:
+                print(f'Not enough hours. Needed: {hours_needed}, Available: {self.econ.hours}')
+                return
+
         if self.remain_move >= move_cost:
             if self.remain_move == move_cost or self.remain_move < 1: # TODO Is this the best way to reset the moves?
                 reset = True
             self.remain_move -= move_cost
+
+            if self.econ and hasattr(self.econ, 'set_hours'):
+                # print('hours before:', self.econ.hours)
+                # print('hours needed:', hours_needed)
+                self.econ.set_hours(hours_needed)
+                print('hours:', self.econ.hours)
+
             # if self.remain_move < 1:
                 # reset = True
             if reset:
@@ -1285,6 +1324,21 @@ class Player:
         return f"'{self.player_name}'"
         # return self.player_name
 
+# These Null classes cause error when run without importing
+# class NullEcon:
+#     '''Fallback econ system if none is provided.'''
+#     def __getattr__(self, name):
+#         '''Return a dummy function that does nothing.'''
+#         def method(*args, **kwargs):
+#             return False
+#         return method
+
+# class NullCombat: # TODO This is for the future
+#     '''Fallback combat system if none is provided.'''
+#     def __getattr__(self, name):
+#         def method(*args, **kwargs):
+#             return False
+#         return method
 
 class StdoutRedirector:
     '''Redirects stdout to a RichLog widget.'''
@@ -1436,7 +1490,7 @@ class CivRPG(App):
     #             # Binding('ctrl+right', 'next_tab', 'Next tab', show=False),
     #             ]
 
-    def __init__(self, map_name, start_loc, view_size=None, num_players=1, filename=None):# CivRPG(App)
+    def __init__(self, map_name, start_loc, view_size=None, num_players=1, entities=None, filename=None):# CivRPG(App)
         print(f'CivRPG init start. num_players: {num_players}')
         super().__init__()
         print('CivRPG super init done.')
@@ -1447,6 +1501,7 @@ class CivRPG(App):
         self.start_loc = start_loc
         self.view_size = view_size
         self.num_players = num_players
+        self.external_entities = entities
         # self.filename = filename # TODO Is this used still?
         self.players = []
         self.current_player_index = 0
@@ -1555,7 +1610,21 @@ class CivRPG(App):
         print('build_world started.')
         self.world_map = Map(self, self.map_name, self.start_loc, self.view_size)
         print('Map class done.')
-        if not self.world_map.load_players:
+        if self.external_entities:
+            print('Using external entities for players:', self.external_entities)
+            for i, entity in enumerate(self.external_entities):
+                print('entity:', entity)
+                print(type(entity))
+                player = Player(
+                    entity.name,
+                    self.world_map,
+                    str(i + 1),
+                    self.start_loc,
+                    entity# Attached econ entity to player
+                )
+                self.players.append(player)
+
+        elif not self.world_map.load_players:
             for player_num in range(self.num_players):
                 player_name = 'Player ' + str(player_num+1)
                 print('Creating:', player_name)
@@ -1584,6 +1653,9 @@ class CivRPG(App):
                 yield StatusBar(id='status_bar')
             with TabPane('Log', id='log_tab'):
                 yield RichLog(wrap=False, id='log_widget')#highlight=True, markup=True, wrap=True, id='log_widget')
+                # yield Horizontal(Input(placeholder='Enter command...', type='text', id='prompt'), 
+                #     Button('Submit', id='prompt_btn')
+                # )
                 yield Input(placeholder='Enter command...', type='text', id='prompt')
         print('compose done.')
 
@@ -1653,6 +1725,20 @@ class CivRPG(App):
         print('>>>', user_input)
         self.player.get_command(user_input)
 
+    def on_input_submitted(self, event: Input.Submitted):
+        self.stdin_redirector.feed_input(event.value)
+        event.input.value = ''
+        print('>>>', event.value)
+        self.player.get_command(event.value)
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == 'prompt_btn':
+            input_widget = self.query_one('#prompt', Input)
+            self.stdin_redirector.feed_input(input_widget.value)
+            input_widget.value = ''
+            print('>>>', input_widget.value)
+            self.player.get_command(input_widget.value)
+
     # def on_key(self, event): #Orig
     #     focused_widget = self.focused
     #     if isinstance(focused_widget, Input):
@@ -1676,6 +1762,7 @@ class CivRPG(App):
     #         asyncio.create_task(self.move_character())
 
     def on_key(self, event):
+        # self.ensure_focus() # TODO Is this needed?
         focused_widget = self.focused
         # print('focused_widget:', focused_widget)
         # self.text_log.write(print('focused_widget:', focused_widget))
@@ -1724,6 +1811,11 @@ class CivRPG(App):
     #     print(f'{event.key} release for {self.current_key}')
     #     if event.key == self.current_key:
     #         self.current_key = None
+
+    def ensure_focus(self):
+        if self.focused is not self.map_container:
+            self.set_focus(self.map_container)
+            # print('Focus set to map.')
 
     def next_unit(self):
         '''Switch to the next player with movement remaining'''
