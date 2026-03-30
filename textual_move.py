@@ -13,7 +13,7 @@ import asyncio
 import re
 # import builtins
 
-# from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult
 from textual.widgets import Static, TabbedContent, TabPane, RichLog, Input, Button
 from textual.containers import Container, Horizontal
 from textual.reactive import reactive
@@ -199,35 +199,17 @@ TILES = {
         'Bellows': '[tan]ꞵ[/tan]',
         }
 
-# Walls
-# ─ │ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼
-# ━ ┃ ┏ ┓ ┗ ┛ ┣ ┫ ┳ ┻ ╋
-# ═ ║ ╔ ╗ ╚ ╝ ╠ ╣ ╦ ╩ ╬
-# ╞ ╡ ╤ ╧ ╪
-
 def time_stamp(offset=0):
 	time_stamp = (dt.datetime.now() + dt.timedelta(hours=offset)).strftime('[%Y-%b-%d %I:%M:%S %p] ')
 	return time_stamp
 
 class Map:
-    def __init__(self, game, map_name, start_loc, view_size, num_players=1, map_size=None, entities=None):# Map
+    def __init__(self, game, map_name, start_loc, view_size, map_size=None):# Map
         # self.game = game
         self.map_name = map_name
-        if isinstance(start_loc, str):
-            start_loc = tuple([x.strip() for x in start_loc.split(',')])
         self.start_loc = start_loc
         self.view_size = view_size
-        if self.view_size is None:
-            size = os.get_terminal_size()
-            print(f'Console Size:', size.columns, size.lines)
-            self.view_size = (size.lines, (size.columns//2)-0)
-            print('init view size:', self.view_size)
         self.map_size = map_size
-        self.turn = 1
-        self.num_players = num_players
-        self.players = []
-        self.current_player_index = 0
-        self.external_entities = entities
         if self.map_name is None:
             self.map_grid = self.gen_map(self.map_size)
             # map_grid = self.gen_map(self.map_size)
@@ -352,90 +334,6 @@ class Map:
                 self.map_grid[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
         self.save_meta(meta_data)
         return self.map_grid
-
-    # TODO This should be in a game manager or something
-    def setup_world(self):#, num_players=None):
-        # if num_players is None:
-        #     num_players = args.players
-        # players = []
-        # for player_num in range(num_players):
-        #     player_name = 'Player ' + str(player_num+1)
-        #     player = Player(player_name, world_map, str(player_num+1), args.start)
-        #     players.append(player)
-        # print(f'Players:\n{players}')
-        # world_map.view_port(player.pos)
-        # print(f'world_map:\n{world_map}')
-
-        print('setup_world started.')
-        if self.external_entities:
-            print('Using external entities for players:', self.external_entities)
-            for i, entity in enumerate(self.external_entities):
-                print('entity:', entity)
-                print(type(entity))
-                player = Player(
-                    entity.name,
-                    self,
-                    str(i + 1),
-                    self.start_loc,
-                    entity# Attach econ entity to player
-                )
-                self.players.append(player)
-
-        elif not self.load_players:
-            for player_num in range(self.num_players):
-                player_name = 'Player ' + str(player_num+1)
-                print('Creating:', player_name)
-                player = Player(player_name, self, str(player_num+1), self.start_loc)
-                self.players.append(player)
-        else:
-            for player_data in self.load_players:
-                # print('player_data:', player_data)
-                # print('player_data agent:', player_data['Agent'])
-                player_name = player_data['Agent']['player_name']
-                print('Loading:', player_name)
-                player = Player(player_name, self, dictionary=player_data['Agent'])
-                self.players.append(player)
-        print(f'Players:\n{self.players}')
-        self.player = self.players[self.current_player_index]
-        self.view_port(self.player.pos)
-        print(f'World Map setup:\n{self}')#self.map_display
-
-    def check_movement(self):
-        '''Check if current player's movement is 0, then switch turns.'''
-        if all(unit.remain_move == 0 for unit in self.players):
-            # print('Next turn check')
-            self.next_turn()
-            return
-        elif self.player.remain_move == 0:
-            # print('Next unit check')
-            self.next_unit()
-            return
-        else:
-            return True
-
-    def next_unit(self):
-        '''Switch to the next player with movement remaining'''
-        # TODO Maybe use itertools.cycle and next()
-        self.current_player_index = (self.current_player_index + 1) % len(self.players)
-        self.player = self.players[self.current_player_index]
-        # self.update_viewport()
-        self.view_port(self.player.pos)
-        print(f'Now unit {self.player}\'s turn.')
-        # while self.players[self.current_player_index].remain_move <= 0:
-        #     self.current_player_index = (self.current_player_index + 1) % len(self.players)
-        # print('index after:', self.current_player_index)
-
-    def next_turn(self):
-        for unit in self.players:
-            unit.reset_moves()
-        self.current_player_index = 0
-        self.player = self.players[self.current_player_index]
-        # self.update_viewport() # TODO Should this come after the turn increment?
-        self.view_port(self.player.pos)
-        # self.world_map.game.turn += 1
-        # print('Turn:', self.world_map.game.turn)
-        self.turn += 1
-        print('Turn:', self.turn)
 
     def export_map(self, filename=None, strip_rich=True, v=True):
         # Save a csv of just the icon char tiles of the map
@@ -1100,7 +998,6 @@ class Player:
         # print('target_tile type:', type(self.target_tile))
 
     def move(self, dy, dx, teleport=False, v=False):
-        # self.moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
         if not teleport:
             self.old_pos = self.pos
         else:
@@ -1121,23 +1018,16 @@ class Player:
             self.pos = self.old_pos
             return
         try:
-            # print('old_pos:', self.old_pos)
-            # print('pos:', self.pos)
-            # print('prior_current_tile:', self.current_tile)
-            # print('prior_current_terrain:', self.current_terrain)
             self.world_map.map_grid[self.pos[0]][self.pos[1]]['Agent'] = self
             self.world_map.display_map[self.old_pos[0]][self.old_pos[1]] = self.current_tile
             self.current_tile = self.world_map.display_map[self.pos[0]][self.pos[1]]
             self.current_terrain = self.world_map.map_grid[self.pos[0]][self.pos[1]]['terrain']
             self.world_map.display_map[self.pos[0]][self.pos[1]] = self.icon
             del self.world_map.map_grid[self.old_pos[0]][self.old_pos[1]]['Agent']
-            # print('current_tile:', self.current_tile)
-            # print('current_terrain:', self.current_terrain)
             # self.world_map.map_grid.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
             # del self.world_map.map_grid.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
         except (IndexError, KeyError) as e: # TODO Is this check still needed?
             print('Out of map boundry, please try again.')
-            print(e)
             self.pos = self.old_pos
             return
         # print('End move.')
@@ -1221,13 +1111,6 @@ class Player:
                 self.world_map.edit_map_terrain('Ocean', self.pos[0], self.pos[1])
             if v: print('boat:', self.boat)
         if v: print('boat out:', self.boat)
-
-    # TODO Need to implement in main game
-    # def check_movement(self):
-    # def next_unit(self):
-    # def next_turn(self):
-    # def spawn_players(self, v=True):
-
 
     def get_command(self, command=None):
         # TODO Move this to the CivRPG class.
@@ -1333,42 +1216,14 @@ class Player:
             print(CORDS)
             # self.pos = self.old_pos
             return
-        # self.moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-        elif command[0] == 'w':
-            self.move(-1, 0)
-            self.change_dir(command[0])
-            self.world_map.check_movement()
-        elif command[0] == 's':
-            self.move(1, 0)
-            self.change_dir(command[0])
-            self.world_map.check_movement()
-        elif command[0] == 'a':
-            self.move(0, -1)
-            self.change_dir(command[0])
-            self.world_map.check_movement()
-        elif command[0] == 'd':
-            self.move(0, 1)
-            self.change_dir(command[0])
-            self.world_map.check_movement()
-        # turn = {'i': 'w', 'j': 'a', 'k': 's', 'l': 'd'}
-        elif command[0] == 'i':
-            self.change_dir('w')
-        elif command[0] == 'j':
-            self.change_dir('a')
-        elif command[0] == 'k':
-            self.change_dir('s')
-        elif command[0] == 'l':
-            self.change_dir('d')
-        elif command[0] == 'r':
-            self.zero_moves()
-            self.reset_moves()
-        elif command[0] == 'n':
-            self.zero_moves()
-            # self.update_viewport()
-        elif command[0] == 'e':
-            print(f'{self} is mounting a boat at {self.pos}.')
-            self.mount()
-            # self.update_viewport()
+        # elif command == 'w':
+        #     self.pos = (self.pos[0] - 1, self.pos[1])
+        # elif command == 's':
+        #     self.pos = (self.pos[0] + 1, self.pos[1])
+        # elif command == 'a':
+        #     self.pos = (self.pos[0], self.pos[1] - 1)
+        # elif command == 'd':
+        #     self.pos = (self.pos[0], self.pos[1] + 1)
         elif command[0] == 'tp': # TODO Turn into teleport() function
             # y = input('Enter y coord: ')
             try:
@@ -1407,7 +1262,7 @@ class Player:
                 self.pos = self.old_pos
                 return
         elif command[0] == 'info':
-            status = f'[green]{self.player.player_name} pos: [/green][cyan]{self.player.pos}[/cyan][green] moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] faces: [/green]{self.player.target_tile}[green] {self.player.target_terrain} on: [/green]{self.player.current_tile}[green] {self.player.current_terrain}[/green]'
+            status = f'[green]{self.player_name} pos: [/green][cyan]{self.pos}[/cyan][green] moves: [/green][cyan]{self.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.movement}[/cyan][green] faces: [/green]{self.target_tile}[green] {self.target_terrain} on: [/green]{self.current_tile}[green] {self.current_terrain}[/green]'
             print(status)
             print('Player:', self.player_name)
             print('Map Size:', self.world_map.map_size)
@@ -1583,506 +1438,500 @@ class StatusBar(Container):#Static
     #     status = f'{self.player.player_name} position: {self.player.pos} on {self.player.current_tile} | Moves: {self.player.remain_move} / {self.player.movement} | {self.player.current_terrain}'
     #     self.update(status)
 
-try:
-    class CivRPG(App):
-        CSS = '''
-        Screen {
-            layout: vertical;
-            align: center middle;
-            background: black;
-            # content-align: center middle;
-        }
+class CivRPG(App):
+    CSS = '''
+    Screen {
+        layout: vertical;
+        align: center middle;
+        background: black;
+        # content-align: center middle;
+    }
 
-        # MapContainer {
-        #     # height: 1fr;
-        #     # align: center middle;
-        #     # width: auto;
-        #     text-align: center;
-        #     content-align: center middle;
-        #     border: white;
-        # }
+    # MapContainer {
+    #     # height: 1fr;
+    #     # align: center middle;
+    #     # width: auto;
+    #     text-align: center;
+    #     content-align: center middle;
+    #     border: white;
+    # }
 
-        #map_container {
-            height: 1fr;
-            # align: center middle;
-            # width: auto;
-            text-align: center;
-            content-align: center middle;
-            # border: white;
-        }
+    #map_container {
+        height: 1fr;
+        # align: center middle;
+        # width: auto;
+        text-align: center;
+        content-align: center middle;
+        # border: white;
+    }
 
-        StatusBar {
-            height: 1;
-            align: center bottom;
-        }
+    StatusBar {
+        height: 1;
+        align: center bottom;
+    }
 
-        RichLog {
-            height: 1fr;
-            width: 1fr;
-            background: black;
-            color: green;
-            text-style: bold;
-        }
+    RichLog {
+        height: 1fr;
+        width: 1fr;
+        background: black;
+        color: green;
+        text-style: bold;
+    }
 
-        Input {
-            color: green;
-            text-style: bold;
-        }
-        '''
-        # BINDINGS = [
-        #             ('[', 'previous_tab', 'Previous tab'),
-        #             (']', 'next_tab', 'Next tab'),
-        #             # Binding('ctrl+left', 'previous_tab', 'Previous tab', show=False),
-        #             # Binding('ctrl+right', 'next_tab', 'Next tab', show=False),
-        #             ]
+    Input {
+        color: green;
+        text-style: bold;
+    }
+    '''
+    # BINDINGS = [
+    #             ('[', 'previous_tab', 'Previous tab'),
+    #             (']', 'next_tab', 'Next tab'),
+    #             # Binding('ctrl+left', 'previous_tab', 'Previous tab', show=False),
+    #             # Binding('ctrl+right', 'next_tab', 'Next tab', show=False),
+    #             ]
 
-        def __init__(self, map_name, start_loc, view_size=None, num_players=1, entities=None, filename=None):# CivRPG(App)
-            print(f'CivRPG init start. num_players: {num_players}')
-            super().__init__()
-            print('CivRPG super init done.')
-            self.stdout_redirector = None
-            self.stdin_redirector = None
-            self.turn = 1
-            self.map_name = map_name
-            self.start_loc = start_loc
-            self.view_size = view_size
-            self.num_players = num_players
-            self.external_entities = entities
-            self.players = []
-            self.current_player_index = 0
-            # self.filename = filename # TODO Is this used still?
+    def __init__(self, map_name, start_loc, view_size=None, num_players=1, entities=None, filename=None):# CivRPG(App)
+        print(f'CivRPG init start. num_players: {num_players}')
+        super().__init__()
+        print('CivRPG super init done.')
+        self.turn = 1
+        self.stdout_redirector = None
+        self.stdin_redirector = None
+        self.map_name = map_name
+        self.start_loc = start_loc
+        self.view_size = view_size
+        self.num_players = num_players
+        self.external_entities = entities
+        # self.filename = filename # TODO Is this used still?
+        self.players = []
+        self.current_player_index = 0
 
-            self.world_map = None
-            self.viewport = None
-            self.status_bar = None
+        self.world_map = None
+        self.viewport = None
+        self.status_bar = None
 
-            # global world_map
-            # world_map = Map(self, map_name, start_loc, view_size)
-            # self.players = []
-            # if not world_map.load_players:
-            #     for player_num in range(num_players):
-            #         player_name = 'Player ' + str(player_num+1)
-            #         self.player = Player(player_name, world_map, str(player_num+1), start_loc)
-            #         self.players.append(self.player)
+        # global world_map
+        # world_map = Map(self, map_name, start_loc, view_size)
+        # self.players = []
+        # if not world_map.load_players:
+        #     for player_num in range(num_players):
+        #         player_name = 'Player ' + str(player_num+1)
+        #         self.player = Player(player_name, world_map, str(player_num+1), start_loc)
+        #         self.players.append(self.player)
+        # else:
+        #     for player_data in world_map.load_players:
+        #         # print('player_data:', player_data)
+        #         # print('player_data agent:', player_data['Agent'])
+        #         player_name = player_data['Agent']['player_name']
+        #         self.player = Player(player_name, world_map, dictionary=player_data['Agent'])
+        #         self.players.append(self.player)
+        # print(f'Players:\n{self.players}')
+        # self.current_player_index = 0
+        # self.player = self.players[self.current_player_index]
+
+        # self.viewport = reactive('')
+        # self.viewport = Static(self.viewport)
+
+        # self.viewport = Static('')
+        # self.status_bar = Static('')
+
+        # if view_size is None:
+        #     console = Console()
+        #     print(f'Console Size:', console.size)
+        #     world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1]) # TODO This will center on the last player to load
+        # world_map.view_port(self.player.pos)
+
+        # self.update_status()#False)
+
+        # self.current_key = None
+        # self.pressed_keys = set()
+        # self.timer = None
+
+        # self.redirect = False#True#
+        # print(f'World Map:\n{world_map}')
+
+    def on_mount(self):#async 
+        # self.timer = self.set_interval(0.5, self.check_movement)
+        '''Redirect stdout and stdin'''
+        print('on_mount started.')
+        self.redirect = True#False#
+        if self.redirect:
+            # with open('move_log01.log', 'w', buffering=1) as log_file:
+            # if args.log_name is None: # TODO Pass this value in
+            #     log_name = 'move_log01'
             # else:
-            #     for player_data in world_map.load_players:
-            #         # print('player_data:', player_data)
-            #         # print('player_data agent:', player_data['Agent'])
-            #         player_name = player_data['Agent']['player_name']
-            #         self.player = Player(player_name, world_map, dictionary=player_data['Agent'])
-            #         self.players.append(self.player)
-            # print(f'Players:\n{self.players}')
-            # self.current_player_index = 0
-            # self.player = self.players[self.current_player_index]
+            #     log_name = args.log_name
+            log_name = 'move_log01'
+            log_name = 'logs/' + log_name + '.log'
+            log_file = open(log_name, 'w', buffering=1)
+            log_widget = self.query_one('#log_widget')
+            self.stdout_redirector = StdoutRedirector(log_widget, log_file)
+            sys.stdout = self.stdout_redirector
+            # print('redirect out:', self.redirect)
+            # print('redirect log_file:', log_file)
 
-            # self.viewport = reactive('')
-            # self.viewport = Static(self.viewport)
-
-            # self.viewport = Static('')
-            # self.status_bar = Static('')
-
-            # if view_size is None:
-            #     console = Console()
-            #     print(f'Console Size:', console.size)
-            #     world_map.set_view_size(self.player.pos, (console.size[0]//2)-1, console.size[1]) # TODO This will center on the last player to load
-            # world_map.view_port(self.player.pos)
-
-            # self.update_status()#False)
-
-            # self.current_key = None
-            # self.pressed_keys = set()
-            # self.timer = None
-
-            # self.redirect = False#True#
-            # print(f'World Map:\n{world_map}')
-
-        def on_mount(self):#async 
-            # self.timer = self.set_interval(0.5, self.check_movement)
-            '''Redirect stdout and stdin'''
-            print('on_mount started.')
-            self.redirect = True#False#
-            if self.redirect:
-                # with open('move_log01.log', 'w', buffering=1) as log_file:
-                # if args.log_name is None: # TODO Pass this value in
-                #     log_name = 'move_log01'
-                # else:
-                #     log_name = args.log_name
-                log_name = 'move_log01'
-                log_name = 'logs/' + log_name + '.log'
-                log_file = open(log_name, 'w', buffering=1)
-                log_widget = self.query_one('#log_widget')
-                self.stdout_redirector = StdoutRedirector(log_widget, log_file)
-                sys.stdout = self.stdout_redirector
-                # print('redirect out:', self.redirect)
-                # print('redirect log_file:', log_file)
-
-            self.redirect = False#True#
-            if self.redirect:
-                input_widget = self.query_one('#prompt')
-                self.stdin_redirector = StdinRedirector(input_widget)
-                sys.stdin = self.stdin_redirector
-                # print('redirect in:', self.redirect)
-                # Set up input widget to capture input
-                input_widget.action_submit = self.capture_input
-            # print('redirect end:', self.redirect)
-            # Example print to test stdout
-            print(time_stamp() + 'Use WASD to move on the map view. Or type a command below and press Enter.')
-            # TODO Need to support multiple units/players
-
-            if self.view_size is None:
-                console = Console()
-                print(f'Console Size:', console.size)
-                self.view_size = (console.size[1], (console.size[0]//2)-2)
-                print('init view size:', self.view_size)
-            
-            # Create widgets
-            self.map_container = self.query_one('#map_container', MapContainer)
-            self.status_widget = self.query_one('#status_bar', StatusBar)
-            self.viewport = self.map_container.viewport
-            self.status_bar = self.status_widget.status
-
-            # self.run_worker(self._build_world, exclusive=True)#await 
-            self._build_world()
-            
-
-            self.update_status()
-            self.update_viewport()
-            self.set_focus(self.map_container)
-            print('Focus set.')
-            # world_map.save_map()
-            print('on_mount done.')
-
-        def _build_world(self):
-            print('build_world started.')
-            self.world_map = Map(self, self.map_name, self.start_loc, self.view_size)
-            print('Map class done.')
-            if self.external_entities:
-                print('Using external entities for players:', self.external_entities)
-                for i, entity in enumerate(self.external_entities):
-                    print('entity:', entity)
-                    print(type(entity))
-                    player = Player(
-                        entity.name,
-                        self.world_map,
-                        str(i + 1),
-                        self.start_loc,
-                        entity# Attached econ entity to player
-                    )
-                    self.players.append(player)
-
-            elif not self.world_map.load_players:
-                for player_num in range(self.num_players):
-                    player_name = 'Player ' + str(player_num+1)
-                    print('Creating:', player_name)
-                    player = Player(player_name, self.world_map, str(player_num+1), self.start_loc)
-                    self.players.append(player)
-            else:
-                for player_data in self.world_map.load_players:
-                    # print('player_data:', player_data)
-                    # print('player_data agent:', player_data['Agent'])
-                    player_name = player_data['Agent']['player_name']
-                    print('Loading:', player_name)
-                    player = Player(player_name, self.world_map, dictionary=player_data['Agent'])
-                    self.players.append(player)
-            print(f'Players:\n{self.players}')
-            self.player = self.players[self.current_player_index]
-            print(f'World Map built:\n{self.world_map}')
-            return self.world_map
-
-        def compose(self):
-            print('compose started.')
-            with TabbedContent():
-                with TabPane('Map', id='map_tab'):
-                    # yield MapContainer(self.viewport, id='map_container')
-                    # yield StatusBar(self.status_bar)#, id='status_bar')
-                    yield MapContainer(id='map_container')
-                    yield StatusBar(id='status_bar')
-                with TabPane('Log', id='log_tab'):
-                    yield RichLog(wrap=False, id='log_widget')#highlight=True, markup=True, wrap=True, id='log_widget')
-                    # yield Horizontal(Input(placeholder='Enter command...', type='text', id='prompt'), 
-                    #     Button('Submit', id='prompt_btn')
-                    # )
-                    yield Input(placeholder='Enter command...', type='text', id='prompt')
-            print('compose done.')
-
-        # def on_ready(self):
-        #     self.text_log = self.query_one('#log_widget')
-
-            # builtins.print = self.print_override
-            # print('Test message to log.')
-            # print(CORDS)
-
-        # def on_tabbed_content_tab_activated(self, event):
-        def on_tabs_tab_activated(self, event):
-            print('tab_event:', event)
-            # Focus the input widget corresponding to the active tab
-            if event.tabpane.id == 'log_tab':
-            # if event.tab.id == '--content-tab-log_tab':
-                # self.query_one("#prompt", Input).focus()
-                self.query_one("#prompt").focus()
-
-        def update_viewport(self):#async
-            # await asyncio.sleep(0)  # Yield control to ensure async behavior
-            # self.stdout_redirector.set_widget_update(True) # Start widget update
-            visible_map = self.world_map.view_port(self.player.pos)
-            buffer = StringIO()
-            # visible_map = buffer.write('\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map]))
-            visible_map = buffer.write('\n'.join([' '.join(row) for row in visible_map]))
-            # visible_map = '\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map])
-            # visible_map = '\n'.join([' '.join([Pretty(str(tile)) for tile in row]) for row in visible_map])
-            self.viewport.update(buffer.getvalue())
-            # self.viewport.update(visible_map)#await
-            # self.stdout_redirector.set_widget_update(False) # End widget update
-        
-        def update_status(self):#, check=True):#async
-            # await asyncio.sleep(0)  # Yield control to ensure async behavior
-            # if check: # TODO Find a better solution for the initial update
-            #     print('Status update allowed 01.')
-            #     self.stdout_redirector.set_widget_update(True) # Start widget update
-            status = f'[green]{self.player.player_name} pos: [/green][cyan]{self.player.pos}[/cyan][green] moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] faces: [/green]{self.player.target_tile}[green] {self.player.target_terrain} on: [/green]{self.player.current_tile}[green] {self.player.current_terrain}[/green]'
-            # status = f'[green]{self.player.player_name} pos: [/green][cyan]{self.player.pos}[/cyan][green] faces [/green]{self.player.target_tile}[green] on: [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.target_terrain} | on: {self.player.current_terrain}[/green]'
-            self.status_bar.update(status)#await
-            self.refresh()
-            # time.sleep(0.5)
-            # self.status_bar.update(self.player)
-            # if check:
-            #     self.stdout_redirector.set_widget_update(False) # End widget update
-
-        def check_movement(self):
-            '''Check if current player's movement is 0, then switch turns.'''
-            if all(unit.remain_move == 0 for unit in self.players):
-                # print('Next turn check')
-                self.next_turn()
-                return
-            elif self.player.remain_move == 0:
-                # print('Next unit check')
-                self.next_unit()
-                return
-            else:
-                return True
-
-        def capture_input(self):
-            '''Capture input from the Input widget.'''
+        self.redirect = False#True#
+        if self.redirect:
             input_widget = self.query_one('#prompt')
-            user_input = input_widget.value
-            input_widget.value = ''  # Clear the input field
-            self.stdin_redirector.feed_input(user_input)# + '\n')
-            # print(Pretty(user_input))
-            print('>>>', user_input)
-            self.player.get_command(user_input)
+            self.stdin_redirector = StdinRedirector(input_widget)
+            sys.stdin = self.stdin_redirector
+            # print('redirect in:', self.redirect)
+            # Set up input widget to capture input
+            input_widget.action_submit = self.capture_input
+        # print('redirect end:', self.redirect)
+        # Example print to test stdout
+        print(time_stamp() + 'Use WASD to move on the map view. Or type a command below and press Enter.')
+        # TODO Need to support multiple units/players
 
-        def on_input_submitted(self, event: Input.Submitted):
-            self.stdin_redirector.feed_input(event.value)
-            event.input.value = ''
-            print('>>>', event.value)
-            self.player.get_command(event.value)
+        if self.view_size is None:
+            console = Console()
+            print(f'Console Size:', console.size)
+            self.view_size = (console.size[1], (console.size[0]//2)-2)
+            print('init view size:', self.view_size)
+        
+        # Create widgets
+        self.map_container = self.query_one('#map_container', MapContainer)
+        self.status_widget = self.query_one('#status_bar', StatusBar)
+        self.viewport = self.map_container.viewport
+        self.status_bar = self.status_widget.status
 
-        def on_button_pressed(self, event: Button.Pressed):
-            if event.button.id == 'prompt_btn':
-                input_widget = self.query_one('#prompt', Input)
-                self.stdin_redirector.feed_input(input_widget.value)
-                input_widget.value = ''
-                print('>>>', input_widget.value)
-                self.player.get_command(input_widget.value)
+        # self.run_worker(self._build_world, exclusive=True)#await 
+        self._build_world()
+        
 
-        # def on_key(self, event): #Orig
-        #     focused_widget = self.focused
-        #     if isinstance(focused_widget, Input):
-        #         return
-        #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-        #     if event.key in moves:
-        #         dx, dy = moves[event.key]
-        #         self.player.move(dy, dx)
-        #         self.update_viewport()
-        #     elif event.key == 'r':
-        #         self.player.reset_moves()
-        #     self.update_status()
-        #     self.text_log.write(event.key)
+        self.update_status()
+        self.update_viewport()
+        self.set_focus(self.map_container)
+        print('Focus set.')
+        # world_map.save_map()
+        print('on_mount done.')
 
-        ##########################################################
+    def _build_world(self):
+        print('build_world started.')
+        self.world_map = Map(self, self.map_name, self.start_loc, self.view_size)
+        print('Map class done.')
+        if self.external_entities:
+            print('Using external entities for players:', self.external_entities)
+            for i, entity in enumerate(self.external_entities):
+                print('entity:', entity)
+                print(type(entity))
+                player = Player(
+                    entity.name,
+                    self.world_map,
+                    str(i + 1),
+                    self.start_loc,
+                    entity# Attached econ entity to player
+                )
+                self.players.append(player)
 
-        # async def on_key(self, event):
-        #     # Prevent input queuing by only processing the latest key
-        #     if self.current_key is None:
-        #         self.current_key = event.key
-        #         asyncio.create_task(self.move_character())
+        elif not self.world_map.load_players:
+            for player_num in range(self.num_players):
+                player_name = 'Player ' + str(player_num+1)
+                print('Creating:', player_name)
+                player = Player(player_name, self.world_map, str(player_num+1), self.start_loc)
+                self.players.append(player)
+        else:
+            for player_data in self.world_map.load_players:
+                # print('player_data:', player_data)
+                # print('player_data agent:', player_data['Agent'])
+                player_name = player_data['Agent']['player_name']
+                print('Loading:', player_name)
+                player = Player(player_name, self.world_map, dictionary=player_data['Agent'])
+                self.players.append(player)
+        print(f'Players:\n{self.players}')
+        self.player = self.players[self.current_player_index]
+        print(f'World Map built:\n{self.world_map}')
+        return self.world_map
 
-        def on_key(self, event):
-            # self.ensure_focus() # TODO Is this needed?
-            focused_widget = self.focused
+    def compose(self):
+        print('compose started.')
+        with TabbedContent():
+            with TabPane('Map', id='map_tab'):
+                # yield MapContainer(self.viewport, id='map_container')
+                # yield StatusBar(self.status_bar)#, id='status_bar')
+                yield MapContainer(id='map_container')
+                yield StatusBar(id='status_bar')
+            with TabPane('Log', id='log_tab'):
+                yield RichLog(wrap=False, id='log_widget')#highlight=True, markup=True, wrap=True, id='log_widget')
+                # yield Horizontal(Input(placeholder='Enter command...', type='text', id='prompt'), 
+                #     Button('Submit', id='prompt_btn')
+                # )
+                yield Input(placeholder='Enter command...', type='text', id='prompt')
+        print('compose done.')
+
+    # def on_ready(self):
+    #     self.text_log = self.query_one('#log_widget')
+
+        # builtins.print = self.print_override
+        # print('Test message to log.')
+        # print(CORDS)
+
+    # def on_tabbed_content_tab_activated(self, event):
+    def on_tabs_tab_activated(self, event):
+        print('tab_event:', event)
+        # Focus the input widget corresponding to the active tab
+        if event.tabpane.id == 'log_tab':
+        # if event.tab.id == '--content-tab-log_tab':
+            # self.query_one("#prompt", Input).focus()
+            self.query_one("#prompt").focus()
+
+    def update_viewport(self):#async
+        # await asyncio.sleep(0)  # Yield control to ensure async behavior
+        # self.stdout_redirector.set_widget_update(True) # Start widget update
+        visible_map = self.world_map.view_port(self.player.pos)
+        buffer = StringIO()
+        # visible_map = buffer.write('\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map]))
+        visible_map = buffer.write('\n'.join([' '.join(row) for row in visible_map]))
+        # visible_map = '\n'.join([' '.join([str(tile) for tile in row]) for row in visible_map])
+        # visible_map = '\n'.join([' '.join([Pretty(str(tile)) for tile in row]) for row in visible_map])
+        self.viewport.update(buffer.getvalue())
+        # self.viewport.update(visible_map)#await
+        # self.stdout_redirector.set_widget_update(False) # End widget update
+    
+    def update_status(self):#, check=True):#async
+        # await asyncio.sleep(0)  # Yield control to ensure async behavior
+        # if check: # TODO Find a better solution for the initial update
+        #     print('Status update allowed 01.')
+        #     self.stdout_redirector.set_widget_update(True) # Start widget update
+        status = f'[green]{self.player.player_name} pos: [/green][cyan]{self.player.pos}[/cyan][green] moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] faces: [/green]{self.player.target_tile}[green] {self.player.target_terrain} on: [/green]{self.player.current_tile}[green] {self.player.current_terrain}[/green]'
+        # status = f'[green]{self.player.player_name} pos: [/green][cyan]{self.player.pos}[/cyan][green] faces [/green]{self.player.target_tile}[green] on: [/green]{self.player.current_tile}[green] | Moves: [/green][cyan]{self.player.remain_move:.2f}[/cyan][green] / [/green][cyan]{self.player.movement}[/cyan][green] | {self.player.target_terrain} | on: {self.player.current_terrain}[/green]'
+        self.status_bar.update(status)#await
+        self.refresh()
+        # time.sleep(0.5)
+        # self.status_bar.update(self.player)
+        # if check:
+        #     self.stdout_redirector.set_widget_update(False) # End widget update
+
+    def check_movement(self):
+        '''Check if current player's movement is 0, then switch turns.'''
+        if all(unit.remain_move == 0 for unit in self.players):
+            # print('Next turn check')
+            self.next_turn()
+            return
+        elif self.player.remain_move == 0:
+            # print('Next unit check')
+            self.next_unit()
+            return
+        else:
+            return True
+
+    def capture_input(self):
+        '''Capture input from the Input widget.'''
+        input_widget = self.query_one('#prompt')
+        user_input = input_widget.value
+        input_widget.value = ''  # Clear the input field
+        self.stdin_redirector.feed_input(user_input)# + '\n')
+        # print(Pretty(user_input))
+        print('>>>', user_input)
+        self.player.get_command(user_input)
+
+    def on_input_submitted(self, event: Input.Submitted):
+        self.stdin_redirector.feed_input(event.value)
+        event.input.value = ''
+        print('>>>', event.value)
+        self.player.get_command(event.value)
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == 'prompt_btn':
+            input_widget = self.query_one('#prompt', Input)
+            self.stdin_redirector.feed_input(input_widget.value)
+            input_widget.value = ''
+            print('>>>', input_widget.value)
+            self.player.get_command(input_widget.value)
+
+    # def on_key(self, event): #Orig
+    #     focused_widget = self.focused
+    #     if isinstance(focused_widget, Input):
+    #         return
+    #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
+    #     if event.key in moves:
+    #         dx, dy = moves[event.key]
+    #         self.player.move(dy, dx)
+    #         self.update_viewport()
+    #     elif event.key == 'r':
+    #         self.player.reset_moves()
+    #     self.update_status()
+    #     self.text_log.write(event.key)
+
+    ##########################################################
+
+    # async def on_key(self, event):
+    #     # Prevent input queuing by only processing the latest key
+    #     if self.current_key is None:
+    #         self.current_key = event.key
+    #         asyncio.create_task(self.move_character())
+
+    def on_key(self, event):
+        # self.ensure_focus() # TODO Is this needed?
+        focused_widget = self.focused
+        # print('focused_widget:', focused_widget)
+        # self.text_log.write(print('focused_widget:', focused_widget))
+        if isinstance(focused_widget, Input):
             # print('focused_widget:', focused_widget)
             # self.text_log.write(print('focused_widget:', focused_widget))
-            if isinstance(focused_widget, Input):
-                # print('focused_widget:', focused_widget)
-                # self.text_log.write(print('focused_widget:', focused_widget))
-                return
-            self.check_movement() # TODO Why do I have this here?
-            if event.key in self.player.moves:
-                # self.moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-
-                # if event.key not in self.pressed_keys:
-                #     self.pressed_keys.add(event.key)
-                # Prevent input queuing by only processing the latest key
-                # if self.current_key is None:
-                dx, dy = self.player.moves[event.key]
-                self.player.move(dy, dx)
-                # asyncio.create_task(self.player.move(dy, dx))
-                self.player.change_dir(event.key)
-                self.check_movement()
-                # if self.check_movement(): # TODO Why check this?
-                self.update_viewport()
-                # else: # TODO Fix this
-                #     self.update_viewport()
-                    # self.pressed_keys.remove(event.key)
-            # elif event.key in ['up', 'lef', 'down', 'right']:
-            elif event.key in ['i', 'j', 'k', 'l']:
-                # turn = {'up': 'w', 'left': 'a', 'down': 's', 'right': 'd'}
-                turn = {'i': 'w', 'j': 'a', 'k': 's', 'l': 'd'}
-                self.player.change_dir(turn[event.key])
-                self.update_viewport()
-            elif event.key == 'r':
-                self.player.zero_moves()
-                self.player.reset_moves()
-            elif event.key == 'n':
-                self.player.zero_moves()
-                self.update_viewport()
-            elif event.key == 'e':
-                print(f'{self.player} is mounting a boat at {self.player.pos}.')
-                self.player.mount()
-                self.update_viewport()
-            # self.update_viewport()
-            self.update_status()
-            # self.text_log.write(event.key)
-
-        # def on_key_release(self, event):
-        #     # Stop movement immediately when the key is released
-        #     print(f'{event.key} release for {self.current_key}')
-        #     if event.key == self.current_key:
-        #         self.current_key = None
-
-        def ensure_focus(self):
-            if self.focused is not self.map_container:
-                self.set_focus(self.map_container)
-                # print('Focus set to map.')
-
-        def next_unit(self):
-            '''Switch to the next player with movement remaining'''
-            # TODO Maybe use itertools.cycle and next()
-            self.current_player_index = (self.current_player_index + 1) % len(self.players)
-            self.player = self.players[self.current_player_index]
+            return
+        self.check_movement() # TODO Why do I have this here?
+        if event.key in self.player.moves:
+            # if event.key not in self.pressed_keys:
+            #     self.pressed_keys.add(event.key)
+            # Prevent input queuing by only processing the latest key
+            # if self.current_key is None:
+            dx, dy = self.player.moves[event.key]
+            self.player.move(dy, dx)
+            # asyncio.create_task(self.player.move(dy, dx))
+            self.player.change_dir(event.key)
+            self.check_movement()
+            # if self.check_movement(): # TODO Why check this?
             self.update_viewport()
-            print(f'Now unit {self.player}\'s turn.')
-            # while self.players[self.current_player_index].remain_move <= 0:
-            #     self.current_player_index = (self.current_player_index + 1) % len(self.players)
-            # print('index after:', self.current_player_index)
-
-        def next_turn(self):
-            for unit in self.players:
-                unit.reset_moves()
-            self.current_player_index = 0
-            self.player = self.players[self.current_player_index]
-            self.update_viewport() # TODO Should this come after the turn increment?
-            # self.world_map.game.turn += 1
-            # print('Turn:', self.world_map.game.turn)
-            self.turn += 1
-            print('Turn:', self.turn)
-
-        # self.player = Player(player_name, world_map, str(player_num+1), args.start)
-        def spawn_players(self, v=True): # TODO Is this still needed?
-            for i, row in enumerate(self.world_map):
-                for j, cell in enumerate(row):
-                    if cell.get('Agent'):
-                        agent = cell.get('Agent')
-                        if v: print('Agent:', agent)
-                        if v: print('Agent Type:', type(agent))
-                        if v: print('Players:', self.players)
-                        if v: print('Players first type:', type(self.players[0]))
-                        if agent in self.players:
-                            for i, player in enumerate(self.players):
-                                if v: print('player type:', type(player))
-                                if v: print('player name:', player.player_name)
-                                print('agent:', agent)
-                                print('agent type:', type(agent))
-                                if agent is player:
-                                    agent = self.players[i]
-                                    print('agent type make:', type(agent))
-                                print('agent type2:', type(agent))
-                        self.world_map[i][j]['Agent'] = agent
-                        print('world_map point:')
-                        print('test:', self.world_map[i][j])
-                        print('world_map point end.')
+            # else: # TODO Fix this
+            #     self.update_viewport()
+                # self.pressed_keys.remove(event.key)
+        # elif event.key in ['up', 'lef', 'down', 'right']:
+        elif event.key in ['i', 'j', 'k', 'l']:
+            # turn = {'up': 'w', 'left': 'a', 'down': 's', 'right': 'd'}
+            turn = {'i': 'w', 'j': 'a', 'k': 's', 'l': 'd'}
+            self.player.change_dir(turn[event.key])
             self.update_viewport()
-            self.update_status()
-            print('End spawning players.')
+        elif event.key == 'r':
+            self.player.zero_moves()
+            self.player.reset_moves()
+        elif event.key == 'n':
+            self.player.zero_moves()
+            self.update_viewport()
+        elif event.key == 'e':
+            print(f'{self.player} is mounting a boat at {self.player.pos}.')
+            self.player.mount()
+            self.update_viewport()
+        # self.update_viewport()
+        self.update_status()
+        # self.text_log.write(event.key)
 
-        ##########################
+    # def on_key_release(self, event):
+    #     # Stop movement immediately when the key is released
+    #     print(f'{event.key} release for {self.current_key}')
+    #     if event.key == self.current_key:
+    #         self.current_key = None
 
-        # async def on_key(self, event):
-        #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-        #     if event.key in moves:
-        #          if event.key not in self.pressed_keys:
-        #             self.pressed_keys.add(event.key)
-        #             dx, dy = moves[event.key]
-        #             # await self.player.move(dy, dx)
-        #             self.player.move(dy, dx)
-        #             # await self.update_viewport()
-        #             self.update_viewport()
-        #             await asyncio.sleep(0.1)
-        #     elif event.key == 'r':
-        #         self.player.reset_moves()
-        #     self.update_status()
-        
-        # def on_key_release(self, event):
-        #     if event.key in self.pressed_keys:
-        #         self.pressed_keys.remove(event.key)
+    def ensure_focus(self):
+        if self.focused is not self.map_container:
+            self.set_focus(self.map_container)
+            # print('Focus set to map.')
 
-        # def process_key(self, key):
-        #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-        #     if key in moves:
-        #         dx, dy = moves[key]
-        #         self.player.move(dy, dx)
-        #         self.update_viewport()
-        #     elif key == 'r':
-        #         self.player.reset_moves()
+    def next_unit(self):
+        '''Switch to the next player with movement remaining'''
+        # TODO Maybe use itertools.cycle and next()
+        self.current_player_index = (self.current_player_index + 1) % len(self.players)
+        self.player = self.players[self.current_player_index]
+        self.update_viewport()
+        print(f'Now unit {self.player}\'s turn.')
+        # while self.players[self.current_player_index].remain_move <= 0:
+        #     self.current_player_index = (self.current_player_index + 1) % len(self.players)
+        # print('index after:', self.current_player_index)
 
-        # def on_key(self, event):
-        #     # if self.timer:
-        #     #     self.timer.stop()
-        #     self.timer = self.set_timer(1, self.process_key(event.key))
-        #     self.update_status()
+    def next_turn(self):
+        for unit in self.players:
+            unit.reset_moves()
+        self.current_player_index = 0
+        self.player = self.players[self.current_player_index]
+        self.update_viewport() # TODO Should this come after the turn increment?
+        # self.world_map.game.turn += 1
+        # print('Turn:', self.world_map.game.turn)
+        self.turn += 1
+        print('Turn:', self.turn)
 
-        # async def on_key(self, event):
-        #     if self.timer:
-        #         self.timer.stop()
-        #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
-        #     if event.key in moves:
-        #         dx, dy = moves[event.key]
-        #         await self.player.move(dy, dx)
-        #         await self.update_viewport()
-        #     elif event.key == 'r':
-        #         self.player.reset_moves()
-        #     self.update_status()
-        #     await asyncio.sleep(0.1)
+    # self.player = Player(player_name, world_map, str(player_num+1), args.start)
+    def spawn_players(self, v=True): # TODO Is this still needed?
+        for i, row in enumerate(self.world_map):
+            for j, cell in enumerate(row):
+                if cell.get('Agent'):
+                    agent = cell.get('Agent')
+                    if v: print('Agent:', agent)
+                    if v: print('Agent Type:', type(agent))
+                    if v: print('Players:', self.players)
+                    if v: print('Players first type:', type(self.players[0]))
+                    if agent in self.players:
+                        for i, player in enumerate(self.players):
+                            if v: print('player type:', type(player))
+                            if v: print('player name:', player.player_name)
+                            print('agent:', agent)
+                            print('agent type:', type(agent))
+                            if agent is player:
+                                agent = self.players[i]
+                                print('agent type make:', type(agent))
+                            print('agent type2:', type(agent))
+                    self.world_map[i][j]['Agent'] = agent
+                    print('world_map point:')
+                    print('test:', self.world_map[i][j])
+                    print('world_map point end.')
+        self.update_viewport()
+        self.update_status()
+        print('End spawning players.')
 
-        # def on_input_submitted(self, event):
-        #     self.text_log.write(event.value)
-        #     self.query_one("#prompt").clear()
-        #     print('test_get_command01:')
-        #     self.player.get_command(event.value)
-        #     return event.value
+    ##########################
 
-        # def print_override(*args, **kwargs):
-        #     if len(args) == 1:
-        #         self.text_log.write(str(args[0]))
-        #     else:
-        #         for i, arg in enumerate(args):
-        #             if i:
-        #                 self.text_log.write(kwargs[0])
-        #             self.text_log.write(str(arg))
-        #     builtins.print(*args, **kwargs)
-except NameError as e:
-    print('Not using textual:', e)
+    # async def on_key(self, event):
+    #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
+    #     if event.key in moves:
+    #          if event.key not in self.pressed_keys:
+    #             self.pressed_keys.add(event.key)
+    #             dx, dy = moves[event.key]
+    #             # await self.player.move(dy, dx)
+    #             self.player.move(dy, dx)
+    #             # await self.update_viewport()
+    #             self.update_viewport()
+    #             await asyncio.sleep(0.1)
+    #     elif event.key == 'r':
+    #         self.player.reset_moves()
+    #     self.update_status()
+    
+    # def on_key_release(self, event):
+    #     if event.key in self.pressed_keys:
+    #         self.pressed_keys.remove(event.key)
 
+    # def process_key(self, key):
+    #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
+    #     if key in moves:
+    #         dx, dy = moves[key]
+    #         self.player.move(dy, dx)
+    #         self.update_viewport()
+    #     elif key == 'r':
+    #         self.player.reset_moves()
+
+    # def on_key(self, event):
+    #     # if self.timer:
+    #     #     self.timer.stop()
+    #     self.timer = self.set_timer(1, self.process_key(event.key))
+    #     self.update_status()
+
+    # async def on_key(self, event):
+    #     if self.timer:
+    #         self.timer.stop()
+    #     moves = {'w': (0, -1), 'a': (-1, 0), 's': (0, 1), 'd': (1, 0)}
+    #     if event.key in moves:
+    #         dx, dy = moves[event.key]
+    #         await self.player.move(dy, dx)
+    #         await self.update_viewport()
+    #     elif event.key == 'r':
+    #         self.player.reset_moves()
+    #     self.update_status()
+    #     await asyncio.sleep(0.1)
+
+    # def on_input_submitted(self, event):
+    #     self.text_log.write(event.value)
+    #     self.query_one("#prompt").clear()
+    #     print('test_get_command01:')
+    #     self.player.get_command(event.value)
+    #     return event.value
+
+    # def print_override(*args, **kwargs):
+    #     if len(args) == 1:
+    #         self.text_log.write(str(args[0]))
+    #     else:
+    #         for i, arg in enumerate(args):
+    #             if i:
+    #                 self.text_log.write(kwargs[0])
+    #             self.text_log.write(str(arg))
+    #     builtins.print(*args, **kwargs)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -2146,29 +1995,19 @@ def parse_args():
 
     return args
 
-def main(game=None, map_name='map.csv', start_loc=(446, 229), view_size=None, num_players=1, entities=None):
-    world_map = Map(game, map_name, start_loc, view_size, num_players)
-    print(f'init world map {type(world_map)}:\n{world_map}')
-    world_map.setup_world()
-    while True:
-        for player in world_map.players:
-            while player.remain_move:
-                world_map.view_port(player.pos)
-                # Print UI
-                print(f'Current world map:\n{world_map}')
-                print(f'[green]{player.player_name} pos: [/green][cyan]{player.pos}[/cyan][green] moves: [/green][cyan]{player.remain_move:.2f}[/cyan][green] / [/green][cyan]{player.movement}[/cyan][green] faces: [/green]{player.target_tile}[green] {player.target_terrain} on: [/green]{player.current_tile}[green] {player.current_terrain}[/green]')
-                player.get_command()
-            player.reset_moves()
-    return world_map
-
 if __name__ == '__main__':
     args = parse_args()
 
-    try:
-        app = CivRPG(args.map, args.start, args.view_size, args.players)
-        app.run()
-    except NameError:
-        main(None, args.map, args.start, args.view_size, args.players)
+    app = CivRPG(args.map, args.start, args.view_size, args.players)
+    app.run()
+    # else:
+    #     if 'data/' not in args.load:
+    #         filename = 'data/' + filename
+    #     app = CivRPG(args.players, filename)
+    #     app.run()
+        # with open(args.load) as f:
+        #     app = pickle.load(f)
+        #     app.run()
 
 
 ## TODO
@@ -2194,13 +2033,6 @@ if __name__ == '__main__':
 # Add harvestables
 # Add lootable mobs
 # Add combat
-
-## Terrain z-order
-# Low to high
-# 1. Terrain
-# 2. Items - Furniture / Equipment / Plants / Walls
-# 3. Sub Tile Items - If sub-tile items are on terrain then show them. If they are on full-tile items like Furniture hide them in the tile.
-# 4. Entities - Player and NPCs and animals
 
 # scp data/items.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data
 # scp data/map.csv robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/data

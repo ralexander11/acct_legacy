@@ -2,12 +2,16 @@
 
 import econ
 import move
-from move import CivRPG
+try:
+    from move import CivRPG
+except ImportError as e:
+    print('Not using textual:', e)
 import asyncio
 # import acct
 
 
-class CombinedGame(CivRPG):
+# class CombinedGame(CivRPG):!
+class CombinedGame(move.Map):
     def __init__(self, map_name, start_loc, view_size=None, num_players=1):
         self.econ_running = False
         econ_entities = None
@@ -42,24 +46,23 @@ class CombinedGame(CivRPG):
     def update_economy(self):
         if self.econ_running:
             return
-
         self.econ_running = True
-
         async def run():
             print('Update econ tick.')
             await asyncio.to_thread(self.world.update_econ)
             print('Done update econ tick.')
-
             self.econ_running = False
-
             if self.world.end:
                 self.exit()
-
         asyncio.create_task(run())
 
 if __name__ == '__main__':
     print('Create app.')
-    app = CombinedGame('map.csv', (446, 229), None, 1)#args.map, args.start, args.view_size, args.players)
-    print('Run CivRPG app.')
-    app.run()
+    try:
+        app = CombinedGame('map.csv', (446, 229), None, 1)#args.map, args.start, args.view_size, args.players)
+        print('Run CivRPG app.')
+        app.run()
+    except TypeError as e:
+        move.main()
+        # world_map = move.Map(None, 'map.csv', (446, 229), None, 1)#(None, args.map, args.start, args.view_size, args.players)
     print('Finish CivRPG app.')
