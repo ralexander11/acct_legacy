@@ -53,6 +53,7 @@ INC_BUFFER = 3
 MARKUP = 0.1
 REDUCE_PRICE = 0.01 # 0.1
 BIRTH_CHANCE = 200
+NO_TICKS = True
 
 def time_stamp(offset=0):
 	if END_DATE is None or False:
@@ -1128,7 +1129,7 @@ class World:
 		# Confirm if want to end sim, ability to keep playing save
 		if population <= 0:
 			print('Econ Sim ended due to human extinction.')
-			self.util(eod=False, big_util=True, reverse=False, entity_id=None, items=None, accounts=None, desc=None, save=True)
+			self.util(eod=False, big_util=True, reverse=False, entity_id=None, date=None, items=None, accounts=None, desc=None, save=True)
 			self.end = True
 		return self.end
 
@@ -1170,7 +1171,7 @@ class World:
 		# print(self.accts.get_items())
 		return self.items
 
-	def util(self, gl=None, eod=True, big_util=False, reverse=True, entity_id=None, items=None, accounts=None, desc=None, save=False, vv=False, v=True):
+	def util(self, gl=None, eod=True, big_util=False, reverse=True, entity_id=None, date=None, items=None, accounts=None, desc=None, save=False, vv=False, v=True):
 		# Function used to investigate the GL
 		# save = True
 		if v: print()
@@ -1197,7 +1198,7 @@ class World:
 			name = 'util_full'
 		if gl is None:
 			if big_util:
-				gl = self.ledger.get_util(entity_id=entity_id, items=items, accounts=accounts, desc=desc, save=False, v=False)
+				gl = self.ledger.get_util(entity_id=entity_id, date=date, items=items, accounts=accounts, desc=desc, save=False, v=False)
 			else:
 				gl = self.ledger.gl.copy(deep=True)
 
@@ -8137,6 +8138,13 @@ class Entity:
 		# 	v = True
 		if v: print(f'\nDepreciation for: {item} | lifespan: {lifespan} | metric: {metric} | uses: {uses} | man: {man} | buffer: {buffer}')
 		if (metric == 'ticks') or (metric == 'usage') or (metric == 'equipped'):
+			if metric == 'ticks':
+				if NO_TICKS:
+					print('Depreciation turned off for time.')
+					return [], None
+				days = (world.now - datetime.datetime(1986,10,1).date()).days
+				if days % 7 != 0:
+					return [], None
 			self.ledger.set_entity(self.entity_id)
 			asset_bal = self.ledger.balance_sheet(accounts=['Buildings','Equipment','Buildings In Use', 'Equipment In Use', 'Equipped'], item=item) # TODO Maybe support other accounts and remove Inventory
 			if asset_bal == 0:
@@ -8144,10 +8152,6 @@ class Entity:
 			if metric == 'equipped':
 				equip_bal = self.ledger.balance_sheet(accounts=['Equipped'], item=item)
 				if equip_bal == 0:
-					return [], None
-			if metric == 'ticks':
-				days = (world.now - datetime.datetime(1986,10,1).date()).days
-				if days % 7 != 0:
 					return [], None
 			depreciation_event = []
 
@@ -9724,11 +9728,12 @@ class Entity:
 				print('Error: {}'.format(e))
 		elif command.lower() == 'util':
 			entity_id = input('Which entitie(s)? ')
+			date = input('Which date(s)? ')
 			item = input('Which item or ticker (case sensitive)? ')#.lower()
 			acct = input('Which account? ')#.title()
 			desc = input('Description contains? ')
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				world.util(eod=False, big_util=True, reverse=False, entity_id=entity_id, items=item, accounts=acct, desc=desc, save=None)
+				world.util(eod=False, big_util=True, reverse=False, entity_id=entity_id, date=date, items=item, accounts=acct, desc=desc, save=None)
 		elif command.lower() == 'help':
 			command_help = {
 				'select': 'Choose a different entity (Individual or Corporation).',

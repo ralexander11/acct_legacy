@@ -1539,7 +1539,7 @@ class Ledger:
 			self.refresh_ledger()
 		return inventory
 
-	def get_util(self, entity_id=None, items=None, accounts=None, desc=None, gl=None, ex_rvsl=True, mob=True, save=None, v=True):
+	def get_util(self, entity_id=None, date=None, items=None, accounts=None, desc=None, gl=None, ex_rvsl=True, mob=True, save=None, v=True):
 		if save is None:
 			while True:
 				save = input('Save? [Y/n]: ')
@@ -1562,6 +1562,11 @@ class Ledger:
 		if entity_id is not None:
 			if isinstance(entity_id, str):
 				entity_id = [int(x.strip()) for x in entity_id.split(',')]
+		if not date:
+			date = None
+		if date is not None:
+			if isinstance(date, str):
+				date = [x.strip() for x in date.split(',')]
 		if not items:
 			items = None
 		if items is not None:
@@ -1582,6 +1587,12 @@ class Ledger:
 			gl = gl[(gl['entity_id'].isin(entity_id))]
 			if gl.empty:
 				print('The GL is empty with the entity filter.')
+				return
+		if date is not None:
+			if v: print('date:', date)
+			gl = gl[(gl['date'].isin(date))]
+			if gl.empty:
+				print('The GL is empty with the date filter.')
 				return
 		if items is not None:
 			if v: print('items:', items)
@@ -2967,11 +2978,12 @@ def main(conn=None, command=None, external=False):
 			if args.command is not None: exit()
 		elif command.lower() == 'util':
 			entity_id = input('Which entitie(s)? ')
+			date = input('Which date(s)? ')
 			item = input('Which item or ticker (case sensitive)? ')#.lower()
 			acct = input('Which account? ')#.title()
 			desc = input('Description contains? ')
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				ledger.get_util(entity_id, item, acct, desc, v=True)
+				ledger.get_util(entity_id, date, item, acct, desc, v=True)
 			if args.command is not None: exit()
 		elif command.lower() == 'demand': # This only works for the econ sim
 			demand = accts.print_table('demand', v=False)
