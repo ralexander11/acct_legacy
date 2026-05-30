@@ -1158,22 +1158,10 @@ class Ledger:
 		# if v: print('Asset Accounts: {}'.format(assets))
 		for acct in assets:
 			if v: print('Asset Account: {}'.format(acct))
-			try:
-				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
-				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
-				if v: print('Debits: {}'.format(debits))
-			except KeyError as e:
-				if v: print('Asset Debit Error: {} | {}'.format(e, repr(e)))
-				debits = 0
-			try:
-				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
-				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
-				if v: print('Credits: {}'.format(credits))
-			except KeyError as e:
-				if v: print('Asset Credit Error: {} | {}'.format(e, repr(e)))
-				credits = 0
+			debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
+			if v: print('Debits: {}'.format(debits))
+			credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
+			if v: print('Credits: {}'.format(credits))
 			bal = debits - credits
 			asset_bal += bal
 			if v: print('Balance for {}: {}'.format(acct, bal))
@@ -1194,24 +1182,13 @@ class Ledger:
 		liab_bal = 0
 		for acct in liabilities:
 			if v: print('Liability Account: {}'.format(acct))
-			try:
-				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
-				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
-				if v: print('Debits: {}'.format(debits))
-			except KeyError as e:
-				if v: print('Liabilities Debit Error: {} | {}'.format(e, repr(e)))
-				debits = 0
-			try:
-				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
-				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
-				if v: print('Credits: {}'.format(credits))
-			except KeyError as e:
-				if v: print('Liabilities Credit Error: {} | {}'.format(e, repr(e)))
-				credits = 0
+			debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
+			if v: print('Debits: {}'.format(debits))
+			credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
+			if v: print('Credits: {}'.format(credits))
 			bal = credits - debits # Note reverse order of subtraction
 			liab_bal += bal
+			if v: print('Balance for {}: {}'.format(acct, bal))
 			if all_accts:
 				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
@@ -1228,24 +1205,13 @@ class Ledger:
 		equity_bal = 0
 		for acct in equity:
 			if v: print('Equity Account: {}'.format(acct))
-			try:
-				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
-				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
-				if v: print('Debits: {}'.format(debits))
-			except KeyError as e:
-				if v: print('Equity Debit Error: {} | {}'.format(e, repr(e)))
-				debits = 0
-			try:
-				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
-				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
-				if v: print('Credits: {}'.format(credits))
-			except KeyError as e:
-				if v: print('Equity Credit Error: {} | {}'.format(e, repr(e)))
-				credits = 0
+			debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
+			if v: print('Debits: {}'.format(debits))
+			credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
+			if v: print('Credits: {}'.format(credits))
 			bal = credits - debits # Note reverse order of subtraction
 			equity_bal += bal
+			if v: print('Balance for {}: {}'.format(acct, bal))
 			if all_accts:
 				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
@@ -1262,24 +1228,13 @@ class Ledger:
 		rev_bal = 0
 		for acct in revenues:
 			if v: print('Revenue Account: {}'.format(acct))
-			try:
-				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
-				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
-				if v: print('Debits: {}'.format(debits))
-			except KeyError as e:
-				if v: print('Revenues Debit Error: {} | {}'.format(e, repr(e)))
-				debits = 0
-			try:
-				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
-				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
-				if v: print('Credits: {}'.format(credits))
-			except KeyError as e:
-				if v: print('Revenues Credit Error: {} | {}'.format(e, repr(e)))
-				credits = 0
+			debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
+			if v: print('Debits: {}'.format(debits))
+			credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
+			if v: print('Credits: {}'.format(credits))
 			bal = credits - debits # Note reverse order of subtraction
 			rev_bal += bal
+			if v: print('Balance for {}: {}'.format(acct, bal))
 			if all_accts:
 				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
@@ -1296,24 +1251,13 @@ class Ledger:
 		exp_bal = 0
 		for acct in expenses:
 			if v: print('Expense Account: {}'.format(acct))
-			try:
-				# debits = self.gl.groupby(['debit_acct'])[['amount']].sum().loc[acct].values[0]
-				# debits = self.gl.groupby('debit_acct').sum()['amount'][acct]
-				debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
-				if v: print('Debits: {}'.format(debits))
-			except KeyError as e:
-				if v: print('Expenses Debit Error: {} | {}'.format(e, repr(e)))
-				debits = 0
-			try:
-				# credits = self.gl.groupby(['credit_acct'])[['amount']].sum().loc[acct].values[0]
-				# credits = self.gl.groupby('credit_acct').sum()['amount'][acct]
-				credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
-				if v: print('Credits: {}'.format(credits))
-			except KeyError as e:
-				if v: print('Expenses Credit Error: {} | {}'.format(e, repr(e)))
-				credits = 0
+			debits = self.gl.loc[self.gl.debit_acct == acct, 'amount'].sum()
+			if v: print('Debits: {}'.format(debits))
+			credits = self.gl.loc[self.gl.credit_acct == acct, 'amount'].sum()
+			if v: print('Credits: {}'.format(credits))
 			bal = debits - credits
 			exp_bal += bal
+			if v: print('Balance for {}: {}'.format(acct, bal))
 			if all_accts:
 				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
 				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})

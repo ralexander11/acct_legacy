@@ -11,6 +11,7 @@ import json
 from io import StringIO
 import asyncio
 import re
+import csv
 # import builtins
 
 # from textual.app import App, ComposeResult
@@ -24,6 +25,9 @@ from rich.text import Text
 
 MAP_SIZE = 4 #64
 ANSI_ESCAPE = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+
+save_path = 'data/save_game.json'
+save_json = {}
 
 CORDS = {
         'Start': '338, 178',
@@ -197,6 +201,39 @@ TILES = {
         'Grave Stone': '[grey78]ṉ[/grey78]',
         'Camp Fire': '[bright_red]ᵮ[/bright_red]',
         'Bellows': '[tan]ꞵ[/tan]',
+        'Wood Wall Horizontal': '[orange4]─[/orange4]',
+        'Wood Wall Vertical': '[orange4]│[/orange4]',
+        'Wood Wall Top Left': '[orange4]┌[/orange4]',
+        'Wood Wall Top Right': '[orange4]┐[/orange4]',
+        'Wood Wall Bottom Left': '[orange4]└[/orange4]',
+        'Wood Wall Bottom Right': '[orange4]┘[/orange4]',
+        'Wood Wall T Left': '[orange4]├[/orange4]',
+        'Wood Wall T Right': '[orange4]┤[/orange4]',
+        'Wood Wall T Top': '[orange4]┬[/orange4]',
+        'Wood Wall T Bottom': '[orange4]┴[/orange4]',
+        'Wood Wall Centre': '[orange4]┼[/orange4]',
+        'Plaster Wall Horizontal': '[tan]━[/tan]',
+        'Plaster Wall Vertical': '[tan]┃[/tan]',
+        'Plaster Wall Top Left': '[tan]┏[/tan]',
+        'Plaster Wall Top Right': '[tan]┓[/tan]',
+        'Plaster Wall Bottom Left': '[tan]┗[/tan]',
+        'Plaster Wall Bottom Right': '[tan]┛[/tan]',
+        'Plaster Wall T Left': '[tan]┣[/tan]',
+        'Plaster Wall T Right': '[tan]┫[/tan]',
+        'Plaster Wall T Top': '[tan]┳[/tan]',
+        'Plaster Wall T Bottom': '[tan]┻[/tan]',
+        'Plaster Wall Centre': '[tan]╋[/tan]',
+        'Stone Wall Horizontal': '[grey37]═[/grey37]',
+        'Stone Wall Vertical': '[grey37]║[/grey37]',
+        'Stone Wall Top Left': '[grey37]╔[/grey37]',
+        'Stone Wall Top Right': '[grey37]╗[/grey37]',
+        'Stone Wall Bottom Left': '[grey37]╚[/grey37]',
+        'Stone Wall Bottom Right': '[grey37]╝[/grey37]',
+        'Stone Wall T Left': '[grey37]╠[/grey37]',
+        'Stone Wall T Right': '[grey37]╣[/grey37]',
+        'Stone Wall T Top': '[grey37]╦[/grey37]',
+        'Stone Wall T Bottom': '[grey37]╩[/grey37]',
+        'Stone Wall Centre': '[grey37]╬[/grey37]',
         }
 
 # Walls
@@ -288,9 +325,12 @@ class Map:
             if 'data/' not in infile:
                 infile = 'data/' + infile
             print('infile:', infile)
-        with open(infile, 'r') as f:
-            map_data = pd.read_csv(f, header=None)
-        self.map_size = map_data.shape
+        # with open(infile, 'r') as f:
+        #     map_data = pd.read_csv(f, header=None)
+        with open(infile, mode='r', encoding='utf-8') as f:
+            map_data = list(csv.reader(f))
+        # self.map_size = map_data.shape
+        self.map_size = (len(map_data), len(map_data[0]) if map_data else (0, 0))
         print('map_size:', self.map_size)
         self.map_grid = [[dict() for _ in range(self.map_size[1])] for _ in range(self.map_size[0])]
         # print('map_grid 1:', self.map_grid)
@@ -315,7 +355,8 @@ class Map:
         print('Map Legend:', inv_tiles)
         meta_data = None
         self.load_players = []
-        for i, row in map_data.iterrows():
+        # for i, row in map_data.iterrows():
+        for i, row in enumerate(map_data):
             for j, tile in enumerate(row):
                 if len(tile) == 1:
                     if tile in inv_tiles:
@@ -385,7 +426,29 @@ class Map:
             for player_num in range(self.num_players):
                 player_name = 'Player ' + str(player_num+1)
                 print('Creating:', player_name)
-                player = Player(player_name, self, str(player_num+1), self.start_loc)
+                if os.path.exists(save_path):
+                    print(f'Loading saved player data from {save_path}.')
+                    with open(save_path, 'r') as f:
+                        save_json = json.load(f)
+
+                    tiles = {k: v.split('[')[1].split(']')[1] for k, v in TILES.items()}
+                    inv_tiles = {v: k for k, v in tiles.items()}
+
+                    current_tile = save_json['current_tile']
+                    # print('current_tile:', current_tile)
+                    # if current_tile in inv_tiles:
+                    current_terrain = inv_tiles[current_tile]
+                    # print('current_terrain:', current_terrain)
+                    save_json['current_terrain'] = Tile(current_terrain, self.terrain_items)
+
+                    target_tile = save_json['target_tile']
+                    if target_tile in inv_tiles:
+                        target_terrain = inv_tiles[target_tile]
+                    save_json['target_terrain'] = Tile(target_terrain, self.terrain_items)
+
+                    player = Player(player_name, self, dictionary=save_json)
+                else:
+                    player = Player(player_name, self, str(player_num+1), self.start_loc)
                 self.players.append(player)
         else:
             for player_data in self.load_players:
@@ -989,7 +1052,10 @@ class Tile:
             self.move_cost = terrain_items[terrain_items['item_id'] == self.terrain]['int_rate_fix'].values[0]
         except IndexError:
             # print('Move cost of 1 for:', terrain)
-            self.move_cost = 1
+            if 'Wall' in self.terrain:
+                self.move_cost = None
+            else:    
+                self.move_cost = 1
         if self.move_cost == 'None':
             self.move_cost = None
         if self.move_cost is not None:
@@ -1091,6 +1157,12 @@ class Player:
             else:
                 self.target_tile = self.world_map.display_map[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]
                 self.target_terrain = self.world_map.map_grid[self.pos[0]+target_offset[1]][self.pos[1]+target_offset[0]]['terrain']
+
+            # global save_json
+            # # save_json['dir'] = self.icon
+            # save_json = self.json_dump()
+            # # save_json = self.__dict__
+            # print('save_json dir:', save_json)
         except IndexError as e:
             self.target_tile = None#' '
             self.target_terrain = None
@@ -1135,6 +1207,11 @@ class Player:
             # print('current_terrain:', self.current_terrain)
             # self.world_map.map_grid.at[self.pos[0], self.pos[1]]['Agent'] = self.player_name # Replace pandas here
             # del self.world_map.map_grid.at[self.old_pos[0], self.old_pos[1]]['Agent'] # Replace pandas here
+
+            # global save_json
+            # save_json['pos'] = self.pos
+            # save_json['moves'] = self.remain_move
+            # print('save_json:', save_json)
         except (IndexError, KeyError) as e: # TODO Is this check still needed?
             print('Out of map boundry, please try again.')
             print(e)
@@ -1456,10 +1533,19 @@ class Player:
         # return self.pos
 
     def json_dump(self):
-        player_data = self.__dict__
+        player_data = self.__dict__.copy()
+        # player_data = self.__dict__.deepcopy()
         # print(player_data)
         if player_data.get('world_map'):
             player_data.pop('world_map')
+        if player_data.get('current_terrain'):
+            player_data.pop('current_terrain')
+        if player_data.get('target_terrain'):
+            player_data.pop('target_terrain')
+        player_data['current_tile'] = re.sub(r'\[.*?\]', '', player_data['current_tile'])
+        player_data['target_tile'] = re.sub(r'\[.*?\]', '', player_data['target_tile'])
+        # print('player __dict__ after:')
+        # print(self.__dict__)
         return player_data
 
     # def __str__(self):
@@ -2157,6 +2243,10 @@ def main(game=None, map_name='map.csv', start_loc=(446, 229), view_size=None, nu
                 # Print UI
                 print(f'Current world map:\n{world_map}')
                 print(f'[green]{player.player_name} pos: [/green][cyan]{player.pos}[/cyan][green] moves: [/green][cyan]{player.remain_move:.2f}[/cyan][green] / [/green][cyan]{player.movement}[/cyan][green] faces: [/green]{player.target_tile}[green] {player.target_terrain} on: [/green]{player.current_tile}[green] {player.current_terrain}[/green]')
+                save_json = player.json_dump()
+                # print('save_json:', save_json)
+                with open(save_path, 'w') as f:
+                    json.dump(save_json, f, indent=4)
                 player.get_command()
             player.reset_moves()
     return world_map
