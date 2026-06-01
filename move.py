@@ -73,6 +73,7 @@ TILES = {
         'Sand': '[yellow]S[/yellow]',
         'Tundra': '[grey62]T[/grey62]',
         'Ocean': '[blue]O[/blue]',
+        'Lake': '[blue]L[/blue]',
         'Path': '[orange4]=[/orange4]',
         'Road': '[grey69]_[/grey69]',
         'Sidewalk': '[grey85]≡[/grey85]',
@@ -86,6 +87,7 @@ TILES = {
         'Cave Floor': '[grey37],[/grey37]',
         'Dock': '[orange4]Ɗ[/orange4]',
         'Sign': '[bright_yellow]![/bright_yellow]',
+        'Switch': '[white]⌻[/white]',
         'Street Light': '[bright_yellow]ꝉ[/bright_yellow]',
         'Trees': '[green]Ҭ[/green]',
         'Potato': '[gold3]ꭅ[/gold3]',
@@ -138,6 +140,7 @@ TILES = {
         'Bench': '[orange3]ꭑ[/orange3]',
         'Book Shelf': '[orange4]Ḇ[/orange4]',
         'Chair': '[dark_khaki]∟[/dark_khaki]',
+        'Throne': '[light_goldenrod1]⎳[/light_goldenrod1]',
         'Chest': '[gold3]∩[/gold3]',
         'Desk': '[orange3]∏[/orange3]',
         'Display Cabinet': '[light_cyan1]Ḓ[/light_cyan1]',
@@ -189,6 +192,7 @@ TILES = {
         'Easel': '[orange4]Д[/orange4]',
         'Child Toy': '[white]Ɀ[/white]',
         'Tapestry': '[purple4]Ԏ[/purple4]',
+        'Taxidermy': '[white]⍼[/white]',
         'Craddle': '[orange4]ᴗ[/orange4]',
         'Churn': '[orange4]ʆ[/orange4]',
         'River Crossing': '[orange4]⁞[/orange4]',
@@ -201,6 +205,7 @@ TILES = {
         'Grave Stone': '[grey78]ṉ[/grey78]',
         'Camp Fire': '[bright_red]ᵮ[/bright_red]',
         'Bellows': '[tan]ꞵ[/tan]',
+        'Teleportation Pad': '[magenta]⏣[/magenta]',
         'Wood Wall Horizontal': '[orange4]─[/orange4]',
         'Wood Wall Vertical': '[orange4]│[/orange4]',
         'Wood Wall Top Left': '[orange4]┌[/orange4]',
@@ -861,6 +866,11 @@ class Map:
         print('terrain_items:')
         print(self.terrain_items[self.terrain_items['child_of'] == 'Land'])
         # print(self.terrain_items)
+        self.terrain_costs = {
+            k: None if v == 'None' else float(v)
+            for k, v in zip(self.terrain_items['item_id'], self.terrain_items['int_rate_fix'])
+        }
+        print(self.terrain_costs)
 
     def edit_map_terrain(self, terrain=None, y=None, x=None):
         if terrain is None:
@@ -1040,30 +1050,41 @@ class Map:
         return self.map_grid
 
 class Tile:
-    def __init__(self, terrain='Land', terrain_items=None, loc=None):# Tile
+    def __init__(self, terrain='Land', move_costs=None, loc=None):# Tile
+        __slots__ = (
+            'terrain',
+            'icon',
+            'move_cost',
+            'loc',
+            'hidden',
+        )
         self.terrain = terrain
-        if terrain in TILES:
-            self.icon = TILES[terrain]
-        else:
-            self.icon = terrain
-        try:
-            # Note: The move cost data is contained in the int_rate_fix column.
-            # TODO move from int_rate_fix column to int_rate_var column?
-            self.move_cost = terrain_items[terrain_items['item_id'] == self.terrain]['int_rate_fix'].values[0]
-        except IndexError:
+        self.icon = TILES.get(terrain, terrain)
+        # if terrain in TILES:
+        #     self.icon = TILES[terrain]
+        # else:
+        #     self.icon = terrain
+        # try:
+        #     # Note: The move cost data is contained in the int_rate_fix column.
+        #     # TODO move from int_rate_fix column to int_rate_var column?
+        #     self.move_cost = terrain_items[terrain_items['item_id'] == self.terrain]['int_rate_fix'].values[0]
+        # except IndexError:
+        self.move_cost = move_costs.get(self.terrain, 1.0)
+        # if self.move_cost is None:
             # print('Move cost of 1 for:', terrain)
-            if 'Wall' in self.terrain:
-                self.move_cost = None
-            else:    
-                self.move_cost = 1
-        if self.move_cost == 'None':
+        if 'Wall' in self.terrain:
             self.move_cost = None
-        if self.move_cost is not None:
-            self.move_cost = float(self.move_cost)
-        if loc is not None:
-            self.loc = loc
-        else:
-            self.loc = None
+            # else:    
+            #     self.move_cost = 1
+        # if self.move_cost == 'None':
+        #     self.move_cost = None
+        # if self.move_cost is not None:
+        #     self.move_cost = float(self.move_cost)
+        self.loc = loc
+        # if loc is not None:
+        #     self.loc = loc
+        # else:
+        #     self.loc = None
         self.hidden = False
 
     def json_dump(self):
@@ -1519,9 +1540,9 @@ class Player:
                 'cords': 'Display a list of location coordinates.',
                 'addcords': 'Add cordinates to the cords list. [name, "row, col"]',
                 'tp': 'Teleport the player to a location. [row, col]',
-                'redirect': 'Toggle the stdout redirect.',
-                'save': 'Save the map to file. [name]',
-                'savemap': 'Save the map to file. [name]',
+                # 'redirect': 'Toggle the stdout redirect.',
+                # 'save': 'Save the map to file. [name]',
+                # 'savemap': 'Save the map to file. [name]',
             }
             cmd_table = pd.DataFrame(commands.items(), columns=['Command', 'Description'])
             with pd.option_context('display.max_colwidth', 200, 'display.colheader_justify', 'left'):
