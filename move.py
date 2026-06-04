@@ -314,7 +314,7 @@ class Map:
                     # print(terrain_select)
                 else:
                     terrain_select = 'Grassland'
-                    tile.update({'terrain': Tile(terrain_select, self.terrain_items)})
+                    tile.update({'terrain': Tile(terrain_select, self.terrain_costs)})
 
         # self.map_grid = pd.DataFrame(self.map_grid) # Replace pandas here
         # self.map_grid.applymap(lambda d: d.update({'terrain': Tile()})) # Replace pandas here
@@ -395,7 +395,7 @@ class Map:
                         other_data = json.loads(other_data, object_hook=None)
                         if v: print('other_data loaded:', other_data)
                         # TODO Finish this
-                self.map_grid[i][j].update({'terrain': Tile(terrain_select, self.terrain_items, loc=(i, j))})
+                self.map_grid[i][j].update({'terrain': Tile(terrain_select, self.terrain_costs, loc=(i, j))})
         self.save_meta(meta_data)
         return self.map_grid
 
@@ -444,12 +444,12 @@ class Map:
                     # if current_tile in inv_tiles:
                     current_terrain = inv_tiles[current_tile]
                     # print('current_terrain:', current_terrain)
-                    save_json['current_terrain'] = Tile(current_terrain, self.terrain_items)
+                    save_json['current_terrain'] = Tile(current_terrain, self.terrain_costs)
 
                     target_tile = save_json['target_tile']
                     if target_tile in inv_tiles:
                         target_terrain = inv_tiles[target_tile]
-                    save_json['target_terrain'] = Tile(target_terrain, self.terrain_items)
+                    save_json['target_terrain'] = Tile(target_terrain, self.terrain_costs)
 
                     player = Player(player_name, self, dictionary=save_json)
                 else:
@@ -630,7 +630,7 @@ class Map:
                 tile = eval(tile)
                 # if v: print(f'{i} {row}: {j} {tile}')
                 terrain_name = tile['terrain']
-                self.map_grid[i][j].update({'terrain': Tile(terrain_name, self.terrain_items)})
+                self.map_grid[i][j].update({'terrain': Tile(terrain_name, self.terrain_costs)})
         print(time_stamp() + 'Loaded filename: ', filename)
         print(time_stamp() + 'Spawning players.')
         self.game.spawn_players()
@@ -748,10 +748,10 @@ class Map:
         print('map_size_diff:', map_size_diff)
         # print(repr(self.map_grid))
         for _ in range(map_size_diff[0]):
-            self.map_grid.append([{'terrain': Tile('Grassland', self.terrain_items)} for _ in range(self.map_size[1])])
+            self.map_grid.append([{'terrain': Tile('Grassland', self.terrain_costs)} for _ in range(self.map_size[1])])
         for row in self.map_grid:
             for _ in range(map_size_diff[1]):
-                row.append({'terrain': Tile('Grassland', self.terrain_items)})
+                row.append({'terrain': Tile('Grassland', self.terrain_costs)})
         # print(repr(self.map_grid))
         self.map_size = new_map_size
         self.update_display_map()
@@ -870,7 +870,7 @@ class Map:
             k: None if v == 'None' else float(v)
             for k, v in zip(self.terrain_items['item_id'], self.terrain_items['int_rate_fix'])
         }
-        print(self.terrain_costs)
+        print('terrain_costs:', self.terrain_costs)
 
     def edit_map_terrain(self, terrain=None, y=None, x=None):
         if terrain is None:
@@ -900,7 +900,7 @@ class Map:
         pos = (int(y), int(x))
         terrain = terrain.title()
         tile = self.map_grid[pos[0]][pos[1]]
-        tile.update({'terrain': Tile(terrain, self.terrain_items)})
+        tile.update({'terrain': Tile(terrain, self.terrain_costs)})
         if terrain in TILES:
             icon = TILES[terrain]
         elif tile is np.nan:
@@ -1074,7 +1074,7 @@ class Tile:
             # print('Move cost of 1 for:', terrain)
         if 'Wall' in self.terrain:
             self.move_cost = None
-            # else:    
+            # else:
             #     self.move_cost = 1
         # if self.move_cost == 'None':
         #     self.move_cost = None
@@ -1303,7 +1303,7 @@ class Player:
             if self.boat:
                 print('Set to Boat.', self.pos)
                 # Change tile to Boat using edit function
-                # self.world_map.display_map[self.pos[0]][self.pos[1]] = self.boat_tile#Tile('Boat', self.world_map.terrain_items)
+                # self.world_map.display_map[self.pos[0]][self.pos[1]] = self.boat_tile#Tile('Boat', self.terrain_costs)
                 self.world_map.edit_map_terrain('Boat', self.pos[0], self.pos[1])
             self.boat = not self.boat
             # Change tile to Ocean using edit function
