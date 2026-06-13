@@ -66,6 +66,8 @@ roles_data = [ # TODO Non-cash data labels are not complete yet
 	## Equity:
 	{'role': 'Retained Earnings', 'current': False, 'non-cash': True},
 	{'role': 'Current Earnings', 'current': False, 'non-cash': True},
+	{'role': 'Net Assets with Restrictions', 'current': False, 'non-cash': True},
+	{'role': 'Net Assets without Restrictions', 'current': False, 'non-cash': True},
 	{'role': 'Common Shares', 'current': False, 'non-cash': True},
 	{'role': 'Preference Shares', 'current': False, 'non-cash': True},
 	{'role': 'Distributions', 'current': False, 'non-cash': True},

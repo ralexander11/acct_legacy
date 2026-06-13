@@ -30,6 +30,7 @@ save_path = 'data/save_game.json'
 save_json = {}
 
 CORDS = {
+        'order': 'col, row',
         'Start': '338, 178',
         'Paws': 'HV, 439',
         'Trisic': 'JJ, 555',
@@ -57,6 +58,7 @@ CORDS = {
         'Terfin': 'TK, 719',
         'Castle': 'HZ, 313',
         'Jungle': 'VE, 161',
+        'Port': 'ID, 376',
         }
 
 TILES = {
@@ -74,7 +76,9 @@ TILES = {
         'Tundra': '[grey62]T[/grey62]',
         'Ocean': '[blue]O[/blue]',
         'Lake': '[blue]L[/blue]',
+        'River': '[blue]~[/blue]',
         'Path': '[orange4]=[/orange4]',
+        'Desert Path': '[yellow]Ꞩ[/yellow]',
         'Road': '[grey69]_[/grey69]',
         'Sidewalk': '[grey85]≡[/grey85]',
         'Wall': '[tan]▌[/tan]',
@@ -1259,7 +1263,7 @@ class Player:
         # TODO Add ability for items to modify terrain_move_cost.
         move_cost = target_terrain.move_cost
         if self.boat:
-            if target_terrain.terrain == 'Ocean':
+            if target_terrain.terrain in ['Ocean', 'Bridge', 'River Crossing', 'River', 'Lake']:
                 move_cost = 0.1
             else:
                 move_cost = None
@@ -1336,7 +1340,7 @@ class Player:
         command = command.lower().split(' ')
         command += [None] * (4 - len(command))
         print(time_stamp() + 'Command is:', command)
-        if command[0] == 'exit':
+        if command[0] == 'exit' or command[0] == 'quit':
             quit()
         elif command[0] == 'map':
             print(f'Display current world map raw:\n{self.world_map}')
@@ -1427,7 +1431,7 @@ class Player:
                 print('Enter the letters for the column with a space after "col".')
             # self.pos = self.old_pos
             return
-        elif command[0] == 'c' or command[0] == 'cords':
+        elif command[0] == 'c' or command[0] == 'cords' or command[0] == 'coords':
             print(CORDS)
             # self.pos = self.old_pos
             return
@@ -1498,8 +1502,8 @@ class Player:
                 self.old_pos = self.pos
                 self.pos = (int(y)-1, int(x)-1)
                 self.move(0, 0, teleport=True)
-                self.world_map.game.update_viewport()
-                self.world_map.game.update_status()
+                # self.world_map.update_viewport()
+                # self.world_map.update_status()
             except ValueError:
                 print('Enter whole numbers only, try again.')
                 self.pos = self.old_pos
@@ -1537,7 +1541,7 @@ class Player:
                 'mapinitial': 'Show the meta data of the game.',
                 'mapcell': 'Show the map contents at a particular coord. [row, col]',
                 'col': 'Convert letter columns to numbers. [letters]',
-                'cords': 'Display a list of location coordinates.',
+                'cords': 'Display a list of location coordinates (col, row).',
                 'addcords': 'Add cordinates to the cords list. [name, "row, col"]',
                 'tp': 'Teleport the player to a location. [row, col]',
                 # 'redirect': 'Toggle the stdout redirect.',
