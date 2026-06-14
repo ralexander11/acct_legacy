@@ -6,6 +6,8 @@ import pandas as pd
 import re
 import argparse
 
+DISPLAY_WIDTH = 98
+
 def get_all_dbs(v=True):
     path = '/home/robale5/becauseinterfaces.com/acct/db/'
     if not os.path.exists(path):
@@ -229,7 +231,7 @@ def main(dbs=None, save=False, v=True):
         except Exception as e:
             print(f'Error with file: {db}')
             print(e)
-            print('------------------------------------------')
+            print('-' * DISPLAY_WIDTH)
             continue
         if dur.days == 0:
             txn_eff = txns // 1
@@ -245,11 +247,13 @@ def main(dbs=None, save=False, v=True):
         # print('days:', days)
         if v: print('txns per day:', txn_eff)
         if v: print('Sim days per real day:', day_eff)
-        if v: print('------------------------------------------')
+        if v: print('-' * DISPLAY_WIDTH)
         cols = ['db_file', 'date', 'item', 'txns', 'days', 'dur', 'txn_eff', 'day_eff']
     # print(dbs)
     # print('----------------------------------------')
     df = pd.DataFrame(stats, columns=cols)
+    df['days'] = df['days'].dt.days
+    df['dur'] = df['dur'].dt.floor('s')
     df.index = df.index + 1
     print(df)
     if save:
@@ -280,7 +284,7 @@ def gl_timings(dbs=None, save=False, v=True):
         except Exception as e:
             print(f'Error with file: {db}')
             print(e)
-            print('------------------------------------------')
+            print('-' * DISPLAY_WIDTH)
             continue
         if isinstance(util, str):
             continue
