@@ -207,6 +207,16 @@ def main(dbs=None, save=False, v=True):
         print(f'{i+1}/{num_dbs} db:', db)
         db = db.split('/')[-1]
         if v: print('db file:', db)
+
+        try:
+            log_file_name = 'logs/' + db[:-3] + '.log'
+            with open(log_file_name, 'r') as f:
+                f.readline()
+                first_line = f.readline()
+                if v: print('Run Args:', first_line.strip())
+        except FileNotFoundError:
+            print(f'Error: The file {log_file_name} could not be found.')
+
         try:
             accts = acct.Accounts(conn=db)
             ledger = acct.Ledger(accts)
@@ -233,13 +243,14 @@ def main(dbs=None, save=False, v=True):
         # print('txns:', txns)
         # print('dur:', dur)
         # print('days:', days)
-        if v: print('txn per day:', txn_eff)
-        if v: print('days per real day:', day_eff)
+        if v: print('txns per day:', txn_eff)
+        if v: print('Sim days per real day:', day_eff)
         if v: print('------------------------------------------')
         cols = ['db_file', 'date', 'item', 'txns', 'days', 'dur', 'txn_eff', 'day_eff']
     # print(dbs)
     # print('----------------------------------------')
     df = pd.DataFrame(stats, columns=cols)
+    df.index = df.index + 1
     print(df)
     if save:
         df.to_csv('data/stats.csv', index=True)
@@ -299,7 +310,7 @@ def gl_timings(dbs=None, save=False, v=True):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--mode', type=str, help='1) for main 2) for main_logs 3) for gl_timings.')
+    parser.add_argument('-m', '--mode', type=str, default='1', help='1) for main 2) for main_logs 3) for gl_timings.')
     parser.add_argument('-s', '--save', action='store_true', help='Save the result to a csv.')
     parser.add_argument('-v', '--verbose', action='store_false', help='Enable verbosity.')
     parser.add_argument('-d', '--display', action='store_false', help='Display the result [unused].') # Not used yet
@@ -312,9 +323,9 @@ if __name__ == '__main__':
         main_logs(save=args.save, v=args.verbose)
     elif args.mode == '3':
         gl_timings(save=args.save, v=args.verbose)
-    else:
+    # else:
         # main(save=args.save, v=args.verbose)
-        gl_timings(save=args.save, v=args.verbose)
+        # gl_timings(save=args.save, v=args.verbose)
 
 # [2022-Jun-09 06:01:48 AM] ['/home/robale5/becauseinterfaces.com/acct/econ.py', '-db', 'econ_2022-06-09.db', '-s', '11', '-p', '4', '--early', '-i', 'items03_no_wip.csv']
 # scp stats.py robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct

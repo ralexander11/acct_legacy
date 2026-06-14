@@ -1151,8 +1151,10 @@ class Ledger:
 				continue
 
 		# Create Balance Sheet dataframe to return
-		if all_accts:
-			self.bs = pd.DataFrame(columns=['line_item','balance']) # TODO Make line_item the index
+		# if all_accts:
+		# 	self.bs = pd.DataFrame(columns=['line_item','balance']) # TODO Make line_item the index
+		# 	line_items = [] # TODO Make line_item the index maybe
+		line_items = []
 
 		# TODO The below repeated sections can probably be handled more elegantly. Maybe by putting the 5 account type lists in a list and using a double loop
 
@@ -1170,16 +1172,20 @@ class Ledger:
 			#if bal != 0: # TODO Not sure if should display empty accounts
 			if all_accts:
 				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
-				dfs = [self.bs, tmp_df]
-				dfs = [df for df in dfs if not df.empty]
-				self.bs = pd.concat(dfs, ignore_index=True)
+				# if bal:
+				line_items.append({'line_item':acct, 'balance':bal})
+				# tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				# dfs = [self.bs, tmp_df]
+				# dfs = [df for df in dfs if not df.empty]
+				# self.bs = pd.concat(dfs, ignore_index=True)
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Total Assets:', 'balance':asset_bal}, ignore_index=True)
-			tmp_df = pd.DataFrame({'line_item':['Total Assets:'], 'balance':[asset_bal]})
-			dfs = [self.bs, tmp_df]
-			dfs = [df for df in dfs if not df.empty]
-			self.bs = pd.concat(dfs, ignore_index=True)
+			line_items.append({'line_item':'Total Assets:', 'balance':asset_bal})
+			# dfs.append({'line_item':['Total Assets:'], 'balance':[asset_bal]})
+			# tmp_df = pd.DataFrame({'line_item':['Total Assets:'], 'balance':[asset_bal]})
+			# dfs = [self.bs, tmp_df]
+			# dfs = [df for df in dfs if not df.empty]
+			# self.bs = pd.concat(dfs, ignore_index=True)
 
 		liab_bal = 0
 		for acct in liabilities:
@@ -1193,16 +1199,19 @@ class Ledger:
 			if v: print('Balance for {}: {}'.format(acct, bal))
 			if all_accts:
 				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
-				dfs = [self.bs, tmp_df]
-				dfs = [df for df in dfs if not df.empty]
-				self.bs = pd.concat(dfs, ignore_index=True)
+				# if bal:
+				line_items.append({'line_item':acct, 'balance':bal})
+				# tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				# dfs = [self.bs, tmp_df]
+				# dfs = [df for df in dfs if not df.empty]
+				# self.bs = pd.concat(dfs, ignore_index=True)
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Total Liabilities:', 'balance':liab_bal}, ignore_index=True)
-			tmp_df = pd.DataFrame({'line_item':['Total Liabilities:'], 'balance':[liab_bal]})
-			dfs = [self.bs, tmp_df]
-			dfs = [df for df in dfs if not df.empty]
-			self.bs = pd.concat(dfs, ignore_index=True)
+			line_items.append({'line_item':'Total Liabilities:', 'balance':liab_bal})
+			# tmp_df = pd.DataFrame({'line_item':['Total Liabilities:'], 'balance':[liab_bal]})
+			# dfs = [self.bs, tmp_df]
+			# dfs = [df for df in dfs if not df.empty]
+			# self.bs = pd.concat(dfs, ignore_index=True)
 
 		equity_bal = 0
 		for acct in equity:
@@ -1216,16 +1225,19 @@ class Ledger:
 			if v: print('Balance for {}: {}'.format(acct, bal))
 			if all_accts:
 				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
-				dfs = [self.bs, tmp_df]
-				dfs = [df for df in dfs if not df.empty]
-				self.bs = pd.concat(dfs, ignore_index=True)
+				# if bal:
+				line_items.append({'line_item':acct, 'balance':bal})
+				# tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				# dfs = [self.bs, tmp_df]
+				# dfs = [df for df in dfs if not df.empty]
+				# self.bs = pd.concat(dfs, ignore_index=True)
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Total Equity:', 'balance':equity_bal}, ignore_index=True)
-			tmp_df = pd.DataFrame({'line_item':['Total Equity:'], 'balance':[equity_bal]})
-			dfs = [self.bs, tmp_df]
-			dfs = [df for df in dfs if not df.empty]
-			self.bs = pd.concat(dfs, ignore_index=True)
+			line_items.append({'line_item':'Total Equity:', 'balance':equity_bal})
+			# tmp_df = pd.DataFrame({'line_item':['Total Equity:'], 'balance':[equity_bal]})
+			# dfs = [self.bs, tmp_df]
+			# dfs = [df for df in dfs if not df.empty]
+			# self.bs = pd.concat(dfs, ignore_index=True)
 
 		rev_bal = 0
 		for acct in revenues:
@@ -1239,16 +1251,19 @@ class Ledger:
 			if v: print('Balance for {}: {}'.format(acct, bal))
 			if all_accts:
 				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
-				dfs = [self.bs, tmp_df]
-				dfs = [df for df in dfs if not df.empty]
-				self.bs = pd.concat(dfs, ignore_index=True)
+				# if bal:
+				line_items.append({'line_item':acct, 'balance':bal})
+				# tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				# dfs = [self.bs, tmp_df]
+				# dfs = [df for df in dfs if not df.empty]
+				# self.bs = pd.concat(dfs, ignore_index=True)
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Total Revenues:', 'balance':rev_bal}, ignore_index=True)
-			tmp_df = pd.DataFrame({'line_item':['Total Revenues:'], 'balance':[rev_bal]})
-			dfs = [self.bs, tmp_df]
-			dfs = [df for df in dfs if not df.empty]
-			self.bs = pd.concat(dfs, ignore_index=True)
+			line_items.append({'line_item':'Total Revenues:', 'balance':rev_bal})
+			# tmp_df = pd.DataFrame({'line_item':['Total Revenues:'], 'balance':[rev_bal]})
+			# dfs = [self.bs, tmp_df]
+			# dfs = [df for df in dfs if not df.empty]
+			# self.bs = pd.concat(dfs, ignore_index=True)
 
 		exp_bal = 0
 		for acct in expenses:
@@ -1262,24 +1277,28 @@ class Ledger:
 			if v: print('Balance for {}: {}'.format(acct, bal))
 			if all_accts:
 				# self.bs = self.bs.append({'line_item':acct, 'balance':bal}, ignore_index=True)
-				tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
-				dfs = [self.bs, tmp_df]
-				dfs = [df for df in dfs if not df.empty]
-				self.bs = pd.concat(dfs, ignore_index=True)
+				# if bal:
+				line_items.append({'line_item':acct, 'balance':bal})
+				# tmp_df = pd.DataFrame({'line_item':[acct], 'balance':[bal]})
+				# dfs = [self.bs, tmp_df]
+				# dfs = [df for df in dfs if not df.empty]
+				# self.bs = pd.concat(dfs, ignore_index=True)
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Total Expenses:', 'balance':exp_bal}, ignore_index=True)
-			tmp_df = pd.DataFrame({'line_item':['Total Expenses:'], 'balance':[exp_bal]})
-			dfs = [self.bs, tmp_df]
-			dfs = [df for df in dfs if not df.empty]
-			self.bs = pd.concat(dfs, ignore_index=True)
+			line_items.append({'line_item':'Total Expenses:', 'balance':exp_bal})
+			# tmp_df = pd.DataFrame({'line_item':['Total Expenses:'], 'balance':[exp_bal]})
+			# dfs = [self.bs, tmp_df]
+			# dfs = [df for df in dfs if not df.empty]
+			# self.bs = pd.concat(dfs, ignore_index=True)
 
 		retained_earnings = rev_bal - exp_bal
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Net Income:', 'balance':retained_earnings}, ignore_index=True)
-			tmp_df = pd.DataFrame({'line_item':['Net Income:'], 'balance':[retained_earnings]})
-			dfs = [self.bs, tmp_df]
-			dfs = [df for df in dfs if not df.empty]
-			self.bs = pd.concat(dfs, ignore_index=True)
+			line_items.append({'line_item':'Net Income:', 'balance':retained_earnings})
+			# tmp_df = pd.DataFrame({'line_item':['Net Income:'], 'balance':[retained_earnings]})
+			# dfs = [self.bs, tmp_df]
+			# dfs = [df for df in dfs if not df.empty]
+			# self.bs = pd.concat(dfs, ignore_index=True)
 
 		net_asset_value = asset_bal - liab_bal
 		if net_asset_value == 0: # Two ways to calc NAV depending on accounts
@@ -1288,25 +1307,31 @@ class Ledger:
 		total_equity = net_asset_value + liab_bal
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Equity+NI+Liab.:', 'balance':total_equity}, ignore_index=True)
-			tmp_df = pd.DataFrame({'line_item':['Equity+NI+Liab.:'], 'balance':[total_equity]})
-			dfs = [self.bs, tmp_df]
-			dfs = [df for df in dfs if not df.empty]
-			self.bs = pd.concat(dfs, ignore_index=True)
+			line_items.append({'line_item':'Equity+NI+Liab.:', 'balance':total_equity})
+			# tmp_df = pd.DataFrame({'line_item':['Equity+NI+Liab.:'], 'balance':[total_equity]})
+			# dfs = [self.bs, tmp_df]
+			# dfs = [df for df in dfs if not df.empty]
+			# self.bs = pd.concat(dfs, ignore_index=True)
 
 		check = asset_bal - total_equity
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Balance Check:', 'balance':check}, ignore_index=True)
-			tmp_df = pd.DataFrame({'line_item':['Balance Check:'], 'balance':[check]})
-			dfs = [self.bs, tmp_df]
-			dfs = [df for df in dfs if not df.empty]
-			self.bs = pd.concat(dfs, ignore_index=True)
+			line_items.append({'line_item':'Balance Check:', 'balance':check})
+			# tmp_df = pd.DataFrame({'line_item':['Balance Check:'], 'balance':[check]})
+			# dfs = [self.bs, tmp_df]
+			# dfs = [df for df in dfs if not df.empty]
+			# self.bs = pd.concat(dfs, ignore_index=True)
 
 		if all_accts:
 			# self.bs = self.bs.append({'line_item':'Net Asset Value:', 'balance':net_asset_value}, ignore_index=True)
-			tmp_df = pd.DataFrame({'line_item':['Net Asset Value:'], 'balance':[net_asset_value]})
-			dfs = [self.bs, tmp_df]
-			dfs = [df for df in dfs if not df.empty]
-			self.bs = pd.concat(dfs)
+			line_items.append({'line_item':'Net Asset Value:', 'balance':net_asset_value})
+			# tmp_df = pd.DataFrame({'line_item':['Net Asset Value:'], 'balance':[net_asset_value]})
+			# dfs = [self.bs, tmp_df]
+			# dfs = [df for df in dfs if not df.empty]
+			# self.bs = pd.concat(dfs)
+
+		# print('line_items:', line_items)
+		self.bs = pd.DataFrame(columns=['line_item','balance'], data=line_items)
 
 		if all_accts and gl is None:
 			if self.entity is None:
@@ -1390,10 +1415,7 @@ class Ledger:
 			accounts = [x.strip() for x in accounts.split(',')]
 		accounts = list(filter(None, accounts))
 		accounts = [x for x in accounts if x != 'Accum. Depr.']
-		if by_entity:
-			inventory = pd.DataFrame(columns=['entity_id','item_id','account','qty'])
-		else:
-			inventory = pd.DataFrame(columns=['item_id','account','qty'])
+		inventory_items = []
 		if single_item:
 			total_qty = 0
 		for acct in accounts:
@@ -1417,62 +1439,40 @@ class Ledger:
 						self.set_entity(entity_id)
 						qty_txns = self.get_qty_txns(item, acct)
 						if v: print('QTY TXNs by entity: \n{}'.format(qty_txns))
-						try:
-							debits = qty_txns.groupby(['debit_acct'])[['qty']].sum().loc[acct].values[0]
-							# debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
-							if v: print('Debits: \n{}'.format(debits))
-						except KeyError as e:
-							if v: print('Error Debits: {} | {}'.format(e, repr(e)))
-							debits = 0
-						try:
-							credits = qty_txns.groupby(['credit_acct'])[['qty']].sum().loc[acct].values[0]
-							# credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
-							if v: print('Credits: \n{}'.format(credits))
-						except KeyError as e:
-							if v: print('Error Credits: {} | {}'.format(e, repr(e)))
-							credits = 0
+						debits = qty_txns.loc[qty_txns.debit_acct == acct, 'qty'].sum()
+						if v: print('Qty Debits: {}'.format(debits))
+						credits = qty_txns.loc[qty_txns.credit_acct == acct, 'qty'].sum()
+						if v: print('Qty Credits: {}'.format(credits))
 						qty = round(debits - credits, 0)
 						if v: print('QTY: {}\n'.format(qty))
-						# inventory = inventory.append({'entity_id':entity_id, 'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
-						tmp_df = pd.DataFrame({'entity_id':[entity_id], 'item_id':[item], 'account':[acct], 'qty':[qty]})
-						dfs = [inventory, tmp_df]
-						dfs = [df for df in dfs if not df.empty]
-						inventory = pd.concat(dfs, ignore_index=True)
-						inventory = inventory.sort_values(by='entity_id', ascending=True)
-						#if v: print(inventory)
+						inventory_items.append({'entity_id':entity_id, 'item_id':item, 'account':acct, 'qty':qty})
+						if v: print(inventory_items)
 						self.reset()
-					inventory['entity_id'] = pd.to_numeric(inventory['entity_id'])
+					# inventory['entity_id'] = pd.to_numeric(inventory['entity_id'])
 				else:
 					qty_txns = self.get_qty_txns(item, acct)
 					if v: print('Qty TXNs: \n{}'.format(qty_txns))
-					try:
-						debits = qty_txns.groupby(['debit_acct'])[['qty']].sum().loc[acct].values[0]
-						# debits = qty_txns.groupby(['debit_acct']).sum()['qty'][acct]
-						if v: print('Debits: {}'.format(debits))
-					except KeyError as e:
-						if v: print('Error Debits: {} | {}'.format(e, repr(e)))
-						debits = 0
-					try:
-						credits = qty_txns.groupby(['credit_acct'])[['qty']].sum().loc[acct].values[0]
-						# credits = qty_txns.groupby(['credit_acct']).sum()['qty'][acct]
-						if v: print('Credits: {}'.format(credits))
-					except KeyError as e:
-						if v: print('Error Credits: {} | {}'.format(e, repr(e)))
-						credits = 0
-					qty = debits - credits
+					debits = qty_txns.loc[qty_txns.debit_acct == acct, 'qty'].sum()
+					if v: print('Qty Debits: {}'.format(debits))
+					credits = qty_txns.loc[qty_txns.credit_acct == acct, 'qty'].sum()
+					if v: print('Qty Credits: {}'.format(credits))
+					qty = round(debits - credits, 0)
 					if v: print('QTY: {}\n'.format(qty))
+
 					if single_item and not always_df:
 						total_qty += qty
 					else:
-						# inventory = inventory.append({'item_id':item, 'account':acct, 'qty':qty}, ignore_index=True)
-						tmp_df = pd.DataFrame({'item_id':[item], 'account':[acct], 'qty':[qty]})
-						dfs = [inventory, tmp_df]
-						dfs = [df for df in dfs if not df.empty]
-						inventory = pd.concat(dfs, ignore_index=True)
-						#if v: print(inventory)
+						inventory_items.append({'item_id':item, 'account':acct, 'qty':qty})
+						if v: print(inventory_items)
 		if single_item and not by_entity and not always_df:
 			if v: print('Return Total Qty: ', total_qty)
 			return total_qty
+		if by_entity:
+			inventory = pd.DataFrame(columns=['entity_id','item_id','account','qty'], data=inventory_items)
+			inventory['entity_id'] = pd.to_numeric(inventory['entity_id'])
+			inventory = inventory.sort_values(by='entity_id', ascending=True)
+		else:
+			inventory = pd.DataFrame(columns=['item_id','account','qty'], data=inventory_items)
 		if not show_zeros:
 			inventory = inventory[(inventory.qty != 0)] # Ignores items completely sold
 		if all_accts and no_item and gl is None:
@@ -2862,7 +2862,8 @@ def main(conn=None, command=None, external=False):
 			item = input('Which item or ticker? ')#.lower()
 			acct = input('Which account? ')#.title()
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-				print(ledger.get_qty(item, acct))
+				# print(ledger.get_qty(item, acct))
+				print(ledger.get_qty(item, acct, by_entity=True))
 			if args.command is not None: exit()
 		elif command.lower() == 'inv' or command.lower() == 'ppe':
 			with pd.option_context('display.max_rows', None, 'display.max_columns', None):

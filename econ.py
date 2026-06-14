@@ -11603,8 +11603,8 @@ if __name__ == '__main__':
 # python econ.py -db econ_$(date +%F).db -i items.csv -p 4 -mp 10 -r >> logs/econ_$(date +%F).log; echo -e '\a'
 # python econ.py -i items_basic.csv -p 2 -mp 2 -cap 1000 -r >> logs/econ_basic01.log; echo -e '\a'
 
-# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-03-20.log ~/dev/acct_legacy/logs/
-# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/db/econ_2026-02-10.db ~/dev/acct_legacy/db/
+# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/logs/econ_2026-05-10.log ~/dev/acct_legacy/logs/
+# scp robale5@becauseinterfaces.com:/home/robale5/becauseinterfaces.com/acct/db/econ_2026-05-10.db ~/dev/acct_legacy/db/
 
 # TODO
 # Add a new column to items called fulfill
