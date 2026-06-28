@@ -186,7 +186,7 @@ save_json = {}
 
 
 # =========================================================
-# CVARS SYSTEM
+# SAVE SYSTEM
 # =========================================================
 # Put in the utils dir
 
@@ -273,9 +273,9 @@ print('COMPONENT_REGISTRY:', COMPONENT_REGISTRY)
 
 # tmp data until json file is made
 TERRAIN_DATA = {
-    'grassland':{'char': '.', 'color': (60, 180, 75),   'walkable': True},
-    'ocean':    {'char': '~', 'color': (50, 100, 220),  'walkable': False},
-    'mountain': {'char': '^', 'color': (160, 160, 160), 'walkable': False}
+    'grassland':{'char': '.', 'color': (60, 180, 75), 'frames': 1, 'walkable': True},
+    'ocean':    {'char': '~', 'color': (50, 100, 220), 'frames': 4, 'walkable': False},
+    'mountain': {'char': '^', 'color': (160, 160, 160), 'frames': 1, 'walkable': False}
 }
 
 class Tile:
@@ -583,7 +583,7 @@ class TurnManager:
 
     def advance_player(self):
         self.current_player_index = (self.current_player_index + 1) % len(self.active_players) # Make sure self.active_players is never zero
-        print(f'Player {self.current_player_id}\'s turn.')
+        print(f'It is now Player {self.current_player_id}\'s turn.')
 
     def advance_turn(self):
         self.global_turn_number += 1
@@ -816,7 +816,8 @@ class PgAsciiRenderer:
 
         # if SPRITES:
         # if cvars.get('SPRITES'):
-        self.tile_sprites = {}
+        # self.tile_sprites = {}
+        self.tile_sprites = defaultdict(list)
         self.load_sprites()
 
         # Pre-calculate screen capacities in tiles
@@ -826,16 +827,26 @@ class PgAsciiRenderer:
         self.tiles_high = cvars.get('SCREEN_HEIGHT') // cvars.get('TILE_SIZE')
 
     def load_sprites(self):
+        animated_config = {
+            'ocean': 4,     # Expects water_01.png, water_1.png, etc.
+            'grassland': 1, # Expects grassland.png
+            'mountain': 1,
+        }
         terrain_items = list(TERRAIN_DATA.keys())
         TILE_SIZE = cvars.get('TILE_SIZE')
         for terrain in terrain_items:
-            filename = f'assets/{terrain}.png'
-            if os.path.exists(filename):
-                image = pygame.image.load(filename).convert_alpha()
-                # Scale it precisely to match your game grid tile size
-                self.tile_sprites[terrain] = pygame.transform.scale(image, (TILE_SIZE, TILE_SIZE))
-            else:
-                print(f'Warning: Sprite {filename} not found. Falling back to ASCII text.')
+            frames = TERRAIN_DATA[terrain]['frames']
+            for i in range(frames):
+                if i == 0:
+                    filename = f'assets/{terrain}.png'
+                else:
+                    filename = f'assets/{terrain}_{i:02d}.png'
+                if os.path.exists(filename):
+                    img = pygame.image.load(filename).convert_alpha()
+                    scaled = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
+                    self.tile_sprites[terrain].append(scaled)
+                else:
+                    print(f'Warning: Sprite {filename} not found. Falling back to ASCII text.')
 
     def _get_surface(self, char, color):
         if char not in self._text_cache:
@@ -881,6 +892,7 @@ class PgAsciiRenderer:
     # With camera culling
     def draw_world(self, world, camera_x, camera_y):
         TILE_SIZE = cvars.get('TILE_SIZE')
+        current_time_ms = pygame.time.get_ticks()
         # if CLAMP_MAP:
         if cvars.get('CLAMP_MAP'):
             start_x = max(0, camera_x)
@@ -904,7 +916,12 @@ class PgAsciiRenderer:
                 py = (y - camera_y) * TILE_SIZE
                 # if SPRITES and tile.terrain in self.tile_sprites:
                 if cvars.get('SPRITES') and tile.terrain in self.tile_sprites:
-                    self.screen.blit(self.tile_sprites[tile.terrain], (px, py))
+                    frames = self.tile_sprites[tile.terrain]
+                    # Determine which frame to show
+                    # Change 250 to control animation speed (250ms per frame)
+                    frame_duration = 250 
+                    current_frame = (current_time_ms // frame_duration) % len(frames)
+                    self.screen.blit(frames[current_frame], (px, py))
                 else:
                     text_surface = self._get_surface(tile.char, tile.color)
                     text_rect = text_surface.get_rect()
@@ -1066,7 +1083,8 @@ class PgInputHandler:
 
 class CliInputHandler:
     def get_command(self, player_id):
-        text = input('> ').lower().strip()
+        text = input('> ').lower()#.strip()
+        text = text if text == ' ' else text.strip()
         if text == 'w':
             return MoveCommand(player_id, 0, -1)
         elif text == 's':
@@ -1075,6 +1093,8 @@ class CliInputHandler:
             return MoveCommand(player_id, -1, 0)
         elif text == 'd':
             return MoveCommand(player_id, 1, 0)
+        elif text == ' ':
+            return EndTurnCommand(player_id)
         elif text == 'exit' or text == 'quit':
             return text
         return None
@@ -1219,9 +1239,9 @@ if __name__ == '__main__':
 
 # TODO
 # [Done] Implement InputMapper
-# Ask AI about scalable cvar system and implement it
-# Ask AI about best save system, can I use json
-# Animated tiles, like ocean waves
+# [Done] Ask AI about scalable cvar system and implement it
+# [Done] Ask AI about best save system, can I use json
+# [Done] Animated tiles, like ocean waves
 # Smoother transition movement
 # Put in long term folder structure
 # Ask AI to review whole code
